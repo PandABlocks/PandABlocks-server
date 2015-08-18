@@ -8,41 +8,45 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
+#include <linux/mman.h>
 
 #include "error.h"
 #include "panda.h"
 
 
 
+/* The PandA IO registers are in this area of memory. */
 #define PANDA_REGISTER_BASE     0x43C00000
 #define PANDA_REGISTER_LENGTH   0x00040000
 
+/* Page containing first PandA register. */
+#define PANDA_BASE_PAGE         (PANDA_REGISTER_BASE >> PAGE_SHIFT)
 
-
-
-static int panda_map_open(struct inode *inode, struct file *file)
-{
-    printk(KERN_INFO "Opening panda.map\n");
-    return 0;
-}
-
-static int panda_map_release(struct inode *inode, struct file *file)
-{
-    printk(KERN_INFO "Closing panda.map\n");
-    return 0;
-}
 
 static int panda_map_mmap(struct file *file, struct vm_area_struct *vma)
 {
     printk(KERN_INFO "Mapping panda.map\n");
-    return -EIO;
+    printk(KERN_INFO " %lx..%lx, %lx, %x\n",
+        vma->vm_start, vma->vm_end, vma->vm_pgoff, vma->vm_page_prot);
+
+    size_t size = vma->vm_end - vma->vm_start;
+    unsigned long end = (vma->vm_pgoff << PAGE_SHIFT) + size;
+    if (end > PANDA_REGISTER_LENGTH)
+    {
+        printk(KERN_WARNING "PandA map area out of range\n");
+        return -EINVAL;
+    }
+
+    /* Good advice and examples on using this function here:
+     *  http://www.makelinux.net/ldd3/chp-15-sect-2 */
+    return io_remap_pfn_range(
+        vma, vma->vm_start, PANDA_BASE_PAGE + vma->vm_pgoff, size,
+        vma->vm_page_prot);
 }
 
 
 static struct file_operations panda_map_fops = {
     owner: THIS_MODULE,
-    open: panda_map_open,
-    release: panda_map_release,
     mmap: panda_map_mmap,
 };
 
