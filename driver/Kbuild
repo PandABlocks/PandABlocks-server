@@ -11,5 +11,7 @@ EXTRA_CFLAGS += -Wno-empty-body
 obj-m := panda.o
 
 panda-objs += panda_core.o
+panda-objs += panda_map.o
+panda-objs += dummy.o
 
 # vim: set filetype=make:

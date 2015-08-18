@@ -6,6 +6,7 @@
 #include <linux/fs.h>
 
 #include "error.h"
+#include "panda.h"
 
 
 MODULE_AUTHOR("Michael Abbott, Diamond Light Source Ltd");
@@ -17,17 +18,26 @@ MODULE_VERSION("0");
 
 #define PANDA_MINORS    3           // We have 3 sub devices
 
+
+/* The fops and name fields of this structure are filled in by the appropriate
+ * subcomponents of this module. */
+struct panda_info {
+    struct file_operations *fops;
+    const char *name;
+    int (*init)(struct file_operations **fops, const char **name);
+};
+static struct panda_info panda_info[PANDA_MINORS] = {
+    { init: panda_map_init },
+    { init: panda_dummy1_init },
+    { init: panda_dummy2_init },
+};
+
+
+/* Kernel file and device interface state. */
 static dev_t panda_dev;             // Major device for PandA support
 static struct cdev panda_cdev;      // Top level file functions
 static struct class *panda_class;   // Sysfs class support
 
-static struct file_operations panda_fops[PANDA_MINORS] = { };
-
-static const char *device_names[PANDA_MINORS] = {
-    "panda.map",
-    "panda.aaa",
-    "panda.bbb",
-};
 
 
 static int panda_open(struct inode *inode, struct file *file)
@@ -35,7 +45,7 @@ static int panda_open(struct inode *inode, struct file *file)
     printk(KERN_INFO "Opening panda device: %d:%d\n",
         imajor(inode), iminor(inode));
 
-    file->f_op = &panda_fops[iminor(inode)];
+    file->f_op = panda_info[iminor(inode)].fops;
     if (file->f_op->open)
         return file->f_op->open(inode, file);
     else
@@ -52,14 +62,15 @@ static struct file_operations base_fops = {
 static int __init panda_init(void)
 {
     printk(KERN_INFO "Loading PandA driver\n");
-    int rc;
+    int rc = 0;
 
     /* First initialise the three PandA subcomponents. */
-    for (int i = 0; i < PANDA_MINORS; i ++)
-        panda_fops[i].owner = THIS_MODULE;
-//     init_panda_mem(&panda_fops[0]);
-//     init_panda_posn(&panda_fops[1]);
-//     init_panda_pgen(&panda_fops[2]);
+    for (int i = 0; rc == 0  &&  i < PANDA_MINORS; i ++)
+    {
+        struct panda_info *info = &panda_info[i];
+        rc = info->init(&info->fops, &info->name);
+    }
+    TEST_RC(rc, no_panda, "Unable to initialise PandA");
 
     /* Allocate device number for this function. */
     rc = alloc_chrdev_region(&panda_dev, 0, PANDA_MINORS, "panda");
@@ -76,11 +87,13 @@ static int __init panda_init(void)
     TEST_PTR(panda_class, rc, no_class, "unable to create class");
     for (int i = 0; i < PANDA_MINORS; i ++)
         device_create(
-            panda_class, NULL, panda_dev + i, NULL, device_names[i]);
+            panda_class, NULL, panda_dev + i, NULL,
+            "panda.%s", panda_info[i].name);
 
     return 0;
 
 
+no_panda:
 no_class:
     cdev_del(&panda_cdev);
 no_cdev:
@@ -89,6 +102,7 @@ no_chrdev:
 
     return rc;
 }
+
 
 static void __exit panda_exit(void)
 {
@@ -100,6 +114,7 @@ static void __exit panda_exit(void)
     cdev_del(&panda_cdev);
     unregister_chrdev_region(panda_dev, PANDA_MINORS);
 }
+
 
 module_init(panda_init);
 module_exit(panda_exit);
