@@ -6,6 +6,7 @@ endif
 
 
 default:    # Default target comes first!
+.PHONY: default
 
 CFLAGS += -std=gnu99
 CFLAGS += -O3
@@ -27,8 +28,17 @@ CFLAGS += -Wcast-qual
 CFLAGS += -Woverflow
 CFLAGS += -Wconversion
 
+# Pick up kernel driver header file
+CPPFLAGS += -I$(TOP)/driver
+
+LDLIBS += -lpthread
+
 
 SRCS += server.c
+SRCS += error.c
+SRCS += hardware.c
+SRCS += socket_server.c
+
 
 default: server
 
