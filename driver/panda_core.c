@@ -27,9 +27,9 @@ struct panda_info {
     int (*init)(struct file_operations **fops, const char **name);
 };
 static struct panda_info panda_info[PANDA_MINORS] = {
-    { init: panda_map_init },
-    { init: panda_dummy1_init },
-    { init: panda_dummy2_init },
+    { .init = panda_map_init },
+    { .init = panda_dummy1_init },
+    { .init = panda_dummy2_init },
 };
 
 
@@ -54,8 +54,8 @@ static int panda_open(struct inode *inode, struct file *file)
 
 
 static struct file_operations base_fops = {
-    owner: THIS_MODULE,
-    open: panda_open,
+    .owner = THIS_MODULE,
+    .open = panda_open,
 };
 
 

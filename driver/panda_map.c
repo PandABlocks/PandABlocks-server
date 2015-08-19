@@ -9,9 +9,12 @@
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/mman.h>
+#include <linux/uaccess.h>
 
 #include "error.h"
 #include "panda.h"
+
+#include "panda_device.h"
 
 
 
@@ -45,9 +48,31 @@ static int panda_map_mmap(struct file *file, struct vm_area_struct *vma)
 }
 
 
+#define COPY_TO_USER(result, value) \
+    (copy_to_user(result, &(value), sizeof(value)) == 0 ? 0 : -EFAULT)
+
+static long panda_map_ioctl(
+    struct file *file, unsigned int cmd, unsigned long arg)
+{
+    printk(KERN_INFO "panda.map ioctl %u %08lx\n", cmd, arg);
+
+    uint32_t size = PANDA_REGISTER_LENGTH;
+    void *target = (void __user *) arg;
+    switch (cmd)
+    {
+        case PANDA_MAP_SIZE:
+            return COPY_TO_USER(target, size);
+
+        default:
+            return -EINVAL;
+    }
+}
+
+
 static struct file_operations panda_map_fops = {
-    owner: THIS_MODULE,
-    mmap: panda_map_mmap,
+    .owner = THIS_MODULE,
+    .mmap = panda_map_mmap,
+    .unlocked_ioctl = panda_map_ioctl,
 };
 
 

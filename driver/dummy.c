@@ -16,8 +16,8 @@ static int dummy_open(struct inode *inode, struct file *file)
 }
 
 static struct file_operations dummy_fops = {
-    owner: THIS_MODULE,
-    open: dummy_open,
+    .owner = THIS_MODULE,
+    .open = dummy_open,
 };
 
 int panda_dummy1_init(struct file_operations **fops, const char **name)
