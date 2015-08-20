@@ -10,7 +10,8 @@
 #include "socket_server.h"
 
 
-static int server_port = 8888;
+static int config_port = 8888;
+static int data_port = 8889;
 
 
 static bool maybe_daemonise(void)
@@ -19,9 +20,9 @@ static bool maybe_daemonise(void)
 }
 
 
+/* Signal handler for orderly shutdown. */
 static void at_exit(int signum)
 {
-    log_message("Caught signal %d", signum);
     kill_socket_server();
 }
 
@@ -44,6 +45,7 @@ static bool initialise_signals(void)
         TEST_IO(sigaction(SIGHUP,  &do_shutdown, NULL))  &&
         TEST_IO(sigaction(SIGINT,  &do_shutdown, NULL))  &&
         TEST_IO(sigaction(SIGTERM, &do_shutdown, NULL))  &&
+
         /* When acting as a server we need to ignore SIGPIPE, of course. */
         TEST_IO(sigaction(SIGPIPE, &do_ignore,   NULL));
 }
@@ -53,7 +55,7 @@ int main(int argc, char **argv)
 {
     bool ok =
         initialise_hardware()  &&
-        initialise_socket_server(server_port)  &&
+        initialise_socket_server(config_port, data_port)  &&
 
         maybe_daemonise()  &&
         initialise_signals()  &&
@@ -62,5 +64,6 @@ int main(int argc, char **argv)
          * terminate. */
         run_socket_server();
 
+    log_message("Server shutting down with %s\n", ok ? "no errors" : "error");
     return ok ? 0 : 1;
 }
