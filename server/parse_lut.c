@@ -187,10 +187,13 @@ static bool read_token(const char **input, int *token, int *value)
 }
 
 
-/* Actual evalation step.  Takes token (and any associated value) together with
- * the stack of values to process and any extra tokens to be reduced. */
-static enum parse_lut_status reduce(
-    int token, int value, int tokens[], int values[])
+/* Reduction and evaluation.  Takes token (and any associated value) together
+ * with the stack of values to process.
+ *   Note that reduction cannot fail, assuming the precedence table is correct.
+ * Firstly, ) and : can only ever be placed on the token stack immediately
+ * following ( and ? respectively, so their reductions are safe.  Secondly, the
+ * unlisted tokens (, ?, END are never reduced by themselves. */
+void reduce(int token, int value, int values[])
 {
     switch (token)
     {
@@ -203,26 +206,13 @@ static enum parse_lut_status reduce(
         case TOKEN_XOR:         values[0] = values[0] ^ values[1];      break;
         case TOKEN_IMPLIES:     values[0] = ~values[0] | values[1];     break;
 
-        /* Compound reductions.  I wonder if it's possible for these to fail? */
+        /* Compound reductions. */
         case TOKEN_KET:
-            if (tokens[0] != TOKEN_BRA)
-                return LUT_PARSE_NO_OPEN;
             break;
         case TOKEN_ELSE:
-            if (tokens[0] != TOKEN_IF)
-                return LUT_PARSE_NO_IF;
             values[0] = (values[0] & values[1]) | (~values[0] & values[2]);
             break;
-
-        /* These tokens are never reduced, this should not happen, this is an
-         * internal error, can this even happen? */
-        case TOKEN_BRA:
-        case TOKEN_IF:
-        case TOKEN_END:
-        default:
-            return LUT_PARSE_ERROR;
     }
-    return LUT_PARSE_OK;
 }
 
 
@@ -263,28 +253,20 @@ enum parse_lut_status parse_lut(const char *input, int *result)
                 break;
 
             case GT:
-            {
-                /* Reduce current top of stack. */
-                int value_arity = TOKEN_ARITY(this_token);
-                int token_arity = TOKEN_REDUCE(this_token);
-                if (value_sp < value_arity)
+                /* Reduce current top of stack.  We can exhaust the value stack,
+                 * but the token stack is safe. */
+                if (value_sp < TOKEN_ARITY(this_token))
                     return LUT_PARSE_NO_VALUE;
-                if (token_sp < token_arity + 1)
-                    return LUT_PARSE_NO_TOKEN;
 
                 /* For values we consume arity values and push one value.  For
                  * tokens we just consume, and the top token isn't counted. */
-                value_sp -= value_arity - 1;
-                token_sp -= token_arity + 1;
-                enum parse_lut_status status = reduce(
-                    this_token, value,
-                    &token_stack[token_sp], &value_stack[value_sp - 1]);
-                if (status != LUT_PARSE_OK)
-                    return status;
+                value_sp -= TOKEN_ARITY(this_token) - 1;
+                token_sp -= TOKEN_REDUCE(this_token) + 1;
+                reduce(this_token, value, &value_stack[value_sp - 1]);
                 break;
-            }
 
             default:
+                /* Return syntax error from action. */
                 return action - ERROR_BASE;
         }
     }
