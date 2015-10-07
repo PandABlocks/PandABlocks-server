@@ -22,8 +22,17 @@ static struct lut_test tests[] = {
     SUCCEED("C",                                0xf0f0f0f0),
     SUCCEED("D",                                0xcccccccc),
     SUCCEED("E",                                0xaaaaaaaa),
-    /* Basic parsing errors. */
+    SUCCEED("0",                                0x00000000),
+    SUCCEED("1",                                0xffffffff),
+    /* Basic parsing errors.  Some of these are designed to exercise all entries
+     * in the precedence table. */
     FAILURE("",                                 LUT_PARSE_NO_VALUE),
+    FAILURE("()",                               LUT_PARSE_NO_VALUE),
+    FAILURE("~()",                              LUT_PARSE_NO_VALUE),
+    FAILURE("A&()",                             LUT_PARSE_NO_VALUE),
+    FAILURE("()?A:B",                           LUT_PARSE_NO_VALUE),
+    FAILURE("A?():B",                           LUT_PARSE_NO_VALUE),
+    FAILURE("A?B:()",                           LUT_PARSE_NO_VALUE),
     FAILURE("a",                                LUT_PARSE_TOKEN_ERROR),
     FAILURE(")",                                LUT_PARSE_NO_OPEN),
     FAILURE("A)",                               LUT_PARSE_NO_OPEN),
@@ -35,7 +44,12 @@ static struct lut_test tests[] = {
     FAILURE("A?B",                              LUT_PARSE_NO_ELSE),
     FAILURE("(B:",                              LUT_PARSE_NO_IF),
     FAILURE("(B?C)",                            LUT_PARSE_NO_ELSE),
-    /* More complex expressions. */
+    FAILURE("A(",                               LUT_PARSE_NO_OPERATOR),
+    FAILURE("(A)A",                             LUT_PARSE_NO_OPERATOR),
+    FAILURE("(A)(A)",                           LUT_PARSE_NO_OPERATOR),
+    FAILURE("A~",                               LUT_PARSE_NO_OPERATOR),
+    FAILURE("(A)~",                             LUT_PARSE_NO_OPERATOR),
+    /* More complex expressions.  Also probing the precedence table.*/
     SUCCEED("A==B",                             0xff0000ff),
     SUCCEED("A=B",                              0xff0000ff),
     SUCCEED("A&B",                              0xff000000),
@@ -53,9 +67,15 @@ static struct lut_test tests[] = {
     SUCCEED("A=(B&C)",                          0xf0000fff),
     SUCCEED("A&B|C^D=E=>A?0:1",                 0x00006969),
     SUCCEED("A&B&C&D&E",                        0x80000000),
+    SUCCEED("A|B|C|D|E",                        0xfffffffe),
     SUCCEED("~A&~B&~C&~D&~E",                   0x00000001),
     SUCCEED("A=>B=>C",                          0xf0fff0f0),
     SUCCEED("A=>(B=>C)",                        0xf0ffffff),
+    SUCCEED("((~~A))?~(1):1",                   0x0000ffff),
+    SUCCEED("A?(B):D&E",                        0xff008888),
+    SUCCEED("A?B&C:D",                          0xf000cccc),
+    SUCCEED("A?B?C:D:E",                        0xf0ccaaaa),
+    SUCCEED("A?B:(C?B:~D)",                     0xff00f303),
 };
 
 
@@ -67,8 +87,8 @@ int main(int argc, const char **argv)
         for (int i = 1; i < argc; i ++)
         {
             int result = 0;
-            enum parse_lut_status status = parse_lut(argv[1], &result);
-            printf("\"%s\" => (%d, %08x)\n", argv[1], status, result);
+            enum parse_lut_status status = parse_lut(argv[i], &result);
+            printf("\"%s\" => (%d, %08x)\n", argv[i], status, result);
             if (status != LUT_PARSE_OK)
                 ok = false;
         }

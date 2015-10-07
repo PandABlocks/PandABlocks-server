@@ -80,22 +80,35 @@ enum action {
     E3 = ERROR_BASE + LUT_PARSE_NO_CLOSE,
     E4 = ERROR_BASE + LUT_PARSE_NO_IF,
     E5 = ERROR_BASE + LUT_PARSE_NO_ELSE,
-    E6 = ERROR_BASE + LUT_PARSE_ERROR,
 };
 
 
-/* Precedence parsing table. */
+/* Precedence parsing table.  A slightly more readable version of the table is
+ * here:
+ *           K   (   )   ~  bin  ?   :  EOF
+ *    ----+--------------------------------
+ *     K  |          >       >   >   >   >
+ *     (  |  <   <   =   <   <   <
+ *     )  |          >       >   >   >   >
+ *     ~  |  <   <   >   <   >   >   >   >
+ *    bin |  <   <   >   <   *1  >   >   >
+ *     ?  |  <   <       <   <   <   =
+ *     :  |  <   <   >   <   <   <   >   >
+ *    EOF |  <   <       <   <   <       *2
+ *
+ * *1: Precedence between binary operators depends on the operators.
+ * *2: Note that the last entry, EOF-EOF, is not reachable. */
 static const char parse_table[8][8] = {
 /*            K   (   )   ~   bin ?   :   EOF */
 /*            --  --  --  --  --  --  --  --  */
-/* K   */   { E1, E1, GT, GT, GT, GT, GT, GT, },
+/* K   */   { E1, E1, GT, E1, GT, GT, GT, GT, },
 /* (   */   { LT, LT, EQ, LT, LT, LT, E4, E3, },
-/* )   */   { E1, E1, GT, GT, GT, GT, GT, GT, },
+/* )   */   { E1, E1, GT, E1, GT, GT, GT, GT, },
 /* ~   */   { LT, LT, GT, LT, GT, GT, GT, GT, },
 /* bin */   { LT, LT, GT, LT, PR, GT, GT, GT, },
 /* ?   */   { LT, LT, E5, LT, LT, LT, EQ, E5, },
-/* :   */   { LT, LT, GT, LT, LT, LT, E4, GT, },
-/* EOF */   { LT, LT, E2, LT, LT, LT, E4, E6, },
+/* :   */   { LT, LT, GT, LT, LT, LT, GT, GT, },
+/* EOF */   { LT, LT, E2, LT, LT, LT, E4,  X, },
 };
 
 

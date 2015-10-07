@@ -11,7 +11,6 @@ enum parse_lut_status {
     LUT_PARSE_NO_TOKEN,     // Missing token (can this happen???)
     LUT_PARSE_NO_IF,        // Missing ? before :
     LUT_PARSE_NO_ELSE,      // Missing : after ?
-    LUT_PARSE_ERROR,        // Internal error, should not occur
 };
 
 enum parse_lut_status parse_lut(const char *input, int *result);
