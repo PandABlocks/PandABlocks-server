@@ -22,7 +22,7 @@
 /* This determines the maximum complexity of an expression.  We have an
  * arbitrary and rather small value here because there's really no point in
  * supporting really complex expressions. */
-#define MAX_DEPTH   20
+#define MAX_DEPTH   40
 
 
 /* Constant definitions for the five variables and two constants. */
@@ -34,11 +34,12 @@
 #define CONSTANT_D  0xcccccccc
 #define CONSTANT_E  0xaaaaaaaa
 
+
 /* Each token identifier encodes up to four qualities:
  *  index: this is the index into the operator relation table parse_table.
  *  precedence: for binary operators this determines the final precedence
  *  arity: for reduce operators this is the number of values consumed
- *  reduce: for reduce operators this is the number of extra tokens used. */
+ *  reduce: for reduce operators this is the number of tokens consumed. */
 #define TOKEN(index, precedence, arity, reduce) \
     ((index) | ((precedence) << 4) | ((arity) << 8) | ((reduce) << 12))
 #define TOKEN_INDEX(token)      ((token) & 0xF)
@@ -49,20 +50,21 @@
 
 /* Constant definitions for the operators. */
 enum token_symbol {
-    TOKEN_CONSTANT  = TOKEN(0, X, 0, 0),     // 0, 1, A-E
+    TOKEN_CONSTANT  = TOKEN(0, X, 0, 1),     // 0, 1, A-E
     TOKEN_BRA       = TOKEN(1, X, X, X),     // (
-    TOKEN_KET       = TOKEN(2, X, 1, 1),     // )
-    TOKEN_NOT       = TOKEN(3, X, 1, 0),     // ~
+    TOKEN_KET       = TOKEN(2, X, 1, 2),     // )
+    TOKEN_NOT       = TOKEN(3, X, 1, 1),     // ~
     // All the binary operators have a numerical precedence
-    TOKEN_EQ        = TOKEN(4, 5, 2, 0),     // =
-    TOKEN_AND       = TOKEN(4, 4, 2, 0),     // &
-    TOKEN_XOR       = TOKEN(4, 3, 2, 0),     // ^
-    TOKEN_OR        = TOKEN(4, 2, 2, 0),     // |
-    TOKEN_IMPLIES   = TOKEN(4, 1, 2, 0),     // =>
+    TOKEN_EQ        = TOKEN(4, 5, 2, 1),     // =
+    TOKEN_AND       = TOKEN(4, 4, 2, 1),     // &
+    TOKEN_XOR       = TOKEN(4, 3, 2, 1),     // ^
+    TOKEN_OR        = TOKEN(4, 2, 2, 1),     // |
+    TOKEN_IMPLIES   = TOKEN(4, 1, 2, 1),     // =>
     TOKEN_IF        = TOKEN(5, X, X, X),     // ?
-    TOKEN_ELSE      = TOKEN(6, X, 3, 1),     // :
+    TOKEN_ELSE      = TOKEN(6, X, 3, 2),     // :
     TOKEN_END       = TOKEN(7, X, X, X),     // end of input
 };
+
 
 /* The parse relationship between two adjacent tokens is one of LT, EQ, GT or
  * an error.  LT (<) means that the right hand token needs to be reduced first,
@@ -139,63 +141,61 @@ static enum action lookup_action(int left_token, int right_token)
  * Strictly speaking a token should be represented as a pair: (symbol, [value])
  * where the value is only present when the symbol is a constant.  However in
  * this simple grammar where only one constant is ever waiting to be processed
- * it's slightly simpler to use a separate value. */
+ * it's slightly simpler to use a separate value.
+ *
+ * It's important that EOF on input never triggers a stack, because this
+ * function consumes the end of string.  */
 static bool read_token(const char **input, int *token, int *value)
 {
-    /* Skip any whitespace. */
-    while (**input == ' ')
+    /* Read next character from input string skipping any whitespace. */
+    char ch;
+    do {
+        ch = **input;
         *input += 1;
+    } while (ch == ' ');
 
-    if (**input == '\0')
+    switch (ch)
     {
-        *token = TOKEN_END;
-        return true;
-    }
-    else
-    {
-        char ch = **input;
-        *input += 1;
+        /* Constants. */
+        case '0': *value = CONSTANT_0; *token = TOKEN_CONSTANT; return true;
+        case '1': *value = CONSTANT_1; *token = TOKEN_CONSTANT; return true;
+        case 'A': *value = CONSTANT_A; *token = TOKEN_CONSTANT; return true;
+        case 'B': *value = CONSTANT_B; *token = TOKEN_CONSTANT; return true;
+        case 'C': *value = CONSTANT_C; *token = TOKEN_CONSTANT; return true;
+        case 'D': *value = CONSTANT_D; *token = TOKEN_CONSTANT; return true;
+        case 'E': *value = CONSTANT_E; *token = TOKEN_CONSTANT; return true;
 
-        switch (ch)
-        {
-            /* Constants. */
-            case '0': *value = CONSTANT_0; *token = TOKEN_CONSTANT; return true;
-            case '1': *value = CONSTANT_1; *token = TOKEN_CONSTANT; return true;
-            case 'A': *value = CONSTANT_A; *token = TOKEN_CONSTANT; return true;
-            case 'B': *value = CONSTANT_B; *token = TOKEN_CONSTANT; return true;
-            case 'C': *value = CONSTANT_C; *token = TOKEN_CONSTANT; return true;
-            case 'D': *value = CONSTANT_D; *token = TOKEN_CONSTANT; return true;
-            case 'E': *value = CONSTANT_E; *token = TOKEN_CONSTANT; return true;
+        /* Simple operators. */
+        case '(': *token = TOKEN_BRA;   return true;
+        case ')': *token = TOKEN_KET;   return true;
+        case '~': *token = TOKEN_NOT;   return true;
+        case '&': *token = TOKEN_AND;   return true;
+        case '|': *token = TOKEN_OR;    return true;
+        case '^': *token = TOKEN_XOR;   return true;
+        case '?': *token = TOKEN_IF;    return true;
+        case ':': *token = TOKEN_ELSE;  return true;
 
-            /* Simple operators. */
-            case '(': *token = TOKEN_BRA;  return true;
-            case ')': *token = TOKEN_KET;  return true;
-            case '~': *token = TOKEN_NOT;  return true;
-            case '&': *token = TOKEN_AND;  return true;
-            case '|': *token = TOKEN_OR;   return true;
-            case '^': *token = TOKEN_XOR;  return true;
-            case '?': *token = TOKEN_IF;   return true;
-            case ':': *token = TOKEN_ELSE; return true;
+        case '\0': *token = TOKEN_END;  return true;
 
-            /* Compound operator: = or =>. */
-            case '=':
-                if (**input == '>')
-                {
-                    *input += 1;
-                    *token = TOKEN_IMPLIES;
-                }
-                else if (**input == '=')
-                {
-                    *input += 1;
-                    *token = TOKEN_EQ;
-                }
-                else
-                    *token = TOKEN_EQ;
-                return true;
+        /* Compound operator: = or =>. */
+        case '=':
+            if (**input == '>')
+            {
+                *input += 1;
+                *token = TOKEN_IMPLIES;
+            }
+            else if (**input == '=')
+            {
+                /* Allow == as an alias for =. */
+                *input += 1;
+                *token = TOKEN_EQ;
+            }
+            else
+                *token = TOKEN_EQ;
+            return true;
 
-            default:
-                return false;
-        }
+        default:
+            return false;
     }
 }
 
@@ -206,7 +206,7 @@ static bool read_token(const char **input, int *token, int *value)
  * Firstly, ) and : can only ever be placed on the token stack immediately
  * following ( and ? respectively, so their reductions are safe.  Secondly, the
  * unlisted tokens (, ?, END are never reduced by themselves. */
-void reduce(int token, int value, int values[])
+static void reduce(int token, int value, int values[])
 {
     switch (token)
     {
@@ -233,15 +233,16 @@ void reduce(int token, int value, int values[])
 enum parse_lut_status parse_lut(const char *input, int *result)
 {
     /* Stack of operators pending reduction. */
-    int token_stack[MAX_DEPTH] = {TOKEN_END};
+    int token_stack[MAX_DEPTH];
     int token_sp = 1;
+    token_stack[0] = TOKEN_END;
     /* Stack of operands. */
     int value_stack[MAX_DEPTH];
     int value_sp = 0;
 
     /* Prime the pump by reading one token from the input. */
     int next_token;
-    int value;
+    int value = 0;
     if (!read_token(&input, &next_token, &value))
         return LUT_PARSE_TOKEN_ERROR;
 
@@ -254,11 +255,14 @@ enum parse_lut_status parse_lut(const char *input, int *result)
         {
             case LT:
             case EQ:
-                /* Push token and value, if present.  The operator stack can
-                 * overflow at this point if the input is too complex. */
+                /* Push token  The operator stack can overflow at this point if
+                 * the input is too complex.  Note that this token overflow
+                 * guard is enough to prevent the value stack from overflowing:
+                 * because we push at most one value per token. */
                 if (token_sp == MAX_DEPTH)
                     return LUT_PARSE_TOO_COMPLEX;
-                token_stack[token_sp++] = next_token;
+                token_stack[token_sp] = next_token;
+                token_sp += 1;
 
                 /* Advance to next input token. */
                 if (!read_token(&input, &next_token, &value))
@@ -267,14 +271,16 @@ enum parse_lut_status parse_lut(const char *input, int *result)
 
             case GT:
                 /* Reduce current top of stack.  We can exhaust the value stack,
-                 * but the token stack is safe. */
+                 * but the token stack is safe, see notes for reduce(). */
                 if (value_sp < TOKEN_ARITY(this_token))
                     return LUT_PARSE_NO_VALUE;
 
                 /* For values we consume arity values and push one value.  For
-                 * tokens we just consume, and the top token isn't counted. */
+                 * tokens we just consume.  Note that the value stack is safe
+                 * from overflow, but this is a property of this particular
+                 * grammar. */
                 value_sp -= TOKEN_ARITY(this_token) - 1;
-                token_sp -= TOKEN_REDUCE(this_token) + 1;
+                token_sp -= TOKEN_REDUCE(this_token);
                 reduce(this_token, value, &value_stack[value_sp - 1]);
                 break;
 

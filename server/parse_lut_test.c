@@ -13,69 +13,76 @@ struct lut_test {
 };
 
 #define SUCCEED(test, result)   { test, LUT_PARSE_OK, result }
-#define FAILURE(test, result)   { test, result, 0 }
+#define FAILURE(test, result)   { test, LUT_PARSE_##result, 0 }
 
 static struct lut_test tests[] = {
     /* Simple constants. */
-    SUCCEED("A",                                0xffff0000),
-    SUCCEED("B",                                0xff00ff00),
-    SUCCEED("C",                                0xf0f0f0f0),
-    SUCCEED("D",                                0xcccccccc),
-    SUCCEED("E",                                0xaaaaaaaa),
-    SUCCEED("0",                                0x00000000),
-    SUCCEED("1",                                0xffffffff),
-    /* Basic parsing errors.  Some of these are designed to exercise all entries
-     * in the precedence table. */
-    FAILURE("",                                 LUT_PARSE_NO_VALUE),
-    FAILURE("()",                               LUT_PARSE_NO_VALUE),
-    FAILURE("~()",                              LUT_PARSE_NO_VALUE),
-    FAILURE("A&()",                             LUT_PARSE_NO_VALUE),
-    FAILURE("()?A:B",                           LUT_PARSE_NO_VALUE),
-    FAILURE("A?():B",                           LUT_PARSE_NO_VALUE),
-    FAILURE("A?B:()",                           LUT_PARSE_NO_VALUE),
-    FAILURE("a",                                LUT_PARSE_TOKEN_ERROR),
-    FAILURE(")",                                LUT_PARSE_NO_OPEN),
-    FAILURE("A)",                               LUT_PARSE_NO_OPEN),
-    FAILURE("(",                                LUT_PARSE_NO_CLOSE),
-    FAILURE("((((((((((((((((((((",             LUT_PARSE_TOO_COMPLEX),
-    FAILURE("AA",                               LUT_PARSE_NO_OPERATOR),
-    FAILURE("A&",                               LUT_PARSE_NO_VALUE),
-    FAILURE("A:B",                              LUT_PARSE_NO_IF),
-    FAILURE("A?B",                              LUT_PARSE_NO_ELSE),
-    FAILURE("(B:",                              LUT_PARSE_NO_IF),
-    FAILURE("(B?C)",                            LUT_PARSE_NO_ELSE),
-    FAILURE("A(",                               LUT_PARSE_NO_OPERATOR),
-    FAILURE("(A)A",                             LUT_PARSE_NO_OPERATOR),
-    FAILURE("(A)(A)",                           LUT_PARSE_NO_OPERATOR),
-    FAILURE("A~",                               LUT_PARSE_NO_OPERATOR),
-    FAILURE("(A)~",                             LUT_PARSE_NO_OPERATOR),
+    SUCCEED("A",                                            0xffff0000),
+    SUCCEED("B",                                            0xff00ff00),
+    SUCCEED("C",                                            0xf0f0f0f0),
+    SUCCEED("D",                                            0xcccccccc),
+    SUCCEED("E",                                            0xaaaaaaaa),
+    SUCCEED("0",                                            0x00000000),
+    SUCCEED("1",                                            0xffffffff),
+    /* Test for parsing errors.  Some of these are designed to exercise all
+     * entries in the precedence table. */
+    FAILURE("",                                             NO_VALUE),
+    FAILURE("()",                                           NO_VALUE),
+    FAILURE("~()",                                          NO_VALUE),
+    FAILURE("A&()",                                         NO_VALUE),
+    FAILURE("()?A:B",                                       NO_VALUE),
+    FAILURE("A?():B",                                       NO_VALUE),
+    FAILURE("A?B:()",                                       NO_VALUE),
+    FAILURE("a",                                            TOKEN_ERROR),
+    FAILURE(")",                                            NO_OPEN),
+    FAILURE("A)",                                           NO_OPEN),
+    FAILURE("(",                                            NO_CLOSE),
+    FAILURE("((((((((((((((((((((((((((((((((((((((((",     TOO_COMPLEX),
+    FAILURE(
+        "(A=>B|C^D&E=(A=>B|C^D&E=(A=>B|C^D&E=(((A=>B|C^D&"
+        "E=(A=>B|C^D&E=(A=>B|C^D&E=(A)))))))))",            TOO_COMPLEX),
+    FAILURE("A=>B|C^D&E=(A=>B|C^D&E=(A=>B|C^D&E=(A))))",    NO_OPEN),
+    FAILURE("AA",                                           NO_OPERATOR),
+    FAILURE("A&",                                           NO_VALUE),
+    FAILURE("A:B",                                          NO_IF),
+    FAILURE("A?B",                                          NO_ELSE),
+    FAILURE("(B:",                                          NO_IF),
+    FAILURE("(B?C)",                                        NO_ELSE),
+    FAILURE("A(",                                           NO_OPERATOR),
+    FAILURE("(A)A",                                         NO_OPERATOR),
+    FAILURE("(A)(A)",                                       NO_OPERATOR),
+    FAILURE("A~",                                           NO_OPERATOR),
+    FAILURE("(A)~",                                         NO_OPERATOR),
     /* More complex expressions.  Also probing the precedence table.*/
-    SUCCEED("A==B",                             0xff0000ff),
-    SUCCEED("A=B",                              0xff0000ff),
-    SUCCEED("A&B",                              0xff000000),
-    SUCCEED("A&B|C",                            0xfff0f0f0),
-    SUCCEED("A?B:C",                            0xff00f0f0),
-    SUCCEED("(A?B:C)",                          0xff00f0f0),
-    SUCCEED("~A?B:C",                           0xf0f0ff00),
-    SUCCEED("~(A?B:C)",                         0x00ff0f0f),
-    SUCCEED("A&B|C&~D",                         0xff303030),
-    SUCCEED("A?B:C?D:E",                        0xff00caca),
-    SUCCEED("A=>B?C:D",                         0xf0ccf0f0),
-    SUCCEED("A=>(B?C:D)",                       0xf0ccffff),
-    SUCCEED("A=B&C",                            0xf00000f0),
-    SUCCEED("(A=B)&C",                          0xf00000f0),
-    SUCCEED("A=(B&C)",                          0xf0000fff),
-    SUCCEED("A&B|C^D=E=>A?0:1",                 0x00006969),
-    SUCCEED("A&B&C&D&E",                        0x80000000),
-    SUCCEED("A|B|C|D|E",                        0xfffffffe),
-    SUCCEED("~A&~B&~C&~D&~E",                   0x00000001),
-    SUCCEED("A=>B=>C",                          0xf0fff0f0),
-    SUCCEED("A=>(B=>C)",                        0xf0ffffff),
-    SUCCEED("((~~A))?~(1):1",                   0x0000ffff),
-    SUCCEED("A?(B):D&E",                        0xff008888),
-    SUCCEED("A?B&C:D",                          0xf000cccc),
-    SUCCEED("A?B?C:D:E",                        0xf0ccaaaa),
-    SUCCEED("A?B:(C?B:~D)",                     0xff00f303),
+    SUCCEED(" A ?    B:(C?B:~D)   ",                        0xff00f303),
+    SUCCEED("A=>B|C^D&E=(A=>B|C^D&E=(A=>B|C^D&E=(A)))",     0xff78ffff),
+    SUCCEED("A==B",                                         0xff0000ff),
+    SUCCEED("A=B",                                          0xff0000ff),
+    SUCCEED("A&B",                                          0xff000000),
+    SUCCEED("A&B|C",                                        0xfff0f0f0),
+    SUCCEED("A?B:C",                                        0xff00f0f0),
+    SUCCEED("A&B|~A&C",                                     0xff00f0f0),
+    SUCCEED("(A?B:C)",                                      0xff00f0f0),
+    SUCCEED("~A?B:C",                                       0xf0f0ff00),
+    SUCCEED("~(A?B:C)",                                     0x00ff0f0f),
+    SUCCEED("A&B|C&~D",                                     0xff303030),
+    SUCCEED("A?B:C?D:E",                                    0xff00caca),
+    SUCCEED("A=>B?C:D",                                     0xf0ccf0f0),
+    SUCCEED("A=>(B?C:D)",                                   0xf0ccffff),
+    SUCCEED("A=B&C",                                        0xf00000f0),
+    SUCCEED("(A=B)&C",                                      0xf00000f0),
+    SUCCEED("A=(B&C)",                                      0xf0000fff),
+    SUCCEED("A&B|C^D=E=>A?0:1",                             0x00006969),
+    SUCCEED("A&B&C&D&E",                                    0x80000000),
+    SUCCEED("A|B|C|D|E",                                    0xfffffffe),
+    SUCCEED("~A&~B&~C&~D&~E",                               0x00000001),
+    SUCCEED("A=>B=>C",                                      0xf0fff0f0),
+    SUCCEED("A=>(B=>C)",                                    0xf0ffffff),
+    SUCCEED("((~~A))?~(1):1",                               0x0000ffff),
+    SUCCEED("A?(B):D&E",                                    0xff008888),
+    SUCCEED("A?B&C:D",                                      0xf000cccc),
+    SUCCEED("A?B?C:D:E",                                    0xf0ccaaaa),
+    SUCCEED("A?B:(C?B:~D)",                                 0xff00f303),
 };
 
 
@@ -83,7 +90,6 @@ int main(int argc, const char **argv)
 {
     bool ok = true;
     if (argc > 1)
-    {
         for (int i = 1; i < argc; i ++)
         {
             int result = 0;
@@ -92,7 +98,6 @@ int main(int argc, const char **argv)
             if (status != LUT_PARSE_OK)
                 ok = false;
         }
-    }
     else
         for (size_t i = 0; i < sizeof(tests) / sizeof(struct lut_test); i ++)
         {
