@@ -83,6 +83,14 @@ static struct lut_test tests[] = {
     SUCCEED("A?B&C:D",                                      0xf000cccc),
     SUCCEED("A?B?C:D:E",                                    0xf0ccaaaa),
     SUCCEED("A?B:(C?B:~D)",                                 0xff00f303),
+    SUCCEED(
+        "(A=>B|C^D&E=(A=>B|C^D&E=(A=>B|C^D&E=(((A=>B|C^D&"
+        "E=(A=>B|C^D&E=(A=>B|C^D&E=A))))))))",              0xfffcffff),
+    /* The following are sanity checks of derived operators. */
+    SUCCEED("(A=B)=~(A^B)",                                 0xffffffff),
+    SUCCEED("(A=>B)=(~A|B)",                                0xffffffff),
+    SUCCEED("(A^B)=(A&~B|~A&B)",                            0xffffffff),
+    SUCCEED("(A?B:C)=(A&B|~A&C)",                           0xffffffff),
 };
 
 
@@ -94,7 +102,8 @@ int main(int argc, const char **argv)
         {
             int result = 0;
             enum parse_lut_status status = parse_lut(argv[i], &result);
-            printf("\"%s\" => (%d, %08x)\n", argv[i], status, result);
+            printf("\"%s\" => (%d, %08x) %s\n",
+                argv[i], status, result, parse_lut_error_string(status));
             if (status != LUT_PARSE_OK)
                 ok = false;
         }

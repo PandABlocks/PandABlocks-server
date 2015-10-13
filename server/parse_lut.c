@@ -14,8 +14,6 @@
  * The parser is a classic precedence operator parser.  The result is a 32-bit
  * number corresponding to a 5-bit binary lookup table. */
 
-#include <stdbool.h>
-
 #include "parse_lut.h"
 
 
@@ -70,7 +68,7 @@ enum token_symbol {
  * an error.  LT (<) means that the right hand token needs to be reduced first,
  * EQ (=) means that the two tokens need to be reduced together, and GT (>)
  * means that the token on the left needs to be reduced first. */
-enum action {
+enum parse_action {
     LT,     // Push next operator
     EQ,     // Push next operator and reduce together
     GT,     // Reduce current operator
@@ -117,21 +115,20 @@ static const char parse_table[8][8] = {
 /* Computes relationship between two tokens, one of LT, EQ, GT, or returns an
  * error code.  The error code can be converted to a parse_lut_status by
  * subtracting ERROR_BASE. */
-static enum action lookup_action(int left_token, int right_token)
+static enum parse_action lookup_action(int left_token, int right_token)
 {
-    enum action action =
+    enum parse_action parse_action =
         parse_table[TOKEN_INDEX(left_token)][TOKEN_INDEX(right_token)];
-    if (action == PR)
+    if (parse_action == PR)
     {
         /* When two binary operators meet their precedence is decided
          * numerically, and we bind from left to right. */
         if (TOKEN_PRECEDENCE(left_token) < TOKEN_PRECEDENCE(right_token))
-            return LT;
+            parse_action = LT;
         else
-            return GT;
+            parse_action = GT;
     }
-    else
-        return action;
+    return parse_action;
 }
 
 
@@ -143,9 +140,10 @@ static enum action lookup_action(int left_token, int right_token)
  * this simple grammar where only one constant is ever waiting to be processed
  * it's slightly simpler to use a separate value.
  *
- * It's important that EOF on input never triggers a stack, because this
- * function consumes the end of string.  */
-static bool read_token(const char **input, int *token, int *value)
+ * It's important that EOF on input never triggers a push to stack operation,
+ * because this function consumes the end of string.  */
+static enum parse_lut_status read_token(
+    const char **input, int *token, int *value)
 {
     /* Read next character from input string skipping any whitespace. */
     char ch;
@@ -154,28 +152,29 @@ static bool read_token(const char **input, int *token, int *value)
         *input += 1;
     } while (ch == ' ');
 
+    enum parse_lut_status status = LUT_PARSE_OK;
     switch (ch)
     {
         /* Constants. */
-        case '0': *value = CONSTANT_0; *token = TOKEN_CONSTANT; return true;
-        case '1': *value = CONSTANT_1; *token = TOKEN_CONSTANT; return true;
-        case 'A': *value = CONSTANT_A; *token = TOKEN_CONSTANT; return true;
-        case 'B': *value = CONSTANT_B; *token = TOKEN_CONSTANT; return true;
-        case 'C': *value = CONSTANT_C; *token = TOKEN_CONSTANT; return true;
-        case 'D': *value = CONSTANT_D; *token = TOKEN_CONSTANT; return true;
-        case 'E': *value = CONSTANT_E; *token = TOKEN_CONSTANT; return true;
+        case '0': *value = CONSTANT_0; *token = TOKEN_CONSTANT; break;
+        case '1': *value = CONSTANT_1; *token = TOKEN_CONSTANT; break;
+        case 'A': *value = CONSTANT_A; *token = TOKEN_CONSTANT; break;
+        case 'B': *value = CONSTANT_B; *token = TOKEN_CONSTANT; break;
+        case 'C': *value = CONSTANT_C; *token = TOKEN_CONSTANT; break;
+        case 'D': *value = CONSTANT_D; *token = TOKEN_CONSTANT; break;
+        case 'E': *value = CONSTANT_E; *token = TOKEN_CONSTANT; break;
 
         /* Simple operators. */
-        case '(': *token = TOKEN_BRA;   return true;
-        case ')': *token = TOKEN_KET;   return true;
-        case '~': *token = TOKEN_NOT;   return true;
-        case '&': *token = TOKEN_AND;   return true;
-        case '|': *token = TOKEN_OR;    return true;
-        case '^': *token = TOKEN_XOR;   return true;
-        case '?': *token = TOKEN_IF;    return true;
-        case ':': *token = TOKEN_ELSE;  return true;
+        case '(': *token = TOKEN_BRA;   break;
+        case ')': *token = TOKEN_KET;   break;
+        case '~': *token = TOKEN_NOT;   break;
+        case '&': *token = TOKEN_AND;   break;
+        case '|': *token = TOKEN_OR;    break;
+        case '^': *token = TOKEN_XOR;   break;
+        case '?': *token = TOKEN_IF;    break;
+        case ':': *token = TOKEN_ELSE;  break;
 
-        case '\0': *token = TOKEN_END;  return true;
+        case '\0': *token = TOKEN_END;  break;
 
         /* Compound operator: = or =>. */
         case '=':
@@ -192,11 +191,13 @@ static bool read_token(const char **input, int *token, int *value)
             }
             else
                 *token = TOKEN_EQ;
-            return true;
+            break;
 
         default:
-            return false;
+            status = LUT_PARSE_TOKEN_ERROR;
+            break;
     }
+    return status;
 }
 
 
@@ -229,6 +230,65 @@ static void reduce(int token, int value, int values[])
 }
 
 
+/* If the incoming token is LT or EQ to the token at the top of the stack then
+ * add this token to the top of the stack and read another from the input. */
+static enum parse_lut_status push_token(
+    const char **input,
+    int token_stack[], int *token_sp, int *next_token, int *value)
+{
+    /* Push token  The operator stack can overflow at this point if the input is
+     * too complex.  Note that this token overflow guard is enough to prevent
+     * the value stack from overflowing: because we push at most one value per
+     * token. */
+    if (*token_sp == MAX_DEPTH)
+        return LUT_PARSE_TOO_COMPLEX;
+    else
+    {
+        token_stack[*token_sp] = *next_token;
+        *token_sp += 1;
+
+        /* Advance to next input token. */
+        return read_token(input, next_token, value);
+    }
+}
+
+
+/* If the incoming token is GT the top of the stack then we can consume the
+ * tokens at the top of the stack with a reduce action. */
+static enum parse_lut_status reduce_stack(
+    int this_token,
+    int *token_sp, int value_stack[], int *value_sp, int value)
+{
+    /* Reduce current top of stack.  We can exhaust the value stack, but the
+     * token stack is safe, see notes for reduce(). */
+    if (*value_sp < TOKEN_ARITY(this_token))
+        return LUT_PARSE_NO_VALUE;
+    else
+    {
+        /* For values we consume arity values and push one value.  For tokens we
+         * just consume.  Note that the value stack is safe from overflow, but
+         * this is a property of this particular grammar. */
+        *value_sp -= TOKEN_ARITY(this_token) - 1;
+        *token_sp -= TOKEN_REDUCE(this_token);
+        reduce(this_token, value, &value_stack[*value_sp - 1]);
+        return LUT_PARSE_OK;
+    }
+}
+
+
+/* Extracts the final result from the value stack. */
+static enum parse_lut_status extract_result(
+    int value_stack[], int value_sp, int *result)
+{
+    if (value_sp == 1)
+    {
+        *result = value_stack[0];
+        return LUT_PARSE_OK;
+    }
+    else
+        return LUT_PARSE_NO_VALUE;
+}
+
 
 enum parse_lut_status parse_lut(const char *input, int *result)
 {
@@ -243,58 +303,59 @@ enum parse_lut_status parse_lut(const char *input, int *result)
     /* Prime the pump by reading one token from the input. */
     int next_token;
     int value = 0;
-    if (!read_token(&input, &next_token, &value))
-        return LUT_PARSE_TOKEN_ERROR;
+    enum parse_lut_status status = read_token(&input, &next_token, &value);
 
     /* Loop until the stack is empty and the input has been consumed. */
-    while (token_sp > 1  ||  next_token != TOKEN_END)
+    while (status == LUT_PARSE_OK  &&
+           (token_sp > 1  ||  next_token != TOKEN_END))
     {
         int this_token = token_stack[token_sp - 1];
-        enum action action = lookup_action(this_token, next_token);
-        switch (action)
+        enum parse_action parse_action = lookup_action(this_token, next_token);
+        switch (parse_action)
         {
             case LT:
             case EQ:
-                /* Push token  The operator stack can overflow at this point if
-                 * the input is too complex.  Note that this token overflow
-                 * guard is enough to prevent the value stack from overflowing:
-                 * because we push at most one value per token. */
-                if (token_sp == MAX_DEPTH)
-                    return LUT_PARSE_TOO_COMPLEX;
-                token_stack[token_sp] = next_token;
-                token_sp += 1;
-
-                /* Advance to next input token. */
-                if (!read_token(&input, &next_token, &value))
-                    return LUT_PARSE_TOKEN_ERROR;
+                status = push_token(
+                    &input, token_stack, &token_sp, &next_token, &value);
                 break;
 
             case GT:
-                /* Reduce current top of stack.  We can exhaust the value stack,
-                 * but the token stack is safe, see notes for reduce(). */
-                if (value_sp < TOKEN_ARITY(this_token))
-                    return LUT_PARSE_NO_VALUE;
-
-                /* For values we consume arity values and push one value.  For
-                 * tokens we just consume.  Note that the value stack is safe
-                 * from overflow, but this is a property of this particular
-                 * grammar. */
-                value_sp -= TOKEN_ARITY(this_token) - 1;
-                token_sp -= TOKEN_REDUCE(this_token);
-                reduce(this_token, value, &value_stack[value_sp - 1]);
+                status = reduce_stack(
+                    this_token, &token_sp, value_stack, &value_sp, value);
                 break;
 
             default:
                 /* Return syntax error from action. */
-                return action - ERROR_BASE;
+                status = parse_action - ERROR_BASE;
+                break;
         }
     }
 
-    if (value_sp == 1)
-    {
-        *result = value_stack[0];
-        return LUT_PARSE_OK;
-    }
+    if (status == LUT_PARSE_OK)
+        return extract_result(value_stack, value_sp, result);
     else
-        return LUT_PARSE_NO_VALUE;
+        return status;
+}
+
+
+const char *parse_lut_error_string(enum parse_lut_status status)
+{
+    /* Note that this table of strings must match the entries in the declaration
+     * of enum parse_lut_status in parse_lut.h. */
+    const char *error_messages[] = {
+        "OK",
+        "Invalid token",
+        "Expression too complex",
+        "Missing operator between values",
+        "Missing open bracket",
+        "Missing close bracket",
+        "Missing value",
+        "Missing ? before :",
+        "Missing : after ?",
+    };
+    unsigned int count = sizeof(error_messages) / sizeof(error_messages[0]);
+    if (status < count)
+        return error_messages[status];
+    else
+        return "Unknown parse status";
 }
