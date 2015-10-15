@@ -1,6 +1,7 @@
 /* Socket server core.  Maintains listening socket. */
 
 #include <stdbool.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -13,57 +14,48 @@
 #include <pthread.h>
 
 #include "error.h"
-#include "hardware.h"
+#include "config_server.h"
+#include "data_server.h"
+
 #include "socket_server.h"
 
 
+/* We have socket timeout on sending to avoid blocking for too long, and we have
+ * a command timeout to avoid being stuck in a lock condition for too long. */
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Single server thread. */
-
-
-#define MAX_LINE_LENGTH     80
-
-
-static void *dummy_process(void *context)
-{
-    int scon = (int) (intptr_t) context;
-    log_message("Process connection on %d", scon);
-
-    FILE *stream;
-    if (TEST_IO(stream = fdopen(scon, "r+")))
-    {
-        char line[MAX_LINE_LENGTH];
-        while (fgets(line, sizeof(line), stream))
-        {
-            size_t len = strlen(line);
-            if (!TEST_OK_(line[len - 1] == '\n', "Unterminated line"))
-                break;
-
-            line[len - 1] = '\0';
-            log_message("Read line (%d): \"%s\"", scon, line);
-            fprintf(stream, "ECHO: %s\n", line);
-            fflush(stream);
-        }
-        fclose(stream);
-    }
-    else
-        close(scon);
-
-    log_message("Connection terminated");
-    return NULL;
-}
-
-
-static void *(*process_config)(void *) = dummy_process;
-static void *(*process_data)(void *) = dummy_process;
+#define COMMAND_TIMEOUT     10      // Ten seconds seems reasonable
+#define TRANSMIT_TIMEOUT    2       // May be too short
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Connection handling. */
 
-static int config_socket = -1;
-static int data_socket = -1;
+/* This structure defines the configuration of a single listening socket.  We
+ * have two instances of this structure, one for a configuration socket and one
+ * for a data socket -- connections to these sockets have quite different
+ * semantics. */
+struct listen_socket {
+    int sock;                   // Listening socket
+    const char *name;           // Config or Data, for logging
+    void (*process)(int sock);  // Function for processing socket connection
+};
+
+/* Listening sockets for configuration and data connections. */
+static struct listen_socket config_socket = {
+    .sock = -1, .name = "config", .process = process_config_socket };
+static struct listen_socket data_socket = {
+    .sock = -1, .name = "data",   .process = process_data_socket };
+
+
+/* This struct is used to pass connection information to a newly created
+ * connection thread.  This structure is allocated by the listening thread and
+ * released by the connection thread. */
+struct connection {
+    int sock;                   // Socket for connection
+    const struct listen_socket *parent;   // Parent structure
+    char name[64];              // Name of connected client
+};
+
 
 /* This flag inhabits contentious territory.  It serves one purpose, to help the
  * run_socket_server() loop to terminate gracefully after being poked by
@@ -86,30 +78,96 @@ static volatile bool running = true;
 void kill_socket_server(void)
 {
     running = false;
-    shutdown(config_socket, SHUT_RDWR);
-    shutdown(data_socket, SHUT_RDWR);
+    /* Force the two listening sockets to close.  This will bump
+     * run_socket_server out of its listen loop. */
+    shutdown(config_socket.sock, SHUT_RDWR);
+    shutdown(data_socket.sock, SHUT_RDWR);
 }
 
 
-static bool process_connection(int sock, void *(*process)(void *))
+/* Converts connected socket to a printable identification string. */
+static void get_client_name(int sock, char *client_name)
 {
-    log_message("Receive connection on %d", sock);
-    int scon;
+    struct sockaddr_in name;
+    socklen_t namelen = sizeof(name);
+    if (TEST_IO(getpeername(sock, (struct sockaddr *) &name, &namelen)))
+    {
+        /* Consider using inet_ntop() here.  However doesn't include the port
+         * number, so probably not so interesting until IPv6 in use. */
+        uint8_t *ip = (uint8_t *) &name.sin_addr.s_addr;
+        sprintf(client_name, "%u.%u.%u.%u:%u",
+            ip[0], ip[1], ip[2], ip[3], ntohs(name.sin_port));
+    }
+    else
+        sprintf(client_name, "unknown");
+}
+
+
+/* Sets the specified timeout in seconds on sock.  timeout must be one of
+ * SO_RCVTIMEO or SO_SNDTIMEO. */
+static bool set_timeout(int sock, int timeout, int seconds)
+{
+    struct timeval timeval = { .tv_sec = seconds, .tv_usec = 0 };
+    return TEST_IO(setsockopt(
+        sock, SOL_SOCKET, timeout, &timeval, sizeof(timeval)));
+}
+
+
+static void *connection_thread(void *context)
+{
+    struct connection *connection = context;
+
+    get_client_name(connection->sock, connection->name);
+    log_message("%s %s connected",
+        connection->parent->name, connection->name);
+
+    if (set_timeout(connection->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT))
+        /* The connected process is responsible for closing its connection. */
+        connection->parent->process(connection->sock);
+    else
+        close(connection->sock);
+
+    log_message("%s %s closed",
+        connection->parent->name, connection->name);
+    free(connection);
+    return NULL;
+}
+
+
+static bool process_connection(const struct listen_socket *listen_socket)
+{
     pthread_attr_t attr;
+    /* Note that we need to create the spawned threads with DETACHED attribute,
+     * otherwise we accumlate internal joinable state information and eventually
+     * run out of resources. */
+    ASSERT_PTHREAD(pthread_attr_init(&attr));
+    ASSERT_PTHREAD(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED));
+
+    struct connection *connection = malloc(sizeof(struct connection));
+    connection->parent = listen_socket;
+    ASSERT_NULL(connection);    // Gratuitous, never ever happens.
+
     pthread_t thread;
     return
-        TEST_IO(scon = accept(sock, NULL, NULL))  &&
-        /* Note that we need to create the spawned threads with DETACHED
-         * attribute, otherwise we accumlate internal joinable state information
-         * and eventually run out of resources. */
-        TEST_PTHREAD(pthread_attr_init(&attr))  &&
-        TEST_PTHREAD(pthread_attr_setdetachstate(
-            &attr, PTHREAD_CREATE_DETACHED))  &&
-        TEST_PTHREAD(pthread_create(&thread, &attr,
-            process, (void *)(intptr_t) scon));
+        UNLESS(
+            TEST_IO(connection->sock =
+                accept(listen_socket->sock, NULL, NULL))  &&
+            UNLESS(
+                TEST_PTHREAD(pthread_create(
+                    &thread, &attr, connection_thread, connection)),
+
+            // if thread creation fails
+                close(connection->sock)
+            ),
+
+        // accept fails or thread creation fails
+            free(connection)
+        );
 }
 
 
+/* Main action of server: listens for connections and creates a thread for each
+ * new connection. */
 bool run_socket_server(void)
 {
     bool ok = true;
@@ -118,27 +176,31 @@ bool run_socket_server(void)
         /* Listen for connection on both configuration and data socket. */
         fd_set readset;
         FD_ZERO(&readset);
-        FD_SET(config_socket, &readset);
-        FD_SET(data_socket, &readset);
-        int maxfd = config_socket > data_socket ? config_socket : data_socket;
+        FD_SET(config_socket.sock, &readset);
+        FD_SET(data_socket.sock, &readset);
+        int maxfd = config_socket.sock > data_socket.sock ?
+            config_socket.sock : data_socket.sock;
+        errno = 0;
         int count = select(maxfd + 1, &readset, NULL, NULL, NULL);
 
         /* Ignore EINTR returns from select.  We get this on socket shutdown,
          * and it may occur at other times as well. */
-        ok = IF(errno != EINTR,
-            TEST_IO(count)  &&
-            /* Process connections for the readable sockets. */
-            IF(FD_ISSET(config_socket, &readset),
-                process_connection(config_socket, process_config))  &&
-            IF(FD_ISSET(data_socket, &readset),
-                process_connection(data_socket, process_data)));
+        if (count > 0  ||  errno != EINTR)
+            ok =
+                TEST_IO(count)  &&
+                /* Process connections for the readable sockets. */
+                IF(FD_ISSET(config_socket.sock, &readset),
+                    process_connection(&config_socket))  &&
+                IF(FD_ISSET(data_socket.sock, &readset),
+                    process_connection(&data_socket));
     }
 
     return ok;
 }
 
 
-static bool create_and_listen(int *sock, int port, const char *name)
+/* Creates listening socket on the given port. */
+static bool create_and_listen(int *sock, int port)
 {
     struct sockaddr_in sin = {
         .sin_family = AF_INET,
@@ -151,13 +213,13 @@ static bool create_and_listen(int *sock, int port, const char *name)
             bind(*sock, (struct sockaddr *) &sin, sizeof(sin)),
             "Unable to bind to server socket")  &&
         TEST_IO(listen(*sock, 5))  &&
-        DO(log_message("%s server listening on port %d", name, port));
+        DO(log_message("Listening on port %d", port));
 }
 
 
 bool initialise_socket_server(int config_port, int data_port)
 {
     return
-        create_and_listen(&config_socket, config_port, "Config")  &&
-        create_and_listen(&data_socket, data_port, "Data");
+        create_and_listen(&config_socket.sock, config_port)  &&
+        create_and_listen(&data_socket.sock, data_port);
 }

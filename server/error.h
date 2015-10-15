@@ -113,17 +113,25 @@ static inline bool __attribute__((warn_unused_result))
 #define print_error(message...) _report_error(NULL, message)
 
 
+/* A dance for generating unique local identifiers.  This involves a number of
+ * tricky C preprocessor techniques, and uses the gcc __COUNTER__ extension. */
+#define _CONCATENATE(a, b)  a##b
+#define CONCATENATE(a, b)   _CONCATENATE(a, b)
+#define UNIQUE_ID(id)       CONCATENATE(id, __COUNTER__)
+
+
 /* Generic TEST macro: computes a boolean from expr using COND (should be a
  * macro), and prints the given error message if the boolean is false.  The
  * boolean result is the value of the entire expression. */
-#define _TEST(COND, EXTRA, expr, message...) \
+#define _id_TEST(ok, result, COND, EXTRA, expr, message...) \
     _warn_unused_bool(( { \
-        typeof(expr) __result__ = (expr); \
-        bool __ok__ = COND(__result__); \
-        if (unlikely(!__ok__)) \
-            _report_error(EXTRA(__result__), message); \
-        __ok__; \
+        typeof(expr) result = (expr); \
+        bool ok = COND(result); \
+        if (unlikely(!ok)) \
+            _report_error(EXTRA(result), message); \
+        ok; \
     } ))
+#define _TEST(args...)  _id_TEST(UNIQUE_ID(ok__), UNIQUE_ID(result__), args)
 
 /* An assert for tests that really really should not fail!  This exits
  * immediately. */
@@ -189,6 +197,17 @@ static inline bool __attribute__((warn_unused_result))
 #define IF_ELSE(test, iftrue, iffalse)  ((test) ? (iftrue) : (iffalse))
 
 
+/* If action fails perform on_fail as a cleanup action.  Returns status of
+ * action. */
+#define _id_UNLESS(ok, action, on_fail) \
+    ( { \
+        bool ok = (action); \
+        if (!ok) { on_fail; } \
+        ok; \
+    } )
+#define UNLESS(args...) _id_UNLESS(UNIQUE_ID(ok__), args)
+
+
 /* Testing read and write happens often enough to be annoying, so some
  * special case macros here. */
 #define _COND_rw(rw, fd, buf, count) \
@@ -210,15 +229,17 @@ static inline bool __attribute__((warn_unused_result))
 #define ARRAY_SIZE(a)   (sizeof(a)/sizeof((a)[0]))
 
 /* An agressive cast for use when the compiler needs special reassurance. */
-#define REINTERPRET_CAST(type, value) \
+#define _id_REINTERPRET_CAST(_union, type, value) \
     ( { \
         COMPILE_ASSERT(sizeof(type) == sizeof(typeof(value))); \
         union { \
-            typeof(value) __value; \
-            type __cast; \
-        } __union = { .__value = (value) }; \
-        __union.__cast; \
+            typeof(value) _value; \
+            type _cast; \
+        } _union = { ._value = (value) }; \
+        _union._cast; \
     } )
+#define REINTERPRET_CAST(args...) \
+    _id_REINTERPRET_CAST(UNIQUE_ID(union__), args)
 
 /* For ignoring return values even when warn_unused_result is in force. */
 #define IGNORE(e)       do if(e) {} while (0)

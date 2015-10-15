@@ -38,6 +38,8 @@ SRCS += server.c
 SRCS += error.c
 SRCS += hardware.c
 SRCS += socket_server.c
+SRCS += config_server.c
+SRCS += data_server.c
 
 
 default: server
