@@ -41,8 +41,9 @@ SRCS += hardware.c
 SRCS += socket_server.c
 SRCS += config_server.c
 SRCS += data_server.c
-SRCS += database.c
+SRCS += parse.c
 SRCS += hashtable.c
+SRCS += database.c
 
 
 default: server
