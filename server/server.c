@@ -1,18 +1,70 @@
 /* Socket server for PandA. */
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <signal.h>
 
 #include "error.h"
 #include "hardware.h"
 #include "socket_server.h"
+#include "database.h"
 
 
-static int config_port = 8888;
-static int data_port = 8889;
+static unsigned int config_port = 8888;
+static unsigned int data_port = 8889;
+
+/* Paths to configuration databases. */
+static const char *config_db;
+static const char *types_db;
+static const char *register_db;
+
+
+static void usage(const char *argv0)
+{
+    printf(
+"Usage: %s [options]\n"
+"Runs PandA hardware interface server\n"
+"\n"
+"options:\n"
+"   -h  Show this usage\n"
+"   -p: Specify configuration port (default %d)\n"
+"   -d: Specify data port (default %d)\n"
+"   -c: Specify configuration database\n"
+"   -t: Specify types database\n"
+"   -r: Specify register database\n"
+        , argv0, config_port, data_port);
+}
+
+
+static bool process_options(int argc, char *const argv[])
+{
+    const char *argv0 = argv[0];
+    bool ok = true;
+    while (ok)
+    {
+        switch (getopt(argc, argv, "+hp:d:c:r:t:"))
+        {
+            case 'h':   usage(argv0);                                   exit(0);
+            case 'p':   config_port = (unsigned int) atoi(optarg);      break;
+            case 'd':   data_port   = (unsigned int) atoi(optarg);      break;
+            case 'c':   config_db = optarg;                             break;
+            case 't':   types_db = optarg;                              break;
+            case 'r':   register_db = optarg;                           break;
+            default:
+                fprintf(stderr, "Try `%s -h` for usage\n", argv0);
+                return false;
+            case -1:
+                argc -= optind;
+                argv += optind;
+                return TEST_OK_(argc == 0, "Unexpected arguments");
+        }
+    }
+    return ok;
+}
 
 
 static bool maybe_daemonise(void)
@@ -52,9 +104,12 @@ static bool initialise_signals(void)
 }
 
 
-int main(int argc, char **argv)
+int main(int argc, char *const argv[])
 {
     bool ok =
+        process_options(argc, argv)  &&
+
+        load_config_databases(config_db, types_db, register_db)  &&
         initialise_hardware()  &&
         initialise_socket_server(config_port, data_port)  &&
 

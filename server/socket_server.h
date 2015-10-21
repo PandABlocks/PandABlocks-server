@@ -1,7 +1,7 @@
 /* Interface to socket server. */
 
 /* Initialises the socket server but doesn't run the server yet. */
-bool initialise_socket_server(int config_port, int data_port);
+bool initialise_socket_server(unsigned int config_port, unsigned int data_port);
 
 /* To be called after successful initialisation and daemonisation.  Runs
  * processing server socket connections until interrupted. */

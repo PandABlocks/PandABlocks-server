@@ -200,7 +200,8 @@ bool run_socket_server(void)
 
 
 /* Creates listening socket on the given port. */
-static bool create_and_listen(int *sock, int port)
+static bool create_and_listen(
+    struct listen_socket *listen_socket, unsigned int port)
 {
     struct sockaddr_in sin = {
         .sin_family = AF_INET,
@@ -208,18 +209,19 @@ static bool create_and_listen(int *sock, int port)
         .sin_port = htons(port)
     };
     return
-        TEST_IO(*sock = socket(AF_INET, SOCK_STREAM, 0))  &&
+        TEST_IO(listen_socket->sock = socket(AF_INET, SOCK_STREAM, 0))  &&
         TEST_IO_(
-            bind(*sock, (struct sockaddr *) &sin, sizeof(sin)),
+            bind(listen_socket->sock, (struct sockaddr *) &sin, sizeof(sin)),
             "Unable to bind to server socket")  &&
-        TEST_IO(listen(*sock, 5))  &&
-        DO(log_message("Listening on port %d", port));
+        TEST_IO(listen(listen_socket->sock, 5))  &&
+        DO(log_message("Listening on port %d for %s",
+            port, listen_socket->name));
 }
 
 
-bool initialise_socket_server(int config_port, int data_port)
+bool initialise_socket_server(unsigned int config_port, unsigned int data_port)
 {
     return
-        create_and_listen(&config_socket.sock, config_port)  &&
-        create_and_listen(&data_socket.sock, data_port);
+        create_and_listen(&config_socket, config_port)  &&
+        create_and_listen(&data_socket, data_port);
 }

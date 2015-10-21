@@ -117,7 +117,7 @@ static inline bool __attribute__((warn_unused_result))
  * tricky C preprocessor techniques, and uses the gcc __COUNTER__ extension. */
 #define _CONCATENATE(a, b)  a##b
 #define CONCATENATE(a, b)   _CONCATENATE(a, b)
-#define UNIQUE_ID(id)       CONCATENATE(id, __COUNTER__)
+#define UNIQUE_ID()         CONCATENATE(_tmp__, __COUNTER__)
 
 
 /* Generic TEST macro: computes a boolean from expr using COND (should be a
@@ -131,7 +131,7 @@ static inline bool __attribute__((warn_unused_result))
             _report_error(EXTRA(result), message); \
         ok; \
     } ))
-#define _TEST(args...)  _id_TEST(UNIQUE_ID(ok__), UNIQUE_ID(result__), args)
+#define _TEST(args...)  _id_TEST(UNIQUE_ID(), UNIQUE_ID(), args)
 
 /* An assert for tests that really really should not fail!  This exits
  * immediately. */
@@ -196,6 +196,11 @@ static inline bool __attribute__((warn_unused_result))
 #define IF(test, iftrue)                ((test) ? (iftrue) : true)
 #define IF_ELSE(test, iftrue, iffalse)  ((test) ? (iftrue) : (iffalse))
 
+/* This macro is a workaround: passing a statement of the form { , } to a macro
+ * doesn't work because the comma isn't guarded.  This macro adds the braces on
+ * late enough to pass this form through. */
+#define BRACES(args...)                 { args }
+
 
 /* If action fails perform on_fail as a cleanup action.  Returns status of
  * action. */
@@ -205,7 +210,7 @@ static inline bool __attribute__((warn_unused_result))
         if (!ok) { on_fail; } \
         ok; \
     } )
-#define UNLESS(args...) _id_UNLESS(UNIQUE_ID(ok__), args)
+#define UNLESS(args...) _id_UNLESS(UNIQUE_ID(), args)
 
 
 /* Testing read and write happens often enough to be annoying, so some
@@ -239,7 +244,7 @@ static inline bool __attribute__((warn_unused_result))
         _union._cast; \
     } )
 #define REINTERPRET_CAST(args...) \
-    _id_REINTERPRET_CAST(UNIQUE_ID(union__), args)
+    _id_REINTERPRET_CAST(UNIQUE_ID(), args)
 
 /* For ignoring return values even when warn_unused_result is in force. */
 #define IGNORE(e)       do if(e) {} while (0)

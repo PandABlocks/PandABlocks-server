@@ -11,6 +11,7 @@ default:    # Default target comes first!
 CFLAGS += -std=gnu99
 CFLAGS += -O3
 CFLAGS += -g
+CPPFLAGS += -D_GNU_SOURCE
 
 CFLAGS += -Werror
 CFLAGS += -Wall -Wextra
@@ -40,6 +41,8 @@ SRCS += hardware.c
 SRCS += socket_server.c
 SRCS += config_server.c
 SRCS += data_server.c
+SRCS += database.c
+SRCS += hashtable.c
 
 
 default: server
