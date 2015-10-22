@@ -11,13 +11,13 @@
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static bool process_entity_put(
+static error__t process_entity_put(
     struct config_connection *connection,
     const char *name, const char *value, command_error_t *error)
 {
     printf("process_entity_put %s %s\n", name, value);
     *error = "put not implemented";
-    return true;
+    return ERROR_OK;
 }
 
 
@@ -48,13 +48,13 @@ const struct config_command_set entity_commands = {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System commands. */
 
-static bool process_system_put(
+static error__t process_system_put(
     struct config_connection *connection,
     const char *name, const char *value, command_error_t *error)
 {
     printf("process_system_put %s %s\n", name, value);
     *error = "*put not implemented";
-    return true;
+    return ERROR_OK;
 }
 
 

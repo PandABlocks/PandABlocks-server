@@ -35,14 +35,14 @@ uint32_t hw_read_config(int function, int block, int reg)
 }
 
 
-bool initialise_hardware(void)
+error__t initialise_hardware(void)
 {
 #ifdef __arm__
     int map;
     return
         TEST_IO_(map = open("/dev/panda.map", O_RDWR | O_SYNC),
-            "Unable to open PandA device")  &&
-        TEST_IO(ioctl(map, PANDA_MAP_SIZE, &register_map_size))  &&
+            "Unable to open PandA device")  ?:
+        TEST_IO(ioctl(map, PANDA_MAP_SIZE, &register_map_size))  ?:
         TEST_IO(register_map = mmap(
             0, register_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
             map, 0));
@@ -50,6 +50,6 @@ bool initialise_hardware(void)
     /* Compiling simulation version. */
     register_map_size = 0x00040000;
     register_map = malloc(register_map_size);
-    return true;
+    return ERROR_OK;
 #endif
 }

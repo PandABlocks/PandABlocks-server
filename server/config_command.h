@@ -18,7 +18,7 @@ struct config_command_set {
      * then the rest of the value can be read from the connection stream,
      * otherwise this must be left alone.  As this reads from the input stream
      * this reading process can fail. */
-    bool (*put)(
+    error__t (*put)(
         struct config_connection *connection,
         const char *name, const char *value, command_error_t *error);
 

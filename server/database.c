@@ -76,13 +76,13 @@ static const char *class_names[] = {
 };
 
 /* Converts class name to enum. */
-static bool lookup_class_name(const char *name, enum field_class *class)
+static error__t lookup_class_name(const char *name, enum field_class *class)
 {
     for (unsigned int i = 0; i < ARRAY_SIZE(class_names); i ++)
         if (strcmp(name, class_names[i]) == 0)
         {
             *class = (enum field_class) i;
-            return true;
+            return ERROR_OK;
         }
     /* Not present, fail. */
     return FAIL_("Field class %s not recognised", name);
@@ -99,7 +99,7 @@ static void *config_start(void)
 /* Parses a block definition header.  This is simply a name, optionally followed
  * by a number in square brackets, and should be followed by a number of field
  * definitions. */
-static bool config_parse_header_line(
+static error__t config_parse_header_line(
     void *context, const char *line, void **indent_context)
 {
     struct config_database *database = context;
@@ -107,14 +107,14 @@ static bool config_parse_header_line(
     /* Parse input of form <name> [ "[" <count> "]" ]. */
     char name[MAX_NAME_LENGTH];
     unsigned int count = 1;
-    bool ok =
-        parse_name(&line, name, sizeof(name))  &&
+    error__t error =
+        parse_name(&line, name, sizeof(name))  ?:
         IF(read_char(&line, '['),
-            parse_uint(&line, &count)  &&
-            parse_char(&line, ']'))  &&
+            parse_uint(&line, &count)  ?:
+            parse_char(&line, ']'))  ?:
         parse_eos(&line);
 
-    if (ok)
+    if (!error)
     {
         /* Create a new configuration block with the computed name and count. */
         struct config_block *block = malloc(sizeof(struct config_block));
@@ -122,44 +122,44 @@ static bool config_parse_header_line(
         block->map = hash_table_create(true);
         *indent_context = block;
 
-        ok = TEST_OK_(!hash_table_insert(database->map, name, block),
+        error = TEST_OK_(!hash_table_insert(database->map, name, block),
             "Entity name %s repeated", name);
     }
-    return ok;
+    return error;
 }
 
 
 /* Parses a field definition of the form:
  *      <class>     <name>      [<type>]
  * The type description is optional. */
-static bool config_parse_field_line(void *context, const char *line)
+static error__t config_parse_field_line(void *context, const char *line)
 {
     struct config_block *block = context;
 
     char class_name[MAX_NAME_LENGTH];
-    enum field_class class;
+    enum field_class class = 0;
     char field_name[MAX_NAME_LENGTH];
-    bool ok =
-        parse_name(&line, class_name, sizeof(class_name))  &&
-        lookup_class_name(class_name, &class)  &&
-        parse_whitespace(&line)  &&
-        parse_name(&line, field_name, sizeof(field_name))  &&
+    error__t error =
+        parse_name(&line, class_name, sizeof(class_name))  ?:
+        lookup_class_name(class_name, &class)  ?:
+        parse_whitespace(&line)  ?:
+        parse_name(&line, field_name, sizeof(field_name))  ?:
         DO(line = skip_whitespace(line));
 
-    if (ok)
+    if (!error)
     {
         struct field_entry *field = malloc(sizeof(struct field_entry));
         field->class = class;
         field->type = NULL;
 
-        ok = TEST_OK_(!hash_table_insert(block->map, field_name, field),
+        error = TEST_OK_(!hash_table_insert(block->map, field_name, field),
             "Field name %s repeated", field_name);
     }
-    return ok;
+    return error;
 }
 
 
-static bool config_parse_line(
+static error__t config_parse_line(
     unsigned int indent, void *context, const char *line, void **indent_context)
 {
     switch (indent)
@@ -183,7 +183,7 @@ static const struct indent_parser config_indent_parser = {
 };
 
 
-static bool load_config_database(const char *db_name)
+static error__t load_config_database(const char *db_name)
 {
     log_message("Loading configuration database from \"%s\"", db_name);
     return parse_indented_file(db_name, 1, &config_indent_parser);
@@ -192,29 +192,29 @@ static bool load_config_database(const char *db_name)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static bool load_types_database(const char *db)
+static error__t load_types_database(const char *db)
 {
     log_message("Loading types database from \"%s\"", db);
-    return true;
+    return ERROR_OK;
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static bool load_register_database(const char *db)
+static error__t load_register_database(const char *db)
 {
     log_message("Loading register database from \"%s\"", db);
-    return true;
+    return ERROR_OK;
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-bool load_config_databases(
+error__t load_config_databases(
     const char *config_db, const char *types_db, const char *register_db)
 {
     return
-        load_types_database(types_db)  &&
-        load_config_database(config_db)  &&
+        load_types_database(types_db)  ?:
+        load_config_database(config_db)  ?:
         load_register_database(register_db);
 }

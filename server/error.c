@@ -15,6 +15,105 @@
 #include "error.h"
 
 
+/* No more than this many error messages can be nested: more would be insane! */
+#define MAX_ERROR_DEPTH     10
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Core error reporting mechanism. */
+
+/* For debug, used to check if we've leaked any error codes. */
+static int error_count = 0;
+
+
+/* This encapsulates an error message. */
+struct error__t {
+    /* An error message consists of a list of error strings. */
+    int count;
+    char *messages[MAX_ERROR_DEPTH];
+    /* If error_format has been called the formatted error is stored here. */
+    char *formatted;
+};
+
+
+/* Creates an error__t with one or two messages. */
+error__t _error_create(char *extra, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    char *message;
+    vasprintf(&message, format, args);
+    va_end(args);
+
+    __sync_add_and_fetch(&error_count, 1);
+    struct error__t *error = malloc(sizeof(struct error__t));
+    if (extra)
+        *error = (struct error__t) {
+            .count = 2, .messages = { extra, message }, };
+    else
+        *error = (struct error__t) {
+            .count = 1, .messages = { message }, };
+    return error;
+}
+
+
+void error_discard(error__t error)
+{
+    for (int i = 0; i < error->count; i ++)
+        free(error->messages[i]);
+    free(error->formatted);
+    free(error);
+    __sync_add_and_fetch(&error_count, -1);
+}
+
+
+void error_extend(error__t error, const char *format, ...)
+{
+    ASSERT_OK(error->count < MAX_ERROR_DEPTH);
+
+    va_list args;
+    va_start(args, format);
+    vasprintf(&error->messages[error->count], format, args);
+    va_end(args);
+    error->count += 1;
+}
+
+
+const char *error_format(error__t error)
+{
+    /* We'll simply format the stack of messages with the most recent message
+     * first.  Count up the length needed. */
+    size_t length = 0;
+    for (int i = 0; i < error->count; i ++)
+        length += strlen(error->messages[i]) + 2;
+
+    char *result = malloc(length);
+    free(error->formatted);      // In case we're not the first
+    error->formatted = result;
+
+    int ix = 0;
+    for (int i = 0; i < error->count; i ++)
+    {
+        int n = error->count - 1 - i;
+        ix += sprintf(result + ix, n ? "%s: " : "%s", error->messages[n]);
+    }
+    return result;
+}
+
+
+bool error_report(error__t error)
+{
+    if (error)
+    {
+        const char *report = error_format(error);
+        log_error("%s", report);
+        error_discard(error);
+        return true;
+    }
+    else
+        return false;
+}
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -66,7 +165,7 @@ void log_error(const char *message, ...)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /* Two mechanisms for reporting extra error information. */
-char *_extra_io(void)
+char *_error_extra_io(void)
 {
     /* This is very annoying: strerror() is not not necessarily thread safe ...
      * but not for any compelling reason, see:
@@ -90,32 +189,11 @@ char *_extra_io(void)
 }
 
 
-void _report_error(char *extra, const char *format, ...)
+void _error_panic(char *extra, const char *filename, int line)
 {
-    /* Large enough not to really worry about overflow.  If we do generate a
-     * silly message that's too big, then that's just too bad. */
-    const size_t MESSAGE_LENGTH = 512;
-    char error_message[MESSAGE_LENGTH];
-
-    va_list args;
-    va_start(args, format);
-    int count = vsnprintf(error_message, MESSAGE_LENGTH, format, args);
-    va_end(args);
-
+    log_error("Unrecoverable error at %s, line %d", filename, line);
     if (extra)
-        snprintf(error_message + count, MESSAGE_LENGTH - (size_t) count,
-            ": %s", extra);
-
-    log_error("%s", error_message);
-
-    if (extra)
-        free(extra);
-}
-
-
-void _panic_error(char *extra, const char *filename, int line)
-{
-    _report_error(extra, "Unrecoverable error at %s, line %d", filename, line);
+        log_error("Extra context: %s", extra);
     fflush(stderr);
     fflush(stdout);
 

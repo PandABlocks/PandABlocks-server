@@ -40,11 +40,11 @@ static void usage(const char *argv0)
 }
 
 
-static bool process_options(int argc, char *const argv[])
+static error__t process_options(int argc, char *const argv[])
 {
     const char *argv0 = argv[0];
-    bool ok = true;
-    while (ok)
+    error__t error = ERROR_OK;
+    while (!error)
     {
         switch (getopt(argc, argv, "+hp:d:c:r:t:"))
         {
@@ -63,13 +63,13 @@ static bool process_options(int argc, char *const argv[])
                 return TEST_OK_(argc == 0, "Unexpected arguments");
         }
     }
-    return ok;
+    return error;
 }
 
 
-static bool maybe_daemonise(void)
+static error__t maybe_daemonise(void)
 {
-    return true;
+    return ERROR_OK;
 }
 
 
@@ -80,14 +80,14 @@ static void at_exit(int signum)
 }
 
 
-static bool initialise_signals(void)
+static error__t initialise_signals(void)
 {
     struct sigaction do_shutdown = {
         .sa_handler = at_exit, .sa_flags = SA_RESTART };
     struct sigaction do_ignore = {
         .sa_handler = SIG_IGN, .sa_flags = SA_RESTART };
     return
-        TEST_IO(sigfillset(&do_shutdown.sa_mask))  &&
+        TEST_IO(sigfillset(&do_shutdown.sa_mask))  ?:
         /* Catch the usual interruption signals and use them to trigger an
          * orderly shutdown.  As a reminder, these are the sources of these
          * three signals:
@@ -95,9 +95,9 @@ static bool initialise_signals(void)
          *  2  INT      Keyboard interrupt (CTRL-C)
          *  15 TERM     Normal termination request, default kill signal
          */
-        TEST_IO(sigaction(SIGHUP,  &do_shutdown, NULL))  &&
-        TEST_IO(sigaction(SIGINT,  &do_shutdown, NULL))  &&
-        TEST_IO(sigaction(SIGTERM, &do_shutdown, NULL))  &&
+        TEST_IO(sigaction(SIGHUP,  &do_shutdown, NULL))  ?:
+        TEST_IO(sigaction(SIGINT,  &do_shutdown, NULL))  ?:
+        TEST_IO(sigaction(SIGTERM, &do_shutdown, NULL))  ?:
 
         /* When acting as a server we need to ignore SIGPIPE, of course. */
         TEST_IO(sigaction(SIGPIPE, &do_ignore,   NULL));
@@ -106,20 +106,23 @@ static bool initialise_signals(void)
 
 int main(int argc, char *const argv[])
 {
-    bool ok =
-        process_options(argc, argv)  &&
+    error__t error =
+        process_options(argc, argv)  ?:
 
-        load_config_databases(config_db, types_db, register_db)  &&
-        initialise_hardware()  &&
-        initialise_socket_server(config_port, data_port)  &&
+        load_config_databases(config_db, types_db, register_db)  ?:
+        initialise_hardware()  ?:
+        initialise_socket_server(config_port, data_port)  ?:
 
-        maybe_daemonise()  &&
-        initialise_signals()  &&
+        maybe_daemonise()  ?:
+        initialise_signals()  ?:
 
         /* Now run the server.  Control will not return until we're ready to
          * terminate. */
         run_socket_server();
 
-    log_message("Server shutting down with %s\n", ok ? "no errors" : "error");
-    return ok ? 0 : 1;
+    if (error)
+        ERROR_REPORT(error, "Server startup failed");
+
+    log_message("Server shutting down");
+    return error ? 1 : 0;
 }

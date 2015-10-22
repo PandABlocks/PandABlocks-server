@@ -90,7 +90,11 @@ static void get_client_name(int sock, char *client_name)
 {
     struct sockaddr_in name;
     socklen_t namelen = sizeof(name);
-    if (TEST_IO(getpeername(sock, (struct sockaddr *) &name, &namelen)))
+    error__t error =
+        TEST_IO(getpeername(sock, (struct sockaddr *) &name, &namelen));
+    if (error_report(error))
+        sprintf(client_name, "unknown");
+    else
     {
         /* Consider using inet_ntop() here.  However doesn't include the port
          * number, so probably not so interesting until IPv6 in use. */
@@ -98,14 +102,12 @@ static void get_client_name(int sock, char *client_name)
         sprintf(client_name, "%u.%u.%u.%u:%u",
             ip[0], ip[1], ip[2], ip[3], ntohs(name.sin_port));
     }
-    else
-        sprintf(client_name, "unknown");
 }
 
 
 /* Sets the specified timeout in seconds on sock.  timeout must be one of
  * SO_RCVTIMEO or SO_SNDTIMEO. */
-static bool set_timeout(int sock, int timeout, int seconds)
+static error__t set_timeout(int sock, int timeout, int seconds)
 {
     struct timeval timeval = { .tv_sec = seconds, .tv_usec = 0 };
     return TEST_IO(setsockopt(
@@ -121,11 +123,13 @@ static void *connection_thread(void *context)
     log_message("%s %s connected",
         connection->parent->name, connection->name);
 
-    if (set_timeout(connection->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT))
+    error__t error =
+        set_timeout(connection->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT);
+    if (error_report(error))
+        close(connection->sock);
+    else
         /* The connected process is responsible for closing its connection. */
         connection->parent->process(connection->sock);
-    else
-        close(connection->sock);
 
     log_message("%s %s closed",
         connection->parent->name, connection->name);
@@ -134,7 +138,7 @@ static void *connection_thread(void *context)
 }
 
 
-static bool process_connection(const struct listen_socket *listen_socket)
+static error__t process_connection(const struct listen_socket *listen_socket)
 {
     pthread_attr_t attr;
     /* Note that we need to create the spawned threads with DETACHED attribute,
@@ -149,10 +153,10 @@ static bool process_connection(const struct listen_socket *listen_socket)
 
     pthread_t thread;
     return
-        UNLESS(
+        TRY_CATCH(
             TEST_IO(connection->sock =
-                accept(listen_socket->sock, NULL, NULL))  &&
-            UNLESS(
+                accept(listen_socket->sock, NULL, NULL))  ?:
+            TRY_CATCH(
                 TEST_PTHREAD(pthread_create(
                     &thread, &attr, connection_thread, connection)),
 
@@ -168,10 +172,10 @@ static bool process_connection(const struct listen_socket *listen_socket)
 
 /* Main action of server: listens for connections and creates a thread for each
  * new connection. */
-bool run_socket_server(void)
+error__t run_socket_server(void)
 {
-    bool ok = true;
-    while (ok  &&  running)
+    error__t error = ERROR_OK;
+    while (!error  &&  running)
     {
         /* Listen for connection on both configuration and data socket. */
         fd_set readset;
@@ -186,21 +190,21 @@ bool run_socket_server(void)
         /* Ignore EINTR returns from select.  We get this on socket shutdown,
          * and it may occur at other times as well. */
         if (count > 0  ||  errno != EINTR)
-            ok =
-                TEST_IO(count)  &&
+            error =
+                TEST_IO(count)  ?:
                 /* Process connections for the readable sockets. */
                 IF(FD_ISSET(config_socket.sock, &readset),
-                    process_connection(&config_socket))  &&
+                    process_connection(&config_socket))  ?:
                 IF(FD_ISSET(data_socket.sock, &readset),
                     process_connection(&data_socket));
     }
 
-    return ok;
+    return error;
 }
 
 
 /* Creates listening socket on the given port. */
-static bool create_and_listen(
+static error__t create_and_listen(
     struct listen_socket *listen_socket, unsigned int port)
 {
     struct sockaddr_in sin = {
@@ -209,19 +213,20 @@ static bool create_and_listen(
         .sin_port = htons(port)
     };
     return
-        TEST_IO(listen_socket->sock = socket(AF_INET, SOCK_STREAM, 0))  &&
+        TEST_IO(listen_socket->sock = socket(AF_INET, SOCK_STREAM, 0))  ?:
         TEST_IO_(
             bind(listen_socket->sock, (struct sockaddr *) &sin, sizeof(sin)),
-            "Unable to bind to server socket")  &&
-        TEST_IO(listen(listen_socket->sock, 5))  &&
+            "Unable to bind to server socket")  ?:
+        TEST_IO(listen(listen_socket->sock, 5))  ?:
         DO(log_message("Listening on port %d for %s",
             port, listen_socket->name));
 }
 
 
-bool initialise_socket_server(unsigned int config_port, unsigned int data_port)
+error__t initialise_socket_server(
+    unsigned int config_port, unsigned int data_port)
 {
     return
-        create_and_listen(&config_socket, config_port)  &&
+        create_and_listen(&config_socket, config_port)  ?:
         create_and_listen(&data_socket, data_port);
 }

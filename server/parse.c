@@ -29,7 +29,7 @@ const char *skip_whitespace(const char *string)
 
 
 /* Expects whitespace and skips it. */
-bool parse_whitespace(const char **string)
+error__t parse_whitespace(const char **string)
 {
     const char *start = *string;
     *string = skip_whitespace(*string);
@@ -45,7 +45,7 @@ static bool valid_name_char(char ch)
 }
 
 
-bool parse_name(const char **string, char result[], int max_length)
+error__t parse_name(const char **string, char result[], int max_length)
 {
     int ix = 0;
     while (ix < max_length  &&  valid_name_char(**string))
@@ -54,25 +54,31 @@ bool parse_name(const char **string, char result[], int max_length)
         ix += 1;
     }
     return
-        TEST_OK_(ix > 0, "No name found")  &&
-        TEST_OK_(ix < max_length, "Name too long")  &&
+        TEST_OK_(ix > 0, "No name found")  ?:
+        TEST_OK_(ix < max_length, "Name too long")  ?:
         DO(result[ix] = '\0');
 }
 
 
 bool read_char(const char **string, char ch)
 {
-    return **string == ch  &&  DO(*string += 1);
+    if (**string == ch)
+    {
+        *string += 1;
+        return true;
+    }
+    else
+        return false;
 }
 
 
-bool parse_char(const char **string, char ch)
+error__t parse_char(const char **string, char ch)
 {
     return TEST_OK_(read_char(string, ch), "Character '%c' expected", ch);
 }
 
 
-bool parse_uint(const char **string, unsigned int *result)
+error__t parse_uint(const char **string, unsigned int *result)
 {
     errno = 0;
     const char *start = *string;
@@ -80,12 +86,12 @@ bool parse_uint(const char **string, unsigned int *result)
     *result = (unsigned int) strtoul(start, &end, 10);
     *string = end;
     return
-        TEST_OK_(end > start, "Number missing")  &&
+        TEST_OK_(end > start, "Number missing")  ?:
         TEST_OK_(errno == 0, "Error converting number");
 }
 
 
-bool parse_eos(const char **string)
+error__t parse_eos(const char **string)
 {
     return TEST_OK_(**string == '\0', "Unexpected character");
 }
@@ -103,7 +109,7 @@ struct indent_state {
 
 
 /* Opens a new indentation. */
-static bool open_indent(
+static error__t open_indent(
     struct indent_state stack[], unsigned int *sp, size_t indent,
     unsigned int max_indent, void *context)
 {
@@ -112,7 +118,7 @@ static bool open_indent(
         *sp += 1;
         stack[*sp] = (struct indent_state) {
             .indent = indent, .context = context, };
-        return true;
+        return ERROR_OK;
     }
     else
         return FAIL_("Too much indentation");
@@ -120,7 +126,7 @@ static bool open_indent(
 
 
 /* Closes any existing indentations deeper than the current line. */
-static bool close_indents(
+static error__t close_indents(
     struct indent_state stack[], unsigned int *sp, size_t indent)
 {
     /* Close all indents until we reach an indent less than or equal to the
@@ -134,7 +140,7 @@ static bool close_indents(
 
 /* Processing for a single line: skip comments and blank lines, keep track of
  * indentation of indentation stack, and parse line using the parser. */
-static bool parse_one_line(
+static error__t parse_one_line(
     unsigned int max_indent, char *line,
     struct indent_state indent_stack[], unsigned int *sp,
     const struct indent_parser *parser, void **new_context)
@@ -154,22 +160,22 @@ static bool parse_one_line(
                 open_indent(indent_stack, sp, indent, max_indent, *new_context),
             // else
                 /* Close any indentations until flush with current line. */
-                close_indents(indent_stack, sp, indent))  &&
+                close_indents(indent_stack, sp, indent))  ?:
             parser->parse_line(
                 *sp, indent_stack[*sp].context, parse_line, new_context);
     else
-        return true;
+        return ERROR_OK;
 }
 
 
-bool parse_indented_file(
+error__t parse_indented_file(
     const char *file_name, unsigned int max_indent,
     const struct indent_parser *parser)
 {
     FILE *file;
-    bool ok = TEST_NULL_(file = fopen(file_name, "r"),
+    error__t error = TEST_NULL_(file = fopen(file_name, "r"),
         "Unable to open file \"%s\"", file_name);
-    if (ok)
+    if (!error)
     {
         char line[MAX_LINE_LENGTH];
         int line_no = 0;
@@ -185,21 +191,23 @@ bool parse_indented_file(
          * lines with higher indentation. */
         void *new_context = NULL;
 
-        while (ok  &&  fgets(line, sizeof(line), file))
+        while (!error  &&  fgets(line, sizeof(line), file))
         {
             line_no += 1;
             /* Skip whitespace and compute the current indentation. */
-            ok = parse_one_line(
+            error = parse_one_line(
                 max_indent, line, indent_stack, &sp, parser, &new_context);
-            if (!ok)
-                log_message(
-                    "Error parsing line %d of \"%s\"", line_no, file_name);
+            /* In this case extend the error with the file name and line number
+             * for more helpful reporting. */
+            if (error)
+                error_extend(error,
+                    "parsing line %d of \"%s\"", line_no, file_name);
         }
         fclose(file);
 
         /* The end parse function is optional. */
-        if (ok  &&  parser->end)
-            ok = parser->end(indent_stack[0].context);
+        if (!error  &&  parser->end)
+            error = parser->end(indent_stack[0].context);
     }
-    return ok;
+    return error;
 }
