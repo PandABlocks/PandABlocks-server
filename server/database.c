@@ -91,7 +91,6 @@ static bool lookup_class_name(const char *name, enum field_class *class)
 
 static void *config_start(void)
 {
-    printf("config_start\n");
     config_database.map = hash_table_create(true);
     return &config_database;
 }
@@ -123,7 +122,6 @@ static bool config_parse_header_line(
         block->map = hash_table_create(true);
         *indent_context = block;
 
-        printf("Inserting %s[%d]\n", name, count);
         ok = TEST_OK_(!hash_table_insert(database->map, name, block),
             "Entity name %s repeated", name);
     }
@@ -151,10 +149,9 @@ static bool config_parse_field_line(void *context, const char *line)
     if (ok)
     {
         struct field_entry *field = malloc(sizeof(struct field_entry));
-        *field = (struct field_entry) {
-            .class = class,
-            .type = NULL,
-        };
+        field->class = class;
+        field->type = NULL;
+
         ok = TEST_OK_(!hash_table_insert(block->map, field_name, field),
             "Field name %s repeated", field_name);
     }
@@ -165,14 +162,10 @@ static bool config_parse_field_line(void *context, const char *line)
 static bool config_parse_line(
     unsigned int indent, void *context, const char *line, void **indent_context)
 {
-    printf("config_parse_line %d %p \"%s\"\n",
-        indent, context, line);
-
     switch (indent)
     {
         case 0:
-            return config_parse_header_line(
-                context, line, indent_context);
+            return config_parse_header_line(context, line, indent_context);
         case 1:
             *indent_context = NULL;
             return config_parse_field_line(context, line);
@@ -193,7 +186,6 @@ static const struct indent_parser config_indent_parser = {
 static bool load_config_database(const char *db_name)
 {
     log_message("Loading configuration database from \"%s\"", db_name);
-
     return parse_indented_file(db_name, 1, &config_indent_parser);
 }
 
@@ -224,6 +216,5 @@ bool load_config_databases(
     return
         load_types_database(types_db)  &&
         load_config_database(config_db)  &&
-        load_register_database(register_db)  &&
-        FAIL_("ok");
+        load_register_database(register_db);
 }

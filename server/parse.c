@@ -13,6 +13,9 @@
 #include "parse.h"
 
 
+#define MAX_LINE_LENGTH     256
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Simple parsing support. */
 
@@ -101,14 +104,14 @@ struct indent_state {
 
 /* Opens a new indentation. */
 static bool open_indent(
-    unsigned int *sp, struct indent_state stack[], size_t indent,
+    struct indent_state stack[], unsigned int *sp, size_t indent,
     unsigned int max_indent, void *context)
 {
     if (*sp < max_indent)
     {
         *sp += 1;
         stack[*sp] = (struct indent_state) {
-            .indent = indent, .context = context };
+            .indent = indent, .context = context, };
         return true;
     }
     else
@@ -118,7 +121,7 @@ static bool open_indent(
 
 /* Closes any existing indentations deeper than the current line. */
 static bool close_indents(
-    unsigned int *sp, struct indent_state stack[], size_t indent)
+    struct indent_state stack[], unsigned int *sp, size_t indent)
 {
     /* Close all indents until we reach an indent less than or equal to the
      * current line ... it had better be equal, otherwise we're trying to start
@@ -126,6 +129,36 @@ static bool close_indents(
     while (indent < stack[*sp].indent)
         *sp -= 1;
     return TEST_OK_(indent == stack[*sp].indent, "Invalid indentation on line");
+}
+
+
+/* Processing for a single line: skip comments and blank lines, keep track of
+ * indentation of indentation stack, and parse line using the parser. */
+static bool parse_one_line(
+    unsigned int max_indent, char *line,
+    struct indent_state indent_stack[], unsigned int *sp,
+    const struct indent_parser *parser, void **new_context)
+{
+    /* Discard any trailing newline character. */
+    *strchrnul(line, '\n') = '\0';
+
+    /* Find indent of the current line. */
+    const char *parse_line = skip_whitespace(line);
+    size_t indent = (size_t) (parse_line - line);
+
+    /* Ignore comments and blank lines. */
+    if (*parse_line != '#'  &&  *parse_line != '\0')
+        return
+            IF_ELSE(indent > indent_stack[*sp].indent,
+                /* New line is more indented, try and open new indent. */
+                open_indent(indent_stack, sp, indent, max_indent, *new_context),
+            // else
+                /* Close any indentations until flush with current line. */
+                close_indents(indent_stack, sp, indent))  &&
+            parser->parse_line(
+                *sp, indent_stack[*sp].context, parse_line, new_context);
+    else
+        return true;
 }
 
 
@@ -138,39 +171,26 @@ bool parse_indented_file(
         "Unable to open file \"%s\"", file_name);
     if (ok)
     {
-        char line[256];
+        char line[MAX_LINE_LENGTH];
         int line_no = 0;
 
-        struct indent_state indent_stack[max_indent + 1];
+        /* The indentation stack is used to keep track of indents as they're
+         * opened and closed. */
         unsigned int sp = 0;
-        indent_stack[sp] = (struct indent_state) {
-            .indent = 0,
-            .context = parser->start() };
+        struct indent_state indent_stack[max_indent + 1];
+        indent_stack[0] = (struct indent_state) {
+            .indent = 0, .context = parser->start(), };
+
+        /* This context is written each time we parse a line and then used for
+         * lines with higher indentation. */
         void *new_context = NULL;
 
         while (ok  &&  fgets(line, sizeof(line), file))
         {
             line_no += 1;
-
-            /* Discard any trailing newline character. */
-            *strchrnul(line, '\n') = '\0';
-
             /* Skip whitespace and compute the current indentation. */
-            const char *parse_line = skip_whitespace(line);
-            size_t indent = (size_t) (parse_line - line);
-
-            /* Ignore comments and blank lines. */
-            if (*parse_line != '#'  &&  *parse_line != '\0')
-                ok =
-                    IF_ELSE(indent > indent_stack[sp].indent,
-                        /* Open new ident if appropriate. */
-                        open_indent(
-                            &sp, indent_stack, indent, max_indent, new_context),
-                    // else
-                        /* Close any indentations. */
-                        close_indents(&sp, indent_stack, indent))  &&
-                    parser->parse_line(
-                        sp, indent_stack[sp].context, parse_line, &new_context);
+            ok = parse_one_line(
+                max_indent, line, indent_stack, &sp, parser, &new_context);
             if (!ok)
                 log_message(
                     "Error parsing line %d of \"%s\"", line_no, file_name);
