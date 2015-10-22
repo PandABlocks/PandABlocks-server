@@ -50,7 +50,7 @@ static struct listen_socket data_socket = {
 /* This struct is used to pass connection information to a newly created
  * connection thread.  This structure is allocated by the listening thread and
  * released by the connection thread. */
-struct connection {
+struct socket_connection {
     int sock;                   // Socket for connection
     const struct listen_socket *parent;   // Parent structure
     char name[64];              // Name of connected client
@@ -115,7 +115,7 @@ static bool set_timeout(int sock, int timeout, int seconds)
 
 static void *connection_thread(void *context)
 {
-    struct connection *connection = context;
+    struct socket_connection *connection = context;
 
     get_client_name(connection->sock, connection->name);
     log_message("%s %s connected",
@@ -143,9 +143,9 @@ static bool process_connection(const struct listen_socket *listen_socket)
     ASSERT_PTHREAD(pthread_attr_init(&attr));
     ASSERT_PTHREAD(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED));
 
-    struct connection *connection = malloc(sizeof(struct connection));
+    struct socket_connection *connection =
+        malloc(sizeof(struct socket_connection));
     connection->parent = listen_socket;
-    ASSERT_NULL(connection);    // Gratuitous, never ever happens.
 
     pthread_t thread;
     return

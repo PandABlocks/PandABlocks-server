@@ -12,7 +12,8 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static bool process_entity_put(
-    const char *name, const char *value, FILE *sock, command_error_t *error)
+    struct config_connection *connection,
+    const char *name, const char *value, command_error_t *error)
 {
     printf("process_entity_put %s %s\n", name, value);
     *error = "put not implemented";
@@ -20,17 +21,18 @@ static bool process_entity_put(
 }
 
 
-static command_error_t process_entity_get(
-    const char *name, char result[], size_t result_length, void **multiline)
+static void process_entity_get(
+    struct config_connection *connection,
+    const char *name, char result[], command_error_t *error, void **multiline)
 {
-    printf("process_entity_get %s %p %zu\n", name, result, result_length);
+    printf("process_entity_get %s\n", name);
     *multiline = NULL;
-    return "get not implemented";
+    *error = "get not implemented";
 }
 
 
 static bool process_entity_get_more(
-    void *multiline, char result[], size_t result_length)
+    struct config_connection *connection, void *multiline, char result[])
 {
     ASSERT_FAIL();
 }
@@ -46,39 +48,35 @@ const struct config_command_set entity_commands = {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System commands. */
 
-static command_error_t process_system_put(const char *name, const char *value)
+static bool process_system_put(
+    struct config_connection *connection,
+    const char *name, const char *value, command_error_t *error)
 {
     printf("process_system_put %s %s\n", name, value);
-    return "*put not implemented";
+    *error = "*put not implemented";
+    return true;
 }
 
 
-static command_error_t process_system_get(
-    const char *name, char result[], size_t result_length, void **multiline)
+static void process_system_get(
+    struct config_connection *connection,
+    const char *name, char result[], command_error_t *error, void **multiline)
 {
-    printf("process_system_get %s %p %zu\n", name, result, result_length);
+    printf("process_system_get %s\n", name);
     *multiline = NULL;
-    return "*get not implemented";
+    *error = "*get not implemented";
 }
 
 
 static bool process_system_get_more(
-    void *multiline, char result[], size_t result_length)
+    struct config_connection *connection, void *multiline, char result[])
 {
     ASSERT_FAIL();
 }
 
 
-static bool wrap_process_system_put(
-    const char *name, const char *value, FILE *sock, command_error_t *error)
-{
-    *error = process_system_put(name, value);
-    return true;
-}
-
-
 const struct config_command_set system_commands = {
-    .put = wrap_process_system_put,
+    .put = process_system_put,
     .get = process_system_get,
     .get_more = process_system_get_more,
 };
