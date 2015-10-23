@@ -135,11 +135,13 @@ static error__t process_config_command(
 
 
 /* This is run as the thread to process a configuration client connection. */
-void process_config_socket(int sock)
+error__t process_config_socket(int sock)
 {
     FILE *stream;
     error__t error = TEST_IO(stream = fdopen(sock, "r+"));
-    if (!error)
+    if (error)
+        close(sock);
+    else
     {
         /* Create connection management structure here.  This will be passed
          * through to act as a connection context throughout the lifetime of
@@ -159,10 +161,5 @@ void process_config_socket(int sock)
         }
         fclose(stream);
     }
-    else
-        close(sock);
-
-    if (error)
-        ERROR_REPORT(error, "Connection error");
-    log_message("Connection terminated");
+    return error;
 }

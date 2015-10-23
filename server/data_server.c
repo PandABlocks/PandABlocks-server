@@ -14,11 +14,10 @@
 #include "data_server.h"
 
 
-void process_data_socket(int scon)
+error__t process_data_socket(int scon)
 {
     const char *message = "Data connection not yet implemented\n";
-    IGNORE(TEST_IO(write(scon, message, strlen(message))));
+    error__t error = TEST_IO(write(scon, message, strlen(message)));
     close(scon);
-
-    log_message("Connection terminated");
+    return error;
 }

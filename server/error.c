@@ -57,16 +57,6 @@ error__t _error_create(char *extra, const char *format, ...)
 }
 
 
-void error_discard(error__t error)
-{
-    for (int i = 0; i < error->count; i ++)
-        free(error->messages[i]);
-    free(error->formatted);
-    free(error);
-    __sync_add_and_fetch(&error_count, -1);
-}
-
-
 void error_extend(error__t error, const char *format, ...)
 {
     ASSERT_OK(error->count < MAX_ERROR_DEPTH);
@@ -76,6 +66,19 @@ void error_extend(error__t error, const char *format, ...)
     vasprintf(&error->messages[error->count], format, args);
     va_end(args);
     error->count += 1;
+}
+
+
+void error_discard(error__t error)
+{
+    if (error)
+    {
+        for (int i = 0; i < error->count; i ++)
+            free(error->messages[i]);
+        free(error->formatted);
+        free(error);
+        __sync_add_and_fetch(&error_count, -1);
+    }
 }
 
 

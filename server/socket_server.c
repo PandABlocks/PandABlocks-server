@@ -37,7 +37,7 @@
 struct listen_socket {
     int sock;                   // Listening socket
     const char *name;           // Config or Data, for logging
-    void (*process)(int sock);  // Function for processing socket connection
+    error__t (*process)(int sock); // Function for processing socket connection
 };
 
 /* Listening sockets for configuration and data connections. */
@@ -86,22 +86,19 @@ void kill_socket_server(void)
 
 
 /* Converts connected socket to a printable identification string. */
-static void get_client_name(int sock, char *client_name)
+static error__t get_client_name(int sock, char *client_name)
 {
     struct sockaddr_in name;
     socklen_t namelen = sizeof(name);
-    error__t error =
-        TEST_IO(getpeername(sock, (struct sockaddr *) &name, &namelen));
-    if (error_report(error))
-        sprintf(client_name, "unknown");
-    else
-    {
-        /* Consider using inet_ntop() here.  However doesn't include the port
-         * number, so probably not so interesting until IPv6 in use. */
-        uint8_t *ip = (uint8_t *) &name.sin_addr.s_addr;
-        sprintf(client_name, "%u.%u.%u.%u:%u",
-            ip[0], ip[1], ip[2], ip[3], ntohs(name.sin_port));
-    }
+    return
+        TEST_IO(getpeername(sock, (struct sockaddr *) &name, &namelen))  ?:
+        DO(
+            /* Consider using inet_ntop() here.  However doesn't include the
+             * port number, so probably not so interesting until IPv6 in use. */
+            uint8_t *ip = (uint8_t *) &name.sin_addr.s_addr;
+            sprintf(client_name, "%u.%u.%u.%u:%u",
+                ip[0], ip[1], ip[2], ip[3], ntohs(name.sin_port))
+        );
 }
 
 
@@ -119,20 +116,15 @@ static void *connection_thread(void *context)
 {
     struct socket_connection *connection = context;
 
-    get_client_name(connection->sock, connection->name);
-    log_message("%s %s connected",
+    log_message("Client %s %s connected",
+        connection->parent->name, connection->name);
+    error__t error = connection->parent->process(connection->sock);
+    if (error)
+        ERROR_REPORT(error, "Client %s %s raised error",
+            connection->parent->name, connection->name);
+    log_message("Client %s %s closed",
         connection->parent->name, connection->name);
 
-    error__t error =
-        set_timeout(connection->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT);
-    if (error_report(error))
-        close(connection->sock);
-    else
-        /* The connected process is responsible for closing its connection. */
-        connection->parent->process(connection->sock);
-
-    log_message("%s %s closed",
-        connection->parent->name, connection->name);
     free(connection);
     return NULL;
 }
@@ -140,23 +132,27 @@ static void *connection_thread(void *context)
 
 static error__t process_connection(const struct listen_socket *listen_socket)
 {
-    pthread_attr_t attr;
-    /* Note that we need to create the spawned threads with DETACHED attribute,
-     * otherwise we accumlate internal joinable state information and eventually
-     * run out of resources. */
-    ASSERT_PTHREAD(pthread_attr_init(&attr));
-    ASSERT_PTHREAD(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED));
-
     struct socket_connection *connection =
         malloc(sizeof(struct socket_connection));
     connection->parent = listen_socket;
 
+    pthread_attr_t attr;
     pthread_t thread;
     return
+        /* Note that we need to create the spawned threads with DETACHED
+         * attribute, otherwise we accumlate internal joinable state information
+         * and eventually run out of resources. */
+        TEST_PTHREAD(pthread_attr_init(&attr))  ?:
+        TEST_PTHREAD(
+            pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED))  ?:
         TRY_CATCH(
             TEST_IO(connection->sock =
                 accept(listen_socket->sock, NULL, NULL))  ?:
             TRY_CATCH(
+                /* Set the transmit timeout so that the server won't be stuck if
+                 * the client stops accepting data. */
+                set_timeout(connection->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT)  ?:
+                get_client_name(connection->sock, connection->name)  ?:
                 TEST_PTHREAD(pthread_create(
                     &thread, &attr, connection_thread, connection)),
 
@@ -167,6 +163,9 @@ static error__t process_connection(const struct listen_socket *listen_socket)
         // accept fails or thread creation fails
             free(connection)
         );
+    /* Note that the careful use of TRY_CATCH above is somewhat futile, as if
+     * any of the above steps fail we're going to terminate the server anyway.
+     * Ah well, maybe this will change... */
 }
 
 
