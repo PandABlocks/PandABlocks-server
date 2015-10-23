@@ -52,6 +52,17 @@
  *  error_discard(error)
  *      This simply releases all resources associated with error if it is not
  *      ERROR_OK.
+ *
+ * The following helper functions can be used to process error values:
+ *
+ *  error_format(error)
+ *      This converts an error message into a sensible string.  The lifetime of
+ *      the returned string is the same as the lifetime of the error value.
+ *
+ *  error_extend(error, format, ...)
+ *      A new error string is formatted and added to the given error code.
+ *      Note that ERROR_OK cannot be be passed, and will in fact trigger a
+ *      segmentation fault!
  */
 
 
@@ -172,6 +183,8 @@ static inline error__t __attribute__((warn_unused_result))
 #define TEST_OK_(expr, message...)  _TEST(_COND_OK, _MSG_OK, expr, message)
 #define TEST_OK(expr)               TEST_OK_(expr, ERROR_MESSAGE)
 #define ASSERT_OK(expr)             _ASSERT(_COND_OK, _MSG_OK, expr)
+#define TEST_OK_IO_(expr, message...) _TEST(_COND_OK, _MSG_IO, expr, message)
+#define TEST_OK_IO(expr)            TEST_OK_IO_(expr, ERROR_MESSAGE)
 
 /* Tests pointers: NULL => error.  If there is extra information in errno then
  * use the NULL_IO test, otherwise just NULL. */
@@ -252,3 +265,11 @@ static inline error__t __attribute__((warn_unused_result))
     } )
 #define REINTERPRET_CAST(args...) \
     _id_REINTERPRET_CAST(UNIQUE_ID(), args)
+
+/* A macro for ensuring that a value really is assign compatible to the
+ * requested type. */
+#define ENSURE_TYPE(type, value)    (*(type []) { (value) })
+
+/* Casting from one type to another with checking. */
+#define CAST_FROM_TO(from, to, value) \
+    REINTERPRET_CAST(to, ENSURE_TYPE(from, value))

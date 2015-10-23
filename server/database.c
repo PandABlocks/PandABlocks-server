@@ -49,10 +49,6 @@ struct field_entry {
 };
 
 
-/* We'll reject identifiers longer than this. */
-#define MAX_NAME_LENGTH     20
-
-
 static struct config_database config_database;
 
 
@@ -187,6 +183,54 @@ static error__t load_config_database(const char *db_name)
 {
     log_message("Loading configuration database from \"%s\"", db_name);
     return parse_indented_file(db_name, 1, &config_indent_parser);
+}
+
+
+bool walk_blocks_list(
+    int *ix, const struct config_block **block,
+    const char **name, unsigned int *count)
+{
+    bool ok = hash_table_walk_const(
+        config_database.map, ix, (const void **) name, (const void **) block);
+    if (ok)
+        *count = (*block)->count;
+    return ok;
+}
+
+
+const struct config_block *lookup_block(const char *name, unsigned int *count)
+{
+    const struct config_block *block =
+        hash_table_lookup(config_database.map, name);
+    if (block)
+        *count = block->count;
+    return block;
+}
+
+
+bool walk_fields_list(
+    const struct config_block *block,
+    int *ix, const struct field_entry **field, const char **name)
+{
+    return hash_table_walk_const(
+        block->map, ix, (const void **) name, (const void **) field);
+}
+
+
+/* Looks up field by name. */
+const struct field_entry *lookup_field(
+    const struct config_block *block, const char *name)
+{
+    return hash_table_lookup(block->map, name);
+}
+
+
+/* Returns meta-data definition. */
+const struct meta_field *lookup_meta(
+    const struct field_entry *field, const char *name)
+{
+    printf("lookup_meta %p %s\n", field, name);
+    return NULL;
 }
 
 

@@ -36,10 +36,13 @@ static error__t report_value(
 }
 
 
-static error__t report_error(
-    struct config_connection *connection, command_error_t error)
+static error__t report_command_error(
+    struct config_connection *connection, command_error_t command_error)
 {
-    return TEST_FPRINTF(connection, "ERR %s\n", error);
+    error__t error =
+        TEST_FPRINTF(connection, "ERR %s\n", error_format(command_error));
+    error_discard(command_error);
+    return error;
 }
 
 
@@ -51,7 +54,7 @@ static error__t process_multiline(
     error__t error = ERROR_OK;
     do
         error = TEST_FPRINTF(connection, "!%s\n", result);
-    while (!error  &&  command_set->get_more(connection, multiline, result));
+    while (!error  &&  command_set->get_more(multiline, result));
     error = error ?:
         TEST_FPRINTF(connection, ".\n");
     return error;
@@ -63,17 +66,17 @@ static error__t process_read_command(
     struct config_connection *connection, char *command,
     const struct config_command_set *command_set)
 {
-    char *action = strchr(command, '?');
+    char *action = strchr(command, '?');    // Already tested, WILL succeed
     *action++ = '\0';
     if (*action == '\0')
     {
         char result[MAX_VALUE_LENGTH];
+        command_error_t command_error = ERROR_OK;
         void *multiline = NULL;
-        command_error_t error;
         command_set->get(
-            connection, command, result, &error, &multiline);
-        if (error)
-            return report_error(connection, error);
+            connection, command, result, &command_error, &multiline);
+        if (command_error)
+            return report_command_error(connection, command_error);
         else if (multiline)
             return process_multiline(
                 connection, multiline, command_set, result);
@@ -81,7 +84,8 @@ static error__t process_read_command(
             return report_value(connection, result);
     }
     else
-        return report_error(connection, "Unexpected text after command");
+        return report_command_error(
+            connection, FAIL_("Unexpected text after command"));
 }
 
 
@@ -90,20 +94,15 @@ static error__t process_write_command(
     struct config_connection *connection, char *command,
     const struct config_command_set *command_set)
 {
-    char *action = strchr(command, '=');
-    if (action)
-    {
-        *action++ = '\0';
-        command_error_t error;
-        return
-            command_set->put(connection, command, action, &error)  ?:
-            IF_ELSE(error,
-                report_error(connection, error),
-            // else
-                report_success(connection));
-    }
-    else
-        return report_error(connection, "Malformed command");
+    char *action = strchr(command, '=');    // Already tested, WILL succeed
+    *action++ = '\0';
+    command_error_t command_error = ERROR_OK;
+    return
+        command_set->put(connection, command, action, &command_error)  ?:
+        IF_ELSE(command_error,
+            report_command_error(connection, command_error),
+        // else
+            report_success(connection));
 }
 
 
@@ -130,7 +129,7 @@ static error__t process_config_command(
     else if (strchr(command, '='))
         return process_write_command(connection, command, command_set);
     else
-        return report_error(connection, "Unknown command");
+        return report_command_error(connection, FAIL_("Unknown command"));
 }
 
 

@@ -87,7 +87,7 @@ error__t parse_uint(const char **string, unsigned int *result)
     *string = end;
     return
         TEST_OK_(end > start, "Number missing")  ?:
-        TEST_OK_(errno == 0, "Error converting number");
+        TEST_OK_IO_(errno == 0, "Error converting number");
 }
 
 

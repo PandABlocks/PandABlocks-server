@@ -25,6 +25,10 @@ bool hash_table_lookup_bool(
  * value is returned before being overwritten with the new value, otherwise NULL
  * is returned. */
 void *hash_table_insert(struct hash_table *table, const void *key, void *value);
+/* Inserts const value into hashtable. */
+#define hash_table_insert_const(table, key, value) \
+    hash_table_insert(table, key, CAST_FROM_TO(const void *, void *, value))
+
 /* Deletes key from hash table, returning the old value if present, otherwise
  * NULL. */
 void *hash_table_delete(struct hash_table *table, const void *key);
@@ -43,6 +47,8 @@ void hash_table_resize(struct hash_table *table, size_t min_size);
  * Either key or value can be null if the result is not required. */
 bool hash_table_walk(
     struct hash_table *table, int *ix, const void **key, void **value);
+#define hash_table_walk_const(table, ix, key, value) \
+    hash_table_walk(table, ix, key, CAST_FROM_TO(const void **, void **, value))
 
 
 /* Sanity checking of hash table consistency, raises assert fail if any error is
