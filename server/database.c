@@ -226,10 +226,10 @@ const struct field_entry *lookup_field(
 
 
 /* Returns meta-data definition. */
-const struct meta_field *lookup_meta(
+const struct field_subfield *lookup_subfield(
     const struct field_entry *field, const char *name)
 {
-    printf("lookup_meta %p %s\n", field, name);
+    printf("lookup_subfield %p %s\n", field, name);
     return NULL;
 }
 

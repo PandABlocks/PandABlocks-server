@@ -35,5 +35,5 @@ const struct field_entry *lookup_field(
     const struct config_block *block, const char *name);
 
 /* Looks up field meta-data. */
-const struct meta_field *lookup_meta(
+const struct field_subfield *lookup_subfield(
     const struct field_entry *field, const char *name);

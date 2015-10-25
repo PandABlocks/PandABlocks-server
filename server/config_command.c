@@ -31,7 +31,7 @@ struct entity_context {
     const struct config_block *block;       // Block database entry
     unsigned int number;                    // Block number, within valid range
     const struct field_entry *field;        // Field database entry
-    const struct meta_field *meta;          // Meta data, may be absent
+    const struct field_subfield *subfield;  // Subfield data, may be absent
 
     struct config_connection *connection;   // Connection from request
     const struct entity_actions *actions;   // Actions for this context
@@ -48,139 +48,192 @@ struct entity_actions {
     void (*get)(
         struct entity_context *context,
         char result[], command_error_t *command_error, void **multiline);
-    bool (*get_more)(struct entity_context *context, char result[]);
 };
 
 
+/* Implements  block.*?  command, returns list of fields. */
+static void block_meta_get(
+    struct entity_context *context,
+    char result[], command_error_t *command_error, void **multiline)
+{
+    *command_error = FAIL_("block.*? not implemented yet");
+}
+
+
+static error__t block_field_put(
+    struct entity_context *context,
+    const char *value, command_error_t *command_error)
+{
+    *command_error = FAIL_("block.field= not implemented yet");
+    return ERROR_OK;
+}
+
+static void block_field_get(
+    struct entity_context *context,
+    char result[], command_error_t *command_error, void **multiline)
+{
+    *command_error = FAIL_("block.field? not implemented yet");
+}
+
+
+static void field_meta_get(
+    struct entity_context *context,
+    char result[], command_error_t *command_error, void **multiline)
+{
+    *command_error = FAIL_("block.field.*? not implemented yet");
+}
+
+
+static error__t subfield_put(
+    struct entity_context *context,
+    const char *value, command_error_t *command_error)
+{
+    *command_error = FAIL_("block.field.subfield= not implemented yet");
+    return ERROR_OK;
+}
+
+static void subfield_get(
+    struct entity_context *context,
+    char result[], command_error_t *command_error, void **multiline)
+{
+    *command_error = FAIL_("block.field.subfield? not implemented yet");
+}
+
+
+/* Implements  block.*  commands. */
 static const struct entity_actions block_meta_actions = {
+    .get = block_meta_get,          // block.*?
 };
 
-static const struct entity_actions field_actions = {
+/* Implements  block.field  commands. */
+static const struct entity_actions block_field_actions = {
+    .put = block_field_put,         // block.field=value
+    .get = block_field_get,         // block.field?
 };
 
+/* Implements  block.field.*  commands. */
 static const struct entity_actions field_meta_actions = {
+    .get = field_meta_get,          // block.field.*?
 };
 
-static const struct entity_actions meta_actions = {
+/* Implements  block.field.subfield  commands. */
+static const struct entity_actions subfield_actions = {
+    .put = subfield_put,            // block.field.subfield=value
+    .get = subfield_get,            // block.field.subfield?
 };
 
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Parsing and dispatch of entity set and get. */
 
 
-/* Parses name into two or three sub-fields separated by dots, according to the
- * following syntax:
+/* Parses first part of entity target name:
  *
- *  block [count] "." ( "*" | field [ "." ( "*" | meta ) ]
+ *  block [number] "."
  *
- * Each sub-field must be no longer than MAX_NAME_LENGTH characters long, and
- * missing sub-fields are set to an empty string. */
-static command_error_t parse_entity_name(
-    const char *name,
-    char block[], unsigned int *number, bool *number_present,
-    char field[], char meta[])
+ * and sets *number_present accordingly. */
+static command_error_t parse_block_name(
+    const char **input, struct entity_context *context,
+    unsigned int *max_number, bool *number_present)
 {
-    *number_present = true;
-    meta[0] = '\0';
+    char block[MAX_NAME_LENGTH];
     return
-        /* There must be a block name. */
-        parse_name(&name, block, MAX_NAME_LENGTH)  ?:
-        /* The block is optionally followed by a number. */
-        IF_ELSE(isdigit(*name),
-            parse_uint(&name, number),
-        // else
-            DO(*number_present = false))  ?:
-        /* The field name or * follows preceded by a dot. */
-        parse_char(&name, '.')  ?:
-        IF_ELSE(read_char(&name, '*'),
-            DO(*field = '*'),
+        /* Parse and look up the block name. */
+        parse_name(input, block, MAX_NAME_LENGTH)  ?:
+        TEST_OK_(context->block = lookup_block(block, max_number),
+            "No such block")  ?:
+
+        /* Parse the number or flag its absence. */
+        IF_ELSE(isdigit(**input),
+            parse_uint(input, &context->number),
         //else
-            parse_name(&name, field, MAX_NAME_LENGTH)  ?:
-            /* There may be a meta-data field name following another dot. */
-            IF(read_char(&name, '.'),
-                IF_ELSE(read_char(&name, '*'),
-                    DO(*meta = '*'),
-                //else
-                    parse_name(&name, meta, MAX_NAME_LENGTH)))  ?:
-            /* Check that we've parsed everything. */
-            parse_eos(&name));
+            DO(*number_present = false))  ?:
+
+        /* Finally eat the trailing . */
+        parse_char(input, '.');
 }
 
 
-static command_error_t compute_field_handler(
-    bool number_present, unsigned int max_number, const char field[],
-    struct entity_context *context)
+/* This parses the  field  part of the entity name and does the final number
+ * checking. */
+static command_error_t parse_field_name(
+    const char **input, struct entity_context *context,
+    unsigned int max_number, bool number_present)
 {
+    char field[MAX_NAME_LENGTH];
     return
+        /* Ensure number present and in range or defaultable. */
         IF_ELSE(number_present,
-            /* If the number is present it must be within bounds. */
-            TEST_OK_(context->number < max_number, "Block index too high"),
-        // else
-            TEST_OK_(max_number == 1, "Missing block number")  ?:
-            DO(context->number = 0))  ?:
-        /* Block and number valid, look up field. */
+            TEST_OK_(context->number < max_number, "Block number too large"),
+        //else
+            TEST_OK_(max_number == 1, "No block number"))  ?:
+
+        /* Process the field. */
+        parse_name(input, field, MAX_NAME_LENGTH)  ?:
         TEST_OK_(context->field = lookup_field(context->block, field),
             "No such field");
 }
 
 
-static command_error_t compute_meta_handler(
-    const char meta[], struct entity_context *context)
+static command_error_t parse_subfield_name(
+    const char **input, struct entity_context *context)
 {
+    char subfield[MAX_NAME_LENGTH];
     return
-        /* Nearly there.  Need to check for meta field. */
-        IF_ELSE(*meta,
-            /* No meta-field, return simple field actions. */
-            DO(context->actions = &field_actions),
-
-        //else
-            /* Meta-data field is present, check for .* or field. */
-            IF_ELSE(*meta == '*',
-                /* Request for field meta data. */
-DO(printf("field_meta_actions\n")) ?:
-                DO(context->actions = &field_meta_actions),
-            //else
-                /* Lookup up meta-field. */
-                TEST_OK_(
-                    context->meta = lookup_meta(context->field, meta),
-                    "Meta-field not found")  ?:
-DO(printf("meta_actions\n")) ?:
-                DO(context->actions = &field_meta_actions)));
+        parse_name(input, subfield, MAX_NAME_LENGTH)  ?:
+        TEST_OK_(
+            context->subfield = lookup_subfield(context->field, subfield),
+            "No such subfield");
 }
 
 
+/* Parses name into two or three sub-fields separated by dots, according to the
+ * following syntax:
+ *
+ *  block [number] "." ( "*" | field [ "." ( "*" | meta ) ]
+ *
+ * One of the following four commands is parsed and the context->actions field
+ * is set accordingly:
+ *
+ *  block.*                             block_meta_actions
+ *  block[number].field                 block_field_actions
+ *  block[number].field.*               field_meta_actions
+ *  block[number].field.subfield        subfield_actions
+ *
+ * The number is only optional if there is only one instance of the block. */
 static command_error_t compute_entity_handler(
-    const char *name, struct entity_context *context)
+    const char *input, struct entity_context *context)
 {
-    char block[MAX_NAME_LENGTH];
-    char field[MAX_NAME_LENGTH] = {};
-    char meta[MAX_NAME_LENGTH] = {};
     unsigned int max_number;
-    bool number_present;
+    bool number_present = true;
 
+    context->number = 0;
     return
-        /* Split "block index.field.meta" into its components. */
-        parse_entity_name(
-            name, block, &context->number, &number_present, field, meta)  ?:
-DO(printf("%s %u %d %s %s\n", 
-block, context->number, number_present, field, meta))  ?:
-        /* The block *must* be present. */
-        TEST_OK_(context->block = lookup_block(block, &max_number),
-            "No such block")  ?:
+        parse_block_name(&input, context, &max_number, &number_present)  ?:
 
-        /* The * field gets special treatment. */
-        IF_ELSE(*field == '*',
-            /* There can't be a number present for .* requests. */
-            TEST_OK_(!number_present, "Malformed field list request")  ?:
-DO(printf("block_meta_actions\n")) ?:
+        IF_ELSE(read_char(&input, '*'),
+            /*  block.*  */
+            TEST_OK_(!number_present, "Block number not allowed")  ?:
             DO(context->actions = &block_meta_actions),
 
         //else
-            compute_field_handler(
-                number_present, max_number, field, context)  ?:
+            parse_field_name(&input, context, max_number, number_present)  ?:
+            IF_ELSE(read_char(&input, '.'),
+                /* There's a further * or a subfield. */
+                IF_ELSE(read_char(&input, '*'),
+                    /*  block.field.*  */
+                    DO(context->actions = &field_meta_actions),
+                //else
+                    /*  block.field.subfield  */
+                    parse_subfield_name(&input, context)  ?:
+                    DO(context->actions = &subfield_actions)),
+            //else
+                /*  block.field  */
+                DO(context->actions = &block_field_actions)))  ?:
 
-            compute_meta_handler(meta, context));
+        /* Make sure there's nothing left over in the field. */
+        parse_eos(&input);
 }
 
 
@@ -208,8 +261,9 @@ static void process_entity_get(
     struct entity_context context;
     *command_error =
         compute_entity_handler(name, &context)  ?:
-        TEST_OK_(context.actions->get, "Field not readable")  ?:
-        DO(context.actions->get(&context, result, command_error, multiline));
+        TEST_OK_(context.actions->get, "Field not readable");
+    if (!*command_error)
+        context.actions->get(&context, result, command_error, multiline);
 }
 
 
