@@ -13,6 +13,7 @@
 #include "socket_server.h"
 #include "database.h"
 #include "config_command.h"
+#include "system_command.h"
 
 
 static unsigned int config_port = 8888;
@@ -112,7 +113,7 @@ int main(int argc, char *const argv[])
 
         load_config_databases(config_db, types_db, register_db)  ?:
         initialise_hardware()  ?:
-        initialise_config_command()  ?:
+        initialise_system_command()  ?:
         initialise_socket_server(config_port, data_port)  ?:
 
         maybe_daemonise()  ?:

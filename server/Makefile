@@ -45,6 +45,7 @@ SRCS += parse.c
 SRCS += hashtable.c
 SRCS += database.c
 SRCS += config_command.c
+SRCS += system_command.c
 
 
 default: server

@@ -11,6 +11,7 @@
 #include "error.h"
 #include "hardware.h"
 #include "config_command.h"
+#include "system_command.h"
 
 #include "config_server.h"
 
