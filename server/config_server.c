@@ -24,41 +24,45 @@
     TEST_OK(fprintf(connection->stream, format) > 0)
 
 
-static error__t report_value(
-    struct config_connection *connection, const char *value)
+static error__t report_error(
+    struct config_connection *connection, command_error_t command_error)
 {
-    return TEST_FPRINTF(connection, "OK =%s\n", value);
+    error__t error =
+        TEST_FPRINTF(connection, "ERR %s\n", error_format(command_error));
+    error_discard(command_error);
+    return error;
 }
-
 
 static error__t report_status(
     struct config_connection *connection, command_error_t command_error)
 {
     if (command_error)
-    {
-        error__t error =
-            TEST_FPRINTF(connection, "ERR %s\n", error_format(command_error));
-        error_discard(command_error);
-        return error;
-    }
+        return report_error(connection, command_error);
     else
         return TEST_FPRINTF(connection, "OK\n");
 }
 
 
-/* Returns multiline response. */
-static error__t process_multiline(
-    struct config_connection *connection, void *multiline,
-    const struct config_command_set *command_set, char result[])
+static error__t write_one_result(
+    struct config_connection *connection, const char *result)
 {
-    error__t error = ERROR_OK;
-    do
-        error = TEST_FPRINTF(connection, "!%s\n", result);
-    while (!error  &&  command_set->get_more(multiline, result));
-    error = error ?:
-        TEST_FPRINTF(connection, ".\n");
-    return error;
+    return TEST_FPRINTF(connection, "OK =%s\n", result);
 }
+
+static error__t write_many_result(
+    struct config_connection *connection, const char *result, bool last)
+{
+    if (last)
+        return TEST_FPRINTF(connection, ".\n");
+    else
+        return TEST_FPRINTF(connection, "!%s\n", result);
+}
+
+static struct connection_result connection_result = {
+    .write_one = write_one_result,
+    .write_many = write_many_result,
+};
+
 
 
 /* Processes command of the form [*]name? */
@@ -68,20 +72,20 @@ static error__t do_read_command(
 {
     if (*value == '\0')
     {
-        char result[MAX_VALUE_LENGTH];
-        void *multiline = NULL;
+        error__t comms_error = ERROR_OK;
         command_error_t command_error = command_set->get(
-            connection, command, result, &multiline);
-        if (command_error)
-            return report_status(connection, command_error);
-        else if (multiline)
-            return process_multiline(
-                connection, multiline, command_set, result);
-        else
-            return report_value(connection, result);
+            connection, command, &connection_result, &comms_error);
+
+        /* If there was a communication error report that first, otherwise
+         * report any command error.  If nothing to report then success has
+         * already been reported through connection_result. */
+        return
+            comms_error  ?:
+            IF(command_error,
+                report_error(connection, command_error));
     }
     else
-        return report_status(
+        return report_error(
             connection, FAIL_("Unexpected text after command"));
 }
 
@@ -146,7 +150,7 @@ static error__t process_config_command(
         case '<':
             return do_table_command(connection, command, value, command_set);
         default:
-            return report_status(connection, FAIL_("Unknown command"));
+            return report_error(connection, FAIL_("Unknown command"));
     }
 }
 

@@ -36,7 +36,8 @@ struct entity_context {
  * structure are a close reflection of the fields in config_command set. */
 struct entity_actions {
     command_error_t (*get)(
-        struct entity_context *context, char result[], void **multiline);
+        struct entity_context *context,
+        struct connection_result *result, error__t *comms_error);
     command_error_t (*put)(struct entity_context *context, const char *value);
     command_error_t (*put_table)(
         struct entity_context *context,
@@ -46,9 +47,24 @@ struct entity_actions {
 
 /* Implements  block.*?  command, returns list of fields. */
 static command_error_t block_meta_get(
-    struct entity_context *context, char result[], void **multiline)
+    struct entity_context *context,
+    struct connection_result *result, error__t *comms_error)
 {
-    return FAIL_("block.*? not implemented yet");
+    int ix = 0;
+    const struct field_entry *field;
+    const char *field_name;
+    while (!*comms_error  &&
+           walk_fields_list(context->block, &ix, &field, &field_name))
+    {
+        char value[MAX_VALUE_LENGTH];
+        snprintf(value, MAX_VALUE_LENGTH, "%s", field_name);
+        *comms_error = result->write_many(
+            context->connection, value, false);
+    }
+    *comms_error =
+        *comms_error  ?:
+        result->write_many(context->connection, NULL, true);
+    return ERROR_OK;
 }
 
 
@@ -62,7 +78,8 @@ static command_error_t block_field_put(
 
 /* Implements  block.field?  command. */
 static command_error_t block_field_get(
-    struct entity_context *context, char result[], void **multiline)
+    struct entity_context *context,
+    struct connection_result *result, error__t *comms_error)
 {
     return FAIL_("block.field? not implemented yet");
 }
@@ -70,7 +87,8 @@ static command_error_t block_field_get(
 
 /* Implements  block.field.*?  command. */
 static command_error_t field_meta_get(
-    struct entity_context *context, char result[], void **multiline)
+    struct entity_context *context,
+    struct connection_result *result, error__t *comms_error)
 {
     return FAIL_("block.field.*? not implemented yet");
 }
@@ -86,7 +104,8 @@ static command_error_t field_attr_put(
 
 /* Implements  block.field.attr?  command. */
 static command_error_t field_attr_get(
-    struct entity_context *context, char result[], void **multiline)
+    struct entity_context *context,
+    struct connection_result *result, error__t *comms_error)
 {
     return FAIL_("block.field.attr? not implemented yet");
 }
@@ -250,20 +269,13 @@ static command_error_t compute_entity_handler(
 /* Process  entity?  commands. */
 static command_error_t process_entity_get(
     struct config_connection *connection, const char *name,
-    char result[], void **multiline)
+    struct connection_result *result, error__t *comms_error)
 {
-    struct entity_context context;
+    struct entity_context context = { .connection = connection };
     return
         compute_entity_handler(name, &context)  ?:
         TEST_OK_(context.actions->get, "Field not readable")  ?:
-        context.actions->get(&context, result, multiline);
-}
-
-
-/* Handler for multi-line responses. */
-static bool process_entity_get_more(void *multiline, char result[])
-{
-    ASSERT_FAIL();
+        context.actions->get(&context, result, comms_error);
 }
 
 
@@ -271,7 +283,7 @@ static bool process_entity_get_more(void *multiline, char result[])
 static command_error_t process_entity_put(
     struct config_connection *connection, const char *name, const char *value)
 {
-    struct entity_context context;
+    struct entity_context context = { .connection = connection };
     return
         compute_entity_handler(name, &context)  ?:
         TEST_OK_(context.actions->put, "Field not writeable")  ?:
@@ -284,7 +296,7 @@ static command_error_t process_entity_put_table(
     struct config_connection *connection,
     const char *name, const char *format, error__t *comms_error)
 {
-    struct entity_context context;
+    struct entity_context context = { .connection = connection };
     return
         compute_entity_handler(name, &context)  ?:
         TEST_OK_(context.actions->put_table, "Field not a table")  ?:
@@ -296,5 +308,4 @@ const struct config_command_set entity_commands = {
     .get = process_entity_get,
     .put = process_entity_put,
     .put_table = process_entity_put_table,
-    .get_more = process_entity_get_more,
 };

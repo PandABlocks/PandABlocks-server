@@ -23,21 +23,15 @@
 /* Individual system commands. */
 
 
-struct multiline_state {
-    config_command_get_more_t *get_more;
-    int index;
-};
-
-
 /* *IDN?
  *
  * Returns simple system identification. */
 
 static command_error_t system_get_idn(
     struct config_connection *connection, const char *name,
-    char result[], void **multiline)
+    struct connection_result *result, error__t *comms_error)
 {
-    strcpy(result, "PandA");
+    *comms_error = result->write_one(connection, "PandA");
     return ERROR_OK;
 }
 
@@ -46,38 +40,24 @@ static command_error_t system_get_idn(
  *
  * Returns formatted list of all the blocks in the system. */
 
-static bool system_get_more_blocks(void *multiline, char result[])
-{
-    struct multiline_state *state = multiline;
-
-    const struct config_block *block;
-    const char *name;
-    unsigned int count;
-    if (walk_blocks_list(&state->index, &block, &name, &count))
-    {
-        snprintf(result, MAX_VALUE_LENGTH, "%s %d", name, count);
-        return true;
-    }
-    else
-    {
-        free(state);
-        return false;
-    }
-}
-
 static command_error_t system_get_blocks(
     struct config_connection *connection, const char *name,
-    char result[], void **multiline)
+    struct connection_result *result, error__t *comms_error)
 {
-    struct multiline_state *state = malloc(sizeof(struct multiline_state));
-    *state = (struct multiline_state) {
-        .get_more = system_get_more_blocks,
-        .index = 0, };
-
-    /* This will only fail if we failed to load any blocks, and this is already
-     * checked during startup. */
-    ASSERT_OK(system_get_more_blocks(state, result));
-    *multiline = state;
+    const struct config_block *block;
+    const char *block_name;
+    unsigned int count;
+    int ix = 0;
+    while (!*comms_error  &&
+           walk_blocks_list(&ix, &block, &block_name, &count))
+    {
+        char value[MAX_VALUE_LENGTH];
+        snprintf(value, MAX_VALUE_LENGTH, "%s %d", block_name, count);
+        *comms_error = result->write_many(connection, value, false);
+    }
+    *comms_error =
+        *comms_error  ?:
+        result->write_many(connection, NULL, true);
     return ERROR_OK;
 }
 
@@ -93,9 +73,8 @@ struct command_table_entry {
 };
 
 static const struct command_table_entry command_table_list[] = {
-    { "IDN", { .get = system_get_idn } },
-    { "BLOCKS", {
-        .get = system_get_blocks, .get_more = system_get_more_blocks } },
+    { "IDN",        { .get = system_get_idn } },
+    { "BLOCKS",     { .get = system_get_blocks, } },
 };
 
 static struct hash_table *command_table;
@@ -105,13 +84,13 @@ static struct hash_table *command_table;
 /* Process  *command?  commands. */
 static command_error_t process_system_get(
     struct config_connection *connection, const char *name,
-    char result[], void **multiline)
+    struct connection_result *result, error__t *comms_error)
 {
     const struct config_command_set *commands =
         hash_table_lookup(command_table, name);
     return
         TEST_OK_(commands  &&  commands->get, "Unknown value")  ?:
-        commands->get(connection, name, result, multiline);
+        commands->get(connection, name, result, comms_error);
 }
 
 
@@ -135,20 +114,11 @@ static command_error_t process_system_put_table(
 }
 
 
-/* Processes multi-line  *command?  responses. */
-static bool process_system_get_more(void *multiline, char result[])
-{
-    struct multiline_state *state = multiline;
-    return state->get_more(multiline, result);
-}
-
-
 /* Command interface from server. */
 const struct config_command_set system_commands = {
     .get = process_system_get,
     .put = process_system_put,
     .put_table = process_system_put_table,
-    .get_more = process_system_get_more,
 };
 
 

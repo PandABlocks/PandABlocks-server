@@ -17,34 +17,43 @@ struct config_connection;
 typedef error__t command_error_t;
 
 
-/* Implements name? command.  If the result extends over multiple lines then
- * the first lines is returned, *multiline is set to a non NULL value, and
- * get_more() must be called to read the remaining lines. */
-typedef command_error_t config_command_get_t(
-    struct config_connection *connection,
-    const char *name, char result[], void **multiline);
+/* This structure is used by get to communicate its results back to the server.
+ * Either a single value is written, or a multi-line result.  Only one of these
+ * two methods may be called. */
+struct connection_result {
+    /* If this is called then it must be called exactly once. */
+    error__t (*write_one)(
+        struct config_connection *connection, const char *result);
+    /* This can be called repeatedly, but the last call must be made with last
+     * set to false -- the value is ignored for this last value. */
+    error__t (*write_many)(
+        struct config_connection *connection, const char *result, bool last);
+};
 
-/* Implements name=value command.  If the value extents over multiple lines then
- * the rest of the value can be read from the connection stream, otherwise this
- * must be left alone.  As this reads from the input stream this reading process
- * can fail. */
-typedef command_error_t config_command_put_t(
-    struct config_connection *connection, const char *name, const char *value);
 
-typedef command_error_t config_command_put_table_t(
-    struct config_connection *connection,
-    const char *name, const char *format, error__t *comms_error);
-
-/* Implements process for reading the remaining lines from a multi-line get
- * which set *multiline.  Returns false when there are no more lines to read. */
-typedef bool config_command_get_more_t(void *multiline, char result[]);
 
 /* Uniform interface to entity and system commands. */
 struct config_command_set {
-    config_command_get_t *get;
-    config_command_put_t *put;
-    config_command_put_table_t *put_table;
-    config_command_get_more_t *get_more;
+    /* Implements name? command.  All results are returned through the
+     * connection_result interface, and any communication error is returned
+     * through *comms_error.
+     *    Note that ERROR_OK must be returned precisely if either
+     * connection_result method was called, otherwise an error. */
+    command_error_t (*get)(
+        struct config_connection *connection, const char *name,
+        struct connection_result *result, error__t *comms_error);
+
+    /* Implements name=value command. */
+    command_error_t (*put)(
+        struct config_connection *connection,
+        const char *name, const char *value);
+
+    /* Implements name<format command.  This implements writing a multi-line
+     * value, the rest of the data is read from the connection stream, and any
+     * error arising is written to comms_error. */
+    command_error_t (*put_table)(
+        struct config_connection *connection,
+        const char *name, const char *format, error__t *comms_error);
 };
 
 
