@@ -182,7 +182,10 @@ static const struct indent_parser config_indent_parser = {
 static error__t load_config_database(const char *db_name)
 {
     log_message("Loading configuration database from \"%s\"", db_name);
-    return parse_indented_file(db_name, 1, &config_indent_parser);
+    return
+        parse_indented_file(db_name, 1, &config_indent_parser)  ?:
+        TEST_OK_(hash_table_count(config_database.map),
+            "No entities loaded");
 }
 
 

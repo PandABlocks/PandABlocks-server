@@ -17,21 +17,23 @@ struct config_connection;
 typedef error__t command_error_t;
 
 
+/* Implements name? command.  If the result extends over multiple lines then
+ * the first lines is returned, *multiline is set to a non NULL value, and
+ * get_more() must be called to read the remaining lines. */
+typedef command_error_t config_command_get_t(
+    struct config_connection *connection,
+    const char *name, char result[], void **multiline);
+
 /* Implements name=value command.  If the value extents over multiple lines then
  * the rest of the value can be read from the connection stream, otherwise this
  * must be left alone.  As this reads from the input stream this reading process
  * can fail. */
-typedef error__t config_command_put_t(
-    struct config_connection *connection,
-    const char *name, const char *value, command_error_t *command_error);
+typedef command_error_t config_command_put_t(
+    struct config_connection *connection, const char *name, const char *value);
 
-/* Implements name? command.  If the result extends over multiple lines then
- * the first lines is returned, *multiline is set to a non NULL value, and
- * get_more() must be called to read the remaining lines. */
-typedef void config_command_get_t(
+typedef command_error_t config_command_put_table_t(
     struct config_connection *connection,
-    const char *name, char result[],
-    command_error_t *command_error, void **multiline);
+    const char *name, const char *format, error__t *comms_error);
 
 /* Implements process for reading the remaining lines from a multi-line get
  * which set *multiline.  Returns false when there are no more lines to read. */
@@ -39,8 +41,9 @@ typedef bool config_command_get_more_t(void *multiline, char result[]);
 
 /* Uniform interface to entity and system commands. */
 struct config_command_set {
-    config_command_put_t *put;
     config_command_get_t *get;
+    config_command_put_t *put;
+    config_command_put_table_t *put_table;
     config_command_get_more_t *get_more;
 };
 

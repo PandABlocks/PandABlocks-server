@@ -42,68 +42,60 @@ struct entity_context {
  * depending on the exact structure of the entity request.  The fields in this
  * structure are a close reflection of the fields in config_command set. */
 struct entity_actions {
-    error__t (*put)(
+    command_error_t (*get)(
+        struct entity_context *context, char result[], void **multiline);
+    command_error_t (*put)(struct entity_context *context, const char *value);
+    command_error_t (*put_table)(
         struct entity_context *context,
-        const char *value, command_error_t *command_error);
-    void (*get)(
-        struct entity_context *context,
-        char result[], command_error_t *command_error, void **multiline);
+        const char *format, error__t *comms_error);
 };
 
 
 /* Implements  block.*?  command, returns list of fields. */
-static void block_meta_get(
-    struct entity_context *context,
-    char result[], command_error_t *command_error, void **multiline)
+static command_error_t block_meta_get(
+    struct entity_context *context, char result[], void **multiline)
 {
-    *command_error = FAIL_("block.*? not implemented yet");
+    return FAIL_("block.*? not implemented yet");
 }
 
 
 /* Implements  block.field=  command. */
-static error__t block_field_put(
-    struct entity_context *context,
-    const char *value, command_error_t *command_error)
+static command_error_t block_field_put(
+    struct entity_context *context, const char *value)
 {
-    *command_error = FAIL_("block.field= not implemented yet");
-    return ERROR_OK;
+    return FAIL_("block.field= not implemented yet");
 }
 
 
 /* Implements  block.field?  command. */
-static void block_field_get(
-    struct entity_context *context,
-    char result[], command_error_t *command_error, void **multiline)
+static command_error_t block_field_get(
+    struct entity_context *context, char result[], void **multiline)
 {
-    *command_error = FAIL_("block.field? not implemented yet");
+    return FAIL_("block.field? not implemented yet");
 }
 
 
 /* Implements  block.field.*?  command. */
-static void field_meta_get(
-    struct entity_context *context,
-    char result[], command_error_t *command_error, void **multiline)
+static command_error_t field_meta_get(
+    struct entity_context *context, char result[], void **multiline)
 {
-    *command_error = FAIL_("block.field.*? not implemented yet");
+    return FAIL_("block.field.*? not implemented yet");
 }
 
 
 /* Implements  block.field.subfield=  command. */
-static error__t subfield_put(
-    struct entity_context *context,
-    const char *value, command_error_t *command_error)
+static command_error_t subfield_put(
+    struct entity_context *context, const char *value)
 {
-    *command_error = FAIL_("block.field.subfield= not implemented yet");
-    return ERROR_OK;
+    return FAIL_("block.field.subfield= not implemented yet");
 }
 
 
 /* Implements  block.field.subfield?  command. */
-static void subfield_get(
-    struct entity_context *context,
-    char result[], command_error_t *command_error, void **multiline)
+static command_error_t subfield_get(
+    struct entity_context *context, char result[], void **multiline)
 {
-    *command_error = FAIL_("block.field.subfield? not implemented yet");
+    return FAIL_("block.field.subfield? not implemented yet");
 }
 
 
@@ -161,7 +153,7 @@ static command_error_t parse_block_name(
             DO(*number_present = false; context->number = 0))  ?:
 
         /* Finally eat the trailing . */
-        parse_char(input, '.');
+        TEST_OK_(read_char(input, '.'), "Missing field name");
 }
 
 
@@ -262,31 +254,16 @@ static command_error_t compute_entity_handler(
 }
 
 
-/* Process  entity=value  commands. */
-static error__t process_entity_put(
-    struct config_connection *connection,
-    const char *name, const char *value, command_error_t *command_error)
-{
-    struct entity_context context = {};
-    *command_error =
-        compute_entity_handler(name, &context)  ?:
-        TEST_OK_(context.actions->put, "Field not writeable");
-    return IF(!*command_error,
-        context.actions->put(&context, value, command_error));
-}
-
-
 /* Process  entity?  commands. */
-static void process_entity_get(
+static command_error_t process_entity_get(
     struct config_connection *connection, const char *name,
-    char result[], command_error_t *command_error, void **multiline)
+    char result[], void **multiline)
 {
     struct entity_context context;
-    *command_error =
+    return
         compute_entity_handler(name, &context)  ?:
-        TEST_OK_(context.actions->get, "Field not readable");
-    if (!*command_error)
-        context.actions->get(&context, result, command_error, multiline);
+        TEST_OK_(context.actions->get, "Field not readable")  ?:
+        context.actions->get(&context, result, multiline);
 }
 
 
@@ -297,9 +274,35 @@ static bool process_entity_get_more(void *multiline, char result[])
 }
 
 
+/* Process  entity=value  commands. */
+static command_error_t process_entity_put(
+    struct config_connection *connection, const char *name, const char *value)
+{
+    struct entity_context context;
+    return
+        compute_entity_handler(name, &context)  ?:
+        TEST_OK_(context.actions->put, "Field not writeable")  ?:
+        context.actions->put(&context, value);
+}
+
+
+/* Process  entity<format  commands. */
+static command_error_t process_entity_put_table(
+    struct config_connection *connection,
+    const char *name, const char *format, error__t *comms_error)
+{
+    struct entity_context context;
+    return
+        compute_entity_handler(name, &context)  ?:
+        TEST_OK_(context.actions->put_table, "Field not a table")  ?:
+        context.actions->put_table(&context, format, comms_error);
+}
+
+
 const struct config_command_set entity_commands = {
-    .put = process_entity_put,
     .get = process_entity_get,
+    .put = process_entity_put,
+    .put_table = process_entity_put_table,
     .get_more = process_entity_get_more,
 };
 
@@ -313,11 +316,12 @@ const struct config_command_set entity_commands = {
  *
  * Returns simple system identification. */
 
-static void system_get_idn(
+static command_error_t system_get_idn(
     struct config_connection *connection, const char *name,
-    char result[], command_error_t *command_error, void **multiline)
+    char result[], void **multiline)
 {
     strcpy(result, "PandA");
+    return ERROR_OK;
 }
 
 
@@ -344,19 +348,20 @@ static bool system_get_more_blocks(void *multiline, char result[])
     }
 }
 
-static void system_get_blocks(
+static command_error_t system_get_blocks(
     struct config_connection *connection, const char *name,
-    char result[], command_error_t *command_error, void **multiline)
+    char result[], void **multiline)
 {
     struct multiline_state *state = malloc(sizeof(struct multiline_state));
     *state = (struct multiline_state) {
         .get_more = system_get_more_blocks,
         .index = 0, };
 
-    if (system_get_more_blocks(state, result))
-        *multiline = state;
-    else
-        *command_error = FAIL_("No blocks found!");
+    /* This will only fail if we failed to load any blocks, and this is already
+     * checked during startup. */
+    ASSERT_OK(system_get_more_blocks(state, result));
+    *multiline = state;
+    return ERROR_OK;
 }
 
 
@@ -380,34 +385,36 @@ static struct hash_table *command_table;
 
 
 
-/* Process  *command=value  commands. */
-static error__t process_system_put(
-    struct config_connection *connection,
-    const char *name, const char *value, command_error_t *command_error)
+/* Process  *command?  commands. */
+static command_error_t process_system_get(
+    struct config_connection *connection, const char *name,
+    char result[], void **multiline)
 {
     const struct config_command_set *commands =
         hash_table_lookup(command_table, name);
-    if (commands  &&  commands->put)
-        return commands->put(connection, name, value, command_error);
-    else
-    {
-        *command_error = FAIL_("Unknown target");
-        return ERROR_OK;
-    }
+    return
+        TEST_OK_(commands  &&  commands->get, "Unknown value")  ?:
+        commands->get(connection, name, result, multiline);
 }
 
 
-/* Process  *command?  commands. */
-static void process_system_get(
-    struct config_connection *connection, const char *name,
-    char result[], command_error_t *command_error, void **multiline)
+/* Process  *command=value  commands. */
+static command_error_t process_system_put(
+    struct config_connection *connection, const char *name, const char *value)
 {
     const struct config_command_set *commands =
         hash_table_lookup(command_table, name);
-    if (commands  &&  commands->get)
-        commands->get(connection, name, result, command_error, multiline);
-    else
-        *command_error = FAIL_("Unknown value");
+    return
+        TEST_OK_(commands  &&  commands->put, "Unknown target")  ?:
+        commands->put(connection, name, value);
+}
+
+
+static command_error_t process_system_put_table(
+    struct config_connection *connection,
+    const char *name, const char *format, error__t *comms_error)
+{
+    return FAIL_("Not a table");
 }
 
 
@@ -420,8 +427,9 @@ static bool process_system_get_more(void *multiline, char result[])
 
 
 const struct config_command_set system_commands = {
-    .put = process_system_put,
     .get = process_system_get,
+    .put = process_system_put,
+    .put_table = process_system_put_table,
     .get_more = process_system_get_more,
 };
 

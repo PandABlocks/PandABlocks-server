@@ -23,12 +23,6 @@
     TEST_OK(fprintf(connection->stream, format) > 0)
 
 
-static error__t report_success(struct config_connection *connection)
-{
-    return TEST_FPRINTF(connection, "OK\n");
-}
-
-
 static error__t report_value(
     struct config_connection *connection, const char *value)
 {
@@ -36,13 +30,18 @@ static error__t report_value(
 }
 
 
-static error__t report_command_error(
+static error__t report_status(
     struct config_connection *connection, command_error_t command_error)
 {
-    error__t error =
-        TEST_FPRINTF(connection, "ERR %s\n", error_format(command_error));
-    error_discard(command_error);
-    return error;
+    if (command_error)
+    {
+        error__t error =
+            TEST_FPRINTF(connection, "ERR %s\n", error_format(command_error));
+        error_discard(command_error);
+        return error;
+    }
+    else
+        return TEST_FPRINTF(connection, "OK\n");
 }
 
 
@@ -62,21 +61,18 @@ static error__t process_multiline(
 
 
 /* Processes command of the form [*]name? */
-static error__t process_read_command(
-    struct config_connection *connection, char *command,
+static error__t do_read_command(
+    struct config_connection *connection, char *command, char *value,
     const struct config_command_set *command_set)
 {
-    char *action = strchr(command, '?');    // Already tested, WILL succeed
-    *action++ = '\0';
-    if (*action == '\0')
+    if (*value == '\0')
     {
         char result[MAX_VALUE_LENGTH];
-        command_error_t command_error = ERROR_OK;
         void *multiline = NULL;
-        command_set->get(
-            connection, command, result, &command_error, &multiline);
+        command_error_t command_error = command_set->get(
+            connection, command, result, &multiline);
         if (command_error)
-            return report_command_error(connection, command_error);
+            return report_status(connection, command_error);
         else if (multiline)
             return process_multiline(
                 connection, multiline, command_set, result);
@@ -84,25 +80,36 @@ static error__t process_read_command(
             return report_value(connection, result);
     }
     else
-        return report_command_error(
+        return report_status(
             connection, FAIL_("Unexpected text after command"));
 }
 
 
 /* Processes command of the form [*]name=value */
-static error__t process_write_command(
-    struct config_connection *connection, char *command,
+static error__t do_write_command(
+    struct config_connection *connection, char *command, char *value,
     const struct config_command_set *command_set)
 {
-    char *action = strchr(command, '=');    // Already tested, WILL succeed
-    *action++ = '\0';
-    command_error_t command_error = ERROR_OK;
+    return report_status(
+        connection, command_set->put(connection, command, value));
+}
+
+
+/* Processes command of the form [*]name<format
+ * This has the special condition that the input stream will be read for further
+ * data, and so the put_table function can return one of two different error
+ * codes: if a communication error is reported then we need to drop the
+ * connection. */
+static error__t do_table_command(
+    struct config_connection *connection, char *command, char *format,
+    const struct config_command_set *command_set)
+{
+    error__t comms_error = ERROR_OK;
+    command_error_t command_error =
+        command_set->put_table(connection, command, format, &comms_error);
     return
-        command_set->put(connection, command, action, &command_error)  ?:
-        IF_ELSE(command_error,
-            report_command_error(connection, command_error),
-        // else
-            report_success(connection));
+        comms_error  ?:
+        report_status(connection, command_error);
 }
 
 
@@ -123,13 +130,23 @@ static error__t process_config_command(
     else
         command_set = &entity_commands;
 
-    /* Now choose between read and write command. */
-    if (strchr(command, '?'))
-        return process_read_command(connection, command, command_set);
-    else if (strchr(command, '='))
-        return process_write_command(connection, command, command_set);
-    else
-        return report_command_error(connection, FAIL_("Unknown command"));
+    /* The command is one of  name?, name=value, or name<format.  Split the
+     * command into two parts at the separator. */
+    size_t ix = strcspn(command, "?=<");
+    char ch = command[ix];
+    command[ix] = '\0';
+    char *value = &command[ix + 1];
+    switch (ch)
+    {
+        case '?':
+            return do_read_command(connection, command, value, command_set);
+        case '=':
+            return do_write_command(connection, command, value, command_set);
+        case '<':
+            return do_table_command(connection, command, value, command_set);
+        default:
+            return report_status(connection, FAIL_("Unknown command"));
+    }
 }
 
 
