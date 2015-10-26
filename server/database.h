@@ -8,7 +8,7 @@
 /* Abstract interfaces to the database. */
 struct config_block;
 struct field_entry;
-struct meta_field;
+struct field_attr;
 
 
 /* This function loads the three configuration databases into memory. */
@@ -35,5 +35,5 @@ const struct field_entry *lookup_field(
     const struct config_block *block, const char *name);
 
 /* Looks up field meta-data. */
-const struct field_subfield *lookup_subfield(
+const struct field_attr *lookup_attr(
     const struct field_entry *field, const char *name);

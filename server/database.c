@@ -229,7 +229,7 @@ const struct field_entry *lookup_field(
 
 
 /* Returns meta-data definition. */
-const struct field_subfield *lookup_subfield(
+const struct field_attr *lookup_attr(
     const struct field_entry *field, const char *name)
 {
     printf("lookup_subfield %p %s\n", field, name);

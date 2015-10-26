@@ -31,7 +31,7 @@ struct entity_context {
     const struct config_block *block;       // Block database entry
     unsigned int number;                    // Block number, within valid range
     const struct field_entry *field;        // Field database entry
-    const struct field_subfield *subfield;  // Subfield data, may be absent
+    const struct field_attr *attr;          // Attribute data, may be absent
 
     struct config_connection *connection;   // Connection from request
     const struct entity_actions *actions;   // Actions for this context
@@ -83,19 +83,19 @@ static command_error_t field_meta_get(
 }
 
 
-/* Implements  block.field.subfield=  command. */
-static command_error_t subfield_put(
+/* Implements  block.field.attr=  command. */
+static command_error_t field_attr_put(
     struct entity_context *context, const char *value)
 {
-    return FAIL_("block.field.subfield= not implemented yet");
+    return FAIL_("block.field.attr= not implemented yet");
 }
 
 
-/* Implements  block.field.subfield?  command. */
-static command_error_t subfield_get(
+/* Implements  block.field.attr?  command. */
+static command_error_t field_attr_get(
     struct entity_context *context, char result[], void **multiline)
 {
-    return FAIL_("block.field.subfield? not implemented yet");
+    return FAIL_("block.field.attr? not implemented yet");
 }
 
 
@@ -115,10 +115,10 @@ static const struct entity_actions field_meta_actions = {
     .get = field_meta_get,          // block.field.*?
 };
 
-/* Implements  block.field.subfield  commands. */
-static const struct entity_actions subfield_actions = {
-    .put = subfield_put,            // block.field.subfield=value
-    .get = subfield_get,            // block.field.subfield?
+/* Implements  block.field.attr  commands. */
+static const struct entity_actions field_attr_actions = {
+    .put = field_attr_put,          // block.field.attr=value
+    .get = field_attr_get,          // block.field.attr?
 };
 
 
@@ -157,7 +157,7 @@ static command_error_t parse_block_name(
 }
 
 
-/* Block number must be present or defaulted for normal field and subfield
+/* Block number must be present or defaulted for normal field and attribute
  * commands. */
 static command_error_t check_block_number(
     unsigned int max_number, bool number_present)
@@ -187,15 +187,15 @@ static command_error_t parse_field_name(
 }
 
 
-/* Parses  subfield  part of entity name if present and looks it up. */
-static command_error_t parse_subfield_name(
+/* Parses  attr  part of entity name if present and looks it up. */
+static command_error_t parse_attr_name(
     const char **input, struct entity_context *context)
 {
-    char subfield[MAX_NAME_LENGTH];
+    char attr[MAX_NAME_LENGTH];
     return
-        parse_name(input, subfield, MAX_NAME_LENGTH)  ?:
-        TEST_OK_(context->subfield = lookup_subfield(context->field, subfield),
-            "No such subfield");
+        parse_name(input, attr, MAX_NAME_LENGTH)  ?:
+        TEST_OK_(context->attr = lookup_attr(context->field, attr),
+            "No such attribute");
 }
 
 
@@ -210,7 +210,7 @@ static command_error_t parse_subfield_name(
  *  block.*                             block_meta_actions
  *  block[number].field                 block_field_actions
  *  block.field.*                       field_meta_actions
- *  block[number].field.subfield        subfield_actions
+ *  block[number].field.attr            field_attr_actions
  *
  * The number is only optional if there is only one instance of the block. */
 static command_error_t compute_entity_handler(
@@ -231,16 +231,16 @@ static command_error_t compute_entity_handler(
             /* If not block meta-query then field name must follow. */
             parse_field_name(&input, context)  ?:
             IF_ELSE(read_char(&input, '.'),
-                /* There's a further * or a subfield. */
+                /* There's a further * or an attribute. */
                 IF_ELSE(read_char(&input, '*'),
                     /*  block.field.*  */
                     check_no_number(number_present)  ?:
                     DO(context->actions = &field_meta_actions),
                 //else
-                    /*  block.field.subfield  */
-                    parse_subfield_name(&input, context)  ?:
+                    /*  block.field.attr  */
+                    parse_attr_name(&input, context)  ?:
                     check_block_number(max_number, number_present)  ?:
-                    DO(context->actions = &subfield_actions)
+                    DO(context->actions = &field_attr_actions)
                 ),
             //else
                 /*  block.field  */
