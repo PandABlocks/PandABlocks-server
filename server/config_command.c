@@ -60,6 +60,7 @@ static void block_meta_get(
 }
 
 
+/* Implements  block.field=  command. */
 static error__t block_field_put(
     struct entity_context *context,
     const char *value, command_error_t *command_error)
@@ -68,6 +69,8 @@ static error__t block_field_put(
     return ERROR_OK;
 }
 
+
+/* Implements  block.field?  command. */
 static void block_field_get(
     struct entity_context *context,
     char result[], command_error_t *command_error, void **multiline)
@@ -76,6 +79,7 @@ static void block_field_get(
 }
 
 
+/* Implements  block.field.*?  command. */
 static void field_meta_get(
     struct entity_context *context,
     char result[], command_error_t *command_error, void **multiline)
@@ -84,6 +88,7 @@ static void field_meta_get(
 }
 
 
+/* Implements  block.field.subfield=  command. */
 static error__t subfield_put(
     struct entity_context *context,
     const char *value, command_error_t *command_error)
@@ -92,6 +97,8 @@ static error__t subfield_put(
     return ERROR_OK;
 }
 
+
+/* Implements  block.field.subfield?  command. */
 static void subfield_get(
     struct entity_context *context,
     char result[], command_error_t *command_error, void **multiline)
@@ -144,31 +151,43 @@ static command_error_t parse_block_name(
         TEST_OK_(context->block = lookup_block(block, max_number),
             "No such block")  ?:
 
-        /* Parse the number or flag its absence. */
+        /* Parse the number or flag its absence, and if present check that it's
+         * in valid range. */
         IF_ELSE(isdigit(**input),
-            parse_uint(input, &context->number),
+            DO(*number_present = true)  ?:
+            parse_uint(input, &context->number)  ?:
+            TEST_OK_(context->number < *max_number, "Block number too large"),
         //else
-            DO(*number_present = false))  ?:
+            DO(*number_present = false; context->number = 0))  ?:
 
         /* Finally eat the trailing . */
         parse_char(input, '.');
 }
 
 
+/* Block number must be present or defaulted for normal field and subfield
+ * commands. */
+static command_error_t check_block_number(
+    unsigned int max_number, bool number_present)
+{
+    return TEST_OK_(number_present || max_number == 1, "Missing block number");
+}
+
+
+/* For meta-data queries we don't allow the number to be present. */
+static command_error_t check_no_number(bool number_present)
+{
+    return TEST_OK_(!number_present, "Block number not allowed");
+}
+
+
 /* This parses the  field  part of the entity name and does the final number
  * checking. */
 static command_error_t parse_field_name(
-    const char **input, struct entity_context *context,
-    unsigned int max_number, bool number_present)
+    const char **input, struct entity_context *context)
 {
     char field[MAX_NAME_LENGTH];
     return
-        /* Ensure number present and in range or defaultable. */
-        IF_ELSE(number_present,
-            TEST_OK_(context->number < max_number, "Block number too large"),
-        //else
-            TEST_OK_(max_number == 1, "No block number"))  ?:
-
         /* Process the field. */
         parse_name(input, field, MAX_NAME_LENGTH)  ?:
         TEST_OK_(context->field = lookup_field(context->block, field),
@@ -176,14 +195,14 @@ static command_error_t parse_field_name(
 }
 
 
+/* Parses  subfield  part of entity name if present and looks it up. */
 static command_error_t parse_subfield_name(
     const char **input, struct entity_context *context)
 {
     char subfield[MAX_NAME_LENGTH];
     return
         parse_name(input, subfield, MAX_NAME_LENGTH)  ?:
-        TEST_OK_(
-            context->subfield = lookup_subfield(context->field, subfield),
+        TEST_OK_(context->subfield = lookup_subfield(context->field, subfield),
             "No such subfield");
 }
 
@@ -198,7 +217,7 @@ static command_error_t parse_subfield_name(
  *
  *  block.*                             block_meta_actions
  *  block[number].field                 block_field_actions
- *  block[number].field.*               field_meta_actions
+ *  block.field.*                       field_meta_actions
  *  block[number].field.subfield        subfield_actions
  *
  * The number is only optional if there is only one instance of the block. */
@@ -206,44 +225,49 @@ static command_error_t compute_entity_handler(
     const char *input, struct entity_context *context)
 {
     unsigned int max_number;
-    bool number_present = true;
-
-    context->number = 0;
+    bool number_present;
     return
+        /* Consume the  block.  part of the input. */
         parse_block_name(&input, context, &max_number, &number_present)  ?:
 
         IF_ELSE(read_char(&input, '*'),
             /*  block.*  */
-            TEST_OK_(!number_present, "Block number not allowed")  ?:
+            check_no_number(number_present)  ?:
             DO(context->actions = &block_meta_actions),
 
         //else
-            parse_field_name(&input, context, max_number, number_present)  ?:
+            /* If not block meta-query then field name must follow. */
+            parse_field_name(&input, context)  ?:
             IF_ELSE(read_char(&input, '.'),
                 /* There's a further * or a subfield. */
                 IF_ELSE(read_char(&input, '*'),
                     /*  block.field.*  */
+                    check_no_number(number_present)  ?:
                     DO(context->actions = &field_meta_actions),
                 //else
                     /*  block.field.subfield  */
                     parse_subfield_name(&input, context)  ?:
-                    DO(context->actions = &subfield_actions)),
+                    check_block_number(max_number, number_present)  ?:
+                    DO(context->actions = &subfield_actions)
+                ),
             //else
                 /*  block.field  */
-                DO(context->actions = &block_field_actions)))  ?:
+                check_block_number(max_number, number_present)  ?:
+                DO(context->actions = &block_field_actions)
+            )
+        )  ?:
 
         /* Make sure there's nothing left over in the field. */
         parse_eos(&input);
 }
 
 
+/* Process  entity=value  commands. */
 static error__t process_entity_put(
     struct config_connection *connection,
     const char *name, const char *value, command_error_t *command_error)
 {
-    printf("process_entity_put %s %s\n", name, value);
-
-    struct entity_context context;
+    struct entity_context context = {};
     *command_error =
         compute_entity_handler(name, &context)  ?:
         TEST_OK_(context.actions->put, "Field not writeable");
@@ -252,12 +276,11 @@ static error__t process_entity_put(
 }
 
 
+/* Process  entity?  commands. */
 static void process_entity_get(
     struct config_connection *connection, const char *name,
     char result[], command_error_t *command_error, void **multiline)
 {
-    printf("process_entity_get %s\n", name);
-
     struct entity_context context;
     *command_error =
         compute_entity_handler(name, &context)  ?:
@@ -267,6 +290,7 @@ static void process_entity_get(
 }
 
 
+/* Handler for multi-line responses. */
 static bool process_entity_get_more(void *multiline, char result[])
 {
     ASSERT_FAIL();
@@ -356,11 +380,11 @@ static struct hash_table *command_table;
 
 
 
+/* Process  *command=value  commands. */
 static error__t process_system_put(
     struct config_connection *connection,
     const char *name, const char *value, command_error_t *command_error)
 {
-    printf("process_system_put %s %s\n", name, value);
     const struct config_command_set *commands =
         hash_table_lookup(command_table, name);
     if (commands  &&  commands->put)
@@ -373,21 +397,21 @@ static error__t process_system_put(
 }
 
 
+/* Process  *command?  commands. */
 static void process_system_get(
     struct config_connection *connection, const char *name,
     char result[], command_error_t *command_error, void **multiline)
 {
-    printf("process_system_get %s\n", name);
     const struct config_command_set *commands =
         hash_table_lookup(command_table, name);
     if (commands  &&  commands->get)
-        return commands->get(
-            connection, name, result, command_error, multiline);
+        commands->get(connection, name, result, command_error, multiline);
     else
         *command_error = FAIL_("Unknown value");
 }
 
 
+/* Processes multi-line  *command?  responses. */
 static bool process_system_get_more(void *multiline, char result[])
 {
     struct multiline_state *state = multiline;

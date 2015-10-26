@@ -20,10 +20,7 @@
 #include "socket_server.h"
 
 
-/* We have socket timeout on sending to avoid blocking for too long, and we have
- * a command timeout to avoid being stuck in a lock condition for too long. */
-
-#define COMMAND_TIMEOUT     10      // Ten seconds seems reasonable
+/* We have socket timeout on sending to avoid blocking for too long. */
 #define TRANSMIT_TIMEOUT    2       // May be too short
 
 

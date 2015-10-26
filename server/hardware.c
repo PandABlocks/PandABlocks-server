@@ -13,7 +13,6 @@
 #include "error.h"
 #include "hardware.h"
 
-#define CONTROL_AREA_SIZE
 
 static uint32_t *register_map;
 static uint32_t register_map_size;
