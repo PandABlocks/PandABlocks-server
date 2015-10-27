@@ -22,11 +22,11 @@ typedef error__t command_error_t;
  * two methods may be called. */
 struct connection_result {
     /* If this is called then it must be called exactly once. */
-    error__t (*write_one)(
+    void (*write_one)(
         struct config_connection *connection, const char *result);
     /* This can be called repeatedly, but the last call must be made with last
      * set to false -- the value is ignored for this last value. */
-    error__t (*write_many)(
+    void (*write_many)(
         struct config_connection *connection, const char *result, bool last);
 };
 
@@ -41,19 +41,17 @@ struct config_command_set {
      * connection_result method was called, otherwise an error. */
     command_error_t (*get)(
         struct config_connection *connection, const char *name,
-        struct connection_result *result, error__t *comms_error);
+        struct connection_result *result);
 
     /* Implements name=value command. */
     command_error_t (*put)(
         struct config_connection *connection,
         const char *name, const char *value);
 
-    /* Implements name<format command.  This implements writing a multi-line
-     * value, the rest of the data is read from the connection stream, and any
-     * error arising is written to comms_error. */
+    /* Implements name< command.  This implements writing an array of values. */
     command_error_t (*put_table)(
-        struct config_connection *connection,
-        const char *name, const char *format, error__t *comms_error);
+        struct config_connection *connection, const char *name,
+        const unsigned int data[], size_t length, bool append);
 };
 
 

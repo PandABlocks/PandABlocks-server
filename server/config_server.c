@@ -10,6 +10,7 @@
 
 #include "error.h"
 #include "hardware.h"
+#include "parse.h"
 #include "config_command.h"
 #include "system_command.h"
 
@@ -19,84 +20,183 @@
 /* This should be long enough for any reasonable command. */
 #define MAX_LINE_LENGTH     1024
 
-
-#define TEST_FPRINTF(connection, format...) \
-    TEST_OK(fprintf(connection->stream, format) > 0)
+#define TABLE_BUFFER_SIZE   4096
 
 
-static error__t report_error(
+
+/* This structure holds the local state for a config socket connection. */
+struct config_connection {
+    FILE *stream;               // Stream connection to client
+};
+
+
+/* A note on error handling.  It seems to be harmless to read and write from a
+ * stream in error state, and it turns out that mostly errors aren't reported
+ * until we try and read anyway (because of buffering), so we just ignore stream
+ * errors until we come to read.
+ *   Actually, it turns out we are losing one piece of information: by the time
+ * we get around to testing ferror() any assignment to errno will be utterly
+ * unreliable.  In practice there really isn't enough information to make fixing
+ * this worthwhile. */
+
+
+static void report_error(
     struct config_connection *connection, command_error_t command_error)
 {
-    error__t error =
-        TEST_FPRINTF(connection, "ERR %s\n", error_format(command_error));
+    fprintf(connection->stream, "ERR %s\n", error_format(command_error));
     error_discard(command_error);
-    return error;
 }
 
-static error__t report_status(
+static void report_status(
     struct config_connection *connection, command_error_t command_error)
 {
     if (command_error)
-        return report_error(connection, command_error);
+        report_error(connection, command_error);
     else
-        return TEST_FPRINTF(connection, "OK\n");
+        fprintf(connection->stream, "OK\n");
 }
 
 
-static error__t write_one_result(
+static void write_one_result(
     struct config_connection *connection, const char *result)
 {
-    return TEST_FPRINTF(connection, "OK =%s\n", result);
+    fprintf(connection->stream, "OK =%s\n", result);
 }
 
-static error__t write_many_result(
+static void write_many_result(
     struct config_connection *connection, const char *result, bool last)
 {
     if (last)
-        return TEST_FPRINTF(connection, ".\n");
+        fprintf(connection->stream, ".\n");
     else
-        return TEST_FPRINTF(connection, "!%s\n", result);
+        fprintf(connection->stream, "!%s\n", result);
 }
 
 static struct connection_result connection_result = {
-    .write_one = write_one_result,
+    .write_one  = write_one_result,
     .write_many = write_many_result,
 };
 
 
 
 /* Processes command of the form [*]name? */
-static error__t do_read_command(
-    struct config_connection *connection, char *command, char *value,
+static void do_read_command(
+    struct config_connection *connection,
+    const char *command, const char *value,
     const struct config_command_set *command_set)
 {
     if (*value == '\0')
     {
-        error__t comms_error = ERROR_OK;
         command_error_t command_error = command_set->get(
-            connection, command, &connection_result, &comms_error);
-
-        /* If there was a communication error report that first, otherwise
-         * report any command error.  If nothing to report then success has
-         * already been reported through connection_result. */
-        return
-            comms_error  ?:
-            IF(command_error,
-                report_error(connection, command_error));
+            connection, command, &connection_result);
+        /* We only need to report an error, any success will have been reported
+         * by .get(). */
+        if (command_error)
+            report_error(connection, command_error);
     }
     else
-        return report_error(
-            connection, FAIL_("Unexpected text after command"));
+        report_error(connection, FAIL_("Unexpected text after command"));
 }
 
 
 /* Processes command of the form [*]name=value */
-static error__t do_write_command(
-    struct config_connection *connection, char *command, char *value,
+static void do_write_command(
+    struct config_connection *connection,
+    const char *command, const char *value,
     const struct config_command_set *command_set)
 {
-    return report_status(
-        connection, command_set->put(connection, command, value));
+    report_status(connection, command_set->put(connection, command, value));
+}
+
+
+typedef command_error_t fill_buffer_t(
+    struct config_connection *connection,
+    unsigned int data_buffer[], unsigned int to_read,
+    unsigned int *seen, bool *eos);
+
+
+/* Fills buffer from a binary stream by reading exactly the requested number of
+ * values as bytes. */
+static command_error_t fill_binary_buffer(
+    struct config_connection *connection,
+    unsigned int data_buffer[], unsigned int to_read,
+    unsigned int *seen, bool *eos)
+{
+    *seen = (unsigned int) fread(
+        data_buffer, sizeof(int32_t), to_read, connection->stream);
+    /* If we see eof on input try to report it to the client.  Doesn't
+     * particularly matter if this fails! */
+    return TEST_OK_(*seen == to_read, "Error on table input");
+}
+
+
+/* Fills buffer from a text stream by reading formatted numbers until an error
+ * or a blank line is encountered. */
+static command_error_t fill_ascii_buffer(
+    struct config_connection *connection,
+    unsigned int data_buffer[], unsigned int to_read,
+    unsigned int *seen, bool *eos)
+{
+    char line[MAX_LINE_LENGTH];
+    /* Reduce the target count by a headroom factor so that we can process each
+     * full line read. */
+    unsigned int headroom = sizeof(line) / 2;   // At worst 1 number for 2 chars
+    ASSERT_OK(to_read > headroom);
+    to_read -= headroom;
+
+    /* Loop until end of input stream (blank line), a parsing error, fgets
+     * fails, or we fill the target buffer (subject to headroom). */
+    *seen = 0;
+    *eos = false;
+    command_error_t error = ERROR_OK;
+    while (!error  &&  !*eos  &&  *seen < to_read)
+    {
+        error = TEST_OK_(
+           fgets(line, sizeof(line), connection->stream), "Unexpected EOF");
+
+        const char *data_in = skip_whitespace(line);
+        if (*data_in == '\n')
+            *eos = true;
+        else
+            while (!error  &&  *data_in != '\n')
+                error =
+                    parse_uint(&data_in, &data_buffer[(*seen)++])  ?:
+                    DO(data_in = skip_whitespace(data_in));
+    }
+    return error;
+}
+
+
+/* Reads blocks of data from input stream and send to put_table. */
+static command_error_t do_put_table(
+    struct config_connection *connection, const char *command,
+    const struct config_command_set *command_set,
+    fill_buffer_t *fill_buffer, bool binary, bool append, unsigned int count)
+{
+    command_error_t command_error = ERROR_OK;
+    bool eos = false;
+    while (!command_error  &&  !eos)
+    {
+        unsigned int to_read =
+            binary ?
+                count > TABLE_BUFFER_SIZE ? TABLE_BUFFER_SIZE : count :
+            TABLE_BUFFER_SIZE;
+
+        unsigned int data_buffer[TABLE_BUFFER_SIZE];
+        unsigned int seen;
+        command_error =
+            fill_buffer(connection, data_buffer, to_read, &seen, &eos)  ?:
+            command_set->put_table(
+                connection, command, data_buffer, seen, append);
+
+        append = true;
+        if (binary)
+        {
+            eos = count <= seen;    // Better not be less than!
+            count -= seen;
+        }
+    }
+    return command_error;
 }
 
 
@@ -105,16 +205,28 @@ static error__t do_write_command(
  * data, and so the put_table function can return one of two different error
  * codes: if a communication error is reported then we need to drop the
  * connection. */
-static error__t do_table_command(
-    struct config_connection *connection, char *command, char *format,
+static void do_table_command(
+    struct config_connection *connection,
+    const char *command, const char *format,
     const struct config_command_set *command_set)
 {
-    error__t comms_error = ERROR_OK;
+    /* Process the format: this is of the form "<" ["<"] ["B" count] .*/
+    bool append = read_char(&format, '<');
+    bool binary = read_char(&format, 'B');
+
+    unsigned int count = 0;
     command_error_t command_error =
-        command_set->put_table(connection, command, format, &comms_error);
-    return
-        comms_error  ?:
-        report_status(connection, command_error);
+        /* Binary flag must be followed by a non-zero count. */
+        IF(binary,
+            parse_uint(&format, &count)  ?:
+            TEST_OK_(count > 0, "Zero count invalid"))  ?:
+        parse_eos(&format)  ?:
+        do_put_table(
+            connection, command, command_set,
+            binary ? fill_binary_buffer : fill_ascii_buffer,
+            binary, append, count);
+
+    report_status(connection, command_error);
 }
 
 
@@ -122,7 +234,7 @@ static error__t do_table_command(
  * very simple: a fixed error message is returned if the command fails,
  * otherwise the command is responsible for reporting success and any other
  * output. */
-static error__t process_config_command(
+static void process_config_command(
     struct config_connection *connection, char *command)
 {
     /* * prefix switches between system and entity command sets. */
@@ -144,13 +256,13 @@ static error__t process_config_command(
     switch (ch)
     {
         case '?':
-            return do_read_command(connection, command, value, command_set);
+            do_read_command(connection, command, value, command_set);   break;
         case '=':
-            return do_write_command(connection, command, value, command_set);
+            do_write_command(connection, command, value, command_set);  break;
         case '<':
-            return do_table_command(connection, command, value, command_set);
+            do_table_command(connection, command, value, command_set);  break;
         default:
-            return report_error(connection, FAIL_("Unknown command"));
+            report_error(connection, FAIL_("Unknown command"));         break;
     }
 }
 
@@ -175,11 +287,15 @@ error__t process_config_socket(int sock)
         while (!error  &&  fgets(line, sizeof(line), stream))
         {
             size_t len = strlen(line);
-            error =
-                TEST_OK_(line[len - 1] == '\n', "Unterminated line")  ?:
-                DO(line[len - 1] = '\0')  ?:
+            error = TEST_OK_(line[len - 1] == '\n', "Unterminated line");
+            if (!error)
+            {
+                line[len - 1] = '\0';
                 process_config_command(&connection, line);
+            }
         }
+        if (!error)
+            error = TEST_OK_(!ferror(stream), "Error on stream");
         fclose(stream);
     }
     return error;

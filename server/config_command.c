@@ -37,34 +37,37 @@ struct entity_context {
 struct entity_actions {
     command_error_t (*get)(
         struct entity_context *context,
-        struct connection_result *result, error__t *comms_error);
+        struct connection_result *result);
     command_error_t (*put)(struct entity_context *context, const char *value);
     command_error_t (*put_table)(
         struct entity_context *context,
-        const char *format, error__t *comms_error);
+        const unsigned int data[], size_t length, bool append);
 };
 
 
 /* Implements  block.*?  command, returns list of fields. */
 static command_error_t block_meta_get(
-    struct entity_context *context,
-    struct connection_result *result, error__t *comms_error)
+    struct entity_context *context, struct connection_result *result)
 {
     int ix = 0;
     const struct field_entry *field;
     const char *field_name;
-    while (!*comms_error  &&
-           walk_fields_list(context->block, &ix, &field, &field_name))
+    while (walk_fields_list(context->block, &ix, &field, &field_name))
     {
         char value[MAX_VALUE_LENGTH];
         snprintf(value, MAX_VALUE_LENGTH, "%s", field_name);
-        *comms_error = result->write_many(
-            context->connection, value, false);
+        result->write_many(context->connection, value, false);
     }
-    *comms_error =
-        *comms_error  ?:
-        result->write_many(context->connection, NULL, true);
+    result->write_many(context->connection, NULL, true);
     return ERROR_OK;
+}
+
+
+/* Implements  block.field?  command. */
+static command_error_t block_field_get(
+    struct entity_context *context, struct connection_result *result)
+{
+    return FAIL_("block.field? not implemented yet");
 }
 
 
@@ -76,21 +79,29 @@ static command_error_t block_field_put(
 }
 
 
-/* Implements  block.field?  command. */
-static command_error_t block_field_get(
+/* Implements  block.field<  command. */
+static command_error_t block_field_put_table(
     struct entity_context *context,
-    struct connection_result *result, error__t *comms_error)
+    const unsigned int data[], size_t length, bool append)
 {
-    return FAIL_("block.field? not implemented yet");
+printf("block_field_put_table %p %zu %d\n", data, length, append);
+    return FAIL_("block.field< not implemented yet");
 }
 
 
 /* Implements  block.field.*?  command. */
 static command_error_t field_meta_get(
-    struct entity_context *context,
-    struct connection_result *result, error__t *comms_error)
+    struct entity_context *context, struct connection_result *result)
 {
     return FAIL_("block.field.*? not implemented yet");
+}
+
+
+/* Implements  block.field.attr?  command. */
+static command_error_t field_attr_get(
+    struct entity_context *context, struct connection_result *result)
+{
+    return FAIL_("block.field.attr? not implemented yet");
 }
 
 
@@ -102,15 +113,6 @@ static command_error_t field_attr_put(
 }
 
 
-/* Implements  block.field.attr?  command. */
-static command_error_t field_attr_get(
-    struct entity_context *context,
-    struct connection_result *result, error__t *comms_error)
-{
-    return FAIL_("block.field.attr? not implemented yet");
-}
-
-
 /* Implements  block.*  commands. */
 static const struct entity_actions block_meta_actions = {
     .get = block_meta_get,          // block.*?
@@ -118,8 +120,9 @@ static const struct entity_actions block_meta_actions = {
 
 /* Implements  block.field  commands. */
 static const struct entity_actions block_field_actions = {
-    .put = block_field_put,         // block.field=value
     .get = block_field_get,         // block.field?
+    .put = block_field_put,         // block.field=value
+    .put_table = block_field_put_table, // block.field<format
 };
 
 /* Implements  block.field.*  commands. */
@@ -129,8 +132,8 @@ static const struct entity_actions field_meta_actions = {
 
 /* Implements  block.field.attr  commands. */
 static const struct entity_actions field_attr_actions = {
-    .put = field_attr_put,          // block.field.attr=value
     .get = field_attr_get,          // block.field.attr?
+    .put = field_attr_put,          // block.field.attr=value
 };
 
 
@@ -269,13 +272,13 @@ static command_error_t compute_entity_handler(
 /* Process  entity?  commands. */
 static command_error_t process_entity_get(
     struct config_connection *connection, const char *name,
-    struct connection_result *result, error__t *comms_error)
+    struct connection_result *result)
 {
     struct entity_context context = { .connection = connection };
     return
         compute_entity_handler(name, &context)  ?:
         TEST_OK_(context.actions->get, "Field not readable")  ?:
-        context.actions->get(&context, result, comms_error);
+        context.actions->get(&context, result);
 }
 
 
@@ -293,14 +296,14 @@ static command_error_t process_entity_put(
 
 /* Process  entity<format  commands. */
 static command_error_t process_entity_put_table(
-    struct config_connection *connection,
-    const char *name, const char *format, error__t *comms_error)
+    struct config_connection *connection, const char *name,
+    const unsigned int data[], size_t length, bool append)
 {
     struct entity_context context = { .connection = connection };
     return
         compute_entity_handler(name, &context)  ?:
         TEST_OK_(context.actions->put_table, "Field not a table")  ?:
-        context.actions->put_table(&context, format, comms_error);
+        context.actions->put_table(&context, data, length, append);
 }
 
 

@@ -29,9 +29,9 @@
 
 static command_error_t system_get_idn(
     struct config_connection *connection, const char *name,
-    struct connection_result *result, error__t *comms_error)
+    struct connection_result *result)
 {
-    *comms_error = result->write_one(connection, "PandA");
+    result->write_one(connection, "PandA");
     return ERROR_OK;
 }
 
@@ -42,22 +42,19 @@ static command_error_t system_get_idn(
 
 static command_error_t system_get_blocks(
     struct config_connection *connection, const char *name,
-    struct connection_result *result, error__t *comms_error)
+    struct connection_result *result)
 {
     const struct config_block *block;
     const char *block_name;
     unsigned int count;
     int ix = 0;
-    while (!*comms_error  &&
-           walk_blocks_list(&ix, &block, &block_name, &count))
+    while (walk_blocks_list(&ix, &block, &block_name, &count))
     {
         char value[MAX_VALUE_LENGTH];
         snprintf(value, MAX_VALUE_LENGTH, "%s %d", block_name, count);
-        *comms_error = result->write_many(connection, value, false);
+        result->write_many(connection, value, false);
     }
-    *comms_error =
-        *comms_error  ?:
-        result->write_many(connection, NULL, true);
+    result->write_many(connection, NULL, true);
     return ERROR_OK;
 }
 
@@ -84,13 +81,13 @@ static struct hash_table *command_table;
 /* Process  *command?  commands. */
 static command_error_t process_system_get(
     struct config_connection *connection, const char *name,
-    struct connection_result *result, error__t *comms_error)
+    struct connection_result *result)
 {
     const struct config_command_set *commands =
         hash_table_lookup(command_table, name);
     return
         TEST_OK_(commands  &&  commands->get, "Unknown value")  ?:
-        commands->get(connection, name, result, comms_error);
+        commands->get(connection, name, result);
 }
 
 
@@ -107,8 +104,8 @@ static command_error_t process_system_put(
 
 
 static command_error_t process_system_put_table(
-    struct config_connection *connection,
-    const char *name, const char *format, error__t *comms_error)
+    struct config_connection *connection, const char *name,
+    const unsigned int data[], size_t length, bool append)
 {
     return FAIL_("Not a table");
 }
