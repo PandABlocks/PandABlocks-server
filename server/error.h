@@ -273,3 +273,11 @@ static inline error__t __attribute__((warn_unused_result))
 /* Casting from one type to another with checking. */
 #define CAST_FROM_TO(from, to, value) \
     REINTERPRET_CAST(to, ENSURE_TYPE(from, value))
+
+/* A couple of handy macros: macro safe MIN and MAX functions. */
+#define _MIN(tx, ty, x, y) \
+    ( { typeof(x) tx = (x); typeof(y) ty = (y); tx < ty ? tx : ty; } )
+#define _MAX(tx, ty, x, y) \
+    ( { typeof(x) tx = (x); typeof(y) ty = (y); tx > ty ? tx : ty; } )
+#define MIN(x, y)   _MIN(UNIQUE_ID(), UNIQUE_ID(), x, y)
+#define MAX(x, y)   _MAX(UNIQUE_ID(), UNIQUE_ID(), x, y)
