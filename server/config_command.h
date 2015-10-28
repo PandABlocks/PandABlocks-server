@@ -21,6 +21,17 @@ struct connection_result {
 };
 
 
+/* This is filled in by a successful call to put_table.  The the returned
+ * .write() method should be called repeatedly until all data has been written
+ * (length counts the number of data items, not bytes) or an error occurs, and
+ * then .close() *must* be called. */
+struct put_table_writer {
+    void *context;
+    error__t (*write)(
+        void *context, const unsigned int data[], size_t length);
+    void (*close)(void *context);
+};
+
 
 /* Uniform interface to entity and system commands. */
 struct config_command_set {
@@ -40,8 +51,8 @@ struct config_command_set {
 
     /* Implements name< command.  This implements writing an array of values. */
     error__t (*put_table)(
-        struct config_connection *connection, const char *name,
-        const unsigned int data[], size_t length, bool append);
+        struct config_connection *connection, const char *name, bool append,
+        struct put_table_writer *writer);
 };
 
 

@@ -351,8 +351,8 @@ static error__t fill_ascii_buffer(
 /* Reads blocks of data from input stream and send to put_table. */
 static error__t do_put_table(
     struct config_connection *connection, const char *command,
-    const struct config_command_set *command_set,
-    fill_buffer_t *fill_buffer, bool binary, bool append, unsigned int count)
+    const struct put_table_writer *writer,
+    fill_buffer_t *fill_buffer, bool binary, unsigned int count)
 {
     error__t error = ERROR_OK;
     bool eos = false;
@@ -365,16 +365,15 @@ static error__t do_put_table(
         unsigned int seen;
         error =
             fill_buffer(connection, data_buffer, to_read, &seen, &eos)  ?:
-            command_set->put_table(
-                connection, command, data_buffer, seen, append);
+            writer->write(writer->context, data_buffer, seen);
 
-        append = true;
         if (binary)
         {
             eos = count <= seen;    // Better not be less than!
             count -= seen;
         }
     }
+    writer->close(writer->context);
     return error;
 }
 
@@ -394,16 +393,18 @@ static void do_table_command(
     bool binary = read_char(&format, 'B');
 
     unsigned int count = 0;
+    struct put_table_writer writer;
     error__t error =
         /* Binary flag must be followed by a non-zero count. */
         IF(binary,
             parse_uint(&format, &count)  ?:
             TEST_OK_(count > 0, "Zero count invalid"))  ?:
         parse_eos(&format)  ?:
+        command_set->put_table(connection, command, append, &writer)  ?:
         do_put_table(
-            connection, command, command_set,
+            connection, command, &writer,
             binary ? fill_binary_buffer : fill_ascii_buffer,
-            binary, append, count);
+            binary, count);
 
     report_status(connection, error);
 }

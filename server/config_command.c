@@ -41,7 +41,7 @@ struct entity_actions {
     error__t (*put)(struct entity_context *context, const char *value);
     error__t (*put_table)(
         struct entity_context *context,
-        const unsigned int data[], size_t length, bool append);
+        bool append, struct put_table_writer *writer);
 };
 
 
@@ -82,9 +82,8 @@ static error__t block_field_put(
 /* Implements  block.field<  command. */
 static error__t block_field_put_table(
     struct entity_context *context,
-    const unsigned int data[], size_t length, bool append)
+    bool append, struct put_table_writer *writer)
 {
-printf("block_field_put_table %p %zu %d\n", data, length, append);
     return FAIL_("block.field< not implemented yet");
 }
 
@@ -296,14 +295,14 @@ static error__t process_entity_put(
 
 /* Process  entity<format  commands. */
 static error__t process_entity_put_table(
-    struct config_connection *connection, const char *name,
-    const unsigned int data[], size_t length, bool append)
+    struct config_connection *connection, const char *name, bool append,
+    struct put_table_writer *writer)
 {
     struct entity_context context = { .connection = connection };
     return
         compute_entity_handler(name, &context)  ?:
         TEST_OK_(context.actions->put_table, "Field not a table")  ?:
-        context.actions->put_table(&context, data, length, append);
+        context.actions->put_table(&context, append, writer);
 }
 
 
