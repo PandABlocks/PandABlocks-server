@@ -28,7 +28,7 @@
  * Returns simple system identification. */
 
 static error__t system_get_idn(
-    struct config_connection *connection, const char *name,
+    struct config_connection *connection, const char *command,
     struct connection_result *result)
 {
     result->write_one(connection, "PandA");
@@ -41,7 +41,7 @@ static error__t system_get_idn(
  * Returns formatted list of all the blocks in the system. */
 
 static error__t system_get_blocks(
-    struct config_connection *connection, const char *name,
+    struct config_connection *connection, const char *command,
     struct connection_result *result)
 {
     const struct config_block *block;
@@ -59,6 +59,20 @@ static error__t system_get_blocks(
 }
 
 
+/* *ECHO echo string?
+ *
+ * Echos echo string back to caller. */
+
+static error__t system_get_echo(
+    struct config_connection *connection, const char *command,
+    struct connection_result *result)
+{
+    return
+        parse_char(&command, ' ') ?:
+        DO(result->write_one(connection, command));
+}
+
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
@@ -66,45 +80,64 @@ static error__t system_get_blocks(
 
 struct command_table_entry {
     const char *name;
-    struct config_command_set command;
+    bool allow_arg;
+    error__t (*get)(
+        struct config_connection *connection, const char *name,
+        struct connection_result *result);
+    error__t (*put)(
+        struct config_connection *connection,
+        const char *name, const char *value);
 };
 
 static const struct command_table_entry command_table_list[] = {
-    { "IDN",        { .get = system_get_idn } },
-    { "BLOCKS",     { .get = system_get_blocks, } },
+    { "IDN",        .get = system_get_idn, },
+    { "BLOCKS",     .get = system_get_blocks, },
+    { "ECHO",       .get = system_get_echo, .allow_arg = true },
 };
 
 static struct hash_table *command_table;
 
 
+static error__t parse_system_command(
+    const char **command, const struct command_table_entry **command_set)
+{
+    char name[MAX_NAME_LENGTH];
+    return
+        parse_name(command, name, MAX_NAME_LENGTH)  ?:
+        TEST_OK_(*command_set = hash_table_lookup(command_table, name),
+            "Unknown command")  ?:
+        IF(!(*command_set)->allow_arg,
+            parse_eos(command));
+}
 
 /* Process  *command?  commands. */
 static error__t process_system_get(
-    struct config_connection *connection, const char *name,
+    struct config_connection *connection, const char *command,
     struct connection_result *result)
 {
-    const struct config_command_set *commands =
-        hash_table_lookup(command_table, name);
+    const struct command_table_entry *command_set;
     return
-        TEST_OK_(commands  &&  commands->get, "Unknown value")  ?:
-        commands->get(connection, name, result);
+        parse_system_command(&command, &command_set)  ?:
+        TEST_OK_(command_set->get, "Command not readable")  ?:
+        command_set->get(connection, command, result);
 }
 
 
 /* Process  *command=value  commands. */
 static error__t process_system_put(
-    struct config_connection *connection, const char *name, const char *value)
+    struct config_connection *connection,
+    const char *command, const char *value)
 {
-    const struct config_command_set *commands =
-        hash_table_lookup(command_table, name);
+    const struct command_table_entry *command_set;
     return
-        TEST_OK_(commands  &&  commands->put, "Unknown target")  ?:
-        commands->put(connection, name, value);
+        parse_system_command(&command, &command_set)  ?:
+        TEST_OK_(command_set->put, "Command not writeable")  ?:
+        command_set->put(connection, command, value);
 }
 
 
 static error__t process_system_put_table(
-    struct config_connection *connection, const char *name, bool append,
+    struct config_connection *connection, const char *command, bool append,
     struct put_table_writer *writer)
 {
     return FAIL_("Not a table");
@@ -129,7 +162,7 @@ error__t initialise_system_command(void)
     for (unsigned int i = 0; i < ARRAY_SIZE(command_table_list); i ++)
     {
         const struct command_table_entry *entry = &command_table_list[i];
-        hash_table_insert_const(command_table, entry->name, &entry->command);
+        hash_table_insert_const(command_table, entry->name, entry);
     }
     return ERROR_OK;
 }
