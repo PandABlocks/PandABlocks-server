@@ -52,9 +52,9 @@ static error__t system_get_blocks(
     {
         char value[MAX_VALUE_LENGTH];
         snprintf(value, MAX_VALUE_LENGTH, "%s %d", block_name, count);
-        result->write_many(connection, value, false);
+        result->write_many(connection, value);
     }
-    result->write_many(connection, NULL, true);
+    result->write_many_end(connection);
     return ERROR_OK;
 }
 

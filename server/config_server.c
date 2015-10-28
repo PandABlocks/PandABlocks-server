@@ -40,7 +40,7 @@
  *
  * Actually, there is an alternative: apparently if we dup(2) the socket handle
  * and call fdopen twice we then get two streams which can each be treated as a
- * unidirectional stream.  Ho hum. */
+ * unidirectional stream. */
 
 /* The input and output buffers are managed somewhat differently: we always
  * flush the entire output buffer, but the input buffer is read and filled
@@ -164,12 +164,14 @@ static void write_string(
 {
     while (!file->error  &&  length > 0)
     {
+        /* Put as much of the string as possible into out_buf. */
         size_t to_write = MIN(OUT_BUF_SIZE - file->out_length, length);
         memcpy(file->out_buf + file->out_length, string, to_write);
         string += to_write;
         length -= to_write;
         file->out_length += to_write;
 
+        /* If out_buf is full, send it. */
         if (file->out_length >= OUT_BUF_SIZE)  // Only == is possible!
             flush_out_buf(file);
     }
@@ -199,16 +201,7 @@ struct config_connection {
 };
 
 
-/* A note on error handling.  It seems to be harmless to read and write from a
- * stream in error state, and it turns out that mostly errors aren't reported
- * until we try and read anyway (because of buffering), so we just ignore stream
- * errors until we come to read.
- *   Actually, it turns out we are losing one piece of information: by the time
- * we get around to testing ferror() any assignment to errno will be utterly
- * unreliable.  In practice there really isn't enough information to make fixing
- * this worthwhile. */
-
-
+/* Writes error code to client, consumes and released error. */
 static void report_error(
     struct config_connection *connection, error__t error)
 {
@@ -219,6 +212,9 @@ static void report_error(
     error_discard(error);
 }
 
+
+/* Reports command status, either OK or error as appropriate, releases error
+ * code if necessary. */
 static void report_status(
     struct config_connection *connection, error__t error)
 {
@@ -229,6 +225,7 @@ static void report_status(
 }
 
 
+/* Interface for single data response. */
 static void write_one_result(
     struct config_connection *connection, const char *result)
 {
@@ -237,22 +234,26 @@ static void write_one_result(
     write_char(&connection->file, '\n');
 }
 
+
+/* Interface for multi-line response, called repeatedly until all done. */
 static void write_many_result(
-    struct config_connection *connection, const char *result, bool last)
+    struct config_connection *connection, const char *result)
 {
-    if (last)
-        write_string(&connection->file, ".\n", 2);
-    else
-    {
-        write_char(&connection->file, '!');
-        write_string(&connection->file, result, strlen(result));
-        write_char(&connection->file, '\n');
-    }
+    write_char(&connection->file, '!');
+    write_string(&connection->file, result, strlen(result));
+    write_char(&connection->file, '\n');
+}
+
+/* Called to complete multi-line response. */
+static void write_many_end(struct config_connection *connection)
+{
+    write_string(&connection->file, ".\n", 2);
 }
 
 static struct connection_result connection_result = {
     .write_one  = write_one_result,
     .write_many = write_many_result,
+    .write_many_end = write_many_end,
 };
 
 
@@ -290,6 +291,8 @@ static void do_write_command(
 }
 
 
+/* Two different sources of table data: ASCII encoded (printable numbers) or
+ * binary, with two different implementations. */
 typedef error__t fill_buffer_t(
     struct config_connection *connection,
     unsigned int data_buffer[], unsigned int to_read,

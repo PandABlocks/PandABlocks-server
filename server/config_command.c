@@ -56,9 +56,9 @@ static error__t block_meta_get(
     {
         char value[MAX_VALUE_LENGTH];
         snprintf(value, MAX_VALUE_LENGTH, "%s", field_name);
-        result->write_many(context->connection, value, false);
+        result->write_many(context->connection, value);
     }
-    result->write_many(context->connection, NULL, true);
+    result->write_many_end(context->connection);
     return ERROR_OK;
 }
 
