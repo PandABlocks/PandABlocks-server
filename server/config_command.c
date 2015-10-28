@@ -35,18 +35,18 @@ struct entity_context {
  * depending on the exact structure of the entity request.  The fields in this
  * structure are a close reflection of the fields in config_command set. */
 struct entity_actions {
-    command_error_t (*get)(
+    error__t (*get)(
         struct entity_context *context,
         struct connection_result *result);
-    command_error_t (*put)(struct entity_context *context, const char *value);
-    command_error_t (*put_table)(
+    error__t (*put)(struct entity_context *context, const char *value);
+    error__t (*put_table)(
         struct entity_context *context,
         const unsigned int data[], size_t length, bool append);
 };
 
 
 /* Implements  block.*?  command, returns list of fields. */
-static command_error_t block_meta_get(
+static error__t block_meta_get(
     struct entity_context *context, struct connection_result *result)
 {
     int ix = 0;
@@ -64,7 +64,7 @@ static command_error_t block_meta_get(
 
 
 /* Implements  block.field?  command. */
-static command_error_t block_field_get(
+static error__t block_field_get(
     struct entity_context *context, struct connection_result *result)
 {
     return FAIL_("block.field? not implemented yet");
@@ -72,7 +72,7 @@ static command_error_t block_field_get(
 
 
 /* Implements  block.field=  command. */
-static command_error_t block_field_put(
+static error__t block_field_put(
     struct entity_context *context, const char *value)
 {
     return FAIL_("block.field= not implemented yet");
@@ -80,7 +80,7 @@ static command_error_t block_field_put(
 
 
 /* Implements  block.field<  command. */
-static command_error_t block_field_put_table(
+static error__t block_field_put_table(
     struct entity_context *context,
     const unsigned int data[], size_t length, bool append)
 {
@@ -90,7 +90,7 @@ printf("block_field_put_table %p %zu %d\n", data, length, append);
 
 
 /* Implements  block.field.*?  command. */
-static command_error_t field_meta_get(
+static error__t field_meta_get(
     struct entity_context *context, struct connection_result *result)
 {
     return FAIL_("block.field.*? not implemented yet");
@@ -98,7 +98,7 @@ static command_error_t field_meta_get(
 
 
 /* Implements  block.field.attr?  command. */
-static command_error_t field_attr_get(
+static error__t field_attr_get(
     struct entity_context *context, struct connection_result *result)
 {
     return FAIL_("block.field.attr? not implemented yet");
@@ -106,7 +106,7 @@ static command_error_t field_attr_get(
 
 
 /* Implements  block.field.attr=  command. */
-static command_error_t field_attr_put(
+static error__t field_attr_put(
     struct entity_context *context, const char *value)
 {
     return FAIL_("block.field.attr= not implemented yet");
@@ -147,7 +147,7 @@ static const struct entity_actions field_attr_actions = {
  *  block [number] "."
  *
  * and sets *number_present accordingly. */
-static command_error_t parse_block_name(
+static error__t parse_block_name(
     const char **input, struct entity_context *context,
     unsigned int *max_number, bool *number_present)
 {
@@ -174,7 +174,7 @@ static command_error_t parse_block_name(
 
 /* Block number must be present or defaulted for normal field and attribute
  * commands. */
-static command_error_t check_block_number(
+static error__t check_block_number(
     unsigned int max_number, bool number_present)
 {
     return TEST_OK_(number_present || max_number == 1, "Missing block number");
@@ -182,7 +182,7 @@ static command_error_t check_block_number(
 
 
 /* For meta-data queries we don't allow the number to be present. */
-static command_error_t check_no_number(bool number_present)
+static error__t check_no_number(bool number_present)
 {
     return TEST_OK_(!number_present, "Block number not allowed");
 }
@@ -190,7 +190,7 @@ static command_error_t check_no_number(bool number_present)
 
 /* This parses the  field  part of the entity name and does the final number
  * checking. */
-static command_error_t parse_field_name(
+static error__t parse_field_name(
     const char **input, struct entity_context *context)
 {
     char field[MAX_NAME_LENGTH];
@@ -203,7 +203,7 @@ static command_error_t parse_field_name(
 
 
 /* Parses  attr  part of entity name if present and looks it up. */
-static command_error_t parse_attr_name(
+static error__t parse_attr_name(
     const char **input, struct entity_context *context)
 {
     char attr[MAX_NAME_LENGTH];
@@ -228,7 +228,7 @@ static command_error_t parse_attr_name(
  *  block[number].field.attr            field_attr_actions
  *
  * The number is only optional if there is only one instance of the block. */
-static command_error_t compute_entity_handler(
+static error__t compute_entity_handler(
     const char *input, struct entity_context *context)
 {
     unsigned int max_number;
@@ -270,7 +270,7 @@ static command_error_t compute_entity_handler(
 
 
 /* Process  entity?  commands. */
-static command_error_t process_entity_get(
+static error__t process_entity_get(
     struct config_connection *connection, const char *name,
     struct connection_result *result)
 {
@@ -283,7 +283,7 @@ static command_error_t process_entity_get(
 
 
 /* Process  entity=value  commands. */
-static command_error_t process_entity_put(
+static error__t process_entity_put(
     struct config_connection *connection, const char *name, const char *value)
 {
     struct entity_context context = { .connection = connection };
@@ -295,7 +295,7 @@ static command_error_t process_entity_put(
 
 
 /* Process  entity<format  commands. */
-static command_error_t process_entity_put_table(
+static error__t process_entity_put_table(
     struct config_connection *connection, const char *name,
     const unsigned int data[], size_t length, bool append)
 {

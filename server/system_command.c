@@ -27,7 +27,7 @@
  *
  * Returns simple system identification. */
 
-static command_error_t system_get_idn(
+static error__t system_get_idn(
     struct config_connection *connection, const char *name,
     struct connection_result *result)
 {
@@ -40,7 +40,7 @@ static command_error_t system_get_idn(
  *
  * Returns formatted list of all the blocks in the system. */
 
-static command_error_t system_get_blocks(
+static error__t system_get_blocks(
     struct config_connection *connection, const char *name,
     struct connection_result *result)
 {
@@ -79,7 +79,7 @@ static struct hash_table *command_table;
 
 
 /* Process  *command?  commands. */
-static command_error_t process_system_get(
+static error__t process_system_get(
     struct config_connection *connection, const char *name,
     struct connection_result *result)
 {
@@ -92,7 +92,7 @@ static command_error_t process_system_get(
 
 
 /* Process  *command=value  commands. */
-static command_error_t process_system_put(
+static error__t process_system_put(
     struct config_connection *connection, const char *name, const char *value)
 {
     const struct config_command_set *commands =
@@ -103,7 +103,7 @@ static command_error_t process_system_put(
 }
 
 
-static command_error_t process_system_put_table(
+static error__t process_system_put_table(
     struct config_connection *connection, const char *name,
     const unsigned int data[], size_t length, bool append)
 {
