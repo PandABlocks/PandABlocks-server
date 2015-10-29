@@ -42,7 +42,7 @@ struct config_command_set {
      * connection_result method was called, otherwise there was an error. */
     error__t (*get)(
         struct config_connection *connection, const char *name,
-        struct connection_result *result);
+        const struct connection_result *result);
 
     /* Implements name=value command. */
     error__t (*put)(
@@ -52,8 +52,9 @@ struct config_command_set {
     /* Implements name< command.  This implements writing an array of values via
      * the returned put_table_writer interface. */
     error__t (*put_table)(
-        struct config_connection *connection, const char *name, bool append,
-        struct put_table_writer *writer);
+        struct config_connection *connection,
+        const char *name, bool append,
+        const struct put_table_writer *writer);
 };
 
 

@@ -29,7 +29,7 @@
 
 static error__t system_get_idn(
     struct config_connection *connection, const char *command,
-    struct connection_result *result)
+    const struct connection_result *result)
 {
     result->write_one(connection, "PandA");
     return ERROR_OK;
@@ -42,7 +42,7 @@ static error__t system_get_idn(
 
 static error__t system_get_blocks(
     struct config_connection *connection, const char *command,
-    struct connection_result *result)
+    const struct connection_result *result)
 {
     const struct config_block *block;
     const char *block_name;
@@ -65,7 +65,7 @@ static error__t system_get_blocks(
 
 static error__t system_get_echo(
     struct config_connection *connection, const char *command,
-    struct connection_result *result)
+    const struct connection_result *result)
 {
     return
         parse_char(&command, ' ') ?:
@@ -83,7 +83,7 @@ struct command_table_entry {
     bool allow_arg;
     error__t (*get)(
         struct config_connection *connection, const char *name,
-        struct connection_result *result);
+        const struct connection_result *result);
     error__t (*put)(
         struct config_connection *connection,
         const char *name, const char *value);
@@ -113,7 +113,7 @@ static error__t parse_system_command(
 /* Process  *command?  commands. */
 static error__t process_system_get(
     struct config_connection *connection, const char *command,
-    struct connection_result *result)
+    const struct connection_result *result)
 {
     const struct command_table_entry *command_set;
     return
@@ -138,7 +138,7 @@ static error__t process_system_put(
 
 static error__t process_system_put_table(
     struct config_connection *connection, const char *command, bool append,
-    struct put_table_writer *writer)
+    const struct put_table_writer *writer)
 {
     return FAIL_("Not a table");
 }

@@ -250,7 +250,8 @@ static void write_many_end(struct config_connection *connection)
     write_string(&connection->file, ".\n", 2);
 }
 
-static struct connection_result connection_result = {
+
+static const struct connection_result connection_result = {
     .write_one  = write_one_result,
     .write_many = write_many_result,
     .write_many_end = write_many_end,
@@ -392,8 +393,8 @@ static void do_table_command(
     const struct config_command_set *command_set)
 {
     /* Process the format: this is of the form "<" ["<"] ["B" count] .*/
-    bool append = read_char(&format, '<');
-    bool binary = read_char(&format, 'B');
+    bool append = read_char(&format, '<');  // Table append operation
+    bool binary = read_char(&format, 'B');  // Table data is in binary format
 
     unsigned int count = 0;
     struct put_table_writer writer;
@@ -403,6 +404,8 @@ static void do_table_command(
             parse_uint(&format, &count)  ?:
             TEST_OK_(count > 0, "Zero count invalid"))  ?:
         parse_eos(&format)  ?:
+        /* Call .put_table to start the transaction, which must then be
+         * completed with calls to writer. */
         command_set->put_table(connection, command, append, &writer)  ?:
         do_put_table(
             connection, command, &writer,

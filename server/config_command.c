@@ -36,18 +36,19 @@ struct entity_context {
  * structure are a close reflection of the fields in config_command set. */
 struct entity_actions {
     error__t (*get)(
-        struct entity_context *context,
-        struct connection_result *result);
-    error__t (*put)(struct entity_context *context, const char *value);
+        const struct entity_context *context,
+        const struct connection_result *result);
+    error__t (*put)(const struct entity_context *context, const char *value);
     error__t (*put_table)(
-        struct entity_context *context,
-        bool append, struct put_table_writer *writer);
+        const struct entity_context *context,
+        bool append, const struct put_table_writer *writer);
 };
 
 
 /* Implements  block.*?  command, returns list of fields. */
-static error__t block_meta_get(
-    struct entity_context *context, struct connection_result *result)
+static error__t field_list_get(
+    const struct entity_context *context,
+    const struct connection_result *result)
 {
     int ix = 0;
     const struct field_entry *field;
@@ -65,7 +66,8 @@ static error__t block_meta_get(
 
 /* Implements  block.field?  command. */
 static error__t block_field_get(
-    struct entity_context *context, struct connection_result *result)
+    const struct entity_context *context,
+    const struct connection_result *result)
 {
     return FAIL_("block.field? not implemented yet");
 }
@@ -73,7 +75,7 @@ static error__t block_field_get(
 
 /* Implements  block.field=  command. */
 static error__t block_field_put(
-    struct entity_context *context, const char *value)
+    const struct entity_context *context, const char *value)
 {
     return FAIL_("block.field= not implemented yet");
 }
@@ -81,16 +83,17 @@ static error__t block_field_put(
 
 /* Implements  block.field<  command. */
 static error__t block_field_put_table(
-    struct entity_context *context,
-    bool append, struct put_table_writer *writer)
+    const struct entity_context *context,
+    bool append, const struct put_table_writer *writer)
 {
     return FAIL_("block.field< not implemented yet");
 }
 
 
 /* Implements  block.field.*?  command. */
-static error__t field_meta_get(
-    struct entity_context *context, struct connection_result *result)
+static error__t attr_list_get(
+    const struct entity_context *context,
+    const struct connection_result *result)
 {
     return FAIL_("block.field.*? not implemented yet");
 }
@@ -98,7 +101,8 @@ static error__t field_meta_get(
 
 /* Implements  block.field.attr?  command. */
 static error__t field_attr_get(
-    struct entity_context *context, struct connection_result *result)
+    const struct entity_context *context,
+    const struct connection_result *result)
 {
     return FAIL_("block.field.attr? not implemented yet");
 }
@@ -106,33 +110,33 @@ static error__t field_attr_get(
 
 /* Implements  block.field.attr=  command. */
 static error__t field_attr_put(
-    struct entity_context *context, const char *value)
+    const struct entity_context *context, const char *value)
 {
     return FAIL_("block.field.attr= not implemented yet");
 }
 
 
 /* Implements  block.*  commands. */
-static const struct entity_actions block_meta_actions = {
-    .get = block_meta_get,          // block.*?
+static const struct entity_actions field_list_actions = {
+    .get = field_list_get,              // block.*?
 };
 
 /* Implements  block.field  commands. */
 static const struct entity_actions block_field_actions = {
-    .get = block_field_get,         // block.field?
-    .put = block_field_put,         // block.field=value
+    .get = block_field_get,             // block.field?
+    .put = block_field_put,             // block.field=value
     .put_table = block_field_put_table, // block.field<format
 };
 
 /* Implements  block.field.*  commands. */
-static const struct entity_actions field_meta_actions = {
-    .get = field_meta_get,          // block.field.*?
+static const struct entity_actions attr_list_actions = {
+    .get = attr_list_get,               // block.field.*?
 };
 
 /* Implements  block.field.attr  commands. */
 static const struct entity_actions field_attr_actions = {
-    .get = field_attr_get,          // block.field.attr?
-    .put = field_attr_put,          // block.field.attr=value
+    .get = field_attr_get,              // block.field.attr?
+    .put = field_attr_put,              // block.field.attr=value
 };
 
 
@@ -221,9 +225,9 @@ static error__t parse_attr_name(
  * One of the following four commands is parsed and the context->actions field
  * is set accordingly:
  *
- *  block.*                             block_meta_actions
+ *  block.*                             field_list_actions
  *  block[number].field                 block_field_actions
- *  block.field.*                       field_meta_actions
+ *  block.field.*                       attr_list_actions
  *  block[number].field.attr            field_attr_actions
  *
  * The number is only optional if there is only one instance of the block. */
@@ -239,7 +243,7 @@ static error__t compute_entity_handler(
         IF_ELSE(read_char(&input, '*'),
             /*  block.*  */
             check_no_number(number_present)  ?:
-            DO(context->actions = &block_meta_actions),
+            DO(context->actions = &field_list_actions),
 
         //else
             /* If not block meta-query then field name must follow. */
@@ -249,7 +253,7 @@ static error__t compute_entity_handler(
                 IF_ELSE(read_char(&input, '*'),
                     /*  block.field.*  */
                     check_no_number(number_present)  ?:
-                    DO(context->actions = &field_meta_actions),
+                    DO(context->actions = &attr_list_actions),
                 //else
                     /*  block.field.attr  */
                     parse_attr_name(&input, context)  ?:
@@ -271,7 +275,7 @@ static error__t compute_entity_handler(
 /* Process  entity?  commands. */
 static error__t process_entity_get(
     struct config_connection *connection, const char *name,
-    struct connection_result *result)
+    const struct connection_result *result)
 {
     struct entity_context context = { .connection = connection };
     return
@@ -296,7 +300,7 @@ static error__t process_entity_put(
 /* Process  entity<format  commands. */
 static error__t process_entity_put_table(
     struct config_connection *connection, const char *name, bool append,
-    struct put_table_writer *writer)
+    const struct put_table_writer *writer)
 {
     struct entity_context context = { .connection = connection };
     return
