@@ -12,8 +12,12 @@
 #include "hardware.h"
 #include "socket_server.h"
 #include "database.h"
+#include "config_server.h"
 #include "config_command.h"
 #include "system_command.h"
+#include "fields.h"
+#include "types.h"
+#include "mux_lookup.h"
 
 
 static unsigned int config_port = 8888;
@@ -111,7 +115,11 @@ int main(int argc, char *const argv[])
     error__t error =
         process_options(argc, argv)  ?:
 
+        initialise_fields()  ?:
+        initialise_types()  ?:
+        initialise_mux_lookup()  ?:
         load_config_databases(config_db, types_db, register_db)  ?:
+
         initialise_hardware()  ?:
         initialise_system_command()  ?:
         initialise_socket_server(config_port, data_port)  ?:

@@ -40,6 +40,9 @@ struct indent_parser {
     error__t (*parse_line)(
         unsigned int indent, void *context,
         const char *line, void **indent_context);
+    /* This optional function is called after parsing all the indents after each
+     * line.  The original indent_context is passed. */
+    error__t (*end_parse_line)(unsigned int indent, void *indent_context);
     /* Called at the end of parsing if the rest of parsing was successful.  This
      * function is optional and can be set to NULL if not required. */
     error__t (*end)(void *context);

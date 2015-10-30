@@ -46,6 +46,9 @@ SRCS += hashtable.c
 SRCS += database.c
 SRCS += config_command.c
 SRCS += system_command.c
+SRCS += fields.c
+SRCS += mux_lookup.c
+SRCS += types.c
 
 
 default: server

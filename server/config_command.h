@@ -1,26 +1,11 @@
 /* Interface for configuration commands. */
 
 
-/* All result strings must be bounded by this limit. */
-#define MAX_VALUE_LENGTH    256
 
+
+/* These are defined in config_server.h. */
 struct config_connection;
-
-
-/* This structure is used by get to communicate its results back to the server.
- * Either a single value is written, or a multi-line result.  Only one of either
- * .write_one or .write_many may be called. */
-struct connection_result {
-    /* If this is called then it must be called exactly once. */
-    void (*write_one)(
-        struct config_connection *connection, const char *result);
-    /* This can be called repeatedly (or not at all) if .write_one was not
-     * called, but in this case .write_many_end() MUST be called at the end. */
-    void (*write_many)(
-        struct config_connection *connection, const char *result);
-    /* If write_many() was called this is called to signal the end of writes. */
-    void (*write_many_end)(struct config_connection *connection);
-};
+struct connection_result;
 
 
 /* This is filled in by a successful call to put_table. */

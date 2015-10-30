@@ -127,14 +127,22 @@ static error__t open_indent(
 
 /* Closes any existing indentations deeper than the current line. */
 static error__t close_indents(
+    const struct indent_parser *parser,
     struct indent_state stack[], unsigned int *sp, size_t indent)
 {
     /* Close all indents until we reach an indent less than or equal to the
      * current line ... it had better be equal, otherwise we're trying to start
      * a new indent in an invalid location. */
-    while (indent < stack[*sp].indent)
+    error__t error = ERROR_OK;
+    while (!error  &&  indent < stack[*sp].indent)
+    {
+        if (parser->end_parse_line)
+            error = parser->end_parse_line(*sp, stack[*sp].context);
         *sp -= 1;
-    return TEST_OK_(indent == stack[*sp].indent, "Invalid indentation on line");
+    }
+    return
+        error  ?:
+        TEST_OK_(indent == stack[*sp].indent, "Invalid indentation on line");
 }
 
 
@@ -160,7 +168,7 @@ static error__t parse_one_line(
                 open_indent(indent_stack, sp, indent, max_indent, *new_context),
             // else
                 /* Close any indentations until flush with current line. */
-                close_indents(indent_stack, sp, indent))  ?:
+                close_indents(parser, indent_stack, sp, indent))  ?:
             parser->parse_line(
                 *sp, indent_stack[*sp].context, parse_line, new_context);
     else

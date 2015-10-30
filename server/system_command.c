@@ -11,12 +11,16 @@
 
 #include "error.h"
 #include "hashtable.h"
-#include "database.h"
 #include "parse.h"
-
+#include "config_server.h"
+#include "fields.h"
 #include "config_command.h"
+
 #include "system_command.h"
 
+
+#define MAX_VALUE_LENGTH    64
+#define MAX_NAME_LENGTH     20
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -44,14 +48,15 @@ static error__t system_get_blocks(
     struct config_connection *connection, const char *command,
     const struct connection_result *result)
 {
-    const struct config_block *block;
-    const char *block_name;
-    unsigned int count;
+    const struct block *block;
     int ix = 0;
-    while (walk_blocks_list(&ix, &block, &block_name, &count))
+    while (walk_blocks_list(&ix, &block))
     {
+        const char *block_name;
+        unsigned int count;
+        get_block_info(block, &block_name, &count);
         char value[MAX_VALUE_LENGTH];
-        snprintf(value, MAX_VALUE_LENGTH, "%s %d", block_name, count);
+        snprintf(value, sizeof(value), "%s %d", block_name, count);
         result->write_many(connection, value);
     }
     result->write_many_end(connection);

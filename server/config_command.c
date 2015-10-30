@@ -8,10 +8,16 @@
 
 #include "error.h"
 #include "hashtable.h"
-#include "database.h"
 #include "parse.h"
+#include "config_server.h"
+#include "fields.h"
 
 #include "config_command.h"
+
+
+#define MAX_VALUE_LENGTH    256
+#define MAX_NAME_LENGTH     20
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -21,9 +27,9 @@
  * operation. */
 struct entity_context {
     /* Fields derived from parsing the entity target. */
-    const struct config_block *block;       // Block database entry
+    const struct block *block;              // Block database entry
     unsigned int number;                    // Block number, within valid range
-    const struct field_entry *field;        // Field database entry
+    const struct field *field;              // Field database entry
     const struct field_attr *attr;          // Attribute data, may be absent
 
     struct config_connection *connection;   // Connection from request
@@ -51,12 +57,13 @@ static error__t field_list_get(
     const struct connection_result *result)
 {
     int ix = 0;
-    const struct field_entry *field;
-    const char *field_name;
-    while (walk_fields_list(context->block, &ix, &field, &field_name))
+    const struct field *field;
+    while (walk_fields_list(context->block, &ix, &field))
     {
+        const char *field_name, *class_name;
+        get_field_info(field, &field_name, &class_name);
         char value[MAX_VALUE_LENGTH];
-        snprintf(value, MAX_VALUE_LENGTH, "%s", field_name);
+        snprintf(value, MAX_VALUE_LENGTH, "%s %s", field_name, class_name);
         result->write_many(context->connection, value);
     }
     result->write_many_end(context->connection);
@@ -64,12 +71,26 @@ static error__t field_list_get(
 }
 
 
+/* The three class method wrappers are all called in almost identical fashion,
+ * so it makes sense to wrap this as a macro.  All three field access methods
+ * are handled by the fields class interface, which needs its own context which
+ * we assemble here from the entity_context. */
+#define CALL_CLASS_METHOD(method, context, args...) \
+    struct field_context field_context = { \
+        .field = context->field, \
+        .number = context->number, \
+        .connection = context->connection }; \
+    const struct field_access *access = get_field_access(context->field); \
+    return \
+        TEST_OK_(access->method, "No such method")  ?: \
+        access->method(&field_context, args);
+
 /* Implements  block.field?  command. */
 static error__t block_field_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    return FAIL_("block.field? not implemented yet");
+    CALL_CLASS_METHOD(get, context, result);
 }
 
 
@@ -77,7 +98,7 @@ static error__t block_field_get(
 static error__t block_field_put(
     const struct entity_context *context, const char *value)
 {
-    return FAIL_("block.field= not implemented yet");
+    CALL_CLASS_METHOD(put, context, value);
 }
 
 
@@ -86,7 +107,7 @@ static error__t block_field_put_table(
     const struct entity_context *context,
     bool append, const struct put_table_writer *writer)
 {
-    return FAIL_("block.field< not implemented yet");
+    CALL_CLASS_METHOD(put_table, context, append, writer);
 }
 
 
@@ -154,12 +175,12 @@ static error__t parse_block_name(
     const char **input, struct entity_context *context,
     unsigned int *max_number, bool *number_present)
 {
-    char block[MAX_NAME_LENGTH];
+    char block_name[MAX_NAME_LENGTH];
     return
         /* Parse and look up the block name. */
-        parse_name(input, block, MAX_NAME_LENGTH)  ?:
-        TEST_OK_(context->block = lookup_block(block, max_number),
-            "No such block")  ?:
+        parse_name(input, block_name, sizeof(block_name))  ?:
+        TEST_OK_(context->block = lookup_block(block_name), "No such block")  ?:
+        DO(get_block_info(context->block, NULL, max_number))  ?:
 
         /* Parse the number or flag its absence, and if present check that it's
          * in valid range. */
@@ -212,8 +233,9 @@ static error__t parse_attr_name(
     char attr[MAX_NAME_LENGTH];
     return
         parse_name(input, attr, MAX_NAME_LENGTH)  ?:
-        TEST_OK_(context->attr = lookup_attr(context->field, attr),
-            "No such attribute");
+//         TEST_OK_(context->attr = lookup_attr(context->field, attr),
+//             "No such attribute");
+        FAIL_("attr not implemented");
 }
 
 
