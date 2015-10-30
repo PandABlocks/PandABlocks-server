@@ -34,14 +34,16 @@ static error__t config_parse_header_line(
     /* Parse input of form <name> [ "[" <count> "]" ]. */
     char block_name[MAX_NAME_LENGTH];
     unsigned int count = 1;
+    unsigned int base;
     return
         parse_name(&line, block_name, sizeof(block_name))  ?:
         IF(read_char(&line, '['),
             parse_uint(&line, &count)  ?:
             parse_char(&line, ']'))  ?:
-        DO(line = skip_whitespace(line))  ?:
+        parse_whitespace(&line)  ?:
+        parse_uint(&line, &base)  ?:
         parse_eos(&line)  ?:
-        create_block((struct block **) indent_context, block_name, count, 0);
+        create_block((struct block **) indent_context, block_name, count, base);
 }
 
 
@@ -66,6 +68,25 @@ static error__t config_parse_field_line(
 }
 
 
+static error__t config_parse_attribute(
+    void *context, const char *line, void **indent_context)
+{
+    struct field *field = context;
+    printf("parse_attribute %p \"%s\"\n", field, line);
+    *indent_context = NULL;
+    return ERROR_OK;
+}
+
+
+static error__t config_parse_sub_attr(
+    void *context, const char *line, void **indent_context)
+{
+    printf("parse_sub_attr %p \"%s\"\n", context, line);
+    *indent_context = NULL;
+    return ERROR_OK;
+}
+
+
 static error__t config_parse_line(
     unsigned int indent, void *context, const char *line, void **indent_context)
 {
@@ -75,6 +96,10 @@ static error__t config_parse_line(
             return config_parse_header_line(context, line, indent_context);
         case 1:
             return config_parse_field_line(context, line, indent_context);
+        case 2:
+            return config_parse_attribute(context, line, indent_context);
+        case 3:
+            return config_parse_sub_attr(context, line, indent_context);
         default:
             /* Should not happen, we've set maximum indent in call to
              * parse_indented_file below. */
@@ -102,7 +127,7 @@ static error__t load_config_database(const char *db_name)
 {
     log_message("Loading configuration database from \"%s\"", db_name);
     return
-        parse_indented_file(db_name, 1, &config_indent_parser);
+        parse_indented_file(db_name, 3, &config_indent_parser);
 }
 
 

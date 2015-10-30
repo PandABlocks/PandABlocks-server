@@ -34,20 +34,6 @@ struct field_class {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
-const struct class_access *get_class_access(const struct field_class *class)
-{
-    return &class->access;
-}
-
-const char *get_class_name(const struct field_class *class)
-{
-    return class->name;
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-
 #if 0
 /* Adds mux entries for this field. */
 static void mux_out_init_class(struct mux_lookup *lookup, struct field *field)
@@ -234,7 +220,16 @@ static const struct field_class classes_table[] = {
 static struct hash_table *class_map;
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+const struct class_access *get_class_access(const struct field_class *class)
+{
+    return &class->access;
+}
+
+const char *get_class_name(const struct field_class *class)
+{
+    return class->name;
+}
+
 
 error__t lookup_class(const char *name, const struct field_class **class)
 {

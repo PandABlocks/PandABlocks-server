@@ -55,18 +55,7 @@ static error__t field_list_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    int ix = 0;
-    const struct field *field;
-    while (walk_fields_list(context->block, &ix, &field))
-    {
-        const char *field_name, *class_name;
-        get_field_info(field, &field_name, &class_name);
-        char value[MAX_VALUE_LENGTH];
-        snprintf(value, MAX_VALUE_LENGTH, "%s %s", field_name, class_name);
-        result->write_many(context->connection, value);
-    }
-    result->write_many_end(context->connection);
-    return ERROR_OK;
+    return block_fields_get(context->block, context->connection, result);
 }
 
 

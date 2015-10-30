@@ -179,21 +179,24 @@ const struct field *lookup_field(const struct block *block, const char *name)
 }
 
 
-bool walk_fields_list(
-    const struct block *block, int *ix, const struct field **field)
+error__t block_fields_get(
+    const struct block *block,
+    struct config_connection *connection,
+    const struct connection_result *result)
 {
-    const char *key;
-    return hash_table_walk_const(
-        block->fields, ix, (const void **) &key, (const void **) field);
-}
-
-
-void get_field_info(
-    const struct field *field,
-    const char **field_name, const char **class_name)
-{
-    *field_name = field->name;
-    *class_name = get_class_name(field->class);
+    int ix = 0;
+    const struct field *field;
+    const void *key;
+    while (hash_table_walk_const(
+              block->fields, &ix, &key, (const void **) &field))
+    {
+        char value[MAX_VALUE_LENGTH];
+        snprintf(value, MAX_VALUE_LENGTH,
+            "%s %s", field->name, get_class_name(field->class));
+        result->write_many(connection, value);
+    }
+    result->write_many_end(connection);
+    return ERROR_OK;
 }
 
 

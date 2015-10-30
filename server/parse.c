@@ -163,12 +163,15 @@ static error__t parse_one_line(
     /* Ignore comments and blank lines. */
     if (*parse_line != '#'  &&  *parse_line != '\0')
         return
+            /* Prepare the appropriate indent level. */
             IF_ELSE(indent > indent_stack[*sp].indent,
-                /* New line is more indented, try and open new indent. */
+                /* New line is more indented, open new indent. */
                 open_indent(indent_stack, sp, indent, max_indent, *new_context),
             // else
                 /* Close any indentations until flush with current line. */
                 close_indents(parser, indent_stack, sp, indent))  ?:
+
+            /* Process the line. */
             parser->parse_line(
                 *sp, indent_stack[*sp].context, parse_line, new_context);
     else

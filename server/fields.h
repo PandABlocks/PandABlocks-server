@@ -25,7 +25,7 @@ void get_block_info(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Field lookup. */
+/* Field lookup and enumeration. */
 
 /* Each field has a name and a number of access methods. */
 struct field;
@@ -34,14 +34,11 @@ struct field;
 const struct field *lookup_field(
     const struct block *block, const char *name);
 
-/* Walks list of fields in a block.  Usage as for walk_blocks_list. */
-bool walk_fields_list(
-    const struct block *block, int *ix, const struct field **field);
-
-/* Retrieves field name and class name for given field. */
-void get_field_info(
-    const struct field *field,
-    const char **field_name, const char **class_name);
+/* Implements field meta-data listing command:  block.*?  */
+error__t block_fields_get(
+    const struct block *block,
+    struct config_connection *connection,
+    const struct connection_result *result);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -54,15 +51,15 @@ struct field_context {
     struct config_connection *connection;   // Connection from request
 };
 
-/* Retrieves current value of field. */
+/* Retrieves current value of field:  block<n>.field?  */
 error__t field_get(
     const struct field_context *context,
     const struct connection_result *result);
 
-/* Writes value to field. */
+/* Writes value to field:  block<n>.field=value  */
 error__t field_put(const struct field_context *context, const char *value);
 
-/* Writes table of values ot a field. */
+/* Writes table of values ot a field:  block<n>.field<  */
 error__t field_put_table(
     const struct field_context *context,
     bool append, const struct put_table_writer *writer);
