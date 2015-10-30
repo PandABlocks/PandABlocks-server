@@ -48,19 +48,7 @@ static error__t system_get_blocks(
     struct config_connection *connection, const char *command,
     const struct connection_result *result)
 {
-    const struct block *block;
-    int ix = 0;
-    while (walk_blocks_list(&ix, &block))
-    {
-        const char *block_name;
-        unsigned int count;
-        get_block_info(block, &block_name, &count);
-        char value[MAX_VALUE_LENGTH];
-        snprintf(value, sizeof(value), "%s %d", block_name, count);
-        result->write_many(connection, value);
-    }
-    result->write_many_end(connection);
-    return ERROR_OK;
+    return block_list_get(connection, result);
 }
 
 

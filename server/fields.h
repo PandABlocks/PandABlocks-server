@@ -13,15 +13,16 @@ struct put_table_writer;
 struct block;
 
 /* Returns block with the given name. */
-const struct block *lookup_block(const char *name);
+error__t lookup_block(const char *name, struct block **block);
 
-/* Function for walking the database of blocks.  Use by setting *ix to 0 and
- * repeately calling this function until false is returned. */
-bool walk_blocks_list(int *ix, const struct block **block);
+/* Retrieves instance count for the given block. */
+unsigned int get_block_count(const struct block *block);
 
-/* Retrieves name and instance count for the given block. */
-void get_block_info(
-    const struct block *block, const char **name, unsigned int *count);
+/* Implements field meta-data listing command:  block.*?  */
+error__t block_list_get(
+    struct config_connection *connection,
+    const struct connection_result *result);
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -31,8 +32,8 @@ void get_block_info(
 struct field;
 
 /* Returns the field with the given name in the given block. */
-const struct field *lookup_field(
-    const struct block *block, const char *name);
+error__t lookup_field(
+    const struct block *block, const char *name, struct field **field);
 
 /* Implements field meta-data listing command:  block.*?  */
 error__t block_fields_get(
@@ -86,13 +87,19 @@ error__t write_field_register(
  * register base must be given.  Once this has been created the subsiduary
  * fields can be created. */
 error__t create_block(
-    struct block **block, const char *name,
-    unsigned int count, unsigned int base);
+    struct block **block, const char *name, unsigned int count);
 
 /* Call this to create each field. */
 error__t create_field(
     struct field **field, const struct block *parent, const char *name,
     const char *class_name, const char *type_name);
+
+/* Methods for register setup. */
+error__t block_set_base(struct block *block, unsigned int base);
+error__t field_set_reg(struct field *field, unsigned int reg);
+error__t mux_set_indexes(struct field *field, unsigned int indices[]);
+
+error__t validate_database(void);
 
 
 /* This must be called early during initialisation. */

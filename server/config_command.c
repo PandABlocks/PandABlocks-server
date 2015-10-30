@@ -15,7 +15,6 @@
 #include "config_command.h"
 
 
-#define MAX_VALUE_LENGTH    256
 #define MAX_NAME_LENGTH     20
 
 
@@ -27,9 +26,9 @@
  * operation. */
 struct entity_context {
     /* Fields derived from parsing the entity target. */
-    const struct block *block;              // Block database entry
+    struct block *block;                    // Block database entry
     unsigned int number;                    // Block number, within valid range
-    const struct field *field;              // Field database entry
+    struct field *field;                    // Field database entry
     const struct field_attr *attr;          // Attribute data, may be absent
 
     struct config_connection *connection;   // Connection from request
@@ -165,8 +164,8 @@ static error__t parse_block_name(
     return
         /* Parse and look up the block name. */
         parse_name(input, block_name, sizeof(block_name))  ?:
-        TEST_OK_(context->block = lookup_block(block_name), "No such block")  ?:
-        DO(get_block_info(context->block, NULL, max_number))  ?:
+        lookup_block(block_name, &context->block)  ?:
+        DO(*max_number = get_block_count(context->block))  ?:
 
         /* Parse the number or flag its absence, and if present check that it's
          * in valid range. */
@@ -207,8 +206,7 @@ static error__t parse_field_name(
     return
         /* Process the field. */
         parse_name(input, field, MAX_NAME_LENGTH)  ?:
-        TEST_OK_(context->field = lookup_field(context->block, field),
-            "No such field");
+        lookup_field(context->block, field, &context->field);
 }
 
 

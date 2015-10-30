@@ -85,31 +85,38 @@ error__t write_field_register(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Method dispatch down to class. */
 
-#define CALL_CLASS_METHOD(method, error, context, args...) \
-    struct class_context class_context = { \
-        .field = context->field, \
-        .number = context->number, \
-        .type = context->field->type, \
-        .type_data = context->field->type_data, \
-        .connection = context->connection, \
-    }; \
-    const struct class_access *access = \
-        get_class_access(context->field->class); \
-    return \
-        TEST_OK_(access->method, "Cannot " error " field")  ?: \
-        access->method(&class_context, args);
+static struct class_context create_class_context(
+    const struct field_context *context)
+{
+    return (struct class_context) {
+        .field = context->field,
+        .number = context->number,
+        .type = context->field->type,
+        .type_data = context->field->type_data,
+        .connection = context->connection,
+    };
+}
+
 
 error__t field_get(
     const struct field_context *context,
     const struct connection_result *result)
 {
-    CALL_CLASS_METHOD(get, "read", context, result);
+    struct class_context class_context = create_class_context(context);
+    const struct class_access *access = get_class_access(context->field->class);
+    return
+        TEST_OK_(access->get, "Field not readable")  ?:
+        access->get(&class_context, result);
 }
 
 
 error__t field_put(const struct field_context *context, const char *value)
 {
-    CALL_CLASS_METHOD(put, "write", context, value);
+    struct class_context class_context = create_class_context(context);
+    const struct class_access *access = get_class_access(context->field->class);
+    return
+        TEST_OK_(access->put, "Field not writeable")  ?:
+        access->put(&class_context, value);
 }
 
 
@@ -117,7 +124,11 @@ error__t field_put_table(
     const struct field_context *context,
     bool append, const struct put_table_writer *writer)
 {
-    CALL_CLASS_METHOD(put_table, "write table to", context, append, writer);
+    struct class_context class_context = create_class_context(context);
+    const struct class_access *access = get_class_access(context->field->class);
+    return
+        TEST_OK_(access->put_table, "Field is not a table")  ?:
+        access->put_table(&class_context, append, writer);
 }
 
 
@@ -129,39 +140,45 @@ error__t field_put_table(
 static struct hash_table *block_map;
 
 
-const struct block *lookup_block(const char *name)
+error__t lookup_block(const char *name, struct block **block)
 {
-    return hash_table_lookup(block_map, name);
+    return TEST_OK_(*block = hash_table_lookup(block_map, name),
+        "No such block");
 }
 
 
-bool walk_blocks_list(int *ix, const struct block **block)
+unsigned int get_block_count(const struct block *block)
 {
-    const char *key;
-    return hash_table_walk_const(
-        block_map, ix, (const void **) &key, (const void **) block);
+    return block->count;
 }
 
 
-void get_block_info(
-    const struct block *block, const char **name, unsigned int *count)
+error__t block_list_get(
+    struct config_connection *connection,
+    const struct connection_result *result)
 {
-    if (name)
-        *name = block->name;
-    if (count)
-        *count = block->count;
+    const struct block *block;
+    const void *key;
+    int ix = 0;
+    while (hash_table_walk_const(block_map, &ix, &key, (const void **) &block))
+    {
+        char value[MAX_VALUE_LENGTH];
+        snprintf(value, sizeof(value), "%s %d", block->name, block->count);
+        result->write_many(connection, value);
+    }
+    result->write_many_end(connection);
+    return ERROR_OK;
 }
 
 
 error__t create_block(
-    struct block **block, const char *name,
-    unsigned int count, unsigned int base)
+    struct block **block, const char *name, unsigned int count)
 {
     *block = malloc(sizeof(struct block));
     **block = (struct block) {
         .name = strdup(name),
         .count = count,
-        .base = base,
+        .base = UNASSIGNED_REGISTER,
         .fields = hash_table_create(false),
     };
     return TEST_OK_(
@@ -173,9 +190,11 @@ error__t create_block(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
-const struct field *lookup_field(const struct block *block, const char *name)
+error__t lookup_field(
+    const struct block *block, const char *name, struct field **field)
 {
-    return hash_table_lookup(block->fields, name);
+    return TEST_OK_(*field = hash_table_lookup(block->fields, name),
+        "No such field");
 }
 
 
@@ -245,6 +264,52 @@ ERROR_OK;
 //         /* Finally finish off any class specific initialisation. */
 //         IF(class->init_class,
 //             class->init_class(*field));
+}
+
+
+static error__t assign_register(unsigned int *dest, unsigned int value)
+{
+    return
+        TEST_OK_(*dest == UNASSIGNED_REGISTER, "Register already assigned")  ?:
+        DO(*dest = value);
+}
+
+error__t block_set_base(struct block *block, unsigned int base)
+{
+    return assign_register(&block->base, base);
+}
+
+error__t field_set_reg(struct field *field, unsigned int reg)
+{
+    return assign_register(&field->reg, reg);
+}
+
+error__t mux_set_indexes(struct field *field, unsigned int indices[])
+{
+    return FAIL_("Not implemented");
+}
+
+error__t validate_database(void)
+{
+    error__t error = ERROR_OK;
+
+    const struct block *block;
+    const void *key;
+    int block_ix = 0;
+    while (!error  &&  hash_table_walk_const(
+               block_map, &block_ix, &key, (const void **) &block))
+    {
+        error = TEST_OK_(block->base != UNASSIGNED_REGISTER,
+            "No base address for block %s", block->name);
+
+        int field_ix = 0;
+        const struct field *field;
+        while (!error  &&  hash_table_walk_const(
+                  block->fields, &field_ix, &key, (const void **) &field))
+            error = TEST_OK_(field->reg != UNASSIGNED_REGISTER,
+                "No register for field %s.%s", block->name, field->name);
+    }
+    return error;
 }
 
 

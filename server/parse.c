@@ -196,7 +196,8 @@ error__t parse_indented_file(
         unsigned int sp = 0;
         struct indent_state indent_stack[max_indent + 1];
         indent_stack[0] = (struct indent_state) {
-            .indent = 0, .context = parser->start(), };
+            .indent = 0,
+            .context = parser->start ? parser->start() : NULL, };
 
         /* This context is written each time we parse a line and then used for
          * lines with higher indentation. */

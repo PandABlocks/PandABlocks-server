@@ -19,12 +19,6 @@
 #define MAX_NAME_LENGTH     20
 
 
-static void *config_start(void)
-{
-    return NULL;
-}
-
-
 /* Parses a block definition header.  This is simply a name, optionally followed
  * by a number in square brackets, and should be followed by a number of field
  * definitions. */
@@ -34,16 +28,13 @@ static error__t config_parse_header_line(
     /* Parse input of form <name> [ "[" <count> "]" ]. */
     char block_name[MAX_NAME_LENGTH];
     unsigned int count = 1;
-    unsigned int base;
     return
         parse_name(&line, block_name, sizeof(block_name))  ?:
         IF(read_char(&line, '['),
             parse_uint(&line, &count)  ?:
             parse_char(&line, ']'))  ?:
-        parse_whitespace(&line)  ?:
-        parse_uint(&line, &base)  ?:
         parse_eos(&line)  ?:
-        create_block((struct block **) indent_context, block_name, count, base);
+        create_block((struct block **) indent_context, block_name, count);
 }
 
 
@@ -117,7 +108,6 @@ static error__t config_end_parse_line(
 
 
 static const struct indent_parser config_indent_parser = {
-    .start = config_start,
     .parse_line = config_parse_line,
     .end_parse_line = config_end_parse_line,
 };
@@ -144,9 +134,79 @@ static error__t load_types_database(const char *db)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static error__t load_register_database(const char *db)
+static error__t register_parse_header_line(
+    void *context, const char *line, void **indent_context)
 {
-    log_message("Loading register database from \"%s\"", db);
+    char block_name[MAX_NAME_LENGTH];
+    unsigned int base;
+    struct block *block;
+    return
+        parse_name(&line, block_name, sizeof(block_name))  ?:
+        parse_whitespace(&line)  ?:
+        parse_uint(&line, &base)  ?:
+        parse_eos(&line)  ?:
+
+        lookup_block(block_name, &block)  ?:
+        DO(*indent_context = block)  ?:
+        block_set_base(block, base);
+}
+
+
+static error__t register_parse_field_line(
+    void *context, const char *line, void **indent_context)
+{
+    struct block *block = context;
+    char field_name[MAX_NAME_LENGTH];
+    unsigned int reg;
+    struct field *field;
+    return
+        parse_name(&line, field_name, sizeof(field_name))  ?:
+        parse_whitespace(&line)  ?:
+        parse_uint(&line, &reg)  ?:
+        parse_eos(&line)  ?:
+
+        lookup_field(block, field_name, &field)  ?:
+        DO(*indent_context = field)  ?:
+        field_set_reg(field, reg);
+}
+
+
+static error__t register_parse_attribute(
+    void *context, const char *line, void **indent_context)
+{
+    printf("register_parse_attribute %s\n", line);
+    return ERROR_OK;
+}
+
+
+static error__t register_parse_line(
+    unsigned int indent, void *context, const char *line, void **indent_context)
+{
+    switch (indent)
+    {
+        case 0:
+            return register_parse_header_line(context, line, indent_context);
+        case 1:
+            return register_parse_field_line(context, line, indent_context);
+        case 2:
+            return register_parse_attribute(context, line, indent_context);
+        default:
+            /* Should not happen, we've set maximum indent in call to
+             * parse_indented_file below. */
+            ASSERT_FAIL();
+    }
+}
+
+
+static const struct indent_parser register_indent_parser = {
+    .parse_line = register_parse_line,
+};
+
+static error__t load_register_database(const char *db_name)
+{
+    log_message("Loading register database from \"%s\"", db_name);
+    return
+        parse_indented_file(db_name, 2, &register_indent_parser);
     return ERROR_OK;
 }
 
@@ -159,5 +219,6 @@ error__t load_config_databases(
     return
         load_types_database(types_db)  ?:
         load_config_database(config_db)  ?:
-        load_register_database(register_db);
+        load_register_database(register_db)  ?:
+        validate_database();
 }
