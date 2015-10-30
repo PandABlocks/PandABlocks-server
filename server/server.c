@@ -18,6 +18,7 @@
 #include "fields.h"
 #include "types.h"
 #include "mux_lookup.h"
+#include "classes.h"
 
 
 static unsigned int config_port = 8888;
@@ -118,6 +119,7 @@ int main(int argc, char *const argv[])
         initialise_fields()  ?:
         initialise_types()  ?:
         initialise_mux_lookup()  ?:
+        initialise_classes()  ?:
         load_config_databases(config_db, types_db, register_db)  ?:
 
         initialise_hardware()  ?:

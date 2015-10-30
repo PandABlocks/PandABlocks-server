@@ -33,7 +33,6 @@ struct entity_context {
     const struct field_attr *attr;          // Attribute data, may be absent
 
     struct config_connection *connection;   // Connection from request
-    const struct entity_actions *actions;   // Actions for this context
 };
 
 
@@ -71,26 +70,16 @@ static error__t field_list_get(
 }
 
 
-/* The three class method wrappers are all called in almost identical fashion,
- * so it makes sense to wrap this as a macro.  All three field access methods
- * are handled by the fields class interface, which needs its own context which
- * we assemble here from the entity_context. */
-#define CALL_CLASS_METHOD(method, context, args...) \
-    struct field_context field_context = { \
-        .field = context->field, \
-        .number = context->number, \
-        .connection = context->connection }; \
-    const struct field_access *access = get_field_access(context->field); \
-    return \
-        TEST_OK_(access->method, "No such method")  ?: \
-        access->method(&field_context, args);
-
 /* Implements  block.field?  command. */
 static error__t block_field_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    CALL_CLASS_METHOD(get, context, result);
+    struct field_context field_context = {
+        .field = context->field,
+        .number = context->number,
+        .connection = context->connection };
+    return field_get(&field_context, result);
 }
 
 
@@ -98,7 +87,11 @@ static error__t block_field_get(
 static error__t block_field_put(
     const struct entity_context *context, const char *value)
 {
-    CALL_CLASS_METHOD(put, context, value);
+    struct field_context field_context = {
+        .field = context->field,
+        .number = context->number,
+        .connection = context->connection };
+    return field_put(&field_context, value);
 }
 
 
@@ -107,7 +100,11 @@ static error__t block_field_put_table(
     const struct entity_context *context,
     bool append, const struct put_table_writer *writer)
 {
-    CALL_CLASS_METHOD(put_table, context, append, writer);
+    struct field_context field_context = {
+        .field = context->field,
+        .number = context->number,
+        .connection = context->connection };
+    return field_put_table(&field_context, append, writer);
 }
 
 
@@ -244,8 +241,8 @@ static error__t parse_attr_name(
  *
  *  block [number] "." ( "*" | field [ "." ( "*" | meta ) ]
  *
- * One of the following four commands is parsed and the context->actions field
- * is set accordingly:
+ * One of the following four commands is parsed and the *actions field is set
+ * accordingly:
  *
  *  block.*                             field_list_actions
  *  block[number].field                 block_field_actions
@@ -254,7 +251,8 @@ static error__t parse_attr_name(
  *
  * The number is only optional if there is only one instance of the block. */
 static error__t compute_entity_handler(
-    const char *input, struct entity_context *context)
+    const char *input, struct entity_context *context,
+    const struct entity_actions **actions)
 {
     unsigned int max_number;
     bool number_present;
@@ -265,7 +263,7 @@ static error__t compute_entity_handler(
         IF_ELSE(read_char(&input, '*'),
             /*  block.*  */
             check_no_number(number_present)  ?:
-            DO(context->actions = &field_list_actions),
+            DO(*actions = &field_list_actions),
 
         //else
             /* If not block meta-query then field name must follow. */
@@ -275,17 +273,17 @@ static error__t compute_entity_handler(
                 IF_ELSE(read_char(&input, '*'),
                     /*  block.field.*  */
                     check_no_number(number_present)  ?:
-                    DO(context->actions = &attr_list_actions),
+                    DO(*actions = &attr_list_actions),
                 //else
                     /*  block.field.attr  */
                     parse_attr_name(&input, context)  ?:
                     check_block_number(max_number, number_present)  ?:
-                    DO(context->actions = &field_attr_actions)
+                    DO(*actions = &field_attr_actions)
                 ),
             //else
                 /*  block.field  */
                 check_block_number(max_number, number_present)  ?:
-                DO(context->actions = &block_field_actions)
+                DO(*actions = &block_field_actions)
             )
         )  ?:
 
@@ -300,10 +298,11 @@ static error__t process_entity_get(
     const struct connection_result *result)
 {
     struct entity_context context = { .connection = connection };
+    const struct entity_actions *actions;
     return
-        compute_entity_handler(name, &context)  ?:
-        TEST_OK_(context.actions->get, "Field not readable")  ?:
-        context.actions->get(&context, result);
+        compute_entity_handler(name, &context, &actions)  ?:
+        TEST_OK_(actions->get, "Field not readable")  ?:
+        actions->get(&context, result);
 }
 
 
@@ -312,10 +311,11 @@ static error__t process_entity_put(
     struct config_connection *connection, const char *name, const char *value)
 {
     struct entity_context context = { .connection = connection };
+    const struct entity_actions *actions;
     return
-        compute_entity_handler(name, &context)  ?:
-        TEST_OK_(context.actions->put, "Field not writeable")  ?:
-        context.actions->put(&context, value);
+        compute_entity_handler(name, &context, &actions)  ?:
+        TEST_OK_(actions->put, "Field not writeable")  ?:
+        actions->put(&context, value);
 }
 
 
@@ -325,10 +325,11 @@ static error__t process_entity_put_table(
     const struct put_table_writer *writer)
 {
     struct entity_context context = { .connection = connection };
+    const struct entity_actions *actions;
     return
-        compute_entity_handler(name, &context)  ?:
-        TEST_OK_(context.actions->put_table, "Field not a table")  ?:
-        context.actions->put_table(&context, append, writer);
+        compute_entity_handler(name, &context, &actions)  ?:
+        TEST_OK_(actions->put_table, "Field not a table")  ?:
+        actions->put_table(&context, append, writer);
 }
 
 

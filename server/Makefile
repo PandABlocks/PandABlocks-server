@@ -49,6 +49,7 @@ SRCS += system_command.c
 SRCS += fields.c
 SRCS += mux_lookup.c
 SRCS += types.c
+SRCS += classes.c
 
 
 default: server

@@ -1,8 +1,8 @@
 /* Field class interface. */
 
-
-struct put_table_writer;
+struct config_connection;
 struct connection_result;
+struct put_table_writer;
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -25,8 +25,7 @@ void get_block_info(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Field get, put, put_table support.  These implement the field read and write
- * methods. */
+/* Field lookup. */
 
 /* Each field has a name and a number of access methods. */
 struct field;
@@ -34,37 +33,6 @@ struct field;
 /* Returns the field with the given name in the given block. */
 const struct field *lookup_field(
     const struct block *block, const char *name);
-
-
-/* We need one of these for every field class method to provide our working
- * context. */
-struct field_context {
-    const struct field *field;
-    unsigned int number;
-    struct config_connection *connection;
-};
-
-/* The field_access is an abstract interface implementing access functions. */
-struct field_access {
-    /*  block[n].field?
-     * Implements reading from a field. */
-    error__t (*get)(
-        const struct field_context *context,
-        const struct connection_result *result);
-
-    /*  block[n].field=value
-     * Implements writing to the field. */
-    error__t (*put)(const struct field_context *context, const char *value);
-
-    /*  block[n].field<
-     * Implements writing to a table, for the one class which support this. */
-    error__t (*put_table)(
-        const struct field_context *context,
-        bool append, const struct put_table_writer *writer);
-};
-
-/* Returns the field class associated with the given field. */
-const struct field_access *get_field_access(const struct field *field);
 
 /* Walks list of fields in a block.  Usage as for walk_blocks_list. */
 bool walk_fields_list(
@@ -74,6 +42,43 @@ bool walk_fields_list(
 void get_field_info(
     const struct field *field,
     const char **field_name, const char **class_name);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Field access. */
+
+/* Field access methods.  These all require the following context. */
+struct field_context {
+    const struct field *field;              // Field database entry
+    unsigned int number;                    // Block number, within valid range
+    struct config_connection *connection;   // Connection from request
+};
+
+/* Retrieves current value of field. */
+error__t field_get(
+    const struct field_context *context,
+    const struct connection_result *result);
+
+/* Writes value to field. */
+error__t field_put(const struct field_context *context, const char *value);
+
+/* Writes table of values ot a field. */
+error__t field_put_table(
+    const struct field_context *context,
+    bool append, const struct put_table_writer *writer);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Interface between fields and supporting class. */
+
+/* Returns value in register. */
+error__t read_field_register(
+    const struct field *field, unsigned int number, unsigned int *result);
+
+/* Writes value to register. */
+error__t write_field_register(
+    const struct field *field, unsigned int number,
+    unsigned int value, bool mark_changed);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
