@@ -134,6 +134,8 @@ static error__t load_types_database(const char *db)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+
+/* A block line just specifies block name and base address. */
 static error__t register_parse_header_line(
     void *context, const char *line, void **indent_context)
 {
@@ -152,6 +154,7 @@ static error__t register_parse_header_line(
 }
 
 
+/* Similarly, a field line is just field name and register. */
 static error__t register_parse_field_line(
     void *context, const char *line, void **indent_context)
 {
@@ -171,11 +174,28 @@ static error__t register_parse_field_line(
 }
 
 
+/* A field attribute line is potentially more complex.  At the moment we only
+ * have one type: an index line consisting of a number for each instance. */
 static error__t register_parse_attribute(
     void *context, const char *line, void **indent_context)
 {
-    printf("register_parse_attribute %s\n", line);
-    return ERROR_OK;
+    struct field *field = context;
+    char action[MAX_NAME_LENGTH];
+    error__t error =
+        parse_name(&line, action, sizeof(action))  ?:
+        TEST_OK_(strcmp(action, "index") == 0, "Unknown attribute %s", action);
+
+    unsigned int count = get_block_count(field_parent(field));
+    unsigned int indices[count];
+    for (unsigned int i = 0; !error  &&  i < count; i ++)
+        error =
+            parse_whitespace(&line)  ?:
+            parse_uint(&line, &indices[i]);
+
+    return
+        error  ?:
+        parse_eos(&line)  ?:
+        mux_set_indices(field, indices);
 }
 
 

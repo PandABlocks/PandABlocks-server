@@ -198,6 +198,12 @@ error__t lookup_field(
 }
 
 
+const struct block *field_parent(const struct field *field)
+{
+    return field->block;
+}
+
+
 error__t block_fields_get(
     const struct block *block,
     struct config_connection *connection,
@@ -284,9 +290,11 @@ error__t field_set_reg(struct field *field, unsigned int reg)
     return assign_register(&field->reg, reg);
 }
 
-error__t mux_set_indexes(struct field *field, unsigned int indices[])
+error__t mux_set_indices(struct field *field, unsigned int indices[])
 {
-    return FAIL_("Not implemented");
+    return class_add_indices(
+        field->class, field->block->name, field->name,
+        field->block->count, indices);
 }
 
 error__t validate_database(void)

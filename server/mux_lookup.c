@@ -46,13 +46,16 @@ static struct mux_lookup *mux_lookup_create(size_t length)
 
 
 /* Add name<->index mapping, called during configuration file parsing. */
-void mux_lookup_insert(
+error__t mux_lookup_insert(
     struct mux_lookup *lookup, unsigned int ix, const char *name)
 {
-    ASSERT_OK(ix < lookup->length);
-    lookup->names[ix] = strdup(name);
-    hash_table_insert(
-        lookup->numbers, lookup->names[ix], (void *) (uintptr_t) ix);
+    return
+        TEST_OK_(ix < lookup->length, "Index %u out of range", ix)  ?:
+        TEST_OK_(!lookup->names[ix], "Index %u already assigned", ix)  ?:
+        DO(lookup->names[ix] = strdup(name))  ?:
+        TEST_OK_(!hash_table_insert(
+            lookup->numbers, lookup->names[ix], (void *) (uintptr_t) ix),
+            "Duplicate mux name %s", name);
 }
 
 

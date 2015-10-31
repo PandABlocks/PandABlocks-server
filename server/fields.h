@@ -18,11 +18,6 @@ error__t lookup_block(const char *name, struct block **block);
 /* Retrieves instance count for the given block. */
 unsigned int get_block_count(const struct block *block);
 
-/* Implements field meta-data listing command:  block.*?  */
-error__t block_list_get(
-    struct config_connection *connection,
-    const struct connection_result *result);
-
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -35,22 +30,34 @@ struct field;
 error__t lookup_field(
     const struct block *block, const char *name, struct field **field);
 
-/* Implements field meta-data listing command:  block.*?  */
-error__t block_fields_get(
-    const struct block *block,
-    struct config_connection *connection,
-    const struct connection_result *result);
+/* Returns owning block for this field. */
+const struct block *field_parent(const struct field *field);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Field access. */
+/* Field access implementation. */
 
-/* Field access methods.  These all require the following context. */
+/* The following methods implement all of the entity interface commands
+ * published through the socket interface. */
+
+/* The field access methods require the following context. */
 struct field_context {
     const struct field *field;              // Field database entry
     unsigned int number;                    // Block number, within valid range
     struct config_connection *connection;   // Connection from request
 };
+
+
+/* Implements block meta-data listing command:  *BLOCKS?  */
+error__t block_list_get(
+    struct config_connection *connection,
+    const struct connection_result *result);
+
+/* Implements field meta-data listing command:  block.*?  */
+error__t block_fields_get(
+    const struct block *block,
+    struct config_connection *connection,
+    const struct connection_result *result);
 
 /* Retrieves current value of field:  block<n>.field?  */
 error__t field_get(
@@ -97,7 +104,7 @@ error__t create_field(
 /* Methods for register setup. */
 error__t block_set_base(struct block *block, unsigned int base);
 error__t field_set_reg(struct field *field, unsigned int reg);
-error__t mux_set_indexes(struct field *field, unsigned int indices[]);
+error__t mux_set_indices(struct field *field, unsigned int indices[]);
 
 error__t validate_database(void);
 

@@ -15,17 +15,24 @@
 #include "classes.h"
 
 
+#define MAX_NAME_LENGTH     64
 #define MAX_VALUE_LENGTH    64
 
 
 /* A field class is an abstract interface implementing access functions. */
 struct field_class {
     const char *name;
-    /* Class initialisation.  Not needed by most classes, so may be null. */
-    error__t (*init_class)(struct field *field);
-    /* Class type lookup.  This allows the class to make its own choices about
-     * the appropriate type handler.  Also null if not needed. */
-    error__t (*init_type)(const char *type_name, struct field_type **type);
+//     /* Class initialisation.  Not needed by most classes, so may be null. */
+//     error__t (*init_class)(struct field *field);
+//     /* Class type lookup.  This allows the class to make its own choices about
+//      * the appropriate type handler.  Also null if not needed. */
+//     error__t (*init_type)(const char *type_name, struct field_type **type);
+
+    /* Special mux index initialiser for the two _out classes. */
+    error__t (*add_indices)(
+        const char *block_name, const char *field_name, unsigned int count,
+        unsigned int indices[]);
+
     /* Field access methods. */
     struct class_access access;
 };
@@ -34,21 +41,40 @@ struct field_class {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
-#if 0
-/* Adds mux entries for this field. */
-static void mux_out_init_class(struct mux_lookup *lookup, struct field *field)
+/* Adds each field name <-> index mapping to the appropriate multiplexer lookup
+ * table. */
+static error__t add_mux_indices(
+    struct mux_lookup *mux_lookup,
+    const char *block_name, const char *field_name, unsigned int count,
+    unsigned int indices[])
 {
     /* Add mux entries for our instances. */
-    for (int i = 0; i < field->count; i ++)
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < count; i ++)
     {
         char name[MAX_NAME_LENGTH];
-        snprintf(name, sizeof(name), "%s%d.%s",
-            field->block->name, i, field->name);
-        // what is ix ???????????
-        mux_lookup_insert(lookup, ix, name);
+        snprintf(name, sizeof(name), "%s%d.%s", block_name, i, field_name);
+        error = mux_lookup_insert(mux_lookup, indices[i], name);
     }
+    return error;
 }
-#endif
+
+
+static error__t bit_out_add_indices(
+    const char *block_name, const char *field_name, unsigned int count,
+    unsigned int indices[])
+{
+    return add_mux_indices(
+        bit_mux_lookup, block_name, field_name, count, indices);
+}
+
+static error__t pos_out_add_indices(
+    const char *block_name, const char *field_name, unsigned int count,
+    unsigned int indices[])
+{
+    return add_mux_indices(
+        pos_mux_lookup, block_name, field_name, count, indices);
+}
 
 
 /* Class field access implementations for {bit,pos}_{in,out}. */
@@ -203,8 +229,10 @@ static const struct field_class classes_table[] = {
     { "pos_in",
         .access = { .get = pos_in_get, .put = pos_in_put, } },
     { "bit_out",
+        .add_indices = bit_out_add_indices,
         .access = { .get = value_get, } },
     { "pos_out",
+        .add_indices = pos_out_add_indices,
         .access = { .get = value_get, } },
     { "param",
         .access = { .get = value_get,  .put = param_put, } },
@@ -236,6 +264,17 @@ error__t lookup_class(const char *name, const struct field_class **class)
     return TEST_OK_(
         *class = hash_table_lookup(class_map, name),
             "Invalid field class %s", name);
+}
+
+
+error__t class_add_indices(
+    const struct field_class *class,
+    const char *block_name, const char *field_name, unsigned int count,
+    unsigned int indices[])
+{
+    return
+        TEST_OK_(class->add_indices, "Class does not have indices")  ?:
+        class->add_indices(block_name, field_name, count, indices);
 }
 
 

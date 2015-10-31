@@ -93,7 +93,7 @@ error__t parse_uint(const char **string, unsigned int *result)
 
 error__t parse_eos(const char **string)
 {
-    return TEST_OK_(**string == '\0', "Unexpected character");
+    return TEST_OK_(**string == '\0', "Unexpected character at end");
 }
 
 

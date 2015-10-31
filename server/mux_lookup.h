@@ -5,7 +5,7 @@
 struct mux_lookup;
 
 
-void mux_lookup_insert(
+error__t mux_lookup_insert(
     struct mux_lookup *lookup, unsigned int ix, const char *name);
 
 error__t mux_lookup_name(
