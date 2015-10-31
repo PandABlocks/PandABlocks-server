@@ -226,3 +226,8 @@ error__t initialise_socket_server(
         create_and_listen(&config_socket, config_port)  ?:
         create_and_listen(&data_socket, data_port);
 }
+
+void terminate_socket_server()
+{
+    printf("terminate_socket_server doesn't do anything yet\n");
+}

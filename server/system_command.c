@@ -159,3 +159,10 @@ error__t initialise_system_command(void)
     }
     return ERROR_OK;
 }
+
+
+void terminate_system_command(void)
+{
+    if (command_table)
+        hash_table_destroy(command_table);
+}

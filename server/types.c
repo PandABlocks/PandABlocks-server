@@ -76,3 +76,10 @@ error__t initialise_types(void)
 
     return ERROR_OK;
 }
+
+
+void terminate_types(void)
+{
+    if (field_type_map)
+        hash_table_destroy(field_type_map);
+}

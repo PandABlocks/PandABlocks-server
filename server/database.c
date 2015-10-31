@@ -242,3 +242,9 @@ error__t load_config_databases(
         load_register_database(register_db)  ?:
         validate_database();
 }
+
+
+void terminate_databases(void)
+{
+    /* Seems to be nothing to do. */
+}

@@ -28,7 +28,7 @@
 struct mux_lookup {
     size_t length;                  // Number of mux entries
     struct hash_table *numbers;     // Lookup converting name to index
-    const char *names[];            // Array of mux entry names
+    char *names[];                  // Array of mux entry names
 };
 
 
@@ -42,6 +42,15 @@ static struct mux_lookup *mux_lookup_create(size_t length)
     lookup->numbers = hash_table_create(false);
     memset(lookup->names, 0, array_length);
     return lookup;
+}
+
+
+static void mux_lookup_destroy(struct mux_lookup *lookup)
+{
+    hash_table_destroy(lookup->numbers);
+    for (unsigned int i = 0; i < lookup->length; i ++)
+        free(lookup->names[i]);
+    free(lookup);
 }
 
 
@@ -81,8 +90,8 @@ const char *mux_lookup_index(struct mux_lookup *lookup, unsigned int ix)
 }
 
 
-struct mux_lookup *bit_mux_lookup;
-struct mux_lookup *pos_mux_lookup;
+struct mux_lookup *bit_mux_lookup = NULL;
+struct mux_lookup *pos_mux_lookup = NULL;
 
 error__t initialise_mux_lookup(void)
 {
@@ -92,4 +101,13 @@ error__t initialise_mux_lookup(void)
     pos_mux_lookup = mux_lookup_create(POSITION_MUX_COUNT);
 
     return ERROR_OK;
+}
+
+
+void terminate_mux_lookup(void)
+{
+    if (bit_mux_lookup)
+        mux_lookup_destroy(bit_mux_lookup);
+    if (pos_mux_lookup)
+        mux_lookup_destroy(pos_mux_lookup);
 }

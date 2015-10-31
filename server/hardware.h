@@ -4,6 +4,8 @@
  * program startup should be terminated. */
 error__t initialise_hardware(void);
 
+void terminate_hardware(void);
+
 /* Read and write function block configuration register.  Each function block is
  * identified by its function number, the block number within that function, and
  * finally the register within the block. */

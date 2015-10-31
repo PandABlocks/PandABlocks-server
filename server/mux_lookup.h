@@ -18,3 +18,5 @@ extern struct mux_lookup *bit_mux_lookup;   // bit_{in,out} fields
 extern struct mux_lookup *pos_mux_lookup;   // pos_{in,out} fields
 
 error__t initialise_mux_lookup(void);
+
+void terminate_mux_lookup(void);

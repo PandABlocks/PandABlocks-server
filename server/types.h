@@ -37,3 +37,5 @@ error__t get_type_access(
 error__t lookup_type(const char *name, const struct field_type **type);
 
 error__t initialise_types(void);
+
+void terminate_types(void);

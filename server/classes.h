@@ -53,3 +53,5 @@ error__t class_add_indices(
 
 
 error__t initialise_classes(void);
+
+void terminate_classes(void);

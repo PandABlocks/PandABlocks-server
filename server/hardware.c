@@ -52,3 +52,16 @@ error__t initialise_hardware(void)
     return ERROR_OK;
 #endif
 }
+
+
+void terminate_hardware(void)
+{
+#ifdef __arm__
+    ERROR_REPORT(
+        TEST_IO(munmap(register_map, register_map_size))  ?:
+        TEST_IO(close(map)), "Calling terminate_hardware");
+#else
+    if (register_map)
+        free(register_map);
+#endif
+}

@@ -111,3 +111,5 @@ error__t validate_database(void);
 
 /* This must be called early during initialisation. */
 error__t initialise_fields(void);
+
+void terminate_fields(void);

@@ -290,3 +290,10 @@ error__t initialise_classes(void)
 
     return ERROR_OK;
 }
+
+
+void terminate_classes(void)
+{
+    if (class_map)
+        hash_table_destroy(class_map);
+}

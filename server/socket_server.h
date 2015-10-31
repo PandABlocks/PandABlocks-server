@@ -4,6 +4,9 @@
 error__t initialise_socket_server(
     unsigned int config_port, unsigned int data_port);
 
+/* Ensures all connections are terminated and releases any resources. */
+void terminate_socket_server(void);
+
 /* To be called after successful initialisation and daemonisation.  Runs
  * processing server socket connections until interrupted or a serious error
  * occurs. */

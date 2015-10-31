@@ -29,7 +29,7 @@
  * instances, a register base used for all block register methods, and a table
  * of fields. */
 struct block {
-    const char *name;           // Block name
+    char *name;                 // Block name
     unsigned int count;         // Number of instances of this block
     unsigned int base;          // Block register base
     struct hash_table *fields;  // Map from field name to fields
@@ -42,7 +42,7 @@ struct block {
  * class there may be further type specific data. */
 struct field {
     const struct block *block;      // Parent block
-    const char *name;               // Field name
+    char *name;                     // Field name
 
     /* These fields are used by {read,write}_field_register. */
     unsigned int reg;               // Register offset for this field
@@ -329,4 +329,38 @@ error__t initialise_fields(void)
      * file. */
     block_map = hash_table_create(false);
     return ERROR_OK;
+}
+
+
+static void destroy_field(struct field *field)
+{
+    free(field->name);
+    free(field->change_index);
+    free(field->type_data);
+    free(field);
+}
+
+static void destroy_block(struct block *block)
+{
+    int ix = 0;
+    const void *key;
+    struct field *field;
+    while (hash_table_walk(block->fields, &ix, &key, (void **) &field))
+        destroy_field(field);
+    hash_table_destroy(block->fields);
+    free(block->name);
+    free(block);
+}
+
+void terminate_fields(void)
+{
+    if (block_map)
+    {
+        int ix = 0;
+        const void *key;
+        struct block *block;
+        while (hash_table_walk(block_map, &ix, &key, (void **) &block))
+            destroy_block(block);
+        hash_table_destroy(block_map);
+    }
 }

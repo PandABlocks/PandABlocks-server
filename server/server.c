@@ -137,5 +137,18 @@ int main(int argc, char *const argv[])
         ERROR_REPORT(error, "Server startup failed");
 
     log_message("Server shutting down");
+
+    /* Purely for the sake of valgrind heap checking, perform an orderly
+     * shutdown.  Everything is done in reverse order, and each component needs
+     * to cope with being called even if it was never initialised. */
+    terminate_socket_server();
+    terminate_system_command();
+    terminate_hardware();
+    terminate_databases();
+    terminate_classes();
+    terminate_mux_lookup();
+    terminate_types();
+    terminate_fields();
+
     return error ? 1 : 0;
 }
