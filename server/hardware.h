@@ -9,5 +9,8 @@ void terminate_hardware(void);
 /* Read and write function block configuration register.  Each function block is
  * identified by its function number, the block number within that function, and
  * finally the register within the block. */
-void hw_write_config(int function, int block, int reg, uint32_t value);
-uint32_t hw_read_config(int function, int block, int reg);
+void hw_write_config(
+    unsigned int function, unsigned int block, unsigned int reg,
+    uint32_t value);
+uint32_t hw_read_config(
+    unsigned int function, unsigned int block, unsigned int reg);

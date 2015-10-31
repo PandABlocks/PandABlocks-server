@@ -13,6 +13,7 @@
 #include "config_server.h"
 #include "types.h"
 #include "classes.h"
+#include "hardware.h"
 
 #include "fields.h"
 
@@ -64,7 +65,7 @@ error__t read_field_register(
         field->block->base, number, field->reg);
     return
         TEST_OK_(field->reg != UNASSIGNED_REGISTER, "No register assigned")  ?:
-        DO(*result = 0);
+        DO(*result = hw_read_config(field->block->base, number, field->reg));
 }
 
 error__t write_field_register(
@@ -76,6 +77,7 @@ error__t write_field_register(
     return
         TEST_OK_(field->reg != UNASSIGNED_REGISTER, "No register assigned")  ?:
         DO(
+            hw_write_config(field->block->base, number, field->reg, value);
             if (mark_changed)
                 __sync_fetch_and_add(&field->change_index[number], 1));
 }
@@ -139,6 +141,20 @@ error__t field_put_table(
 /* Map of block names. */
 static struct hash_table *block_map;
 
+/* A couple of helpers for walking the block and field maps. */
+#define _FOR_EACH_TYPE(ix, key, type, test, map, value) \
+    int ix = 0; \
+    const void *key; \
+    for (type value; \
+         (test)  &&  hash_table_walk(map, &ix, &key, (void **) &value); )
+
+#define FOR_EACH_TYPE(args...) \
+    _FOR_EACH_TYPE(UNIQUE_ID(), UNIQUE_ID(), args)
+#define FOR_EACH_BLOCK_WHILE(args...) FOR_EACH_TYPE(struct block *, args)
+#define FOR_EACH_FIELD_WHILE(args...) FOR_EACH_TYPE(struct field *, args)
+#define FOR_EACH_BLOCK(args...) FOR_EACH_BLOCK_WHILE(true, args)
+#define FOR_EACH_FIELD(args...) FOR_EACH_FIELD_WHILE(true, args)
+
 
 error__t lookup_block(const char *name, struct block **block)
 {
@@ -157,10 +173,7 @@ error__t block_list_get(
     struct config_connection *connection,
     const struct connection_result *result)
 {
-    const struct block *block;
-    const void *key;
-    int ix = 0;
-    while (hash_table_walk_const(block_map, &ix, &key, (const void **) &block))
+    FOR_EACH_BLOCK(block_map, block)
     {
         char value[MAX_VALUE_LENGTH];
         snprintf(value, sizeof(value), "%s %d", block->name, block->count);
@@ -209,11 +222,7 @@ error__t block_fields_get(
     struct config_connection *connection,
     const struct connection_result *result)
 {
-    int ix = 0;
-    const struct field *field;
-    const void *key;
-    while (hash_table_walk_const(
-              block->fields, &ix, &key, (const void **) &field))
+    FOR_EACH_FIELD(block->fields, field)
     {
         char value[MAX_VALUE_LENGTH];
         snprintf(value, MAX_VALUE_LENGTH,
@@ -301,19 +310,12 @@ error__t validate_database(void)
 {
     error__t error = ERROR_OK;
 
-    const struct block *block;
-    const void *key;
-    int block_ix = 0;
-    while (!error  &&  hash_table_walk_const(
-               block_map, &block_ix, &key, (const void **) &block))
+    FOR_EACH_BLOCK_WHILE(!error, block_map, block)
     {
         error = TEST_OK_(block->base != UNASSIGNED_REGISTER,
             "No base address for block %s", block->name);
 
-        int field_ix = 0;
-        const struct field *field;
-        while (!error  &&  hash_table_walk_const(
-                  block->fields, &field_ix, &key, (const void **) &field))
+        FOR_EACH_FIELD_WHILE(!error, block->fields, field)
             error = TEST_OK_(field->reg != UNASSIGNED_REGISTER,
                 "No register for field %s.%s", block->name, field->name);
     }
@@ -342,10 +344,7 @@ static void destroy_field(struct field *field)
 
 static void destroy_block(struct block *block)
 {
-    int ix = 0;
-    const void *key;
-    struct field *field;
-    while (hash_table_walk(block->fields, &ix, &key, (void **) &field))
+    FOR_EACH_FIELD(block->fields, field)
         destroy_field(field);
     hash_table_destroy(block->fields);
     free(block->name);
@@ -356,10 +355,7 @@ void terminate_fields(void)
 {
     if (block_map)
     {
-        int ix = 0;
-        const void *key;
-        struct block *block;
-        while (hash_table_walk(block_map, &ix, &key, (void **) &block))
+        FOR_EACH_BLOCK(block_map, block)
             destroy_block(block);
         hash_table_destroy(block_map);
     }

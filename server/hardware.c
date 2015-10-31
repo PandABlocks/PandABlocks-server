@@ -18,17 +18,21 @@ static uint32_t *register_map;
 static uint32_t register_map_size;
 
 
-static int make_offset(int function, int block, int reg)
+static unsigned int make_offset(
+    unsigned int function, unsigned int block, unsigned int reg)
 {
     return ((function & 0x1f) << 8) | ((block & 0xf) << 4) | (reg & 0xf);
 }
 
-void hw_write_config(int function, int block, int reg, uint32_t value)
+void hw_write_config(
+    unsigned int function, unsigned int block, unsigned int reg,
+    uint32_t value)
 {
     register_map[make_offset(function, block, reg)] = value;
 }
 
-uint32_t hw_read_config(int function, int block, int reg)
+uint32_t hw_read_config(
+    unsigned int function, unsigned int block, unsigned int reg)
 {
     return register_map[make_offset(function, block, reg)];
 }
