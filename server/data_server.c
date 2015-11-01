@@ -17,7 +17,5 @@
 error__t process_data_socket(int scon)
 {
     const char *message = "Data connection not yet implemented\n";
-    error__t error = TEST_IO(write(scon, message, strlen(message)));
-    close(scon);
-    return error;
+    return TEST_IO(write(scon, message, strlen(message)));
 }

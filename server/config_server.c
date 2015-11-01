@@ -466,7 +466,5 @@ error__t process_config_socket(int sock)
     char line[MAX_LINE_LENGTH];
     while (read_line(&connection.file, line, sizeof(line), true))
         process_config_command(&connection, line);
-
-    close(sock);
     return connection.file.error;
 }

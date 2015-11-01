@@ -1,6 +1,7 @@
 /* Socket server core.  Maintains listening socket. */
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
@@ -14,6 +15,7 @@
 #include <pthread.h>
 
 #include "error.h"
+#include "list.h"
 #include "config_server.h"
 #include "data_server.h"
 
@@ -44,13 +46,17 @@ static struct listen_socket data_socket = {
     .sock = -1, .name = "data",   .process = process_data_socket };
 
 
+
 /* This struct is used to pass connection information to a newly created
  * connection thread.  This structure is allocated by the listening thread and
  * released by the connection thread. */
 struct socket_connection {
-    int sock;                   // Socket for connection
+    struct list_head list;
+    struct timespec ts;             // Time client connection completed
     const struct listen_socket *parent;   // Parent structure
-    char name[64];              // Name of connected client
+    int sock;                       // Socket for connection
+    char name[64];                  // Name of connected client
+    pthread_t thread;               // Thread id of connection thread
 };
 
 
@@ -68,6 +74,88 @@ struct socket_connection {
  * will just fail instead.  The point of this flag is to try to avoid the error
  * messages from these failing system calls. */
 static volatile bool running = true;
+
+
+/* All socket connections are maintained on a list.  We need to protect all
+ * maintenance of these connection objects with a lock. */
+static pthread_mutex_t connection_lock;
+#define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&connection_lock))
+#define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&connection_lock))
+
+/* Two lists of connections: those that are active, and those that have
+ * completed and need cleanup. */
+static LIST_HEAD(active_connections);
+static LIST_HEAD(closed_connections);
+
+
+/* Creates a timestamped on the active_connections list. */
+static struct socket_connection *create_connection(void)
+{
+    struct socket_connection *connection =
+        calloc(1, sizeof(struct socket_connection));
+    clock_gettime(CLOCK_REALTIME, &connection->ts);
+    connection->sock = -1;
+    LOCK();
+    list_add(&connection->list, &active_connections);
+    UNLOCK();
+    return connection;
+}
+
+/* Moves an active connection to the closed connections list, waiting to be
+ * joined. */
+static void close_connection(struct socket_connection *connection)
+{
+    LOCK();
+    if (connection->sock >= 0)
+        close(connection->sock);
+    connection->sock = -1;
+
+    /* Once the running flag is reset it's no longer safe to move these lists
+     * around as termination cleanup may be in progress. */
+    if (running)
+    {
+        list_del(&connection->list);
+        list_add(&connection->list, &closed_connections);
+    }
+    UNLOCK();
+}
+
+/* Unlinks connection object and discards it.  Doesn't matter which list it's
+ * on, but it must be on a list. */
+static void destroy_connection(struct socket_connection *connection)
+{
+    LOCK();
+    list_del(&connection->list);
+    UNLOCK();
+    free(connection);
+}
+
+static void join_connections(struct list_head *list)
+{
+    /* Move the entire list to our workspace under lock. */
+    struct list_head work_list;
+    LOCK();
+    if (list_is_empty(list))
+        init_list_head(&work_list);
+    else
+    {
+        __list_add(&work_list, list->prev, list->next);
+        init_list_head(list);
+    }
+    UNLOCK();
+
+    /* Perform a join on each entry in the list. */
+    struct list_head *entry = work_list.next;
+    while (entry != &work_list)
+    {
+        struct socket_connection *connection =
+            container_of(entry, struct socket_connection, list);
+        error_report(TEST_PTHREAD(pthread_join(connection->thread, NULL)));
+        entry = entry->next;
+        destroy_connection(connection);
+    }
+}
+
 
 
 /* Take care: this function is called from a signal handler, so must be signal
@@ -115,33 +203,26 @@ static void *connection_thread(void *context)
 
     log_message("Client %s %s connected",
         connection->parent->name, connection->name);
+
     error__t error = connection->parent->process(connection->sock);
+
     if (error)
         ERROR_REPORT(error, "Client %s %s raised error",
             connection->parent->name, connection->name);
     log_message("Client %s %s closed",
         connection->parent->name, connection->name);
 
-    free(connection);
+    close_connection(connection);
     return NULL;
 }
 
 
 static error__t process_connection(const struct listen_socket *listen_socket)
 {
-    struct socket_connection *connection =
-        malloc(sizeof(struct socket_connection));
+    struct socket_connection *connection = create_connection();
     connection->parent = listen_socket;
 
-    pthread_attr_t attr;
-    pthread_t thread;
     return
-        /* Note that we need to create the spawned threads with DETACHED
-         * attribute, otherwise we accumlate internal joinable state information
-         * and eventually run out of resources. */
-        TEST_PTHREAD(pthread_attr_init(&attr))  ?:
-        TEST_PTHREAD(
-            pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED))  ?:
         TRY_CATCH(
             TEST_IO(connection->sock =
                 accept(listen_socket->sock, NULL, NULL))  ?:
@@ -151,14 +232,16 @@ static error__t process_connection(const struct listen_socket *listen_socket)
                 set_timeout(connection->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT)  ?:
                 get_client_name(connection->sock, connection->name)  ?:
                 TEST_PTHREAD(pthread_create(
-                    &thread, &attr, connection_thread, connection)),
+                    &connection->thread, NULL, connection_thread, connection)),
 
-            // if thread creation fails
+            //catch
+                /* If thread connection fails we have to close the socket. */
                 close(connection->sock)
             ),
 
-        // accept fails or thread creation fails
-            free(connection)
+        //catch
+            /* If accept or thread creation fail the connection is no good. */
+            destroy_connection(connection)
         );
     /* Note that the careful use of TRY_CATCH above is somewhat futile, as if
      * any of the above steps fail we're going to terminate the server anyway.
@@ -182,6 +265,9 @@ error__t run_socket_server(void)
             config_socket.sock : data_socket.sock;
         errno = 0;
         int count = select(maxfd + 1, &readset, NULL, NULL, NULL);
+
+        /* Perform any pending joins for cleanup. */
+        join_connections(&closed_connections);
 
         /* Ignore EINTR returns from select.  We get this on socket shutdown,
          * and it may occur at other times as well. */
@@ -229,5 +315,17 @@ error__t initialise_socket_server(
 
 void terminate_socket_server()
 {
-    printf("terminate_socket_server doesn't do anything yet\n");
+    /* First we need to walk the list of all active connections and force them
+     * to close. */
+    list_for_each_entry(
+        struct socket_connection, list, connection, &active_connections)
+    {
+        LOCK();
+        shutdown(connection->sock, SHUT_RDWR);
+        UNLOCK();
+    }
+
+    /* Now wait for everything to by joining all the pending connections. */
+    join_connections(&active_connections);
+    join_connections(&closed_connections);
 }
