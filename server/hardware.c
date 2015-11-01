@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -39,10 +40,13 @@ uint32_t hw_read_config(
 }
 
 
+#ifdef __arm__
+static int map;
+#endif
+
 error__t initialise_hardware(void)
 {
 #ifdef __arm__
-    int map;
     return
         TEST_IO_(map = open("/dev/panda.map", O_RDWR | O_SYNC),
             "Unable to open PandA device")  ?:

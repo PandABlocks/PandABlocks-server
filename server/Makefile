@@ -33,6 +33,7 @@ CFLAGS += -Wconversion
 CPPFLAGS += -I$(TOP)/driver
 
 LDLIBS += -lpthread
+LDLIBS += -lrt
 
 
 SRCS += server.c
