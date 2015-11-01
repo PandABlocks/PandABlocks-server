@@ -55,8 +55,11 @@ struct socket_connection {
     struct timespec ts;             // Time client connection completed
     const struct listen_socket *parent;   // Parent structure
     int sock;                       // Socket for connection
-    char name[64];                  // Name of connected client
     pthread_t thread;               // Thread id of connection thread
+    char name[64];                  // Name of connected client
+
+    /* Two lifetime control flags. */
+    unsigned int ref_count;
 };
 
 
@@ -95,18 +98,22 @@ static struct socket_connection *create_connection(void)
         calloc(1, sizeof(struct socket_connection));
     clock_gettime(CLOCK_REALTIME, &connection->ts);
     connection->sock = -1;
+    connection->ref_count = 1;
+
     LOCK();
     list_add(&connection->list, &active_connections);
     UNLOCK();
+
     return connection;
 }
+
 
 /* Moves an active connection to the closed connections list, waiting to be
  * joined. */
 static void close_connection(struct socket_connection *connection)
 {
     LOCK();
-    if (connection->sock >= 0)
+    if (connection->sock != -1)
         close(connection->sock);
     connection->sock = -1;
 
@@ -120,15 +127,19 @@ static void close_connection(struct socket_connection *connection)
     UNLOCK();
 }
 
+
 /* Unlinks connection object and discards it.  Doesn't matter which list it's
  * on, but it must be on a list. */
 static void destroy_connection(struct socket_connection *connection)
 {
     LOCK();
     list_del(&connection->list);
+    connection->ref_count -= 1;
+    if (connection->ref_count == 0)
+        free(connection);
     UNLOCK();
-    free(connection);
 }
+
 
 static void join_connections(struct list_head *list)
 {
@@ -157,6 +168,79 @@ static void join_connections(struct list_head *list)
 }
 
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Implementation of *WHO? command.
+ *
+ * This is surprisingly tricky! */
+
+static void format_connection_item(
+    struct config_connection *config, const struct connection_result *result,
+    struct socket_connection *connection)
+{
+    struct tm tm;
+    char message[128];
+    gmtime_r(&connection->ts.tv_sec, &tm);
+    snprintf(message, sizeof(message),
+        "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ %s %s ",
+        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+        tm.tm_hour, tm.tm_min, tm.tm_sec, connection->ts.tv_nsec / 1000000,
+        connection->parent->name, connection->name);
+    result->write_many(config, message);
+}
+
+
+/* We'll use a list of these fellows for a safe copy of the connection list! */
+struct connection_copy {
+    struct list_head list;
+    struct socket_connection *connection;
+};
+
+/* Creates list of connections.  Somewhat tricky to implement as the list has to
+ * be walked under a lock, but we don't want to hold the lock while generating
+ * the output stream. */
+void generate_connection_list(
+    struct config_connection *config, const struct connection_result *result)
+{
+    LIST_HEAD(copy_list);
+
+    /* First grab a safe copy of the connection list.  This all has to be done
+     * under the lock. */
+    LOCK();
+    list_for_each_entry(
+        struct socket_connection, list, connection, &active_connections)
+    {
+        struct connection_copy *copy = malloc(sizeof(struct connection_copy));
+        list_add(&copy->list, &copy_list);
+        copy->connection = connection;
+        connection->ref_count += 1;
+    }
+    UNLOCK();
+
+    /* Now we can walk the list at our leisure and emit the results. */
+    list_for_each_entry(struct connection_copy, list, copy, &copy_list)
+        format_connection_item(config, result, copy->connection);
+
+    /* Finally cleanup the list. */
+    struct list_head *copy_head = copy_list.next;
+    while (copy_head != &copy_list)
+    {
+        struct connection_copy *copy =
+            container_of(copy_head, struct connection_copy, list);
+        LOCK();
+        copy->connection->ref_count -= 1;
+        if (copy->connection->ref_count == 0)
+            free(copy->connection);
+        UNLOCK();
+        copy_head = copy_head->next;
+        free(copy);
+    }
+
+    result->write_many_end(config);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /* Take care: this function is called from a signal handler, so must be signal
  * safe.  See signal(7) for a list of safely callable functions. */
@@ -224,8 +308,9 @@ static error__t process_connection(const struct listen_socket *listen_socket)
 
     return
         TRY_CATCH(
-            TEST_IO(connection->sock =
-                accept(listen_socket->sock, NULL, NULL))  ?:
+            TEST_IO_(connection->sock =
+                accept(listen_socket->sock, NULL, NULL),
+                "Socket accept failed")  ?:
             TRY_CATCH(
                 /* Set the transmit timeout so that the server won't be stuck if
                  * the client stops accepting data. */
@@ -313,6 +398,9 @@ error__t initialise_socket_server(
         create_and_listen(&data_socket, data_port);
 }
 
+
+/* Note that this must not be called until after socket_server() has stopped
+ * running. */
 void terminate_socket_server()
 {
     /* First we need to walk the list of all active connections and force them
@@ -321,7 +409,8 @@ void terminate_socket_server()
         struct socket_connection, list, connection, &active_connections)
     {
         LOCK();
-        shutdown(connection->sock, SHUT_RDWR);
+        if (connection->sock != -1)
+            shutdown(connection->sock, SHUT_RDWR);
         UNLOCK();
     }
 

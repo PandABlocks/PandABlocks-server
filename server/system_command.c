@@ -13,6 +13,7 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
+#include "socket_server.h"
 #include "fields.h"
 #include "config_command.h"
 
@@ -66,6 +67,19 @@ static error__t system_get_echo(
 }
 
 
+/* *WHO?
+ *
+ * Returns list of connections. */
+
+static error__t system_get_who(
+    struct config_connection *connection, const char *command,
+    const struct connection_result *result)
+{
+    generate_connection_list(connection, result);
+    return ERROR_OK;
+}
+
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
@@ -86,6 +100,7 @@ static const struct command_table_entry command_table_list[] = {
     { "IDN",        .get = system_get_idn, },
     { "BLOCKS",     .get = system_get_blocks, },
     { "ECHO",       .get = system_get_echo, .allow_arg = true },
+    { "WHO",        .get = system_get_who, },
 };
 
 static struct hash_table *command_table;

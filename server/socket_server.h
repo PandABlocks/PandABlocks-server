@@ -15,3 +15,8 @@ error__t run_socket_server(void);
 /* Interrupts the socket server, run_socket_server() will return after this has
  * been called.  Note that this function is signal safe. */
 void kill_socket_server(void);
+
+/* Generates list of currently active connections. */
+void generate_connection_list(
+    struct config_connection *connection,
+    const struct connection_result *result);
