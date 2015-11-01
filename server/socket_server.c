@@ -36,7 +36,7 @@
 struct listen_socket {
     int sock;                   // Listening socket
     const char *name;           // Config or Data, for logging
-    error__t (*process)(int sock); // Function for processing socket connection
+    error__t (*process)(int sock); // Function for processing socket session
 };
 
 /* Listening sockets for configuration and data connections. */
@@ -50,7 +50,7 @@ static struct listen_socket data_socket = {
 /* This struct is used to pass connection information to a newly created
  * connection thread.  This structure is allocated by the listening thread and
  * released by the connection thread. */
-struct socket_connection {
+struct session {
     struct list_head list;
     struct timespec ts;             // Time client connection completed
     const struct listen_socket *parent;   // Parent structure
@@ -79,69 +79,67 @@ struct socket_connection {
 static volatile bool running = true;
 
 
-/* All socket connections are maintained on a list.  We need to protect all
+/* All socket sessions are maintained on a list.  We need to protect all
  * maintenance of these connection objects with a lock. */
-static pthread_mutex_t connection_lock;
-#define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&connection_lock))
-#define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&connection_lock))
+static pthread_mutex_t session_lock;
+#define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&session_lock))
+#define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
 
-/* Two lists of connections: those that are active, and those that have
+/* Two lists of sessions: those that are active, and those that have
  * completed and need cleanup. */
-static LIST_HEAD(active_connections);
-static LIST_HEAD(closed_connections);
+static LIST_HEAD(active_sessions);
+static LIST_HEAD(closed_sessions);
 
 
-/* Creates a timestamped on the active_connections list. */
-static struct socket_connection *create_connection(void)
+/* Creates a new session object and records it as active. */
+static struct session *create_session(void)
 {
-    struct socket_connection *connection =
-        calloc(1, sizeof(struct socket_connection));
-    clock_gettime(CLOCK_REALTIME, &connection->ts);
-    connection->sock = -1;
-    connection->ref_count = 1;
+    struct session *session = calloc(1, sizeof(struct session));
+    clock_gettime(CLOCK_REALTIME, &session->ts);
+    session->sock = -1;
+    session->ref_count = 1;
 
     LOCK();
-    list_add(&connection->list, &active_connections);
+    list_add(&session->list, &active_sessions);
     UNLOCK();
 
-    return connection;
+    return session;
 }
 
 
-/* Moves an active connection to the closed connections list, waiting to be
- * joined. */
-static void close_connection(struct socket_connection *connection)
+/* Moves an active session to the closed sessions list, waiting to be joined. */
+static void close_session(struct session *session)
 {
     LOCK();
-    if (connection->sock != -1)
-        close(connection->sock);
-    connection->sock = -1;
+    if (session->sock != -1)
+        close(session->sock);
+    session->sock = -1;
 
     /* Once the running flag is reset it's no longer safe to move these lists
      * around as termination cleanup may be in progress. */
     if (running)
     {
-        list_del(&connection->list);
-        list_add(&connection->list, &closed_connections);
+        list_del(&session->list);
+        list_add(&session->list, &closed_sessions);
     }
     UNLOCK();
 }
 
 
-/* Unlinks connection object and discards it.  Doesn't matter which list it's
- * on, but it must be on a list. */
-static void destroy_connection(struct socket_connection *connection)
+/* Unlinks session object and discards it.  Doesn't matter which list it's on,
+ * but it must be on a list. */
+static void destroy_session(struct session *session)
 {
     LOCK();
-    list_del(&connection->list);
-    connection->ref_count -= 1;
-    if (connection->ref_count == 0)
-        free(connection);
+    list_del(&session->list);
+    session->ref_count -= 1;
+    if (session->ref_count == 0)
+        free(session);
     UNLOCK();
 }
 
 
-static void join_connections(struct list_head *list)
+static void join_sessions(struct list_head *list)
 {
     /* Move the entire list to our workspace under lock. */
     struct list_head work_list;
@@ -159,11 +157,10 @@ static void join_connections(struct list_head *list)
     struct list_head *entry = work_list.next;
     while (entry != &work_list)
     {
-        struct socket_connection *connection =
-            container_of(entry, struct socket_connection, list);
-        error_report(TEST_PTHREAD(pthread_join(connection->thread, NULL)));
+        struct session *session = container_of(entry, struct session, list);
+        error_report(TEST_PTHREAD(pthread_join(session->thread, NULL)));
         entry = entry->next;
-        destroy_connection(connection);
+        destroy_session(session);
     }
 }
 
@@ -174,69 +171,70 @@ static void join_connections(struct list_head *list)
  *
  * This is surprisingly tricky! */
 
-static void format_connection_item(
-    struct config_connection *config, const struct connection_result *result,
-    struct socket_connection *connection)
+static void format_session_item(
+    struct config_connection *connection,
+    const struct connection_result *result,
+    struct session *session)
 {
     struct tm tm;
     char message[128];
-    gmtime_r(&connection->ts.tv_sec, &tm);
+    gmtime_r(&session->ts.tv_sec, &tm);
     snprintf(message, sizeof(message),
         "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ %s %s ",
         tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-        tm.tm_hour, tm.tm_min, tm.tm_sec, connection->ts.tv_nsec / 1000000,
-        connection->parent->name, connection->name);
-    result->write_many(config, message);
+        tm.tm_hour, tm.tm_min, tm.tm_sec, session->ts.tv_nsec / 1000000,
+        session->parent->name, session->name);
+    result->write_many(connection, message);
 }
 
 
-/* We'll use a list of these fellows for a safe copy of the connection list! */
-struct connection_copy {
+/* We'll use a list of these fellows for a safe copy of the session list! */
+struct session_copy {
     struct list_head list;
-    struct socket_connection *connection;
+    struct session *session;
 };
 
-/* Creates list of connections.  Somewhat tricky to implement as the list has to
+/* Creates list of sessions.  Somewhat tricky to implement as the list has to
  * be walked under a lock, but we don't want to hold the lock while generating
  * the output stream. */
 void generate_connection_list(
-    struct config_connection *config, const struct connection_result *result)
+    struct config_connection *connection,
+    const struct connection_result *result)
 {
     LIST_HEAD(copy_list);
 
-    /* First grab a safe copy of the connection list.  This all has to be done
+    /* First grab a safe copy of the session list.  This all has to be done
      * under the lock. */
     LOCK();
-    list_for_each_entry(
-        struct socket_connection, list, connection, &active_connections)
+    list_for_each_entry(struct session, list, session, &active_sessions)
     {
-        struct connection_copy *copy = malloc(sizeof(struct connection_copy));
+        struct session_copy *copy = malloc(sizeof(struct session_copy));
         list_add(&copy->list, &copy_list);
-        copy->connection = connection;
-        connection->ref_count += 1;
+        copy->session = session;
+        session->ref_count += 1;
     }
     UNLOCK();
 
     /* Now we can walk the list at our leisure and emit the results. */
-    list_for_each_entry(struct connection_copy, list, copy, &copy_list)
-        format_connection_item(config, result, copy->connection);
+    list_for_each_entry(struct session_copy, list, copy, &copy_list)
+        format_session_item(connection, result, copy->session);
 
     /* Finally cleanup the list. */
     struct list_head *copy_head = copy_list.next;
     while (copy_head != &copy_list)
     {
-        struct connection_copy *copy =
-            container_of(copy_head, struct connection_copy, list);
+        struct session_copy *copy =
+            container_of(copy_head, struct session_copy, list);
         LOCK();
-        copy->connection->ref_count -= 1;
-        if (copy->connection->ref_count == 0)
-            free(copy->connection);
+        copy->session->ref_count -= 1;
+        if (copy->session->ref_count == 0)
+            free(copy->session);
         UNLOCK();
         copy_head = copy_head->next;
         free(copy);
     }
 
-    result->write_many_end(config);
+    result->write_many_end(connection);
 }
 
 
@@ -281,52 +279,49 @@ static error__t set_timeout(int sock, int timeout, int seconds)
 }
 
 
-static void *connection_thread(void *context)
+static void *session_thread(void *context)
 {
-    struct socket_connection *connection = context;
+    struct session *session = context;
 
-    log_message("Client %s %s connected",
-        connection->parent->name, connection->name);
+    log_message("Client %s %s connected", session->parent->name, session->name);
 
-    error__t error = connection->parent->process(connection->sock);
+    error__t error = session->parent->process(session->sock);
 
     if (error)
         ERROR_REPORT(error, "Client %s %s raised error",
-            connection->parent->name, connection->name);
-    log_message("Client %s %s closed",
-        connection->parent->name, connection->name);
+            session->parent->name, session->name);
+    log_message("Client %s %s closed", session->parent->name, session->name);
 
-    close_connection(connection);
+    close_session(session);
     return NULL;
 }
 
 
-static error__t process_connection(const struct listen_socket *listen_socket)
+static error__t process_session(const struct listen_socket *listen_socket)
 {
-    struct socket_connection *connection = create_connection();
-    connection->parent = listen_socket;
+    struct session *session = create_session();
+    session->parent = listen_socket;
 
     return
         TRY_CATCH(
-            TEST_IO_(connection->sock =
-                accept(listen_socket->sock, NULL, NULL),
+            TEST_IO_(session->sock = accept(listen_socket->sock, NULL, NULL),
                 "Socket accept failed")  ?:
             TRY_CATCH(
                 /* Set the transmit timeout so that the server won't be stuck if
                  * the client stops accepting data. */
-                set_timeout(connection->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT)  ?:
-                get_client_name(connection->sock, connection->name)  ?:
+                set_timeout(session->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT)  ?:
+                get_client_name(session->sock, session->name)  ?:
                 TEST_PTHREAD(pthread_create(
-                    &connection->thread, NULL, connection_thread, connection)),
+                    &session->thread, NULL, session_thread, session)),
 
             //catch
-                /* If thread connection fails we have to close the socket. */
-                close(connection->sock)
+                /* If thread session fails we have to close the socket. */
+                close(session->sock)
             ),
 
         //catch
-            /* If accept or thread creation fail the connection is no good. */
-            destroy_connection(connection)
+            /* If accept or thread creation fail the session is no good. */
+            destroy_session(session)
         );
     /* Note that the careful use of TRY_CATCH above is somewhat futile, as if
      * any of the above steps fail we're going to terminate the server anyway.
@@ -335,7 +330,7 @@ static error__t process_connection(const struct listen_socket *listen_socket)
 
 
 /* Main action of server: listens for connections and creates a thread for each
- * new connection. */
+ * new session. */
 error__t run_socket_server(void)
 {
     error__t error = ERROR_OK;
@@ -346,24 +341,24 @@ error__t run_socket_server(void)
         FD_ZERO(&readset);
         FD_SET(config_socket.sock, &readset);
         FD_SET(data_socket.sock, &readset);
-        int maxfd = config_socket.sock > data_socket.sock ?
-            config_socket.sock : data_socket.sock;
+        int maxfd = MAX(config_socket.sock, data_socket.sock);
         errno = 0;
         int count = select(maxfd + 1, &readset, NULL, NULL, NULL);
+        bool select_ok = count > 0  ||  errno != EINTR;
 
         /* Perform any pending joins for cleanup. */
-        join_connections(&closed_connections);
+        join_sessions(&closed_sessions);
 
         /* Ignore EINTR returns from select.  We get this on socket shutdown,
          * and it may occur at other times as well. */
-        if (count > 0  ||  errno != EINTR)
+        if (select_ok)
             error =
                 TEST_IO(count)  ?:
                 /* Process connections for the readable sockets. */
                 IF(FD_ISSET(config_socket.sock, &readset),
-                    process_connection(&config_socket))  ?:
+                    process_session(&config_socket))  ?:
                 IF(FD_ISSET(data_socket.sock, &readset),
-                    process_connection(&data_socket));
+                    process_session(&data_socket));
     }
 
     return error;
@@ -403,18 +398,18 @@ error__t initialise_socket_server(
  * running. */
 void terminate_socket_server()
 {
-    /* First we need to walk the list of all active connections and force them
+    /* First we need to walk the list of all active sessions and force them
      * to close. */
     list_for_each_entry(
-        struct socket_connection, list, connection, &active_connections)
+        struct session, list, session, &active_sessions)
     {
         LOCK();
-        if (connection->sock != -1)
-            shutdown(connection->sock, SHUT_RDWR);
+        if (session->sock != -1)
+            shutdown(session->sock, SHUT_RDWR);
         UNLOCK();
     }
 
-    /* Now wait for everything to by joining all the pending connections. */
-    join_connections(&active_connections);
-    join_connections(&closed_connections);
+    /* Now wait for everything to by joining all the pending sessions. */
+    join_sessions(&active_sessions);
+    join_sessions(&closed_sessions);
 }
