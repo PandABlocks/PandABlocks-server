@@ -85,11 +85,10 @@ static error__t mux_get(
     struct mux_lookup *mux_lookup,
     const struct class_context *context, const struct connection_result *result)
 {
-    unsigned int value;
+    unsigned int value = read_field_register(context->field, context->number);
     const char *string;
     return
-        read_field_register(context->field, context->number, &value)  ?:
-        DO(string = mux_lookup_index(mux_lookup, value))  ?:
+        mux_lookup_index(mux_lookup, value, &string)  ?:
         DO(result->write_one(context->connection, string));
 }
 
@@ -102,7 +101,7 @@ static error__t mux_put(
     unsigned int value;
     return
         mux_lookup_name(mux_lookup, name, &value)  ?:
-        write_field_register(context->field, context->number, value, true);
+        DO(write_field_register(context->field, context->number, value, true));
 }
 
 
@@ -131,19 +130,6 @@ static error__t pos_in_put(
 }
 
 
-#if 0
-static void bit_out_init_class(struct field *field)
-{
-    mux_out_init_class(&bit_mux_lookup, field);
-}
-
-static void pos_out_init_class(struct field *field)
-{
-    mux_out_init_class(&pos_mux_lookup, field);
-}
-#endif
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /* General get method: retrieves value from register associated with field,
@@ -152,19 +138,21 @@ static void pos_out_init_class(struct field *field)
 static error__t value_get(
     const struct class_context *context, const struct connection_result *result)
 {
-printf("value_get %p %p\n", context, result);
-    struct type_context type_context = {
-        .type_data = context->type_data,
-        .number = context->number, };
     const struct type_access *access;
-    unsigned int value;
-    return
-        read_field_register(context->field, context->number, &value)  ?:
-        get_type_access(context->type, &access)  ?:
-        DO(
-            char string[MAX_VALUE_LENGTH];
-            access->format(&type_context, value, string, sizeof(string));
-            result->write_one(context->connection, string));
+    error__t error = get_type_access(context->type, &access);
+    if (!error)
+    {
+        unsigned int value =
+            read_field_register(context->field, context->number);
+
+        struct type_context type_context = {
+            .type_data = context->type_data,
+            .number = context->number, };
+        char string[MAX_VALUE_LENGTH];
+        access->format(&type_context, value, string, sizeof(string));
+        result->write_one(context->connection, string);
+    }
+    return error;
 }
 
 
@@ -181,8 +169,8 @@ static error__t value_put(
     return
         get_type_access(context->type, &access)  ?:
         access->parse(&type_context, string, &value)  ?:
-        write_field_register(
-            context->field, context->number, value, mark_changed);
+        DO(write_field_register(
+            context->field, context->number, value, mark_changed));
 }
 
 

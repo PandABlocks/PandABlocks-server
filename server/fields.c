@@ -57,29 +57,28 @@ struct field {
 
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Each field is backed by exactly one hardware register. */
+
 /* Each field knows its register address. */
-error__t read_field_register(
-    const struct field *field, unsigned int number, unsigned int *result)
+unsigned int read_field_register(
+    const struct field *field, unsigned int number)
 {
     printf("read_hw_register %d:%d:%d\n",
         field->block->base, number, field->reg);
-    return
-        TEST_OK_(field->reg != UNASSIGNED_REGISTER, "No register assigned")  ?:
-        DO(*result = hw_read_config(field->block->base, number, field->reg));
+    return hw_read_config(field->block->base, number, field->reg);
 }
 
-error__t write_field_register(
+
+void write_field_register(
     const struct field *field, unsigned int number,
     unsigned int value, bool mark_changed)
 {
     printf("write_hw_register %d:%d:%d <= %u\n",
         field->block->base, number, field->reg, value);
-    return
-        TEST_OK_(field->reg != UNASSIGNED_REGISTER, "No register assigned")  ?:
-        DO(
-            hw_write_config(field->block->base, number, field->reg, value);
-            if (mark_changed)
-                __sync_fetch_and_add(&field->change_index[number], 1));
+    hw_write_config(field->block->base, number, field->reg, value);
+    if (mark_changed)
+        __sync_fetch_and_add(&field->change_index[number], 1);
 }
 
 
@@ -306,6 +305,8 @@ error__t mux_set_indices(struct field *field, unsigned int indices[])
         field->block->count, indices);
 }
 
+
+/* We ensure that every block and field have a valid register assigned. */
 error__t validate_database(void)
 {
     error__t error = ERROR_OK;

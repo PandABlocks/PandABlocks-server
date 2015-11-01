@@ -8,10 +8,13 @@ struct mux_lookup;
 error__t mux_lookup_insert(
     struct mux_lookup *lookup, unsigned int ix, const char *name);
 
+/* Converts MUX name into hardware index to write to register. */
 error__t mux_lookup_name(
     struct mux_lookup *lookup, const char *name, unsigned int *ix);
 
-const char *mux_lookup_index(struct mux_lookup *lookup, unsigned int ix);
+/* Converts hardware index to MUX name or returns error. */
+error__t mux_lookup_index(
+    struct mux_lookup *lookup, unsigned int ix, const char **name);
 
 
 extern struct mux_lookup *bit_mux_lookup;   // bit_{in,out} fields

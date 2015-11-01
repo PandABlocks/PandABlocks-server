@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -53,6 +54,7 @@ error__t initialise_hardware(void)
     /* Compiling simulation version. */
     register_map_size = 0x00040000;
     register_map = malloc(register_map_size);
+    memset(register_map, 0x55, register_map_size);
     return ERROR_OK;
 #endif
 }

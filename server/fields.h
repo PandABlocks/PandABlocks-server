@@ -77,11 +77,11 @@ error__t field_put_table(
 /* Interface between fields and supporting class. */
 
 /* Returns value in register. */
-error__t read_field_register(
-    const struct field *field, unsigned int number, unsigned int *result);
+unsigned int read_field_register(
+    const struct field *field, unsigned int number);
 
 /* Writes value to register. */
-error__t write_field_register(
+void write_field_register(
     const struct field *field, unsigned int number,
     unsigned int value, bool mark_changed);
 

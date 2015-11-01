@@ -62,8 +62,7 @@ static error__t config_parse_field_line(
 static error__t config_parse_attribute(
     void *context, const char *line, void **indent_context)
 {
-    struct field *field = context;
-    printf("parse_attribute %p \"%s\"\n", field, line);
+//     struct field *field = context;
     *indent_context = NULL;
     return ERROR_OK;
 }
@@ -72,7 +71,6 @@ static error__t config_parse_attribute(
 static error__t config_parse_sub_attr(
     void *context, const char *line, void **indent_context)
 {
-    printf("parse_sub_attr %p \"%s\"\n", context, line);
     *indent_context = NULL;
     return ERROR_OK;
 }
@@ -102,7 +100,6 @@ static error__t config_parse_line(
 static error__t config_end_parse_line(
     unsigned int indent, void *indent_context)
 {
-    printf("config_end_parse_line %d %p\n", indent, indent_context);
     return ERROR_OK;
 }
 

@@ -50,7 +50,6 @@ static struct hash_table *field_type_map;
 error__t get_type_access(
     const struct field_type *type, const struct type_access **access)
 {
-printf("get_type_access %p\n", type);
     return
         TEST_OK_(type, "No type registered for field")  ?:
         DO(*access = &type->access);
