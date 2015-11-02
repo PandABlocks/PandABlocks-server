@@ -38,8 +38,9 @@ void hw_write_config(
 uint32_t hw_read_config(
     unsigned int function, unsigned int block, unsigned int reg)
 {
-    printf("hw_read_config %u:%u:%u\n", function, block, reg);
-    return register_map[make_offset(function, block, reg)];
+    uint32_t result = register_map[make_offset(function, block, reg)];
+    printf("hw_read_config %u:%u:%u => %u\n", function, block, reg, result);
+    return result;
 }
 
 

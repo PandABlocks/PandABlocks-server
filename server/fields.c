@@ -262,6 +262,15 @@ error__t field_list_get(
 }
 
 
+static void destroy_field(struct field *field)
+{
+    free(field->name);
+    free(field->change_index);
+    destroy_class(field->class_data);
+    free(field);
+}
+
+
 error__t create_field(
     struct field **field, const struct block *parent, const char *name,
     const char *class_name, const char *type_name)
@@ -276,13 +285,19 @@ error__t create_field(
 
     return
         /* Initialise the class specific field handling. */
-        create_class(
-            *field, parent->count, class_name, type_name,
-            &(*field)->class_data)  ?:
-        /* Insert the field into the blocks map of fields. */
-        TEST_OK_(
-            hash_table_insert(parent->fields, (*field)->name, *field) == NULL,
-            "Field %s.%s alread exists", parent->name, name);
+        TRY_CATCH(
+            create_class(
+                *field, parent->count, class_name, type_name,
+                &(*field)->class_data)  ?:
+            /* Insert the field into the blocks map of fields. */
+            TEST_OK_(
+                hash_table_insert(
+                    parent->fields, (*field)->name, *field) == NULL,
+                "Field %s.%s alread exists", parent->name, name),
+
+        //catch
+            /* If field initialisation failed then discard it. */
+            destroy_field(*field));
 }
 
 
@@ -344,14 +359,6 @@ error__t initialise_fields(void)
 
 /* We implement orderly shutdown so that we can easily detect memory leaks
  * during development. */
-
-static void destroy_field(struct field *field)
-{
-    free(field->name);
-    free(field->change_index);
-    destroy_class(field->class_data);
-    free(field);
-}
 
 static void destroy_block(struct block *block)
 {
