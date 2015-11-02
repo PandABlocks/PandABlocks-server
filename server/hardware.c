@@ -1,6 +1,7 @@
 /* Hardware interface for PandA. */
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
@@ -30,12 +31,14 @@ void hw_write_config(
     unsigned int function, unsigned int block, unsigned int reg,
     uint32_t value)
 {
+    printf("hw_write_config %u:%u:%u <= %u\n", function, block, reg, value);
     register_map[make_offset(function, block, reg)] = value;
 }
 
 uint32_t hw_read_config(
     unsigned int function, unsigned int block, unsigned int reg)
 {
+    printf("hw_read_config %u:%u:%u\n", function, block, reg);
     return register_map[make_offset(function, block, reg)];
 }
 

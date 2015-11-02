@@ -49,10 +49,8 @@ struct field {
     unsigned int reg;               // Register offset for this field
     uint64_t *change_index;         // A change counter for each field
 
-    /* These fields are used by the class. */
-    const struct field_class *class; // Implementation of field access methods
-    const struct field_type *type;  // Implementation of type methods
-    void *type_data;                // Data required for type support
+    /* Data needed by the class. */
+    struct class_data *class_data;
 };
 
 
@@ -60,25 +58,31 @@ struct field {
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Each field is backed by exactly one hardware register. */
 
-/* Each field knows its register address. */
+
+/* This number is used to work out which fields have changed since we last
+ * looked.  This is incremented on every write. */
+static uint64_t change_index;
+
+
+/* Allocates and returns a fresh change index. */
+static uint64_t get_change_index(void)
+{
+    return __sync_add_and_fetch(&change_index, 1);
+}
+
+
 unsigned int read_field_register(
     const struct field *field, unsigned int number)
 {
-    printf("read_hw_register %d:%d:%d\n",
-        field->block->base, number, field->reg);
     return hw_read_config(field->block->base, number, field->reg);
 }
 
 
 void write_field_register(
-    const struct field *field, unsigned int number,
-    unsigned int value, bool mark_changed)
+    const struct field *field, unsigned int number, unsigned int value)
 {
-    printf("write_hw_register %d:%d:%d <= %u\n",
-        field->block->base, number, field->reg, value);
     hw_write_config(field->block->base, number, field->reg, value);
-    if (mark_changed)
-        __sync_fetch_and_add(&field->change_index[number], 1);
+    field->change_index[number] = get_change_index();
 }
 
 
@@ -86,15 +90,17 @@ void write_field_register(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Method dispatch down to class. */
 
+
+/* Helper method to convert incoming field_context into a class_context suitable
+ * for calling the appropriate class method.  We pass down quite a lot of
+ * structure from the field. */
 static struct class_context create_class_context(
     const struct field_context *context)
 {
     return (struct class_context) {
-        .field = context->field,
         .number = context->number,
-        .type = context->field->type,
-        .type_data = context->field->type_data,
         .connection = context->connection,
+        .class_data = context->field->class_data,
     };
 }
 
@@ -104,20 +110,14 @@ error__t field_get(
     const struct connection_result *result)
 {
     struct class_context class_context = create_class_context(context);
-    const struct class_access *access = get_class_access(context->field->class);
-    return
-        TEST_OK_(access->get, "Field not readable")  ?:
-        access->get(&class_context, result);
+    return class_get(&class_context, result);
 }
 
 
 error__t field_put(const struct field_context *context, const char *value)
 {
     struct class_context class_context = create_class_context(context);
-    const struct class_access *access = get_class_access(context->field->class);
-    return
-        TEST_OK_(access->put, "Field not writeable")  ?:
-        access->put(&class_context, value);
+    return class_put(&class_context, value);
 }
 
 
@@ -126,16 +126,38 @@ error__t field_put_table(
     bool append, const struct put_table_writer *writer)
 {
     struct class_context class_context = create_class_context(context);
-    const struct class_access *access = get_class_access(context->field->class);
-    return
-        TEST_OK_(access->put_table, "Field is not a table")  ?:
-        access->put_table(&class_context, append, writer);
+    return class_put_table(&class_context, append, writer);
 }
 
+
+error__t attr_list_get(
+    const struct field *field,
+    struct config_connection *connection,
+    const struct connection_result *result)
+{
+    return FAIL_("block.field.*? not implemented yet");
+}
+
+
+/* Retrieves current value of field:  block<n>.field?  */
+error__t attr_get(
+    const struct attr_context *context,
+    const struct connection_result *result)
+{
+    return FAIL_("block.field.attr? not implemented yet");
+}
+
+
+/* Writes value to field:  block<n>.field=value  */
+error__t attr_put(const struct attr_context *context, const char *value)
+{
+    return FAIL_("block.field.attr= not implemented yet");
+}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Top level block and field API. */
+
 
 /* Map of block names. */
 static struct hash_table *block_map;
@@ -210,13 +232,20 @@ error__t lookup_field(
 }
 
 
+error__t lookup_attr(
+    const struct field *field, const char *name, const struct attr **attr)
+{
+    return FAIL_("No such attribute");
+}
+
+
 const struct block *field_parent(const struct field *field)
 {
     return field->block;
 }
 
 
-error__t block_fields_get(
+error__t field_list_get(
     const struct block *block,
     struct config_connection *connection,
     const struct connection_result *result)
@@ -225,7 +254,7 @@ error__t block_fields_get(
     {
         char value[MAX_VALUE_LENGTH];
         snprintf(value, MAX_VALUE_LENGTH,
-            "%s %s", field->name, get_class_name(field->class));
+            "%s %s", field->name, get_class_name(field->class_data));
         result->write_many(connection, value);
     }
     result->write_many_end(connection);
@@ -233,51 +262,27 @@ error__t block_fields_get(
 }
 
 
-static struct field *create_field_block(
-    const struct block *parent, const char *name,
-    const struct field_class *class, const struct field_type *type)
-{
-    struct field *field = malloc(sizeof(struct field));
-    *field = (struct field) {
-        .block = parent,
-        .name = strdup(name),
-        .class = class,
-        .type = type,
-        .reg = UNASSIGNED_REGISTER,   // Placeholder for unassigned field
-        .change_index = malloc(sizeof(uint64_t) * parent->count),
-    };
-    return field;
-}
-
-
 error__t create_field(
     struct field **field, const struct block *parent, const char *name,
     const char *class_name, const char *type_name)
 {
-    const struct field_class *class;
-    const struct field_type *type = NULL;
+    *field = malloc(sizeof(struct field));
+    **field = (struct field) {
+        .block = parent,
+        .name = strdup(name),
+        .reg = UNASSIGNED_REGISTER,
+        .change_index = calloc(sizeof(uint64_t), parent->count),
+    };
+
     return
-        /* Look up the field class. */
-        lookup_class(class_name, &class)  ?:
-
-//         /* If appropriate process the class initialisation. */
-//         IF(class->init_type,
-//             class->init_type(type_name, &type))  ?:
-
-        /* Now we can create and initialise the field structure. */
-        DO(*field = create_field_block(parent, name, class, type))  ?:
-
+        /* Initialise the class specific field handling. */
+        create_class(
+            *field, parent->count, class_name, type_name,
+            &(*field)->class_data)  ?:
         /* Insert the field into the blocks map of fields. */
         TEST_OK_(
             hash_table_insert(parent->fields, (*field)->name, *field) == NULL,
-            "Field %s.%s alread exists", parent->name, name)  ?:
-
-//         initialise_class(*field, class);
-ERROR_OK;
-
-//         /* Finally finish off any class specific initialisation. */
-//         IF(class->init_class,
-//             class->init_class(*field));
+            "Field %s.%s alread exists", parent->name, name);
 }
 
 
@@ -301,7 +306,7 @@ error__t field_set_reg(struct field *field, unsigned int reg)
 error__t mux_set_indices(struct field *field, unsigned int indices[])
 {
     return class_add_indices(
-        field->class, field->block->name, field->name,
+        field->class_data, field->block->name, field->name,
         field->block->count, indices);
 }
 
@@ -325,6 +330,8 @@ error__t validate_database(void)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Initialisation and shutdown. */
+
 
 error__t initialise_fields(void)
 {
@@ -335,11 +342,14 @@ error__t initialise_fields(void)
 }
 
 
+/* We implement orderly shutdown so that we can easily detect memory leaks
+ * during development. */
+
 static void destroy_field(struct field *field)
 {
     free(field->name);
     free(field->change_index);
-    free(field->type_data);
+    destroy_class(field->class_data);
     free(field);
 }
 

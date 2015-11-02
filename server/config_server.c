@@ -22,8 +22,8 @@
 
 #define TABLE_BUFFER_SIZE   4096U
 
-#define IN_BUF_SIZE         4096
-#define OUT_BUF_SIZE        4096
+#define IN_BUF_SIZE         16384
+#define OUT_BUF_SIZE        16384
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

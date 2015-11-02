@@ -29,7 +29,7 @@ struct entity_context {
     struct block *block;                    // Block database entry
     unsigned int number;                    // Block number, within valid range
     struct field *field;                    // Field database entry
-    const struct field_attr *attr;          // Attribute data, may be absent
+    const struct attr *attr;                // Attribute data, may be absent
 
     struct config_connection *connection;   // Connection from request
 };
@@ -50,99 +50,115 @@ struct entity_actions {
 
 
 /* Implements  block.*?  command, returns list of fields. */
-static error__t field_list_get(
+static error__t do_field_list_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    return block_fields_get(context->block, context->connection, result);
+    return field_list_get(context->block, context->connection, result);
+}
+
+
+static struct field_context create_field_context(
+    const struct entity_context *context)
+{
+    return (struct field_context) {
+        .field = context->field,
+        .number = context->number,
+        .connection = context->connection,
+    };
 }
 
 
 /* Implements  block.field?  command. */
-static error__t block_field_get(
+static error__t do_field_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    struct field_context field_context = {
-        .field = context->field,
-        .number = context->number,
-        .connection = context->connection };
+    struct field_context field_context = create_field_context(context);
     return field_get(&field_context, result);
 }
 
 
 /* Implements  block.field=  command. */
-static error__t block_field_put(
+static error__t do_field_put(
     const struct entity_context *context, const char *value)
 {
-    struct field_context field_context = {
-        .field = context->field,
-        .number = context->number,
-        .connection = context->connection };
+    struct field_context field_context = create_field_context(context);
     return field_put(&field_context, value);
 }
 
 
 /* Implements  block.field<  command. */
-static error__t block_field_put_table(
+static error__t do_field_put_table(
     const struct entity_context *context,
     bool append, const struct put_table_writer *writer)
 {
-    struct field_context field_context = {
-        .field = context->field,
-        .number = context->number,
-        .connection = context->connection };
+    struct field_context field_context = create_field_context(context);
     return field_put_table(&field_context, append, writer);
 }
 
 
 /* Implements  block.field.*?  command. */
-static error__t attr_list_get(
+static error__t do_attr_list_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    return FAIL_("block.field.*? not implemented yet");
+    return attr_list_get(context->field, context->connection, result);
+}
+
+
+static struct attr_context create_attr_context(
+    const struct entity_context *context)
+{
+    return (struct attr_context) {
+        .field = context->field,
+        .number = context->number,
+        .connection = context->connection,
+        .attr = context->attr,
+    };
 }
 
 
 /* Implements  block.field.attr?  command. */
-static error__t field_attr_get(
+static error__t do_attr_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    return FAIL_("block.field.attr? not implemented yet");
+    struct attr_context attr_context = create_attr_context(context);
+    return attr_get(&attr_context, result);
 }
 
 
 /* Implements  block.field.attr=  command. */
-static error__t field_attr_put(
+static error__t do_attr_put(
     const struct entity_context *context, const char *value)
 {
-    return FAIL_("block.field.attr= not implemented yet");
+    struct attr_context attr_context = create_attr_context(context);
+    return attr_put(&attr_context, value);
 }
 
 
 /* Implements  block.*  commands. */
 static const struct entity_actions field_list_actions = {
-    .get = field_list_get,              // block.*?
+    .get = do_field_list_get,           // block.*?
 };
 
 /* Implements  block.field  commands. */
 static const struct entity_actions block_field_actions = {
-    .get = block_field_get,             // block.field?
-    .put = block_field_put,             // block.field=value
-    .put_table = block_field_put_table, // block.field<format
+    .get = do_field_get,                // block.field?
+    .put = do_field_put,                // block.field=value
+    .put_table = do_field_put_table,    // block.field<format
 };
 
 /* Implements  block.field.*  commands. */
 static const struct entity_actions attr_list_actions = {
-    .get = attr_list_get,               // block.field.*?
+    .get = do_attr_list_get,               // block.field.*?
 };
 
 /* Implements  block.field.attr  commands. */
 static const struct entity_actions field_attr_actions = {
-    .get = field_attr_get,              // block.field.attr?
-    .put = field_attr_put,              // block.field.attr=value
+    .get = do_attr_get,              // block.field.attr?
+    .put = do_attr_put,              // block.field.attr=value
 };
 
 
@@ -214,12 +230,10 @@ static error__t parse_field_name(
 static error__t parse_attr_name(
     const char **input, struct entity_context *context)
 {
-    char attr[MAX_NAME_LENGTH];
+    char attr_name[MAX_NAME_LENGTH];
     return
-        parse_name(input, attr, MAX_NAME_LENGTH)  ?:
-//         TEST_OK_(context->attr = lookup_attr(context->field, attr),
-//             "No such attribute");
-        FAIL_("attr not implemented");
+        parse_name(input, attr_name, MAX_NAME_LENGTH)  ?:
+        lookup_attr(context->field, attr_name, &context->attr);
 }
 
 

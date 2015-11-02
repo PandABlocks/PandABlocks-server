@@ -2,54 +2,58 @@
 
 struct put_table_writer;
 struct connection_result;
+struct field;
+
+struct class_data;
 
 
+
+/* This is passed to all the accessor methods below. */
 struct class_context {
-    const struct field *field;
     unsigned int number;
-    const struct field_type *type;
-    void *type_data;
     struct config_connection *connection;
-};
-
-/* The field_access is an abstract interface implementing access functions. */
-struct class_access {
-    /*  block[n].field?
-     * Implements reading from a field. */
-    error__t (*get)(
-        const struct class_context *context,
-        const struct connection_result *result);
-
-    /*  block[n].field=value
-     * Implements writing to the field. */
-    error__t (*put)(const struct class_context *context, const char *value);
-
-    /*  block[n].field<
-     * Implements writing to a table, for the one class which support this. */
-    error__t (*put_table)(
-        const struct class_context *context,
-        bool append, const struct put_table_writer *writer);
+    struct class_data *class_data;
 };
 
 
-struct field_class;
+/*  block[n].field?
+ * Implements reading from a field. */
+error__t class_get(
+    const struct class_context *context,
+    const struct connection_result *result);
 
-const struct class_access *get_class_access(const struct field_class *class);
-const char *get_class_name(const struct field_class *class);
+/*  block[n].field=value
+ * Implements writing to the field. */
+error__t class_put(const struct class_context *context, const char *value);
 
-/* Called during initialisation: returns class implementation with corresponding
- * name. */
-error__t lookup_class(const char *name, const struct field_class **class);
+/*  block[n].field<
+ * Implements writing to a table, for the one class which support this. */
+error__t class_put_table(
+    const struct class_context *context,
+    bool append, const struct put_table_writer *writer);
+
+
+/* Returns name of class. */
+const char *get_class_name(const struct class_data *class_data);
+
 
 /* Called during initialisation to add multiplexer indices for the named field.
  * Fails if the class doesn't support this operation. */
 error__t class_add_indices(
-    const struct field_class *class,
+    const struct class_data *class_data,
     const char *block_name, const char *field_name,
     unsigned int count, unsigned int indices[]);
 
-// error__t initialise_class(
-//     struct field *field, const struct field_class *class);
+
+/* Creates and initialises the class for the given field using the given type
+ * name, and returns class data to be stored with the field. */
+error__t create_class(
+    struct field *field, unsigned int count,
+    const char *class_name, const char *type_name,
+    struct class_data **class);
+
+/* This should be called during shutdown for each created class. */
+void destroy_class(struct class_data *class_data);
 
 
 error__t initialise_classes(void);

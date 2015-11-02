@@ -19,10 +19,6 @@ error__t lookup_block(const char *name, struct block **block);
 unsigned int get_block_count(const struct block *block);
 
 
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Field lookup and enumeration. */
-
 /* Each field has a name and a number of access methods. */
 struct field;
 
@@ -32,6 +28,14 @@ error__t lookup_field(
 
 /* Returns owning block for this field. */
 const struct block *field_parent(const struct field *field);
+
+
+/* Each field may have a number of attributes. */
+struct attr;
+
+/* Returns attribute with the given name for this field. */
+error__t lookup_attr(
+    const struct field *field, const char *name, const struct attr **attr);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -54,7 +58,7 @@ error__t block_list_get(
     const struct connection_result *result);
 
 /* Implements field meta-data listing command:  block.*?  */
-error__t block_fields_get(
+error__t field_list_get(
     const struct block *block,
     struct config_connection *connection,
     const struct connection_result *result);
@@ -73,6 +77,30 @@ error__t field_put_table(
     bool append, const struct put_table_writer *writer);
 
 
+/* Attribute access methods. */
+
+struct attr_context {
+    const struct field *field;              // Field database entry
+    unsigned int number;                    // Block number, within valid range
+    struct config_connection *connection;   // Connection from request
+    const struct attr *attr;
+};
+
+/* List of attributes for field:  block.field.*?  */
+error__t attr_list_get(
+    const struct field *field,
+    struct config_connection *connection,
+    const struct connection_result *result);
+
+/* Retrieves current value of field:  block<n>.field?  */
+error__t attr_get(
+    const struct attr_context *context,
+    const struct connection_result *result);
+
+/* Writes value to field:  block<n>.field=value  */
+error__t attr_put(const struct attr_context *context, const char *value);
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Interface between fields and supporting class. */
 
@@ -82,8 +110,7 @@ unsigned int read_field_register(
 
 /* Writes value to register. */
 void write_field_register(
-    const struct field *field, unsigned int number,
-    unsigned int value, bool mark_changed);
+    const struct field *field, unsigned int number, unsigned int value);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -102,8 +129,12 @@ error__t create_field(
     const char *class_name, const char *type_name);
 
 /* Methods for register setup. */
+
+/* Sets base address for block. */
 error__t block_set_base(struct block *block, unsigned int base);
+/* Sets register offset for field. */
 error__t field_set_reg(struct field *field, unsigned int reg);
+/* Sets multiplexer index array for field. */
 error__t mux_set_indices(struct field *field, unsigned int indices[]);
 
 error__t validate_database(void);
@@ -112,4 +143,5 @@ error__t validate_database(void);
 /* This must be called early during initialisation. */
 error__t initialise_fields(void);
 
+/* This will deallocate all resources used for field management. */
 void terminate_fields(void);
