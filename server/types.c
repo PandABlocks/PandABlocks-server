@@ -5,27 +5,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <math.h>
+#include <pthread.h>
+#include <errno.h>
 
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
 #include "mux_lookup.h"
 #include "config_server.h"
+#include "fields.h"
 
 #include "types.h"
 
 
 
-struct type_attr_context;
-
 struct attr {
+    /* Name of this attribute. */
     const char *name;
 
+    /* Reads attribute value. */
     error__t (*get)(
         const struct type_attr_context *context,
         const struct connection_result *result);
 
+    /* Writes attribute value. */
     error__t (*put)(const struct type_attr_context *context, const char *value);
+
+    /* Context for shared attribute data. */
+    void *context;
 };
 
 
@@ -37,7 +46,7 @@ struct type {
     error__t (*init)(const char **string, unsigned int count, void **type_data);
     /* By default type_data will be freed on destruction.  This optional method
      * implements any more complex destruction process needed. */
-    void (*destroy)(void *type_data);
+    void (*destroy)(void *type_data, unsigned int count);
 
     /* This converts a string to a writeable integer. */
     error__t (*parse)(
@@ -54,6 +63,21 @@ struct type {
 };
 
 
+
+/* Some type operations need to be done under a lock, alas. */
+static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
+#define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&session_lock))
+#define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
+
+
+static error__t copy_string(char result[], size_t length, const char *value)
+{
+    return
+        TEST_OK_(strlen(value) < length, "Result too long")  ?:
+        DO(strcpy(result, value));
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Multiplexer selector type. */
 
@@ -67,7 +91,7 @@ static error__t mux_format(
     const char *string;
     return
         mux_lookup_index(mux_lookup, value, &string)  ?:
-        DO(strncpy(result, string, length));
+        copy_string(result, length, string);
 }
 
 static error__t bit_mux_format(
@@ -107,17 +131,6 @@ static error__t pos_mux_parse(
     const char *string, unsigned int *value)
 {
     return mux_parse(pos_mux_lookup, context, string, value);
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Action types must have an empty write, and cannot be read. */
-
-static error__t action_parse(
-    const struct type_context *context, const char *string, unsigned int *value)
-{
-    *value = 0;
-    return parse_eos(&string);
 }
 
 
@@ -168,6 +181,199 @@ static error__t uint_max_get(
     char string[MAX_RESULT_LENGTH];
     snprintf(string, sizeof(string), "%u", *max_value);
     result->write_one(context->connection, string);
+    return ERROR_OK;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Bit type: input can only be 0 or 1. */
+
+static error__t bit_parse(
+    const struct type_context *context, const char *string, unsigned int *value)
+{
+    return
+        TEST_OK_(strchr("01", *string), "Invalid bit value")  ?:
+        DO(*value = *string++ == '1')  ?:
+        parse_eos(&string);
+}
+
+
+static error__t bit_format(
+    const struct type_context *context,
+    unsigned int value, char string[], size_t length)
+{
+    snprintf(string, length, "%s", value ? "1" : "0");
+    return ERROR_OK;
+}
+
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Action types must have an empty write, and cannot be read. */
+
+static error__t action_parse(
+    const struct type_context *context, const char *string, unsigned int *value)
+{
+    *value = 0;
+    return parse_eos(&string);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Position and Scaled Time. */
+
+struct position_state {
+    double scale;
+    double offset;
+    char *units;
+};
+
+
+static error__t position_init(
+    const char **string, unsigned int count, void **type_data)
+{
+    struct position_state *state = calloc(count, sizeof(struct position_state));
+    for (unsigned int i = 0; i < count; i ++)
+        state[i].scale = 1.0;
+    *type_data = state;
+    return ERROR_OK;
+}
+
+static void position_destroy(void *type_data, unsigned int count)
+{
+    struct position_state *state = type_data;
+    for (unsigned int i = 0; i < count; i ++)
+        free(state[i].units);
+    free(type_data);
+}
+
+
+static error__t position_parse(
+    const struct type_context *context, const char *string, unsigned int *value)
+{
+    struct position_state *state = context->type_data;
+    state = &state[context->number];
+
+    double position;
+    double converted;
+    return
+        parse_double(&string, &position)  ?:
+        parse_eos(&string)  ?:
+        DO(converted = (position - state->offset) / state->scale)  ?:
+        TEST_OK_(INT_MIN <= converted  &&  converted <= INT_MAX,
+            "Position out of range")  ?:
+        DO(*value = (unsigned int) lround(converted));
+}
+
+
+/* Alas the double formatting rules are ill mannered, in particular I don't want
+ * to allow leading spaces.  I'd also love to prune trailing zeros, but we'll
+ * see. */
+static const char *format_double(char *buffer, double value)
+{
+    sprintf(buffer, "%12g", value);
+    return skip_whitespace(buffer);
+}
+
+
+static error__t position_format(
+    const struct type_context *context,
+    unsigned int value, char string[], size_t length)
+{
+    struct position_state *state = context->type_data;
+    state = &state[context->number];
+
+    char buffer[MAX_RESULT_LENGTH];
+    const char *output = format_double(buffer,
+        (int) value * state->scale + state->offset);
+    return copy_string(string, length, output);
+}
+
+
+static error__t position_raw_get(
+    const struct type_attr_context *context,
+    const struct connection_result *result)
+{
+    char string[MAX_RESULT_LENGTH];
+    sprintf(string, "%d",
+        (int) read_field_register(context->field, context->number));
+    result->write_one(context->connection, string);
+    return ERROR_OK;
+}
+
+
+static error__t position_scale_get(
+    const struct type_attr_context *context,
+    const struct connection_result *result)
+{
+    struct position_state *state = context->type_data;
+    state = &state[context->number];
+    char string[MAX_RESULT_LENGTH];
+    result->write_one(context->connection, format_double(string, state->scale));
+    return ERROR_OK;
+}
+
+static error__t position_scale_put(
+    const struct type_attr_context *context, const char *value)
+{
+    struct position_state *state = context->type_data;
+    state = &state[context->number];
+    return
+        parse_double(&value, &state->scale)  ?:
+        parse_eos(&value);
+}
+
+static error__t position_offset_get(
+    const struct type_attr_context *context,
+    const struct connection_result *result)
+{
+    struct position_state *state = context->type_data;
+    state = &state[context->number];
+    char string[MAX_RESULT_LENGTH];
+    result->write_one(
+        context->connection, format_double(string, state->offset));
+    return ERROR_OK;
+}
+
+static error__t position_offset_put(
+    const struct type_attr_context *context, const char *value)
+{
+    struct position_state *state = context->type_data;
+    state = &state[context->number];
+    return
+        parse_double(&value, &state->offset)  ?:
+        parse_eos(&value);
+}
+
+
+static error__t position_units_get(
+    const struct type_attr_context *context,
+    const struct connection_result *result)
+{
+    struct position_state *state = context->type_data;
+    state = &state[context->number];
+
+    LOCK();
+    char string[MAX_RESULT_LENGTH];
+    error__t error = copy_string(string, sizeof(string), state->units ?: "");
+    UNLOCK();
+
+    return
+        error  ?:
+        DO(result->write_one(context->connection, string));
+}
+
+static error__t position_units_put(
+    const struct type_attr_context *context, const char *value)
+{
+    struct position_state *state = context->type_data;
+    state = &state[context->number];
+
+    LOCK();
+    free(state->units);
+    state->units = strdup(value);
+    UNLOCK();
+
     return ERROR_OK;
 }
 
@@ -256,7 +462,6 @@ error__t type_lookup_attr(
     const struct type *type, const char *name,
     const struct attr **attr)
 {
-printf("type_lookup_attr %s:%s\n", type->name, name);
     if (type->attrs)
         for (unsigned int i = 0; i < type->attr_count; i ++)
             if (strcmp(name, type->attrs[i].name) == 0)
@@ -278,19 +483,40 @@ const char *type_get_type_name(const struct type *type)
 
 
 static const struct type field_type_table[] = {
+    /* Unsigned integer with optional maximum limit. */
     { "uint",
         .init = uint_init,
         .parse = uint_parse, .format = uint_format,
         .attrs = (struct attr[]) { { "MAX", .get = uint_max_get, }, },
         .attr_count = 1,
     },
-    { "int", .parse = dummy_parse, .format = dummy_format },
-    { "bit", .parse = dummy_parse, .format = dummy_format },
-    { "scaled_time", .parse = dummy_parse, .format = dummy_format },
-    { "position", .parse = dummy_parse, .format = dummy_format },
 
-    /* 5-input lookup table with special parsing. */
-    { "lut", .parse = dummy_parse, .format = dummy_format },
+    /* Bits are simple: 0 or 1. */
+    { "bit", .parse = bit_parse, .format = bit_format },
+
+    /* Scaled time and position are very similar, both convert between a
+     * floating point representation and a digital hardware value. */
+    { "position",
+        .init = position_init, .destroy = position_destroy,
+        .parse = position_parse, .format = position_format,
+        .attrs = (struct attr[]) {
+            { "RAW", .get = position_raw_get, },
+            { "SCALE",
+                .get = position_scale_get, .put = position_scale_put },
+            { "OFFSET",
+                .get = position_offset_get, .put = position_offset_put },
+            { "UNITS",
+                .get = position_units_get, .put = position_units_put }, },
+        .attr_count = 4 },
+    { "scaled_time",
+        .init = position_init, .destroy = position_destroy,
+        .parse = position_parse, .format = position_format,
+        .attrs = (struct attr[]) {
+            { "RAW", .get = position_raw_get, },
+            { "SCALE", .get = position_scale_get, .put = position_scale_put },
+            { "UNITS",
+                .get = position_units_get, .put = position_units_put }, },
+        .attr_count = 3 },
 
     /* The mux types are only valid for bit_in and pos_in classes. */
     { "bit_mux", .tied = true,
@@ -302,12 +528,15 @@ static const struct type field_type_table[] = {
      * writing is important: no data allowed. */
     { "action", .parse = action_parse, },
 
+    /* 5-input lookup table with special parsing. */
+    { "lut", .parse = dummy_parse, .format = dummy_format },
+
+    /* Enumerations. */
+    { "enum", .parse = dummy_parse, .format = dummy_format },
+
     /* The table type is probably just a placeholder, only suitable for the
      * table class. */
     { "table", .tied = true, },
-
-    { "enum", .parse = dummy_parse, .format = dummy_format },
-//     { "enum",   .parse = enum_parse,   .format = enum_format },
 };
 
 static struct hash_table *field_type_map;
@@ -332,10 +561,10 @@ error__t create_type(
 }
 
 
-void destroy_type(const struct type *type, void *type_data)
+void destroy_type(const struct type *type, void *type_data, unsigned int count)
 {
     if (type->destroy)
-        type->destroy(type_data);
+        type->destroy(type_data, count);
     else
         free(type_data);
 }

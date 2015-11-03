@@ -15,7 +15,7 @@ struct type_context {
 struct type_attr_context {
     unsigned int number;
     struct config_connection *connection;
-    struct field *field;
+    const struct field *field;
     const struct type *type;
     void *type_data;
     const struct attr *attr;
@@ -58,7 +58,7 @@ error__t create_type(
     const char *name, bool forced, unsigned int count,
     const struct type **type, void **type_data);
 
-void destroy_type(const struct type *type, void *type_data);
+void destroy_type(const struct type *type, void *type_data, unsigned int count);
 
 
 /* Returns name of type. */

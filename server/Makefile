@@ -34,6 +34,7 @@ CPPFLAGS += -I$(TOP)/driver
 
 LDLIBS += -lpthread
 LDLIBS += -lrt
+LDLIBS += -lm
 
 
 SRCS += server.c

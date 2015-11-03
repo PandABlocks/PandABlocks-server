@@ -78,17 +78,32 @@ error__t parse_char(const char **string, char ch)
 }
 
 
-error__t parse_uint(const char **string, unsigned int *result)
+/* Called after a C library conversion function checks that anything was
+ * converted and that the conversion was successful.  Relies on errno being zero
+ * before conversion started. */
+static error__t check_number(const char *start, const char *end)
 {
-    errno = 0;
-    const char *start = *string;
-    char *end;
-    *result = (unsigned int) strtoul(start, &end, 10);
-    *string = end;
     return
         TEST_OK_(end > start, "Number missing")  ?:
-        TEST_OK_IO_(errno == 0, "Error converting number");
+        TEST_OK_(errno == 0, "Error converting number");
 }
+
+
+/* Parsing numbers is rather boilerplate.  This macro encapsulates everything in
+ * one common form. */
+#define DEFINE_PARSE_NUM(name, type, convert, extra...) \
+    error__t name(const char **string, type *result) \
+    { \
+        errno = 0; \
+        const char *start = *string; \
+        char *end; \
+        *result = (type) convert(start, &end, ##extra); \
+        *string = end; \
+        return check_number(start, *string); \
+    }
+
+DEFINE_PARSE_NUM(parse_uint,   unsigned int, strtoul,  10)
+DEFINE_PARSE_NUM(parse_double, double,       strtod)
 
 
 error__t parse_eos(const char **string)

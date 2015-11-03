@@ -197,6 +197,7 @@ static struct type_attr_context create_type_attr_context(
     return (struct type_attr_context) {
         .number = context->number,
         .connection = context->connection,
+        .field = context->class_data->field,
         .type = context->class_data->type,
         .type_data = context->class_data->type_data,
         .attr = context->attr,
@@ -371,7 +372,8 @@ void destroy_class(struct class_data *class_data)
 {
     if (class_data)
     {
-        destroy_type(class_data->type, class_data->type_data);
+        destroy_type(
+            class_data->type, class_data->type_data, class_data->count);
         free(class_data);
     }
 }

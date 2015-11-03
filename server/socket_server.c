@@ -81,7 +81,7 @@ static volatile bool running = true;
 
 /* All socket sessions are maintained on a list.  We need to protect all
  * maintenance of these connection objects with a lock. */
-static pthread_mutex_t session_lock;
+static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
 #define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&session_lock))
 #define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
 
