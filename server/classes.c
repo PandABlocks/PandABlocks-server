@@ -21,15 +21,14 @@
 
 /* A field class is an abstract interface implementing access functions. */
 struct class {
-    const char *name;
+    const char *name;   // Name of this class
+    const char *type;   // Default type to use if no type specified
 
     /* Flags controlling behaviour of this class. */
-    bool get;
-    bool put;
-    bool table;
-
-    /* Default type if no type specified. */
-    const char *type;
+    bool get;           // Fields can be read
+    bool put;           // Fields can be written
+    bool table;         // Special table support class
+    bool changes;       // Fields support parameter change set readout
 
     /* Special mux index initialiser for the two _out classes. */
     error__t (*add_indices)(
@@ -197,20 +196,57 @@ error__t class_add_indices(
 }
 
 
+bool is_config_class(const struct class_data *class_data)
+{
+    return class_data->class->changes;
+}
+
+
+void report_changed_value(
+    const char *block_name, const char *field_name, unsigned int number,
+    const struct class_data *class_data,
+    struct config_connection *connection,
+    const struct connection_result *result)
+{
+    char string[MAX_VALUE_LENGTH];
+    size_t prefix = (size_t) snprintf(
+        string, sizeof(string), "%s%d.%s=", block_name, number, field_name);
+    unsigned int value = read_field_register(class_data->field, number);
+    error__t error = type_format(
+        &(struct type_context) {
+            .number = number,
+            .type = class_data->type,
+            .type_data = class_data->type_data },
+        value, string + prefix, sizeof(string) - prefix);
+
+    if (error)
+    {
+        /* Alas it is possible for an error to be detected during formatting.
+         * In this case overwrite the = with space and write an error mark. */
+        prefix -= 1;
+        snprintf(string + prefix, sizeof(string) - prefix, " (error)");
+        ERROR_REPORT(error, "Unexpected error during report_changed_value");
+    }
+    result->write_many(connection, string);
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Top level list of classes. */
 
 static const struct class classes_table[] = {
-    /* Class                                default
-     *  name        get     put     table   type        indices */
-    {  "bit_in",    true,   true,   false,  "bit_mux", },
-    {  "pos_in",    true,   true,   false,  "pos_mux", },
-    {  "bit_out",   true,   false,  false,  "bit",      bit_out_add_indices, },
-    {  "pos_out",   true,   false,  false,  "position", pos_out_add_indices, },
-    {  "param",     true,   true,   false,  "int", },
-    {  "read",      true,   false,  false,  "int", },
-    {  "write",     false,  true,   false,  "int", },
-    {  "table",     true,   false,  true,   "table", },
+    /* Class        default                             change
+     *  name        type        get     put     table   set     indices */
+    {  "bit_in",    "bit_mux",  true,   true,   false,  true,   },
+    {  "pos_in",    "pos_mux",  true,   true,   false,  true,   },
+    {  "bit_out",   "bit",      true,   false,  false,  false,
+        bit_out_add_indices, },
+    {  "pos_out",   "position", true,   false,  false,  false,
+        pos_out_add_indices, },
+    {  "param",     "int",      true,   true,   false,  true,   },
+    {  "read",      "int",      true,   false,  false,  false,  },
+    {  "write",     "int",      false,  true,   false,  false,  },
+    {  "table",     "table",    true,   false,  true,   false,  },
 };
 
 /* Used for lookup during initialisation, initialised from table above. */

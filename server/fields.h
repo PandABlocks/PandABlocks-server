@@ -101,6 +101,12 @@ error__t attr_get(
 error__t attr_put(const struct attr_context *context, const char *value);
 
 
+/* Generates list of all changed fields and their values. */
+void generate_changes_list(
+    struct config_connection *connection,
+    const struct connection_result *result);
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Interface between fields and supporting class. */
 

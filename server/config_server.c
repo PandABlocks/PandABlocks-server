@@ -198,7 +198,17 @@ static void write_char(struct buffered_file *file, char ch)
 /* This structure holds the local state for a config socket connection. */
 struct config_connection {
     struct buffered_file file;
+    uint64_t change_index;
 };
+
+
+uint64_t update_connection_index(
+    struct config_connection *connection, uint64_t change_index)
+{
+    uint64_t result = connection->change_index;
+    connection->change_index = change_index;
+    return result;
+}
 
 
 /* Writes error code to client, consumes and released error. */

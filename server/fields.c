@@ -344,6 +344,30 @@ error__t validate_database(void)
 }
 
 
+/* Walks all fields and generates a change event for all changed fields. */
+void generate_changes_list(
+    struct config_connection *connection,
+    const struct connection_result *result)
+{
+    /* Get the change index for this connection and update it so the next
+     * changes request will be up to date.  Use a fresh index for this. */
+    uint64_t connection_index =
+        update_connection_index(connection, get_change_index());
+    /* Work through all fields in all blocks. */
+    FOR_EACH_BLOCK(block_map, block)
+    {
+        FOR_EACH_FIELD(block->fields, field)
+            if (is_config_class(field->class_data))
+                for (unsigned int i = 0; i < block->count; i ++)
+                    if (field->change_index[i] >= connection_index)
+                        report_changed_value(
+                            block->name, field->name, i, field->class_data,
+                            connection, result);
+    }
+    result->write_many_end(connection);
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Initialisation and shutdown. */
 

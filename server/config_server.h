@@ -10,6 +10,10 @@ error__t process_config_socket(int scon);
 struct config_connection;
 
 
+/* This is used to manage the change index for this connection. */
+uint64_t update_connection_index(
+    struct config_connection *connection, uint64_t change_index);
+
 
 /* This structure is used by get to communicate its results back to the server.
  * Either a single value is written, or a multi-line result.  Only one of either

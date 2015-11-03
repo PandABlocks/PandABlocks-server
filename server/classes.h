@@ -36,6 +36,17 @@ error__t class_put_table(
 /* Returns name of class. */
 const char *get_class_name(const struct class_data *class_data);
 
+/* Returns true if configuration changes are to be reported for this class. */
+bool is_config_class(const struct class_data *class_data);
+
+/* Generates a value change report for the given field. */
+void report_changed_value(
+    const char *block_name, const char *field_name, unsigned int number,
+    const struct class_data *class_data,
+    struct config_connection *connection,
+    const struct connection_result *result);
+
+
 
 /* Called during initialisation to add multiplexer indices for the named field.
  * Fails if the class doesn't support this operation. */

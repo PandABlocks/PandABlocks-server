@@ -4,6 +4,7 @@
  * interrogation. */
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -80,6 +81,19 @@ static error__t system_get_who(
 }
 
 
+/* *CHANGES?
+ *
+ * Returns list of changed fields and their value. */
+
+static error__t system_get_changes(
+    struct config_connection *connection, const char *command,
+    const struct connection_result *result)
+{
+    generate_changes_list(connection, result);
+    return ERROR_OK;
+}
+
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
@@ -101,6 +115,7 @@ static const struct command_table_entry command_table_list[] = {
     { "BLOCKS",     .get = system_get_blocks, },
     { "ECHO",       .get = system_get_echo, .allow_arg = true },
     { "WHO",        .get = system_get_who, },
+    { "CHANGES",    .get = system_get_changes, },
 };
 
 static struct hash_table *command_table;
