@@ -16,8 +16,6 @@
 #include "config_command.h"
 
 
-#define MAX_NAME_LENGTH     20
-
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -278,8 +276,8 @@ static error__t compute_entity_handler(
                     DO(*actions = &attr_list_actions),
                 //else
                     /*  block.field.attr  */
-                    parse_attr_name(&input, context)  ?:
                     check_block_number(max_number, number_present)  ?:
+                    parse_attr_name(&input, context)  ?:
                     DO(*actions = &field_attr_actions)
                 ),
             //else

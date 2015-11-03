@@ -21,9 +21,6 @@
 #include "system_command.h"
 
 
-#define MAX_VALUE_LENGTH    64
-#define MAX_NAME_LENGTH     20
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Individual system commands. */

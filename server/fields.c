@@ -18,8 +18,6 @@
 #include "fields.h"
 
 
-#define MAX_VALUE_LENGTH    64
-
 #define UNASSIGNED_REGISTER ((unsigned int) -1)
 
 
@@ -135,7 +133,19 @@ error__t attr_list_get(
     struct config_connection *connection,
     const struct connection_result *result)
 {
-    return FAIL_("block.field.*? not implemented yet");
+    return class_attr_list_get(field->class_data, connection, result);
+}
+
+
+static struct class_attr_context create_class_attr_context(
+    const struct attr_context *context)
+{
+    return (struct class_attr_context) {
+        .number = context->number,
+        .connection = context->connection,
+        .class_data = context->field->class_data,
+        .attr = context->attr,
+    };
 }
 
 
@@ -144,14 +154,16 @@ error__t attr_get(
     const struct attr_context *context,
     const struct connection_result *result)
 {
-    return FAIL_("block.field.attr? not implemented yet");
+    struct class_attr_context attr_context = create_class_attr_context(context);
+    return class_attr_get(&attr_context, result);
 }
 
 
 /* Writes value to field:  block<n>.field=value  */
 error__t attr_put(const struct attr_context *context, const char *value)
 {
-    return FAIL_("block.field.attr= not implemented yet");
+    struct class_attr_context attr_context = create_class_attr_context(context);
+    return class_attr_put(&attr_context, value);
 }
 
 
@@ -196,7 +208,7 @@ error__t block_list_get(
 {
     FOR_EACH_BLOCK(block_map, block)
     {
-        char value[MAX_VALUE_LENGTH];
+        char value[MAX_RESULT_LENGTH];
         snprintf(value, sizeof(value), "%s %d", block->name, block->count);
         result->write_many(connection, value);
     }
@@ -235,7 +247,7 @@ error__t lookup_field(
 error__t lookup_attr(
     const struct field *field, const char *name, const struct attr **attr)
 {
-    return FAIL_("No such attribute");
+    return class_lookup_attr(field->class_data, name, attr);
 }
 
 
@@ -252,9 +264,10 @@ error__t field_list_get(
 {
     FOR_EACH_FIELD(block->fields, field)
     {
-        char value[MAX_VALUE_LENGTH];
-        snprintf(value, MAX_VALUE_LENGTH,
-            "%s %s", field->name, get_class_name(field->class_data));
+        char value[MAX_RESULT_LENGTH];
+        snprintf(value, MAX_RESULT_LENGTH, "%s %s %s",
+            field->name, get_class_name(field->class_data),
+            get_type_name(field->class_data));
         result->write_many(connection, value);
     }
     result->write_many_end(connection);

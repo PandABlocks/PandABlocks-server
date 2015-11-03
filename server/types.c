@@ -10,15 +10,34 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "mux_lookup.h"
+#include "config_server.h"
 
 #include "types.h"
 
 
-struct type {
+
+struct type_attr_context;
+
+struct attr {
     const char *name;
 
+    error__t (*get)(
+        const struct type_attr_context *context,
+        const struct connection_result *result);
+
+    error__t (*put)(const struct type_attr_context *context, const char *value);
+};
+
+
+struct type {
+    const char *name;
+    bool tied;          // Set for types exclusive to specific classes
+
     /* This creates and initialises any type specific data needed. */
-    void *(*init_type)(unsigned int count);
+    error__t (*init)(const char **string, unsigned int count, void **type_data);
+    /* By default type_data will be freed on destruction.  This optional method
+     * implements any more complex destruction process needed. */
+    void (*destroy)(void *type_data);
 
     /* This converts a string to a writeable integer. */
     error__t (*parse)(
@@ -29,6 +48,9 @@ struct type {
     error__t (*format)(
         const struct type_context *context,
         unsigned int value, char string[], size_t length);
+
+    const struct attr *attrs;
+    unsigned int attr_count;
 };
 
 
@@ -100,22 +122,72 @@ static error__t action_parse(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Integer type. */
+/* Unsigned integer type.
+ *
+ * This is created with an optional maximum value: if specified, valid values
+ * are restricted to the specified range.  The maximum value can be read as an
+ * attribute of this type. */
 
-static error__t uint32_parse(
-    const struct type_context *context, const char *string, unsigned int *value)
+static error__t uint_init(
+    const char **string, unsigned int count, void **type_data)
 {
+    unsigned int *max_value = malloc(sizeof(unsigned int));
+    *max_value = 0xffffffffU;
+    *type_data = max_value;
     return
-        parse_uint(&string, value)  ?:
-        parse_eos(&string);
+        IF(read_char(string, ' '),
+            parse_uint(string, max_value));
 }
 
 
-static error__t uint32_format(
+static error__t uint_parse(
+    const struct type_context *context, const char *string, unsigned int *value)
+{
+    unsigned int *max_value = context->type_data;
+    return
+        parse_uint(&string, value)  ?:
+        parse_eos(&string)  ?:
+        TEST_OK_(*value <= *max_value, "Number out of range");
+}
+
+
+static error__t uint_format(
     const struct type_context *context,
     unsigned int value, char string[], size_t length)
 {
     snprintf(string, length, "%u", value);
+    return ERROR_OK;
+}
+
+
+static error__t uint_max_get(
+    const struct type_attr_context *context,
+    const struct connection_result *result)
+{
+    unsigned int *max_value = context->type_data;
+    char string[MAX_RESULT_LENGTH];
+    snprintf(string, sizeof(string), "%u", *max_value);
+    result->write_one(context->connection, string);
+    return ERROR_OK;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Dummy type. */
+
+static error__t dummy_parse(
+    const struct type_context *context, const char *string, unsigned int *value)
+{
+    *value = 0;
+    return ERROR_OK;
+}
+
+
+static error__t dummy_format(
+    const struct type_context *context,
+    unsigned int value, char string[], size_t length)
+{
+    snprintf(string, length, "dummy");
     return ERROR_OK;
 }
 
@@ -148,41 +220,124 @@ error__t type_format(
 }
 
 
+error__t type_attr_list_get(
+    const struct type *type,
+    struct config_connection *connection,
+    const struct connection_result *result)
+{
+    if (type->attrs)
+        for (unsigned int i = 0; i < type->attr_count; i ++)
+            result->write_many(connection, type->attrs[i].name);
+    result->write_many_end(connection);
+    return ERROR_OK;
+}
+
+
+error__t type_attr_get(
+    const struct type_attr_context *context,
+    const struct connection_result *result)
+{
+    return
+        TEST_OK_(context->attr->get, "Attribute not readable")  ?:
+        context->attr->get(context, result);
+}
+
+
+error__t type_attr_put(
+    const struct type_attr_context *context, const char *value)
+{
+    return
+        TEST_OK_(context->attr->put, "Attribute not writeable")  ?:
+        context->attr->put(context, value);
+}
+
+
+error__t type_lookup_attr(
+    const struct type *type, const char *name,
+    const struct attr **attr)
+{
+printf("type_lookup_attr %s:%s\n", type->name, name);
+    if (type->attrs)
+        for (unsigned int i = 0; i < type->attr_count; i ++)
+            if (strcmp(name, type->attrs[i].name) == 0)
+            {
+                *attr = &type->attrs[i];
+                return ERROR_OK;
+            }
+    return FAIL_("No such attribute");
+}
+
+
+const char *type_get_type_name(const struct type *type)
+{
+    return type->name;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
 static const struct type field_type_table[] = {
-    { "uint32", .parse = uint32_parse, .format = uint32_format },
-    { "int", .parse = uint32_parse, .format = uint32_format },
-    { "bit", .parse = uint32_parse, .format = uint32_format },
-    { "scaled_time", .parse = uint32_parse, .format = uint32_format },
-    { "position", .parse = uint32_parse, .format = uint32_format },
-    { "lut", .parse = uint32_parse, .format = uint32_format },
-    { "bit_mux", .parse = bit_mux_parse, .format = bit_mux_format },
-    { "pos_mux", .parse = pos_mux_parse, .format = pos_mux_format },
+    { "uint",
+        .init = uint_init,
+        .parse = uint_parse, .format = uint_format,
+        .attrs = (struct attr[]) { { "MAX", .get = uint_max_get, }, },
+        .attr_count = 1,
+    },
+    { "int", .parse = dummy_parse, .format = dummy_format },
+    { "bit", .parse = dummy_parse, .format = dummy_format },
+    { "scaled_time", .parse = dummy_parse, .format = dummy_format },
+    { "position", .parse = dummy_parse, .format = dummy_format },
+
+    /* 5-input lookup table with special parsing. */
+    { "lut", .parse = dummy_parse, .format = dummy_format },
+
+    /* The mux types are only valid for bit_in and pos_in classes. */
+    { "bit_mux", .tied = true,
+      .parse = bit_mux_parse, .format = bit_mux_format },
+    { "pos_mux", .tied = true,
+      .parse = pos_mux_parse, .format = pos_mux_format },
+
+    /* A type for fields where the data is never read and only the action of
+     * writing is important: no data allowed. */
     { "action", .parse = action_parse, },
-    { "table", },
-    { "enum", .parse = uint32_parse, .format = uint32_format },
-//     { "enum",   .parse = type_enum_parse,   .format = type_enum_format },
+
+    /* The table type is probably just a placeholder, only suitable for the
+     * table class. */
+    { "table", .tied = true, },
+
+    { "enum", .parse = dummy_parse, .format = dummy_format },
+//     { "enum",   .parse = enum_parse,   .format = enum_format },
 };
 
 static struct hash_table *field_type_map;
 
 
-
 error__t create_type(
-    const char *name, const struct type **type, struct type_data **type_data)
+    const char *string, bool forced, unsigned int count,
+    const struct type **type, void **type_data)
 {
     *type_data = NULL;
-    return TEST_OK_(
-        *type = hash_table_lookup(field_type_map, name),
-        "Unknown field type %s", name);
+    char type_name[MAX_NAME_LENGTH];
+    return
+        parse_name(&string, type_name, sizeof(type_name))  ?:
+        TEST_OK_(
+            *type = hash_table_lookup(field_type_map, type_name),
+            "Unknown field type %s", type_name)  ?:
+        TEST_OK_(!(*type)->tied  ||  forced,
+            "Cannot use this type with this class")  ?:
+        IF((*type)->init,
+            (*type)->init(&string, count, type_data))  ?:
+        parse_eos(&string);
 }
 
 
-void destroy_type(const struct type *type, struct type_data *type_data)
+void destroy_type(const struct type *type, void *type_data)
 {
-//     free(type_data);
+    if (type->destroy)
+        type->destroy(type_data);
+    else
+        free(type_data);
 }
 
 

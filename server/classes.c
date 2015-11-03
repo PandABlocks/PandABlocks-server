@@ -15,9 +15,6 @@
 #include "classes.h"
 
 
-#define MAX_NAME_LENGTH     64
-#define MAX_VALUE_LENGTH    64
-
 
 /* A field class is an abstract interface implementing access functions. */
 struct class {
@@ -25,6 +22,7 @@ struct class {
     const char *type;   // Default type to use if no type specified
 
     /* Flags controlling behaviour of this class. */
+    bool force_type;    // If set only default type can be used
     bool get;           // Fields can be read
     bool put;           // Fields can be written
     bool table;         // Special table support class
@@ -42,7 +40,7 @@ struct class_data {
     unsigned int count;
     const struct class *class;
     const struct type *type;
-    struct type_data *type_data;
+    void *type_data;
 };
 
 
@@ -132,7 +130,7 @@ static error__t value_get(
     const struct class_data *class_data = context->class_data;
     unsigned int value;
     struct type_context type_context = create_type_context(context);
-    char string[MAX_VALUE_LENGTH];
+    char string[MAX_RESULT_LENGTH];
     return
         TEST_OK_(class_data->class->get, "Field not readable")  ?:
         DO(value = read_field_register(class_data->field, context->number))  ?:
@@ -171,8 +169,7 @@ error__t class_put(
 }
 
 
-/*  block[n].field<
- * Implements writing to a table, for the one class which support this. */
+/*  block[n].field< */
 error__t class_put_table(
     const struct class_context *context,
     bool append, const struct put_table_writer *writer)
@@ -181,6 +178,55 @@ error__t class_put_table(
     return
         TEST_OK_(class->table, "Field is not a table")  ?:
         table_put_table(context, append, writer);
+}
+
+
+/*  block.field.*? */
+error__t class_attr_list_get(
+    const struct class_data *class_data,
+    struct config_connection *connection,
+    const struct connection_result *result)
+{
+    return type_attr_list_get(class_data->type, connection, result);
+}
+
+
+static struct type_attr_context create_type_attr_context(
+    const struct class_attr_context *context)
+{
+    return (struct type_attr_context) {
+        .number = context->number,
+        .connection = context->connection,
+        .type = context->class_data->type,
+        .type_data = context->class_data->type_data,
+        .attr = context->attr,
+    };
+}
+
+/*  block[n].field.attr? */
+error__t class_attr_get(
+    const struct class_attr_context *context,
+    const struct connection_result *result)
+{
+    struct type_attr_context attr_context = create_type_attr_context(context);
+    return type_attr_get(&attr_context, result);
+}
+
+
+/*  block[n].field.attr=value */
+error__t class_attr_put(
+    const struct class_attr_context *context, const char *value)
+{
+    struct type_attr_context attr_context = create_type_attr_context(context);
+    return type_attr_put(&attr_context, value);
+}
+
+
+error__t class_lookup_attr(
+    const struct class_data *class_data, const char *name,
+    const struct attr **attr)
+{
+    return type_lookup_attr(class_data->type, name, attr);
 }
 
 
@@ -202,15 +248,20 @@ bool is_config_class(const struct class_data *class_data)
 }
 
 
+/* To report a single changed value we have to re-do the normal formatting in
+ * value_get, but we have one big issue: there's nowhere to report errors to, so
+ * we have to handle them locally. */
 void report_changed_value(
     const char *block_name, const char *field_name, unsigned int number,
     const struct class_data *class_data,
     struct config_connection *connection,
     const struct connection_result *result)
 {
-    char string[MAX_VALUE_LENGTH];
+    char string[MAX_RESULT_LENGTH];
     size_t prefix = (size_t) snprintf(
         string, sizeof(string), "%s%d.%s=", block_name, number, field_name);
+
+    /* Read and format register value into remainder of result string. */
     unsigned int value = read_field_register(class_data->field, number);
     error__t error = type_format(
         &(struct type_context) {
@@ -235,18 +286,18 @@ void report_changed_value(
 /* Top level list of classes. */
 
 static const struct class classes_table[] = {
-    /* Class        default                             change
-     *  name        type        get     put     table   set     indices */
-    {  "bit_in",    "bit_mux",  true,   true,   false,  true,   },
-    {  "pos_in",    "pos_mux",  true,   true,   false,  true,   },
-    {  "bit_out",   "bit",      true,   false,  false,  false,
+    /* Class        default     force                   change
+     *  name        type        class   get     put     table   set  */
+    {  "bit_in",    "bit_mux",  true,   true,   true,   false,  true,   },
+    {  "pos_in",    "pos_mux",  true,   true,   true,   false,  true,   },
+    {  "bit_out",   "bit",      false,  true,   false,  false,  false,
         bit_out_add_indices, },
-    {  "pos_out",   "position", true,   false,  false,  false,
+    {  "pos_out",   "position", false,  true,   false,  false,  false,
         pos_out_add_indices, },
-    {  "param",     "int",      true,   true,   false,  true,   },
-    {  "read",      "int",      true,   false,  false,  false,  },
-    {  "write",     "int",      false,  true,   false,  false,  },
-    {  "table",     "table",    true,   false,  true,   false,  },
+    {  "param",     "uint",     false,  true,   true,   false,  true,   },
+    {  "read",      "uint",     false,  true,   false,  false,  false,  },
+    {  "write",     "uint",     false,  false,  true,   false,  false,  },
+    {  "table",     "table",    true,   true,   false,  true,   false,  },
 };
 
 /* Used for lookup during initialisation, initialised from table above. */
@@ -258,6 +309,15 @@ const char *get_class_name(const struct class_data *class_data)
     return class_data->class->name;
 }
 
+const char *get_type_name(const struct class_data *class_data)
+{
+    if (class_data->class->force_type)
+        /* The name of forced types is concealed. */
+        return "";
+    else
+        /* Ask the type for its name. */
+        return type_get_type_name(class_data->type);
+}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Initialisation and shutdown. */
@@ -266,7 +326,7 @@ const char *get_class_name(const struct class_data *class_data)
 static struct class_data *create_class_data(
     const struct field *field, unsigned int count,
     const struct class *class,
-    const struct type *type, struct type_data *type_data)
+    const struct type *type, void *type_data)
 {
     struct class_data *class_data = malloc(sizeof(struct class_data));
     *class_data = (struct class_data) {
@@ -285,16 +345,22 @@ error__t create_class(
     const char *class_name, const char *type_name,
     struct class_data **class_data)
 {
+    bool no_type_name = *type_name == '\0';
+
     const struct class *class;
     const struct type *type;
-    struct type_data *type_data;
+    void *type_data;
     return
         TEST_OK_(class = hash_table_lookup(class_map, class_name),
             "Invalid field class %s", class_name)  ?:
+        /* Make sure no type name is specified if the type is forced. */
+        TEST_OK_(no_type_name  ||  !class->force_type,
+            "Cannot specify type for this class")  ?:
         /* If no type name has been specified, use the default type for the
          * class. */
         create_type(
-            *type_name == '\0' ? class->type : type_name, &type, &type_data)  ?:
+            no_type_name ? class->type : type_name, class->force_type, count,
+            &type, &type_data)  ?:
         /* Finally create the class data structure. */
         DO(*class_data =
             create_class_data(field, count, class, type, type_data));
@@ -303,8 +369,11 @@ error__t create_class(
 
 void destroy_class(struct class_data *class_data)
 {
-    destroy_type(class_data->type, class_data->type_data);
-    free(class_data);
+    if (class_data)
+    {
+        destroy_type(class_data->type, class_data->type_data);
+        free(class_data);
+    }
 }
 
 

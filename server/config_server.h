@@ -1,5 +1,11 @@
 /* Configuration interface. */
 
+/* A couple of buffer size definitions. */
+#define MAX_NAME_LENGTH     32
+#define MAX_RESULT_LENGTH   256
+
+
+
 /* This should be called in a separate thread for each configuration interface
  * socket connection.  This function will run until the given socket closes. */
 error__t process_config_socket(int scon);

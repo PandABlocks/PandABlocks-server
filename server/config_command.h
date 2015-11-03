@@ -1,8 +1,6 @@
 /* Interface for configuration commands. */
 
 
-
-
 /* These are defined in config_server.h. */
 struct config_connection;
 struct connection_result;
