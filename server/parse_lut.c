@@ -143,7 +143,7 @@ static enum parse_action lookup_action(int left_token, int right_token)
  * It's important that EOF on input never triggers a push to stack operation,
  * because this function consumes the end of string.  */
 static enum parse_lut_status read_token(
-    const char **input, int *token, int *value)
+    const char **input, int *token, unsigned int *value)
 {
     /* Read next character from input string skipping any whitespace. */
     char ch;
@@ -207,7 +207,7 @@ static enum parse_lut_status read_token(
  * Firstly, ) and : can only ever be placed on the token stack immediately
  * following ( and ? respectively, so their reductions are safe.  Secondly, the
  * unlisted tokens (, ?, END are never reduced by themselves. */
-static void reduce(int token, int value, int values[])
+static void reduce(int token, unsigned int value, unsigned int values[])
 {
     switch (token)
     {
@@ -234,7 +234,7 @@ static void reduce(int token, int value, int values[])
  * add this token to the top of the stack and read another from the input. */
 static enum parse_lut_status push_token(
     const char **input,
-    int token_stack[], int *token_sp, int *next_token, int *value)
+    int token_stack[], int *token_sp, int *next_token, unsigned int *value)
 {
     /* Push token  The operator stack can overflow at this point if the input is
      * too complex.  Note that this token overflow guard is enough to prevent
@@ -256,8 +256,8 @@ static enum parse_lut_status push_token(
 /* If the incoming token is GT the top of the stack then we can consume the
  * tokens at the top of the stack with a reduce action. */
 static enum parse_lut_status reduce_stack(
-    int this_token,
-    int *token_sp, int value_stack[], int *value_sp, int value)
+    int this_token, int *token_sp,
+    unsigned int value_stack[], int *value_sp, unsigned int value)
 {
     /* Reduce current top of stack.  We can exhaust the value stack, but the
      * token stack is safe, see notes for reduce(). */
@@ -278,7 +278,7 @@ static enum parse_lut_status reduce_stack(
 
 /* Extracts the final result from the value stack. */
 static enum parse_lut_status extract_result(
-    int value_stack[], int value_sp, int *result)
+    unsigned int value_stack[], int value_sp, unsigned int *result)
 {
     if (value_sp == 1)
     {
@@ -290,19 +290,19 @@ static enum parse_lut_status extract_result(
 }
 
 
-enum parse_lut_status parse_lut(const char *input, int *result)
+enum parse_lut_status parse_lut(const char *input, unsigned int *result)
 {
     /* Stack of operators pending reduction. */
     int token_stack[MAX_DEPTH];
     int token_sp = 1;
     token_stack[0] = TOKEN_END;
     /* Stack of operands. */
-    int value_stack[MAX_DEPTH];
+    unsigned int value_stack[MAX_DEPTH];
     int value_sp = 0;
 
     /* Prime the pump by reading one token from the input. */
     int next_token;
-    int value = 0;
+    unsigned int value = 0;
     enum parse_lut_status status = read_token(&input, &next_token, &value);
 
     /* Loop until the stack is empty and the input has been consumed. */

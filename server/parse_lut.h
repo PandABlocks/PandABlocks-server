@@ -19,7 +19,7 @@ enum parse_lut_status {
  * 0 and 1, ~ represents complement, =, &, ^, |, =>, in descending order of
  * precedence represent XNOR, AND, XOR, OR, IMPLIES (A=>B is ~A|B) respectively,
  * and ?: is used to represent conditional choice (A?B:C is A&B|~A&C). */
-enum parse_lut_status parse_lut(const char *input, int *result);
+enum parse_lut_status parse_lut(const char *input, unsigned int *result);
 
 /* Returns error string corresponding to given status. */
 const char *parse_lut_error_string(enum parse_lut_status status);

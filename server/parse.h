@@ -22,6 +22,9 @@ error__t parse_char(const char **string, char ch);
 /* Parses an unsigned integer from *string. */
 error__t parse_uint(const char **string, unsigned int *result);
 
+/* Parses a signed integer from *string. */
+error__t parse_int(const char **string, int *result);
+
 /* Parses a double from *string. */
 error__t parse_double(const char **string, double *result);
 

@@ -102,6 +102,7 @@ static error__t check_number(const char *start, const char *end)
         return check_number(start, *string); \
     }
 
+DEFINE_PARSE_NUM(parse_int,    int,          strtol,  10)
 DEFINE_PARSE_NUM(parse_uint,   unsigned int, strtoul,  10)
 DEFINE_PARSE_NUM(parse_double, double,       strtod)
 

@@ -50,6 +50,7 @@ SRCS += config_command.c
 SRCS += system_command.c
 SRCS += fields.c
 SRCS += mux_lookup.c
+SRCS += parse_lut.c
 SRCS += types.c
 SRCS += classes.c
 
