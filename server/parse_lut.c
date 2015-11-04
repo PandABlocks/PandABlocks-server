@@ -98,7 +98,7 @@ enum parse_action {
  *
  * *1: Precedence between binary operators depends on the operators.
  * *2: Note that the last entry, EOF-EOF, is not reachable. */
-static const char parse_table[8][8] = {
+static const unsigned char parse_table[8][8] = {
 /*            K   (   )   ~   bin ?   :   EOF */
 /*            --  --  --  --  --  --  --  --  */
 /* K   */   { E1, E1, GT, E1, GT, GT, GT, GT, },
