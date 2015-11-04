@@ -122,15 +122,6 @@ static error__t load_config_database(const char *db_name)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static error__t load_types_database(const char *db)
-{
-    log_message("Loading types database from \"%s\"", db);
-    return ERROR_OK;
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 
 /* A block line just specifies block name and base address. */
 static error__t register_parse_header_line(
@@ -230,11 +221,9 @@ static error__t load_register_database(const char *db_name)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-error__t load_config_databases(
-    const char *config_db, const char *types_db, const char *register_db)
+error__t load_config_databases(const char *config_db, const char *register_db)
 {
     return
-        load_types_database(types_db)  ?:
         load_config_database(config_db)  ?:
         load_register_database(register_db)  ?:
         validate_database();

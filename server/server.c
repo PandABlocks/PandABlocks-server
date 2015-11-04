@@ -26,7 +26,6 @@ static unsigned int data_port = 8889;
 
 /* Paths to configuration databases. */
 static const char *config_db;
-static const char *types_db;
 static const char *register_db;
 
 
@@ -41,7 +40,6 @@ static void usage(const char *argv0)
 "   -p: Specify configuration port (default %d)\n"
 "   -d: Specify data port (default %d)\n"
 "   -c: Specify configuration database\n"
-"   -t: Specify types database\n"
 "   -r: Specify register database\n"
         , argv0, config_port, data_port);
 }
@@ -53,17 +51,15 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:c:r:t:"))
+        switch (getopt(argc, argv, "+hp:d:c:r:"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   config_port = (unsigned int) atoi(optarg);      break;
             case 'd':   data_port   = (unsigned int) atoi(optarg);      break;
             case 'c':   config_db = optarg;                             break;
-            case 't':   types_db = optarg;                              break;
             case 'r':   register_db = optarg;                           break;
             default:
-                fprintf(stderr, "Try `%s -h` for usage\n", argv0);
-                return false;
+                return FAIL_("Try `%s -h` for usage\n", argv0);
             case -1:
                 argc -= optind;
                 argv += optind;
@@ -120,7 +116,7 @@ int main(int argc, char *const argv[])
         initialise_types()  ?:
         initialise_mux_lookup()  ?:
         initialise_classes()  ?:
-        load_config_databases(config_db, types_db, register_db)  ?:
+        load_config_databases(config_db, register_db)  ?:
 
         initialise_hardware()  ?:
         initialise_system_command()  ?:
