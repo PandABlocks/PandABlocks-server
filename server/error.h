@@ -241,26 +241,24 @@ static inline error__t __attribute__((warn_unused_result))
  * definition anywhere. */
 #define ARRAY_SIZE(a)   (sizeof(a)/sizeof((a)[0]))
 
-/* An agressive cast for use when the compiler needs special reassurance. */
-#define _id_REINTERPRET_CAST(_union, type, value) \
+/* Casting from one type to another with checking via a union.  Needed in
+ * particular to reassure the compiler about aliasing. */
+#define _id_CAST_FROM_TO(_union, from_type, to_type, value) \
     ( { \
-        COMPILE_ASSERT(sizeof(type) == sizeof(typeof(value))); \
+        COMPILE_ASSERT(sizeof(from_type) == sizeof(to_type)); \
         union { \
-            typeof(value) _value; \
-            type _cast; \
+            from_type _value; \
+            to_type _cast; \
         } _union = { ._value = (value) }; \
         _union._cast; \
     } )
-#define REINTERPRET_CAST(args...) \
-    _id_REINTERPRET_CAST(UNIQUE_ID(), args)
+#define CAST_FROM_TO(args...) \
+    _id_CAST_FROM_TO(UNIQUE_ID(), args)
 
 /* A macro for ensuring that a value really is assign compatible to the
  * requested type. */
 #define ENSURE_TYPE(type, value)    (*(type []) { (value) })
 
-/* Casting from one type to another with checking. */
-#define CAST_FROM_TO(from, to, value) \
-    REINTERPRET_CAST(to, ENSURE_TYPE(from, value))
 
 /* A couple of handy macros: macro safe MIN and MAX functions. */
 #define _MIN(tx, ty, x, y) \

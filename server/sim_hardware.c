@@ -39,7 +39,7 @@ void hw_write_config(
         (unsigned char) block_number,
         (unsigned char) reg
     };
-    *(uint32_t *) &command[4] = value;
+    *CAST_FROM_TO(unsigned char *, uint32_t *, &command[4]) = value;
     ssize_t written;
     error__t error =
         TEST_IO(written = write(sock, command, 8))  ?:
