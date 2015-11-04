@@ -412,4 +412,10 @@ void terminate_socket_server()
     /* Now wait for everything to by joining all the pending sessions. */
     join_sessions(&active_sessions);
     join_sessions(&closed_sessions);
+
+    /* Close the listening sockets. */
+    if (config_socket.sock >= 0)
+        close(config_socket.sock);
+    if (data_socket.sock >= 0)
+        close(data_socket.sock);
 }
