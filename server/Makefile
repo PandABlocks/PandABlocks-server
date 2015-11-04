@@ -51,6 +51,7 @@ SRCS += system_command.c
 SRCS += fields.c
 SRCS += mux_lookup.c
 SRCS += parse_lut.c
+SRCS += enums.c
 SRCS += types.c
 SRCS += classes.c
 

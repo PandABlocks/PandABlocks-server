@@ -5,6 +5,7 @@ struct type;
 struct attr;
 
 
+/* Context required to parse or format an ordinary field. */
 struct type_context {
     unsigned int number;
     const struct type *type;
@@ -12,11 +13,11 @@ struct type_context {
 };
 
 
+/* Context require to read or write a field attribute. */
 struct type_attr_context {
     unsigned int number;
     struct config_connection *connection;
     const struct field *field;
-    const struct type *type;
     void *type_data;
     const struct attr *attr;
 };
@@ -59,6 +60,10 @@ error__t create_type(
     const struct type **type, void **type_data);
 
 void destroy_type(const struct type *type, void *type_data, unsigned int count);
+
+/* Adds attribute line to specified type. */
+error__t type_add_attribute_line(
+    const struct type *type, void *type_data, const char *line);
 
 
 /* Returns name of type. */

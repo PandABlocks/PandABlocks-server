@@ -198,7 +198,6 @@ static struct type_attr_context create_type_attr_context(
         .number = context->number,
         .connection = context->connection,
         .field = context->class_data->field,
-        .type = context->class_data->type,
         .type_data = context->class_data->type_data,
         .attr = context->attr,
     };
@@ -240,6 +239,14 @@ error__t class_add_indices(
     return
         TEST_OK_(class->add_indices, "Class does not have indices")  ?:
         class->add_indices(block_name, field_name, count, indices);
+}
+
+
+error__t class_add_attribute_line(
+    const struct class_data *class_data, const char *line)
+{
+    return type_add_attribute_line(
+        class_data->type, class_data->type_data, line);
 }
 
 

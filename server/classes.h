@@ -87,6 +87,9 @@ error__t class_add_indices(
     const char *block_name, const char *field_name,
     unsigned int count, unsigned int indices[]);
 
+error__t class_add_attribute_line(
+    const struct class_data *class_data, const char *line);
+
 
 /* Creates and initialises the class for the given field using the given type
  * name, and returns class data to be stored with the field. */

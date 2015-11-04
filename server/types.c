@@ -18,6 +18,7 @@
 #include "config_server.h"
 #include "fields.h"
 #include "parse_lut.h"
+#include "enums.h"
 
 #include "types.h"
 
@@ -27,7 +28,11 @@ struct attr {
     /* Name of this attribute. */
     const char *name;
 
-    /* Reads attribute value. */
+    error__t (*format)(
+        const struct type_attr_context *context, char result[], size_t length);
+
+    /* Reads attribute value.  Only need to implement this for multi-line
+     * results, otherwise just implement format. */
     error__t (*get)(
         const struct type_attr_context *context,
         const struct connection_result *result);
@@ -49,6 +54,9 @@ struct type {
     /* By default type_data will be freed on destruction.  This optional method
      * implements any more complex destruction process needed. */
     void (*destroy)(void *type_data, unsigned int count);
+
+    /* This is called during startup to process an attribute line. */
+    error__t (*add_attribute_line)(void *type_data, const char *string);
 
     /* This converts a string to a writeable integer. */
     error__t (*parse)(
@@ -88,20 +96,38 @@ static error__t __attribute__((format(printf, 3, 4))) format_string(
 }
 
 
-/* Raw implementation for those fields that need it. */
-static error__t raw_get_int(
-    const struct type_attr_context *context,
-    const struct connection_result *result)
+
+/*****************************************************************************/
+/* Individual type implementations. */
+
+
+/* Raw field implementation for those fields that need it. */
+
+static error__t raw_format_int(
+    const struct type_attr_context *context, char result[], size_t length)
 {
-    char string[MAX_RESULT_LENGTH];
-    sprintf(string, "%d",
+    return format_string(result, length, "%d",
         (int) read_field_register(context->field, context->number));
-    result->write_one(context->connection, string);
-    return ERROR_OK;
+}
+
+static error__t raw_format_uint(
+    const struct type_attr_context *context, char result[], size_t length)
+{
+    return format_string(result, length, "%u",
+        read_field_register(context->field, context->number));
 }
 
 
-/* Writes attribute value. */
+static error__t raw_put_uint(
+    const struct type_attr_context *context, const char *string)
+{
+    unsigned int value;
+    return
+        parse_uint(&string, &value)  ?:
+        parse_eos(&string)  ?:
+        DO(write_field_register(context->field, context->number, value));
+}
+
 static error__t raw_put_int(
     const struct type_attr_context *context, const char *string)
 {
@@ -114,67 +140,24 @@ static error__t raw_put_int(
 }
 
 
-
-/* Raw implementation for those fields that need it. */
-static error__t raw_get_uint(
-    const struct type_attr_context *context,
-    const struct connection_result *result)
-{
-    char string[MAX_RESULT_LENGTH];
-    sprintf(string, "%u", read_field_register(context->field, context->number));
-    result->write_one(context->connection, string);
-    return ERROR_OK;
-}
-
-
-/* Writes attribute value. */
-static error__t raw_put_uint(
-    const struct type_attr_context *context, const char *string)
-{
-    unsigned int value;
-    return
-        parse_uint(&string, &value)  ?:
-        parse_eos(&string)  ?:
-        DO(write_field_register(context->field, context->number, value));
-}
-
-
-
-/*****************************************************************************/
-/* Individual type implementations. */
-
-
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Multiplexer selector type. */
-
-/* Converts register name to multiplexer name, or returns a placeholder if an
- * invalid value is read. */
-static error__t mux_format(
-    struct mux_lookup *mux_lookup,
-    const struct type_context *context,
-    unsigned int value, char result[], size_t length)
-{
-    const char *string;
-    return
-        mux_lookup_index(mux_lookup, value, &string)  ?:
-        format_string(result, length, "%s", string);
-}
 
 static error__t bit_mux_format(
     const struct type_context *context,
     unsigned int value, char result[], size_t length)
 {
-    return mux_format(bit_mux_lookup, context, value, result, length);
+    return mux_lookup_index(bit_mux_lookup, value, result, length);
 }
 
 static error__t pos_mux_format(
     const struct type_context *context,
     unsigned int value, char result[], size_t length)
 {
-    return mux_format(pos_mux_lookup, context, value, result, length);
+    return mux_lookup_index(pos_mux_lookup, value, result, length);
 }
 
 
-/* Converts multiplexer output name to index and writes to register. */
 static error__t bit_mux_parse(
     const struct type_context *context,
     const char *string, unsigned int *value)
@@ -201,7 +184,7 @@ static error__t uint_init(
     const char **string, unsigned int count, void **type_data)
 {
     unsigned int *max_value = malloc(sizeof(unsigned int));
-    *max_value = 0xffffffffU;
+    *max_value = UINT_MAX;
     *type_data = max_value;
     return
         IF(read_char(string, ' '),
@@ -229,15 +212,11 @@ static error__t uint_format(
 }
 
 
-static error__t uint_max_get(
-    const struct type_attr_context *context,
-    const struct connection_result *result)
+static error__t uint_max_format(
+    const struct type_attr_context *context, char result[], size_t length)
 {
     unsigned int *max_value = context->type_data;
-    char string[MAX_RESULT_LENGTH];
-    snprintf(string, sizeof(string), "%u", *max_value);
-    result->write_one(context->connection, string);
-    return ERROR_OK;
+    return format_string(result, length, "%u", *max_value);
 }
 
 
@@ -300,7 +279,6 @@ static void position_destroy(void *type_data, unsigned int count)
     struct position_state *state = type_data;
     for (unsigned int i = 0; i < count; i ++)
         free(state[i].units);
-    free(state);
 }
 
 
@@ -325,94 +303,80 @@ static error__t position_parse(
 /* Alas the double formatting rules are ill mannered, in particular I don't want
  * to allow leading spaces.  I'd also love to prune trailing zeros, but we'll
  * see. */
-static const char *format_double(char *buffer, double value)
+static error__t format_double(char result[], size_t length, double value)
 {
-    sprintf(buffer, "%12g", value);
-    return skip_whitespace(buffer);
+    snprintf(result, length, "%12g", value);    // Not going to overflow
+    const char *skip = skip_whitespace(result);
+    if (skip > result)
+        memmove(result, skip, strlen(skip) + 1);
+    return ERROR_OK;
 }
 
 
 static error__t position_format(
     const struct type_context *context,
-    unsigned int value, char string[], size_t length)
+    unsigned int value, char result[], size_t length)
 {
     struct position_state *state = context->type_data;
     state = &state[context->number];
-
-    char buffer[MAX_RESULT_LENGTH];
-    const char *output =
-        format_double(buffer, (int) value * state->scale + state->offset);
-    return format_string(string, length, "%s", output);
+    return format_double(
+        result, length, (int) value * state->scale + state->offset);
 }
 
 
-static error__t position_scale_get(
-    const struct type_attr_context *context,
-    const struct connection_result *result)
+static error__t position_scale_format(
+    const struct type_attr_context *context, char result[], size_t length)
 {
     struct position_state *state = context->type_data;
-    state = &state[context->number];
-    char string[MAX_RESULT_LENGTH];
-    result->write_one(context->connection, format_double(string, state->scale));
-    return ERROR_OK;
+    state += context->number;
+    return format_double(result, length, state->scale);
 }
 
 static error__t position_scale_put(
     const struct type_attr_context *context, const char *value)
 {
     struct position_state *state = context->type_data;
-    state = &state[context->number];
+    state += context->number;
     return
         parse_double(&value, &state->scale)  ?:
         parse_eos(&value);
 }
 
-static error__t position_offset_get(
-    const struct type_attr_context *context,
-    const struct connection_result *result)
+static error__t position_offset_format(
+    const struct type_attr_context *context, char result[], size_t length)
 {
     struct position_state *state = context->type_data;
-    state = &state[context->number];
-    char string[MAX_RESULT_LENGTH];
-    result->write_one(
-        context->connection, format_double(string, state->offset));
-    return ERROR_OK;
+    state += context->number;
+    return format_double(result, length, state->offset);
 }
 
 static error__t position_offset_put(
     const struct type_attr_context *context, const char *value)
 {
     struct position_state *state = context->type_data;
-    state = &state[context->number];
+    state += context->number;
     return
         parse_double(&value, &state->offset)  ?:
         parse_eos(&value);
 }
 
 
-static error__t position_units_get(
-    const struct type_attr_context *context,
-    const struct connection_result *result)
+static error__t position_units_format(
+    const struct type_attr_context *context, char result[], size_t length)
 {
     struct position_state *state = context->type_data;
-    state = &state[context->number];
-
+    state += context->number;
     LOCK();
-    char string[MAX_RESULT_LENGTH];
-    error__t error =
-        format_string(string, sizeof(string), "%s", state->units ?: "");
+    error__t error = format_string(result, length, "%s", state->units ?: "");
     UNLOCK();
-
-    return
-        error  ?:
-        DO(result->write_one(context->connection, string));
+    return error;
 }
 
 static error__t position_units_put(
     const struct type_attr_context *context, const char *value)
 {
     struct position_state *state = context->type_data;
-    state = &state[context->number];
+    state += context->number;
 
     LOCK();
     free(state->units);
@@ -445,7 +409,6 @@ static void lut_destroy(void *type_data, unsigned int count)
     struct lut_state *state = type_data;
     for (unsigned int i = 0; i < count; i ++)
         free(state[i].string);
-    free(state);
 }
 
 
@@ -471,7 +434,7 @@ static error__t lut_parse(
     const struct type_context *context, const char *string, unsigned int *value)
 {
     struct lut_state *state = context->type_data;
-    state = &state[context->number];
+    state += context->number;
 
     error__t error = do_parse_lut(string, value);
     if (!error)
@@ -491,7 +454,7 @@ static error__t lut_format(
     unsigned int value, char string[], size_t length)
 {
     struct lut_state *state = context->type_data;
-    state = &state[context->number];
+    state += context->number;
 
     LOCK();
     error__t error =
@@ -504,43 +467,11 @@ static error__t lut_format(
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Dummy type. */
-
-static error__t dummy_parse(
-    const struct type_context *context, const char *string, unsigned int *value)
-{
-    *value = 0;
-    return ERROR_OK;
-}
-
-
-static error__t dummy_format(
-    const struct type_context *context,
-    unsigned int value, char string[], size_t length)
-{
-    snprintf(string, length, "dummy");
-    return ERROR_OK;
-}
-
-
 /*****************************************************************************/
 /* Type formatting API. */
 
 
-/* This converts a string to a writeable integer. */
-error__t type_parse(
-    const struct type_context *context,
-    const char *string, unsigned int *value)
-{
-    return
-        TEST_OK_(context->type->parse,
-            "Cannot write %s value", context->type->name)  ?:
-        context->type->parse(context, string, value);
-}
-
-
-/* This formats the value into a string according to the type rules. */
+/* Implements block[n].field? */
 error__t type_format(
     const struct type_context *context,
     unsigned int value, char string[], size_t length)
@@ -552,6 +483,19 @@ error__t type_format(
 }
 
 
+/* Implements block[n].field=value */
+error__t type_parse(
+    const struct type_context *context,
+    const char *string, unsigned int *value)
+{
+    return
+        TEST_OK_(context->type->parse,
+            "Cannot write %s value", context->type->name)  ?:
+        context->type->parse(context, string, value);
+}
+
+
+/* Implements block.field.*? */
 error__t type_attr_list_get(
     const struct type *type,
     struct config_connection *connection,
@@ -565,16 +509,28 @@ error__t type_attr_list_get(
 }
 
 
+/* Implements block[n].field.attr? */
 error__t type_attr_get(
     const struct type_attr_context *context,
     const struct connection_result *result)
 {
-    return
-        TEST_OK_(context->attr->get, "Attribute not readable")  ?:
-        context->attr->get(context, result);
+    /* We have two possible implementations of field get: .format and .get.  If
+     * the .format field is available then we use that by preference. */
+    if (context->attr->format)
+    {
+        char string[MAX_RESULT_LENGTH];
+        return
+            context->attr->format(context, string, sizeof(string))  ?:
+            DO(result->write_one(context->connection, string));
+    }
+    else
+        return
+            TEST_OK_(context->attr->get, "Attribute not readable")  ?:
+            context->attr->get(context, result);
 }
 
 
+/* Implements block[n].field.attr=value */
 error__t type_attr_put(
     const struct type_attr_context *context, const char *value)
 {
@@ -582,6 +538,14 @@ error__t type_attr_put(
         TEST_OK_(context->attr->put, "Attribute not writeable")  ?:
         context->attr->put(context, value);
 }
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Type access helpers. */
+
+
+/* Map from type name to type definition, filled in by initialiser. */
+static struct hash_table *field_type_map;
 
 
 error__t type_lookup_attr(
@@ -605,80 +569,6 @@ const char *type_get_type_name(const struct type *type)
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-
-static const struct type field_type_table[] = {
-    /* Unsigned integer with optional maximum limit. */
-    { "uint",
-        .init = uint_init,
-        .parse = uint_parse, .format = uint_format,
-        .attrs = (struct attr[]) { { "MAX", .get = uint_max_get, }, },
-        .attr_count = 1,
-    },
-
-    /* Bits are simple: 0 or 1. */
-    { "bit", .parse = bit_parse, .format = bit_format },
-
-    /* Scaled time and position are very similar, both convert between a
-     * floating point representation and a digital hardware value. */
-    { "position",
-        .init = position_init, .destroy = position_destroy,
-        .parse = position_parse, .format = position_format,
-        .attrs = (struct attr[]) {
-            { "RAW",
-                .get = raw_get_int, .put = raw_put_int, },
-            { "SCALE",
-                .get = position_scale_get, .put = position_scale_put, },
-            { "OFFSET",
-                .get = position_offset_get, .put = position_offset_put, },
-            { "UNITS",
-                .get = position_units_get, .put = position_units_put, }, },
-        .attr_count = 4,
-    },
-    { "scaled_time",
-        .init = position_init, .destroy = position_destroy,
-        .parse = position_parse, .format = position_format,
-        .attrs = (struct attr[]) {
-            { "RAW",
-                .get = raw_get_int, .put = raw_put_int, },
-            { "SCALE",
-                .get = position_scale_get, .put = position_scale_put },
-            { "UNITS",
-                .get = position_units_get, .put = position_units_put }, },
-        .attr_count = 3,
-    },
-
-    /* The mux types are only valid for bit_in and pos_in classes. */
-    { "bit_mux", .tied = true,
-        .parse = bit_mux_parse, .format = bit_mux_format },
-    { "pos_mux", .tied = true,
-        .parse = pos_mux_parse, .format = pos_mux_format },
-
-    /* A type for fields where the data is never read and only the action of
-     * writing is important: no data allowed. */
-    { "action", .parse = action_parse, },
-
-    /* 5-input lookup table with special parsing. */
-    { "lut",
-        .init = lut_init, .destroy = lut_destroy,
-        .parse = lut_parse, .format = lut_format,
-        .attrs = (struct attr[]) {
-            { "RAW", .get = raw_get_uint, .put = raw_put_uint, }, },
-        .attr_count = 1,
-    },
-
-    /* Enumerations. */
-    { "enum", .parse = dummy_parse, .format = dummy_format },
-
-    /* The table type is probably just a placeholder, only suitable for the
-     * table class. */
-    { "table", .tied = true, },
-};
-
-static struct hash_table *field_type_map;
-
-
 error__t create_type(
     const char *string, bool forced, unsigned int count,
     const struct type **type, void **type_data)
@@ -698,13 +588,104 @@ error__t create_type(
 }
 
 
+error__t type_add_attribute_line(
+    const struct type *type, void *type_data, const char *line)
+{
+    return
+        TEST_OK_(type->add_attribute_line, "Cannot add attribute to type")  ?:
+        type->add_attribute_line(type_data, line);
+}
+
+
 void destroy_type(const struct type *type, void *type_data, unsigned int count)
 {
     if (type->destroy)
         type->destroy(type_data, count);
-    else
-        free(type_data);
+    free(type_data);
 }
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
+static const struct type field_type_table[] = {
+    /* Unsigned integer with optional maximum limit. */
+    { "uint",
+        .init = uint_init,
+        .parse = uint_parse, .format = uint_format,
+        .attrs = (struct attr[]) { { "MAX", .format = uint_max_format, }, },
+        .attr_count = 1,
+    },
+
+    /* Bits are simple: 0 or 1. */
+    { "bit", .parse = bit_parse, .format = bit_format },
+
+    /* Scaled time and position are very similar, both convert between a
+     * floating point representation and a digital hardware value. */
+    { "position",
+        .init = position_init, .destroy = position_destroy,
+        .parse = position_parse, .format = position_format,
+        .attrs = (struct attr[]) {
+            { "RAW",
+                .format = raw_format_int, .put = raw_put_int, },
+            { "SCALE",
+                .format = position_scale_format, .put = position_scale_put, },
+            { "OFFSET",
+                .format = position_offset_format, .put = position_offset_put, },
+            { "UNITS",
+                .format = position_units_format, .put = position_units_put, },
+        },
+        .attr_count = 4,
+    },
+    { "scaled_time",
+        .init = position_init, .destroy = position_destroy,
+        .parse = position_parse, .format = position_format,
+        .attrs = (struct attr[]) {
+            { "RAW",
+                .format = raw_format_int, .put = raw_put_int, },
+            { "SCALE",
+                .format = position_scale_format, .put = position_scale_put, },
+            { "UNITS",
+                .format = position_units_format, .put = position_units_put, },
+        },
+        .attr_count = 3,
+    },
+
+    /* The mux types are only valid for bit_in and pos_in classes. */
+    { "bit_mux", .tied = true,
+        .parse = bit_mux_parse, .format = bit_mux_format },
+    { "pos_mux", .tied = true,
+        .parse = pos_mux_parse, .format = pos_mux_format },
+
+    /* A type for fields where the data is never read and only the action of
+     * writing is important: no data allowed. */
+    { "action", .parse = action_parse, },
+
+    /* 5-input lookup table with special parsing. */
+    { "lut",
+        .init = lut_init, .destroy = lut_destroy,
+        .parse = lut_parse, .format = lut_format,
+        .attrs = (struct attr[]) {
+            { "RAW", .format = raw_format_uint, .put = raw_put_uint, }, },
+        .attr_count = 1,
+    },
+
+    /* Enumerations. */
+    { "enum",
+        .init = enum_init, .destroy = enum_destroy,
+        .add_attribute_line = enum_add_label,
+        .parse = enum_parse, .format = enum_format,
+        .attrs = (struct attr[]) {
+            { "RAW", .format = raw_format_uint, .put = raw_put_uint, },
+            { "LABELS", .get = enum_labels_get, },
+        },
+        .attr_count = 2,
+    },
+
+    /* The table type is probably just a placeholder, only suitable for the
+     * table class. */
+    { "table", .tied = true, },
+};
 
 
 error__t initialise_types(void)

@@ -314,6 +314,12 @@ error__t create_field(
 }
 
 
+error__t field_add_attribute_line(struct field *field, const char *line)
+{
+    return class_add_attribute_line(field->class_data, line);
+}
+
+
 static error__t assign_register(unsigned int *dest, unsigned int value)
 {
     return

@@ -134,6 +134,10 @@ error__t create_field(
     struct field **field, const struct block *parent, const char *name,
     const char *class_name, const char *type_name);
 
+/* Called to add attribute lines while parsing config file. */
+error__t field_add_attribute_line(struct field *field, const char *line);
+
+
 /* Methods for register setup. */
 
 /* Sets base address for block. */

@@ -12,9 +12,10 @@ error__t mux_lookup_insert(
 error__t mux_lookup_name(
     struct mux_lookup *lookup, const char *name, unsigned int *ix);
 
-/* Converts hardware index to MUX name or returns error. */
+/* Converts hardware index to MUX name or returns error, returns name in given
+ * buffer. */
 error__t mux_lookup_index(
-    struct mux_lookup *lookup, unsigned int ix, const char **name);
+    struct mux_lookup *lookup, unsigned int ix, char result[], size_t length);
 
 
 extern struct mux_lookup *bit_mux_lookup;   // bit_{in,out} fields

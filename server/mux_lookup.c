@@ -79,15 +79,16 @@ error__t mux_lookup_name(
 }
 
 
-/* Converts register index to multiplexer name, or returns a placeholder if an
- * invalid value is read. */
+/* Converts register index to multiplexer name, or returns error if an invalid
+ * value is read. */
 error__t mux_lookup_index(
-    struct mux_lookup *lookup, unsigned int ix, const char **name)
+    struct mux_lookup *lookup, unsigned int ix, char result[], size_t length)
 {
     return
         TEST_OK_(ix < lookup->length, "Index out of range")  ?:
         TEST_OK_(lookup->names[ix], "Mux name unassigned")  ?:
-        DO(*name = lookup->names[ix]);
+        TEST_OK(strlen(lookup->names[ix]) < length)  ?:
+        DO(strcpy(result, lookup->names[ix]));
 }
 
 

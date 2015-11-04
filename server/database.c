@@ -62,17 +62,8 @@ static error__t config_parse_field_line(
 static error__t config_parse_attribute(
     void *context, const char *line, void **indent_context)
 {
-//     struct field *field = context;
-    *indent_context = NULL;
-    return ERROR_OK;
-}
-
-
-static error__t config_parse_sub_attr(
-    void *context, const char *line, void **indent_context)
-{
-    *indent_context = NULL;
-    return ERROR_OK;
+    struct field *field = context;
+    return field_add_attribute_line(field, line);
 }
 
 
@@ -87,8 +78,6 @@ static error__t config_parse_line(
             return config_parse_field_line(context, line, indent_context);
         case 2:
             return config_parse_attribute(context, line, indent_context);
-        case 3:
-            return config_parse_sub_attr(context, line, indent_context);
         default:
             /* Should not happen, we've set maximum indent in call to
              * parse_indented_file below. */
@@ -114,7 +103,7 @@ static error__t load_config_database(const char *db_name)
 {
     log_message("Loading configuration database from \"%s\"", db_name);
     return
-        parse_indented_file(db_name, 3, &config_indent_parser);
+        parse_indented_file(db_name, 2, &config_indent_parser);
 }
 
 
