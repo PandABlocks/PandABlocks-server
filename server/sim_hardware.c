@@ -87,7 +87,7 @@ error__t initialise_hardware(void)
     struct hostent *hostent;
     int one = 1;
     return
-        TEST_NULL(hostent = gethostbyname(SERVER_NAME))  ?:
+        TEST_OK_IO(hostent = gethostbyname(SERVER_NAME))  ?:
         DO(memcpy(
             &s_in.sin_addr.s_addr, hostent->h_addr,
             (size_t) hostent->h_length))  ?:

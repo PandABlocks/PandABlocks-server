@@ -200,7 +200,7 @@ error__t parse_indented_file(
     const struct indent_parser *parser)
 {
     FILE *file;
-    error__t error = TEST_NULL_(file = fopen(file_name, "r"),
+    error__t error = TEST_OK_IO_(file = fopen(file_name, "r"),
         "Unable to open file \"%s\"", file_name);
     if (!error)
     {

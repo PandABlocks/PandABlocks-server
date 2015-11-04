@@ -2,7 +2,7 @@
  *
  *  TEST_OK      TEST_OK_      ASSERT_OK       Fail if expression is false
  *  TEST_IO      TEST_IO_      ASSERT_IO       Fail if expression is -1
- *  TEST_NULL    TEST_NULL_    ASSERT_NULL     Fail if expression equals NULL
+ *  TEST_OK_IO   TEST_OK_IO_   ASSERT_OK_IO    Fail if false, reports errno
  *  TEST_PTHREAD TEST_PTHREAD_ ASSERT_PTHREAD  Fail if expression is not 0
  *
  * The three patterns behave thus:
@@ -185,19 +185,7 @@ static inline error__t __attribute__((warn_unused_result))
 #define ASSERT_OK(expr)             _ASSERT(_COND_OK, _MSG_OK, expr)
 #define TEST_OK_IO_(expr, message...) _TEST(_COND_OK, _MSG_IO, expr, message)
 #define TEST_OK_IO(expr)            TEST_OK_IO_(expr, ERROR_MESSAGE)
-
-/* Tests pointers: NULL => error.  If there is extra information in errno then
- * use the NULL_IO test, otherwise just NULL. */
-#define _COND_NULL(expr)            ((expr) != NULL)
-#define TEST_NULL_(expr, message...) \
-    _TEST(_COND_NULL, _MSG_OK, expr, message)
-#define TEST_NULL(expr)             TEST_NULL_(expr, ERROR_MESSAGE)
-#define ASSERT_NULL(expr)           _ASSERT(_COND_NULL, _MSG_OK, expr)
-
-#define TEST_NULL_IO_(expr, message...) \
-    _TEST(_COND_NULL, _MSG_IO, expr, message)
-#define TEST_NULL_IO(expr)          TEST_NULL_IO_(expr, ERROR_MESSAGE)
-#define ASSERT_NULL_IO(expr)        _ASSERT(_COND_NULL, _MSG_IO, expr)
+#define ASSERT_OK_IO(expr)          _ASSERT(_COND_OK, _MSG_IO, expr)
 
 /* Tests the return from a pthread_ call: a non zero return is the error
  * code!  We just assign this to errno. */
