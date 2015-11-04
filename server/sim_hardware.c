@@ -28,14 +28,15 @@ static int sock = -1;
 
 
 void hw_write_config(
-    unsigned int function, unsigned int block, unsigned int reg,
+    unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value)
 {
-    printf("hw_write_config %u:%u:%u <= %u\n", function, block, reg, value);
+    printf("hw_write_config %u:%u:%u <= %u\n",
+        block_base, block_number, reg, value);
     unsigned char command[8] = {
         'W',
-        (unsigned char) function,
-        (unsigned char) block,
+        (unsigned char) block_base,
+        (unsigned char) block_number,
         (unsigned char) reg
     };
     *(uint32_t *) &command[4] = value;
@@ -51,13 +52,13 @@ void hw_write_config(
 }
 
 uint32_t hw_read_config(
-    unsigned int function, unsigned int block, unsigned int reg)
+    unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
-    printf("hw_read_config %u:%u:%u ", function, block, reg);
+    printf("hw_read_config %u:%u:%u ", block_base, block_number, reg);
     unsigned char command[4] = {
         'R',
-        (unsigned char) function,
-        (unsigned char) block,
+        (unsigned char) block_base,
+        (unsigned char) block_number,
         (unsigned char) reg
     };
     uint32_t result = 0;
