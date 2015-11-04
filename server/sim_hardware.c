@@ -6,8 +6,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <netdb.h>
 
 #include "error.h"
@@ -82,6 +85,7 @@ error__t initialise_hardware(void)
         .sin_port = htons(SERVER_PORT)
     };
     struct hostent *hostent;
+    int one = 1;
     return
         TEST_NULL(hostent = gethostbyname(SERVER_NAME))  ?:
         DO(memcpy(
@@ -91,7 +95,8 @@ error__t initialise_hardware(void)
         TEST_IO_(connect(sock, (struct sockaddr *) &s_in, sizeof(s_in)),
             "Unable to connect to simulation server")  ?:
         set_timeout(sock, SO_SNDTIMEO, 1)  ?:
-        set_timeout(sock, SO_RCVTIMEO, 1);
+        set_timeout(sock, SO_RCVTIMEO, 1)  ?:
+        TEST_IO(setsockopt(sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)));
 }
 
 
