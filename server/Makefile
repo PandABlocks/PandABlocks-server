@@ -39,7 +39,6 @@ LDLIBS += -lm
 
 SRCS += server.c
 SRCS += error.c
-SRCS += hardware.c
 SRCS += socket_server.c
 SRCS += config_server.c
 SRCS += data_server.c
@@ -54,6 +53,13 @@ SRCS += parse_lut.c
 SRCS += enums.c
 SRCS += types.c
 SRCS += classes.c
+
+ifdef SIMSERVER
+CFLAGS += -DSIMSERVER
+SRCS += sim_hardware.c
+else
+SRCS += hardware.c
+endif
 
 
 default: server

@@ -1,5 +1,8 @@
 /* Interface to socket server. */
 
+struct config_connection;
+struct connection_result;
+
 /* Initialises the socket server but doesn't run the server yet. */
 error__t initialise_socket_server(
     unsigned int config_port, unsigned int data_port);
@@ -15,6 +18,9 @@ error__t run_socket_server(void);
 /* Interrupts the socket server, run_socket_server() will return after this has
  * been called.  Note that this function is signal safe. */
 void kill_socket_server(void);
+
+/* Sets socket timeout. */
+error__t set_timeout(int sock, int timeout, int seconds);
 
 /* Generates list of currently active connections. */
 void generate_connection_list(

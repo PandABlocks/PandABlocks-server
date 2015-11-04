@@ -123,14 +123,19 @@ int main(int argc, char *const argv[])
         initialise_socket_server(config_port, data_port)  ?:
 
         maybe_daemonise()  ?:
-        initialise_signals()  ?:
-
-        /* Now run the server.  Control will not return until we're ready to
-         * terminate. */
-        run_socket_server();
-
+        initialise_signals();
     if (error)
         ERROR_REPORT(error, "Server startup failed");
+
+    if (!error)
+    {
+        /* Now run the server.  Control will not return until we're ready to
+         * terminate. */
+        error = run_socket_server();
+
+        if (error)
+            ERROR_REPORT(error, "Server shutting down");
+    }
 
     log_message("Server shutting down");
 

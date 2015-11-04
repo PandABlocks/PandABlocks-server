@@ -44,13 +44,10 @@ uint32_t hw_read_config(
 }
 
 
-#ifdef __arm__
 static int map;
-#endif
 
 error__t initialise_hardware(void)
 {
-#ifdef __arm__
     return
         TEST_IO_(map = open("/dev/panda.map", O_RDWR | O_SYNC),
             "Unable to open PandA device")  ?:
@@ -58,24 +55,13 @@ error__t initialise_hardware(void)
         TEST_IO(register_map = mmap(
             0, register_map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
             map, 0));
-#else
-    /* Compiling simulation version. */
-    register_map_size = 0x00040000;
-    register_map = malloc(register_map_size);
-    memset(register_map, 0x55, register_map_size);
-    return ERROR_OK;
-#endif
 }
 
 
 void terminate_hardware(void)
 {
-#ifdef __arm__
     ERROR_REPORT(
         TEST_IO(munmap(register_map, register_map_size))  ?:
-        TEST_IO(close(map)), "Calling terminate_hardware");
-#else
-    if (register_map)
-        free(register_map);
-#endif
+        TEST_IO(close(map)),
+        "Calling terminate_hardware");
 }

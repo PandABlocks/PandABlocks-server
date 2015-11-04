@@ -271,7 +271,7 @@ static error__t get_client_name(int sock, char *client_name)
 
 /* Sets the specified timeout in seconds on sock.  timeout must be one of
  * SO_RCVTIMEO or SO_SNDTIMEO. */
-static error__t set_timeout(int sock, int timeout, int seconds)
+error__t set_timeout(int sock, int timeout, int seconds)
 {
     struct timeval timeval = { .tv_sec = seconds, .tv_usec = 0 };
     return TEST_IO(setsockopt(
