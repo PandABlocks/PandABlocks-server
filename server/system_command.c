@@ -158,7 +158,7 @@ static error__t process_system_put(
 
 static error__t process_system_put_table(
     struct config_connection *connection, const char *command, bool append,
-    const struct put_table_writer *writer)
+    struct put_table_writer *writer)
 {
     return FAIL_("Not a table");
 }

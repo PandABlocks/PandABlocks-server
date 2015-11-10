@@ -26,7 +26,7 @@
 #define OUT_BUF_SIZE        16384
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*****************************************************************************/
 /* Buffered file handling.
  *
  * You'd think the obvious solution was to use fdopen() to wrap the socket in a
@@ -139,7 +139,8 @@ static bool read_line(
 }
 
 
-/* This reads a fixed size block of data. */
+/* This reads a fixed size block of data, returns false if the entire block
+ * cannot be read for any reason. */
 static bool read_block(struct buffered_file *file, char data[], size_t length)
 {
     while (!file->eof  &&  !file->error  &&  length > 0)
@@ -189,6 +190,11 @@ static void write_char(struct buffered_file *file, char ch)
             flush_out_buf(file);
     }
 }
+
+
+
+/*****************************************************************************/
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -269,7 +275,7 @@ static const struct connection_result connection_result = {
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Server level command processing and parsing. */
+/* Simple read and write commands. */
 
 
 /* Processes command of the form [*]name? */
@@ -300,6 +306,10 @@ static void do_write_command(
 {
     report_status(connection, command_set->put(connection, command, value));
 }
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Table write command. */
 
 
 /* Two different sources of table data: ASCII encoded (printable numbers) or
@@ -345,12 +355,14 @@ static error__t fill_ascii_buffer(
     error__t error = ERROR_OK;
     while (!error  &&  !*eos  &&  *seen < to_read)
     {
-        error = TEST_OK_(
-           read_line(&connection->file, line, sizeof(line), false),
-           "Unexpected EOF");
+        const char *data_in;
+        error =
+            TEST_OK_(
+               read_line(&connection->file, line, sizeof(line), false),
+               "Unexpected EOF")  ?:
+            DO(data_in = skip_whitespace(line));
 
-        const char *data_in = skip_whitespace(line);
-        if (*data_in == '\0')
+        if (!error  &&  *data_in == '\0')
             *eos = true;
         else
             while (!error  &&  *data_in != '\0')
@@ -376,12 +388,12 @@ static error__t do_put_table(
             binary ? MIN(count, TABLE_BUFFER_SIZE) : TABLE_BUFFER_SIZE;
 
         unsigned int data_buffer[TABLE_BUFFER_SIZE];
-        unsigned int seen;
+        unsigned int seen = to_read;
         error =
             fill_buffer(connection, data_buffer, to_read, &seen, &eos)  ?:
             writer->write(writer->context, data_buffer, seen);
 
-        if (binary)
+        if (!error  &&  binary)
         {
             eos = count <= seen;    // Better not be less than!
             count -= seen;
@@ -389,6 +401,62 @@ static error__t do_put_table(
     }
     writer->close(writer->context);
     return error;
+}
+
+
+static error__t dummy_table_write(
+    void *context, const unsigned int data[], size_t length)
+{
+    return ERROR_OK;
+}
+
+static void dummy_table_close(void *context)
+{
+}
+
+/* Dummy table writer used to accept table data stream if .put_table fails. */
+static const struct put_table_writer dummy_table_writer = {
+    .write = dummy_table_write,
+    .close = dummy_table_close,
+};
+
+
+/* Processing a table command is a little bit tricky: once the client has
+ * managed to send a valid command, they're comitted to sending the table data.
+ * This means that once we've managed to parse a valid top level syntax we need
+ * to accept the rest of the data stream even if the target has rejected the
+ * command. */
+static void complete_table_command(
+    struct config_connection *connection,
+    const char *command, bool append, bool binary, unsigned int count,
+    const struct config_command_set *command_set)
+{
+    struct put_table_writer writer = dummy_table_writer;
+    /* Call .put_table to start the transaction, which must then be
+     * completed with calls to writer. */
+    error__t error =
+        command_set->put_table(connection, command, append, &writer);
+    /* If we failed here then at least give the client a chance to discover
+     * early.  If we're in ASCII mode the force the message out. */
+    bool reported = error != ERROR_OK;
+    if (error)
+    {
+        report_error(connection, error);
+        if (!binary)
+            flush_out_buf(&connection->file);
+    }
+
+    /* Handle the rest of the input. */
+    error = do_put_table(
+        connection, command, &writer,
+        binary ? fill_binary_buffer : fill_ascii_buffer, binary, count);
+    if (reported)
+    {
+        if (error)
+            ERROR_REPORT(error, "Extra error while handling do_put_table");
+    }
+    else
+        report_status(connection, error);
 }
 
 
@@ -407,24 +475,25 @@ static void do_table_command(
     bool binary = read_char(&format, 'B');  // Table data is in binary format
 
     unsigned int count = 0;
-    struct put_table_writer writer;
     error__t error =
         /* Binary flag must be followed by a non-zero count. */
         IF(binary,
             parse_uint(&format, &count)  ?:
             TEST_OK_(count > 0, "Zero count invalid"))  ?:
-        parse_eos(&format)  ?:
-        /* Call .put_table to start the transaction, which must then be
-         * completed with calls to writer. */
-        command_set->put_table(connection, command, append, &writer)  ?:
-        do_put_table(
-            connection, command, &writer,
-            binary ? fill_binary_buffer : fill_ascii_buffer,
-            binary, count);
+        parse_eos(&format);
 
-    report_status(connection, error);
+    /* If the above failed then the request was completely malformed, so ignore
+     * it.  Otherwise we'll do our best to accept what was meant. */
+    if (error)
+        report_error(connection, error);
+    else
+        complete_table_command(
+            connection, command, append, binary, count, command_set);
 }
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Top level command processing. */
 
 /* Processes a general configuration command.  Error reporting to the user is
  * very simple: a fixed error message is returned if the command fails,

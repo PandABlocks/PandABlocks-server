@@ -37,7 +37,7 @@ struct config_command_set {
     error__t (*put_table)(
         struct config_connection *connection,
         const char *name, bool append,
-        const struct put_table_writer *writer);
+        struct put_table_writer *writer);
 };
 
 

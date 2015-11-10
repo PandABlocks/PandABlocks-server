@@ -322,7 +322,7 @@ static error__t process_entity_put(
 /* Process  entity<format  commands. */
 static error__t process_entity_put_table(
     struct config_connection *connection, const char *name, bool append,
-    const struct put_table_writer *writer)
+    struct put_table_writer *writer)
 {
     struct entity_context context = { .connection = connection };
     const struct entity_actions *actions;
