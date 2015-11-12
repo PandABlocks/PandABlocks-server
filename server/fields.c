@@ -72,7 +72,7 @@ static uint64_t get_change_index(void)
 unsigned int read_field_register(
     const struct field *field, unsigned int number)
 {
-    return hw_read_config(field->block->base, number, field->reg);
+    return hw_read_data(field->block->base, number, field->reg);
 }
 
 

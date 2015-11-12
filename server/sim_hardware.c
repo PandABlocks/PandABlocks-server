@@ -12,6 +12,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
+#include <pthread.h>
+#include <errno.h>
 
 #include "error.h"
 #include "socket_server.h"
@@ -25,6 +27,40 @@
 
 static int sock = -1;
 
+/* Need to make sure our communications are atomic. */
+static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
+#define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&session_lock))
+#define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
+
+
+static error__t write_all(int file, const void *data, size_t length)
+{
+    error__t error = ERROR_OK;
+    ssize_t written;
+    while (!error  &&  length > 0)
+        error =
+            TEST_IO(written = write(file, data, length))  ?:
+            DO(
+                data   += (size_t) written;
+                length -= (size_t) written;
+            );
+    return error;
+}
+
+
+static error__t read_all(int file, void *data, size_t length)
+{
+    error__t error = ERROR_OK;
+    ssize_t received;
+    while (!error  &&  length > 0)
+        error =
+            TEST_IO(received = read(file, data, length))  ?:
+            DO(
+                data   += (size_t) received;
+                length -= (size_t) received;
+            );
+    return error;
+}
 
 
 void hw_write_config(
@@ -40,10 +76,11 @@ void hw_write_config(
         (unsigned char) reg
     };
     *CAST_FROM_TO(unsigned char *, uint32_t *, &command[4]) = value;
-    ssize_t written;
-    error__t error =
-        TEST_IO(written = write(sock, command, 8))  ?:
-        TEST_OK(written == 8);
+
+    LOCK();
+    error__t error = write_all(sock, command, 8);
+    UNLOCK();
+
     if (error)
     {
         ERROR_REPORT(error, "Failed to write register");
@@ -51,23 +88,25 @@ void hw_write_config(
     }
 }
 
-uint32_t hw_read_config(
+
+uint32_t hw_read_data(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
-    printf("hw_read_config %u:%u:%u ", block_base, block_number, reg);
+    printf("hw_read_data %u:%u:%u ", block_base, block_number, reg);
     unsigned char command[4] = {
         'R',
         (unsigned char) block_base,
         (unsigned char) block_number,
         (unsigned char) reg
     };
+
+    LOCK();
     uint32_t result = 0;
-    ssize_t written, rx;
     error__t error =
-        TEST_IO(written = write(sock, command, 4))  ?:
-        TEST_OK(written == 4)  ?:
-        TEST_IO(rx = read(sock, &result, 4))  ?:
-        TEST_OK_IO(rx == 4);
+        write_all(sock, command, 4)  ?:
+        read_all(sock, &result, 4);
+    UNLOCK();
+
     if (error)
     {
         ERROR_REPORT(error, "Failed to read register");
@@ -75,6 +114,75 @@ uint32_t hw_read_config(
     }
     printf("=> %u\n", result);
     return result;
+}
+
+
+void hw_write_table_data(
+    unsigned int block_base, unsigned int block_number, unsigned int reg,
+    bool start, const uint32_t data[], size_t length)
+{
+    printf("hw_write_table_data %u:%u:%u %d %p %zu",
+        block_base, block_number, reg, start, data, length);
+    unsigned char command[8] = {
+        start ? 'B' : 'A',      // Block or Append
+        (unsigned char) block_base,
+        (unsigned char) block_number,
+        (unsigned char) reg
+    };
+    *CAST_FROM_TO(unsigned char *, uint32_t *, &command[4]) = (uint32_t) length;
+
+    LOCK();
+    error__t error =
+        write_all(sock, command, 8)  ?:
+        write_all(sock, data, length);
+    UNLOCK();
+
+    if (error)
+    {
+        ERROR_REPORT(error, "Failed to write block");
+        kill_socket_server();
+    }
+}
+
+
+void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
+{
+    printf("hw_read_bits\n");
+    unsigned char command[4] = { 'C', 0, 0, 0 };
+
+    LOCK();
+    error__t error =
+        write_all(sock, command, 4)  ?:
+        read_all(sock, bits, BIT_BUS_COUNT)  ?:
+        read_all(sock, changes, BIT_BUS_COUNT);
+    UNLOCK();
+
+    if (error)
+    {
+        ERROR_REPORT(error, "Failed to read bits");
+        kill_socket_server();
+    }
+}
+
+
+void hw_read_positions(
+    uint32_t positions[POS_BUS_COUNT], bool changes[POS_BUS_COUNT])
+{
+    printf("hw_read_positions\n");
+    unsigned char command[4] = { 'P', 0, 0, 0 };
+
+    LOCK();
+    error__t error =
+        write_all(sock, command, 4)  ?:
+        read_all(sock, positions, sizeof(uint32_t) * POS_BUS_COUNT)  ?:
+        read_all(sock, changes, POS_BUS_COUNT);
+    UNLOCK();
+
+    if (error)
+    {
+        ERROR_REPORT(error, "Failed to read positions");
+        kill_socket_server();
+    }
 }
 
 
