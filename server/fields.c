@@ -189,10 +189,13 @@ static struct hash_table *block_map;
 #define FOR_EACH_FIELD(args...) FOR_EACH_FIELD_WHILE(true, args)
 
 
-error__t lookup_block(const char *name, struct block **block)
+error__t lookup_block(
+    const char *name, struct block **block, unsigned int *count)
 {
-    return TEST_OK_(*block = hash_table_lookup(block_map, name),
-        "No such block");
+    return
+        TEST_OK_(*block = hash_table_lookup(block_map, name),
+            "No such block")  ?:
+        DO(if (count)  *count = (*block)->count);
 }
 
 
@@ -364,9 +367,10 @@ error__t validate_database(void)
 
 
 /* Walks all fields and generates a change event for all changed fields. */
-void generate_changes_list(
+void generate_changes(
     struct config_connection *connection,
-    const struct connection_result *result)
+    const struct connection_result *result,
+    enum change_set changes)
 {
     /* Get the change index for this connection and update it so the next
      * changes request will be up to date.  Use a fresh index for this. */

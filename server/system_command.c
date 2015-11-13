@@ -79,15 +79,37 @@ static error__t system_get_who(
 
 
 /* *CHANGES?
+ * *CHANGES.CONFIG?
+ * *CHANGES.BITS?
+ * *CHANGES.POSN?
+ * *CHANGES.READ?
  *
  * Returns list of changed fields and their value. */
+
+static error__t lookup_change_set(
+    const char *action, enum change_set *change_set)
+{
+    if      (strcmp(action, "CONFIG") == 0)   *change_set = CHANGES_CONFIG;
+    else if (strcmp(action, "BITS"  ) == 0)   *change_set = CHANGES_BITS;
+    else if (strcmp(action, "POSN"  ) == 0)   *change_set = CHANGES_POSITION;
+    else if (strcmp(action, "READ"  ) == 0)   *change_set = CHANGES_READ;
+    else
+        return FAIL_("Unknown changes selection");
+    return ERROR_OK;
+}
 
 static error__t system_get_changes(
     struct config_connection *connection, const char *command,
     const struct connection_result *result)
 {
-    generate_changes_list(connection, result);
-    return ERROR_OK;
+    enum change_set change_set = CHANGES_ALL;
+    char action[MAX_NAME_LENGTH];
+    return
+        IF(read_char(&command, '.'),
+            parse_name(&command, action, sizeof(action))  ?:
+            lookup_change_set(action, &change_set))  ?:
+        parse_eos(&command)  ?:
+        DO(generate_changes(connection, result, change_set));
 }
 
 
@@ -112,7 +134,7 @@ static const struct command_table_entry command_table_list[] = {
     { "BLOCKS",     .get = system_get_blocks, },
     { "ECHO",       .get = system_get_echo, .allow_arg = true },
     { "WHO",        .get = system_get_who, },
-    { "CHANGES",    .get = system_get_changes, },
+    { "CHANGES",    .get = system_get_changes, .allow_arg = true },
 };
 
 static struct hash_table *command_table;

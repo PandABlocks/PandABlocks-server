@@ -179,8 +179,7 @@ static error__t parse_block_name(
     return
         /* Parse and look up the block name. */
         parse_name(input, block_name, sizeof(block_name))  ?:
-        lookup_block(block_name, &context->block)  ?:
-        DO(*max_number = get_block_count(context->block))  ?:
+        lookup_block(block_name, &context->block, max_number)  ?:
 
         /* Parse the number or flag its absence, and if present check that it's
          * in valid range. */

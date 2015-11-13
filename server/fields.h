@@ -6,14 +6,15 @@ struct put_table_writer;
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Block lookup. */
+/* Block, field, and attribute lookup. */
 
 /* A block represents a top level block.  Each block has a number of fields and
  * a number of instances. */
 struct block;
 
 /* Returns block with the given name. */
-error__t lookup_block(const char *name, struct block **block);
+error__t lookup_block(
+    const char *name, struct block **block, unsigned int *count);
 
 /* Retrieves instance count for the given block. */
 unsigned int get_block_count(const struct block *block);
@@ -38,17 +39,31 @@ error__t lookup_attr(
     const struct field *field, const char *name, const struct attr **attr);
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Field access implementation. */
+enum change_set {
+    CHANGES_NONE     = 0,
+    CHANGES_CONFIG   = 1,   // *CHANGES.CONFIG?     Configuration changes
+    CHANGES_BITS     = 2,   // *CHANGES.BITS?       Bit output changes
+    CHANGES_POSITION = 4,   // *CHANGES.POSN?       Position output changes
+    CHANGES_READ     = 8,   // *CHANGES.READ?       Read register changes
+    CHANGES_ALL =           // *CHANGES?            All changes
+        CHANGES_CONFIG | CHANGES_BITS | CHANGES_POSITION | CHANGES_READ,
+};
 
-/* The following methods implement all of the entity interface commands
- * published through the socket interface. */
+/* Generates list of all changed fields and their values. */
+void generate_changes(
+    struct config_connection *connection,
+    const struct connection_result *result,
+    enum change_set changes);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Field access methods. */
 
 /* The field access methods require the following context. */
 struct field_context {
-    const struct field *field;              // Field database entry
-    unsigned int number;                    // Block number, within valid range
     struct config_connection *connection;   // Connection from request
+    unsigned int number;                    // Block number, within valid range
+    const struct field *field;              // Field database entry
 };
 
 
@@ -77,13 +92,14 @@ error__t field_put_table(
     bool append, const struct put_table_writer *writer);
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Attribute access methods. */
 
 struct attr_context {
-    const struct field *field;              // Field database entry
-    unsigned int number;                    // Block number, within valid range
     struct config_connection *connection;   // Connection from request
-    const struct attr *attr;
+    unsigned int number;                    // Block number, within valid range
+    const struct field *field;              // Field database entry
+    const struct attr *attr;                // Field attribute
 };
 
 /* List of attributes for field:  block.field.*?  */
@@ -99,12 +115,6 @@ error__t attr_get(
 
 /* Writes value to field:  block<n>.field=value  */
 error__t attr_put(const struct attr_context *context, const char *value);
-
-
-/* Generates list of all changed fields and their values. */
-void generate_changes_list(
-    struct config_connection *connection,
-    const struct connection_result *result);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

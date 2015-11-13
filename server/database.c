@@ -125,7 +125,7 @@ static error__t register_parse_header_line(
         parse_uint(&line, &base)  ?:
         parse_eos(&line)  ?:
 
-        lookup_block(block_name, &block)  ?:
+        lookup_block(block_name, &block, NULL)  ?:
         DO(*indent_context = block)  ?:
         block_set_base(block, base);
 }

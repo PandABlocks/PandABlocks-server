@@ -33,7 +33,7 @@ struct attr {
 
     /* Reads attribute value.  Only need to implement this for multi-line
      * results, otherwise just implement format. */
-    error__t (*get)(
+    error__t (*get_many)(
         const struct type_attr_context *context,
         const struct connection_result *result);
 
@@ -514,8 +514,8 @@ error__t type_attr_get(
     const struct type_attr_context *context,
     const struct connection_result *result)
 {
-    /* We have two possible implementations of field get: .format and .get.  If
-     * the .format field is available then we use that by preference. */
+    /* We have two possible implementations of field get: .format and .get_many.
+     * If the .format field is available then we use that by preference. */
     if (context->attr->format)
     {
         char string[MAX_RESULT_LENGTH];
@@ -523,10 +523,10 @@ error__t type_attr_get(
             context->attr->format(context, string, sizeof(string))  ?:
             DO(result->write_one(context->connection, string));
     }
+    else if (context->attr->get_many)
+        return context->attr->get_many(context, result);
     else
-        return
-            TEST_OK_(context->attr->get, "Attribute not readable")  ?:
-            context->attr->get(context, result);
+        return FAIL_("Attribute not readable");
 }
 
 
@@ -677,14 +677,19 @@ static const struct type field_type_table[] = {
         .parse = enum_parse, .format = enum_format,
         .attrs = (struct attr[]) {
             { "RAW", .format = raw_format_uint, .put = raw_put_uint, },
-            { "LABELS", .get = enum_labels_get, },
+            { "LABELS", .get_many = enum_labels_get, },
         },
         .attr_count = 2,
     },
 
-    /* The table type is probably just a placeholder, only suitable for the
-     * table class. */
-    { "table", .tied = true, },
+    /* Implements table access. */
+    { "table", .tied = true,
+        .attrs = (struct attr[]) {
+            { "LENGTH", },
+            { "B", },
+        },
+        .attr_count = 2,
+    },
 };
 
 
