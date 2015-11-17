@@ -9,7 +9,6 @@ struct attr;
 /* Context require to read or write a type attribute. */
 struct type_attr_context {
     unsigned int number;
-    struct config_connection *connection;
     const struct field *field;
     struct type *type;
     void *type_data;
@@ -30,7 +29,6 @@ error__t type_format(
 /* Outputs list of attributes for the specified type to result. */
 void type_attr_list_get(
     const struct type *type,
-    struct config_connection *connection,
     const struct connection_result *result);
 
 /* Returns attribute with the given name or NULL if not found. */

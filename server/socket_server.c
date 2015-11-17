@@ -173,7 +173,6 @@ static void join_sessions(struct list_head *list)
  * This is surprisingly tricky! */
 
 static void format_session_item(
-    struct config_connection *connection,
     const struct connection_result *result,
     struct session *session)
 {
@@ -185,7 +184,7 @@ static void format_session_item(
         tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
         tm.tm_hour, tm.tm_min, tm.tm_sec, session->ts.tv_nsec / 1000000,
         session->parent->name, session->name);
-    result->write_many(connection, message);
+    result->write_many(result->connection, message);
 }
 
 
@@ -198,9 +197,7 @@ struct session_copy {
 /* Creates list of sessions.  Somewhat tricky to implement as the list has to
  * be walked under a lock, but we don't want to hold the lock while generating
  * the output stream. */
-void generate_connection_list(
-    struct config_connection *connection,
-    const struct connection_result *result)
+void generate_connection_list(const struct connection_result *result)
 {
     LIST_HEAD(copy_list);
 
@@ -218,7 +215,7 @@ void generate_connection_list(
 
     /* Now we can walk the list at our leisure and emit the results. */
     list_for_each_entry(struct session_copy, list, copy, &copy_list)
-        format_session_item(connection, result, copy->session);
+        format_session_item(result, copy->session);
 
     /* Finally cleanup the list. */
     struct list_head *copy_head = copy_list.next;
@@ -235,7 +232,7 @@ void generate_connection_list(
         free(copy);
     }
 
-    result->write_many_end(connection);
+    result->write_many_end(result->connection);
 }
 
 

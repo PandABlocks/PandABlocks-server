@@ -51,7 +51,6 @@ struct class_methods {
     /* Access to table data. */
     error__t (*get_many)(
         struct class *class, unsigned int ix,
-        struct config_connection *connection,
         const struct connection_result *result);
     error__t (*put_table)(
         struct class *class, unsigned int ix,
@@ -98,7 +97,6 @@ error__t class_write(struct class *class, uint32_t value)
 
 error__t class_get(
     struct class *class, unsigned int number,
-    struct config_connection *connection,
     const struct connection_result *result)
 {
     return FAIL_("Not implemented");
@@ -140,7 +138,6 @@ void get_class_change_set(
 
 void class_attr_list_get(
     const struct class *class,
-    struct config_connection *connection,
     const struct connection_result *result)
 {
 //     if (class->methods->attrs)

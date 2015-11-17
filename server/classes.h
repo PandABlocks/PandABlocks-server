@@ -3,7 +3,6 @@
 
 struct put_table_writer;
 struct connection_result;
-struct config_connection;
 
 struct class;
 
@@ -21,7 +20,6 @@ error__t class_write(struct class *class, uint32_t value);
 /* This method will only be called if there is no type support for the class. */
 error__t class_get(
     struct class *class, unsigned int number,
-    struct config_connection *connection,
     const struct connection_result *result);
 
 /* Direct implementation of table support. */
@@ -44,7 +42,6 @@ void get_class_change_set(
 /* Outputs list of class attributes. */
 void class_attr_list_get(
     const struct class *class,
-    struct config_connection *connection,
     const struct connection_result *result);
 
 /* Looks up named attribute. */
@@ -55,7 +52,6 @@ struct class_attr_context {
     struct class *class;
     unsigned int number;
     const struct attr *attr;
-    struct config_connection *connection;
 };
 
 /*  block[n].field.attr?

@@ -291,8 +291,9 @@ static void do_read_command(
 {
     if (*value == '\0')
     {
-        error__t error = command_set->get(
-            connection, command, &connection_result);
+        struct connection_result result = connection_result;
+        result.connection = connection;
+        error__t error = command_set->get(command, &connection_result);
         /* We only need to report an error, any success will have been reported
          * by .get(). */
         if (error)

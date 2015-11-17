@@ -31,10 +31,9 @@
  * Returns simple system identification. */
 
 static error__t system_get_idn(
-    struct config_connection *connection, const char *command,
-    const struct connection_result *result)
+    const char *command, const struct connection_result *result)
 {
-    result->write_one(connection, "PandA");
+    result->write_one(result->connection, "PandA");
     return ERROR_OK;
 }
 
@@ -44,10 +43,9 @@ static error__t system_get_idn(
  * Returns formatted list of all the blocks in the system. */
 
 static error__t system_get_blocks(
-    struct config_connection *connection, const char *command,
-    const struct connection_result *result)
+    const char *command, const struct connection_result *result)
 {
-    return block_list_get(connection, result);
+    return block_list_get(result);
 }
 
 
@@ -56,12 +54,11 @@ static error__t system_get_blocks(
  * Echos echo string back to caller. */
 
 static error__t system_get_echo(
-    struct config_connection *connection, const char *command,
-    const struct connection_result *result)
+    const char *command, const struct connection_result *result)
 {
     return
         parse_char(&command, ' ') ?:
-        DO(result->write_one(connection, command));
+        DO(result->write_one(result->connection, command));
 }
 
 
@@ -70,10 +67,9 @@ static error__t system_get_echo(
  * Returns list of connections. */
 
 static error__t system_get_who(
-    struct config_connection *connection, const char *command,
-    const struct connection_result *result)
+    const char *command, const struct connection_result *result)
 {
-    generate_connection_list(connection, result);
+    generate_connection_list(result);
     return ERROR_OK;
 }
 
@@ -99,8 +95,7 @@ static error__t lookup_change_set(
 }
 
 static error__t system_get_changes(
-    struct config_connection *connection, const char *command,
-    const struct connection_result *result)
+    const char *command, const struct connection_result *result)
 {
     enum change_set change_set = CHANGES_ALL;
     char action[MAX_NAME_LENGTH];
@@ -109,7 +104,7 @@ static error__t system_get_changes(
             parse_name(&command, action, sizeof(action))  ?:
             lookup_change_set(action, &change_set))  ?:
         parse_eos(&command)  ?:
-        DO(generate_change_sets(connection, result, change_set));
+        DO(generate_change_sets(result, change_set));
 }
 
 
@@ -121,9 +116,7 @@ static error__t system_get_changes(
 struct command_table_entry {
     const char *name;
     bool allow_arg;
-    error__t (*get)(
-        struct config_connection *connection, const char *name,
-        const struct connection_result *result);
+    error__t (*get)(const char *name, const struct connection_result *result);
     error__t (*put)(
         struct config_connection *connection,
         const char *name, const char *value);
@@ -154,14 +147,13 @@ static error__t parse_system_command(
 
 /* Process  *command?  commands. */
 static error__t process_system_get(
-    struct config_connection *connection, const char *command,
-    const struct connection_result *result)
+    const char *command, const struct connection_result *result)
 {
     const struct command_table_entry *command_set;
     return
         parse_system_command(&command, &command_set)  ?:
         TEST_OK_(command_set->get, "Command not readable")  ?:
-        command_set->get(connection, command, result);
+        command_set->get(command, result);
 }
 
 

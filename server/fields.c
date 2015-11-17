@@ -112,25 +112,21 @@ error__t lookup_attr(
 }
 
 
-error__t block_list_get(
-    struct config_connection *connection,
-    const struct connection_result *result)
+error__t block_list_get(const struct connection_result *result)
 {
     FOR_EACH_BLOCK(block)
     {
         char value[MAX_RESULT_LENGTH];
         snprintf(value, sizeof(value), "%s %d", block->name, block->count);
-        result->write_many(connection, value);
+        result->write_many(result->connection, value);
     }
-    result->write_many_end(connection);
+    result->write_many_end(result->connection);
     return ERROR_OK;
 }
 
 
 error__t field_list_get(
-    const struct block *block,
-    struct config_connection *connection,
-    const struct connection_result *result)
+    const struct block *block, const struct connection_result *result)
 {
     FOR_EACH_FIELD(block->fields, field)
     {
@@ -141,9 +137,9 @@ error__t field_list_get(
             snprintf(value + length, sizeof(value) - (size_t) length, " %s",
                 get_type_name(field->type));
 
-        result->write_many(connection, value);
+        result->write_many(result->connection, value);
     }
-    result->write_many_end(connection);
+    result->write_many_end(result->connection);
     return ERROR_OK;
 }
 
@@ -151,13 +147,12 @@ error__t field_list_get(
 /* Return union of type and class attributes. */
 error__t attr_list_get(
     struct field *field,
-    struct config_connection *connection,
     const struct connection_result *result)
 {
     if (field->type)
-        type_attr_list_get(field->type, connection, result);
-    class_attr_list_get(field->class, connection, result);
-    result->write_many_end(connection);
+        type_attr_list_get(field->type, result);
+    class_attr_list_get(field->class, result);
+    result->write_many_end(result->connection);
     return ERROR_OK;
 }
 
@@ -168,46 +163,43 @@ error__t attr_list_get(
 
 
 error__t field_get(
-    const struct field_context *context,
+    struct field *field, unsigned int number,
     const struct connection_result *result)
 {
     /* We have two possible implementations: a single value get which we perform
      * by reading the register and formatting with the type, or else we need to
      * hand the implementation down to the class. */
-    struct field *field = context->field;
     if (field->type)
     {
         uint32_t value;
         char string[MAX_RESULT_LENGTH];
         return
             class_read(field->class, &value, true)  ?:
-            type_format(
-                field->type, context->number, value, string, sizeof(string))  ?:
-            DO(result->write_one(context->connection, string));
+            type_format(field->type, number, value, string, sizeof(string))  ?:
+            DO(result->write_one(result->connection, string));
     }
     else
-        return class_get(
-            field->class, context->number, context->connection, result);
+        return class_get(field->class, number, result);
 }
 
 
-error__t field_put(const struct field_context *context, const char *string)
+error__t field_put(
+    struct field *field, unsigned int number,
+    const char *string)
 {
-    struct field *field = context->field;
     uint32_t value;
     return
         TEST_OK_(field->type, "Field not writeable")  ?:
-        type_parse(field->type, context->number, string, &value)  ?:
+        type_parse(field->type, number, string, &value)  ?:
         class_write(field->class, value);
 }
 
 
 error__t field_put_table(
-    const struct field_context *context,
+    struct field *field, unsigned int number,
     bool append, struct put_table_writer *writer)
 {
-    struct field *field = context->field;
-    return class_put_table(field->class, context->number, append, writer);
+    return class_put_table(field->class, number, append, writer);
 }
 
 
@@ -237,7 +229,6 @@ error__t attr_put(const struct attr_context *context, const char *value)
 
 static void report_changed_value(
     const struct field *field, unsigned int number,
-    struct config_connection *connection,
     const struct connection_result *result)
 {
     char string[MAX_RESULT_LENGTH];
@@ -261,21 +252,19 @@ static void report_changed_value(
         ERROR_REPORT(error, "Unexpected error during report_changed_value");
     }
 
-    result->write_many(connection, string);
+    result->write_many(result->connection, string);
 }
 
 
 /* Walks all fields and generates a change event for all changed fields. */
 void generate_change_sets(
-    struct config_connection *connection,
-    const struct connection_result *result,
-    enum change_set change_set)
+    const struct connection_result *result, enum change_set change_set)
 {
     /* Get the change index for this connection and update it so the next
      * changes request will be up to date.  Use a fresh index for this. */
     uint64_t report_index[CHANGE_SET_SIZE];
     update_change_index(
-        connection, change_set, get_change_index(), report_index);
+        result->connection, change_set, get_change_index(), report_index);
 
     /* Work through all fields in all blocks. */
     FOR_EACH_BLOCK(block)
@@ -287,10 +276,10 @@ void generate_change_sets(
             get_class_change_set(field->class, report_index, changes);
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
-                    report_changed_value(field, i, connection, result);
+                    report_changed_value(field, i, result);
         }
     }
-    result->write_many_end(connection);
+    result->write_many_end(result->connection);
 }
 
 

@@ -31,6 +31,8 @@ void update_change_index(
  * Either a single value is written, or a multi-line result.  Only one of either
  * .write_one or .write_many may be called. */
 struct connection_result {
+    /* This is filled in to be passed back through the methods here. */
+    struct config_connection *connection;
     /* If this is called then it must be called exactly once. */
     void (*write_one)(
         struct config_connection *connection, const char *result);

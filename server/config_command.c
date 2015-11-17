@@ -29,8 +29,6 @@ struct entity_context {
     unsigned int number;                    // Block number, within valid range
     struct field *field;                    // Field database entry
     const struct attr *attr;                // Attribute data, may be absent
-
-    struct config_connection *connection;   // Connection from request
 };
 
 
@@ -53,18 +51,7 @@ static error__t do_field_list_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    return field_list_get(context->block, context->connection, result);
-}
-
-
-static struct field_context create_field_context(
-    const struct entity_context *context)
-{
-    return (struct field_context) {
-        .field = context->field,
-        .number = context->number,
-        .connection = context->connection,
-    };
+    return field_list_get(context->block, result);
 }
 
 
@@ -73,8 +60,7 @@ static error__t do_field_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    struct field_context field_context = create_field_context(context);
-    return field_get(&field_context, result);
+    return field_get(context->field, context->number, result);
 }
 
 
@@ -82,8 +68,7 @@ static error__t do_field_get(
 static error__t do_field_put(
     const struct entity_context *context, const char *value)
 {
-    struct field_context field_context = create_field_context(context);
-    return field_put(&field_context, value);
+    return field_put(context->field, context->number, value);
 }
 
 
@@ -92,8 +77,7 @@ static error__t do_field_put_table(
     const struct entity_context *context,
     bool append, struct put_table_writer *writer)
 {
-    struct field_context field_context = create_field_context(context);
-    return field_put_table(&field_context, append, writer);
+    return field_put_table(context->field, context->number, append, writer);
 }
 
 
@@ -102,7 +86,7 @@ static error__t do_attr_list_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    return attr_list_get(context->field, context->connection, result);
+    return attr_list_get(context->field, result);
 }
 
 
@@ -112,7 +96,6 @@ static struct attr_context create_attr_context(
     return (struct attr_context) {
         .field = context->field,
         .number = context->number,
-        .connection = context->connection,
         .attr = context->attr,
     };
 }
@@ -293,10 +276,9 @@ static error__t compute_entity_handler(
 
 /* Process  entity?  commands. */
 static error__t process_entity_get(
-    struct config_connection *connection, const char *name,
-    const struct connection_result *result)
+    const char *name, const struct connection_result *result)
 {
-    struct entity_context context = { .connection = connection };
+    struct entity_context context;
     const struct entity_actions *actions;
     return
         compute_entity_handler(name, &context, &actions)  ?:
@@ -309,7 +291,7 @@ static error__t process_entity_get(
 static error__t process_entity_put(
     struct config_connection *connection, const char *name, const char *value)
 {
-    struct entity_context context = { .connection = connection };
+    struct entity_context context;
     const struct entity_actions *actions;
     return
         compute_entity_handler(name, &context, &actions)  ?:
@@ -323,7 +305,7 @@ static error__t process_entity_put_table(
     struct config_connection *connection, const char *name, bool append,
     struct put_table_writer *writer)
 {
-    struct entity_context context = { .connection = connection };
+    struct entity_context context;
     const struct entity_actions *actions;
     return
         compute_entity_handler(name, &context, &actions)  ?:

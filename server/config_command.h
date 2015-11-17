@@ -23,9 +23,7 @@ struct config_command_set {
      * connection_result interface.
      *    Note that ERROR_OK must be returned precisely if either
      * connection_result method was called, otherwise there was an error. */
-    error__t (*get)(
-        struct config_connection *connection, const char *name,
-        const struct connection_result *result);
+    error__t (*get)(const char *name, const struct connection_result *result);
 
     /* Implements name=value command. */
     error__t (*put)(

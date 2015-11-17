@@ -113,8 +113,8 @@ error__t enum_labels_get(
         {
             char string[MAX_RESULT_LENGTH];
             snprintf(string, sizeof(string), "%d %s", i, state->strings[i]);
-            result->write_many(context->connection, string);
+            result->write_many(result->connection, string);
         }
-    result->write_many_end(context->connection);
+    result->write_many_end(result->connection);
     return ERROR_OK;
 }

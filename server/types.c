@@ -513,12 +513,12 @@ error__t type_parse(
 /* Implements block.field.*? */
 void type_attr_list_get(
     const struct type *type,
-    struct config_connection *connection,
     const struct connection_result *result)
 {
     if (type->methods->attrs)
         for (unsigned int i = 0; i < type->methods->attr_count; i ++)
-            result->write_many(connection, type->methods->attrs[i].name);
+            result->write_many(
+                result->connection, type->methods->attrs[i].name);
 }
 
 
@@ -534,7 +534,7 @@ error__t type_attr_get(
         char string[MAX_RESULT_LENGTH];
         return
             context->attr->format(context, string, sizeof(string))  ?:
-            DO(result->write_one(context->connection, string));
+            DO(result->write_one(result->connection, string));
     }
     else if (context->attr->get_many)
         return context->attr->get_many(context, result);

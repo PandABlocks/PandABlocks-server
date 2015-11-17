@@ -1,7 +1,6 @@
 /* Field class interface. */
 
 /* Connection dependencies. */
-struct config_connection;   // Context for active client connection
 struct connection_result;   // Used to return results to active client
 struct put_table_writer;    // Used for writing table data
 
@@ -52,45 +51,32 @@ STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE);
 
 /* Generates list of all changed fields and their values. */
 void generate_change_sets(
-    struct config_connection *connection,
-    const struct connection_result *result,
-    enum change_set changes);
+    const struct connection_result *result, enum change_set changes);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Field access methods. */
 
-/* The field access methods require the following context. */
-struct field_context {
-    struct config_connection *connection;   // Connection from request
-    unsigned int number;                    // Block number, within valid range
-    struct field *field;                    // Field database entry
-};
-
 
 /* Implements block meta-data listing command:  *BLOCKS?  */
-error__t block_list_get(
-    struct config_connection *connection,
-    const struct connection_result *result);
+error__t block_list_get(const struct connection_result *result);
 
 /* Implements field meta-data listing command:  block.*?  */
 error__t field_list_get(
-    const struct block *block,
-    struct config_connection *connection,
-    const struct connection_result *result);
+    const struct block *block, const struct connection_result *result);
 
 
 /* Retrieves current value of field:  block<n>.field?  */
 error__t field_get(
-    const struct field_context *context,
+    struct field *field, unsigned int number,
     const struct connection_result *result);
 
 /* Writes value to field:  block<n>.field=value  */
-error__t field_put(const struct field_context *context, const char *value);
+error__t field_put(struct field *field, unsigned int number, const char *value);
 
 /* Writes table of values ot a field:  block<n>.field<  */
 error__t field_put_table(
-    const struct field_context *context,
+    struct field *field, unsigned int number,
     bool append, struct put_table_writer *writer);
 
 
@@ -98,7 +84,6 @@ error__t field_put_table(
 /* Attribute access methods. */
 
 struct attr_context {
-    struct config_connection *connection;   // Connection from request
     unsigned int number;                    // Block number, within valid range
     struct field *field;                    // Field database entry
     const struct attr *attr;                // Field attribute
@@ -107,7 +92,6 @@ struct attr_context {
 /* List of attributes for field:  block.field.*?  */
 error__t attr_list_get(
     struct field *field,
-    struct config_connection *connection,
     const struct connection_result *result);
 
 
