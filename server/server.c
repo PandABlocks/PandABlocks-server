@@ -10,12 +10,12 @@
 
 #include "error.h"
 #include "hardware.h"
+#include "fields.h"
 #include "config_server.h"
 #include "socket_server.h"
 #include "database.h"
 #include "config_command.h"
 #include "system_command.h"
-#include "fields.h"
 #include "types.h"
 #include "mux_lookup.h"
 #include "classes.h"
@@ -27,6 +27,7 @@ static unsigned int data_port = 8889;
 /* Paths to configuration databases. */
 static const char *config_db;
 static const char *register_db;
+static const char *description_db;
 
 
 static void usage(const char *argv0)
@@ -41,6 +42,7 @@ static void usage(const char *argv0)
 "   -d: Specify data port (default %d)\n"
 "   -c: Specify configuration database\n"
 "   -r: Specify register database\n"
+"   -D: Specify description database\n"
         , argv0, config_port, data_port);
 }
 
@@ -51,13 +53,14 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:c:r:"))
+        switch (getopt(argc, argv, "+hp:d:c:r:D:"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   config_port = (unsigned int) atoi(optarg);      break;
             case 'd':   data_port   = (unsigned int) atoi(optarg);      break;
             case 'c':   config_db = optarg;                             break;
             case 'r':   register_db = optarg;                           break;
+            case 'D':   description_db = optarg;                        break;
             default:
                 return FAIL_("Try `%s -h` for usage\n", argv0);
             case -1:
@@ -116,7 +119,7 @@ int main(int argc, char *const argv[])
         initialise_types()  ?:
         initialise_mux_lookup()  ?:
         initialise_classes()  ?:
-        load_config_databases(config_db, register_db)  ?:
+        load_config_databases(config_db, register_db, description_db)  ?:
 
         initialise_hardware()  ?:
         initialise_system_command()  ?:

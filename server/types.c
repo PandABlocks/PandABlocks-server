@@ -15,8 +15,8 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "mux_lookup.h"
-#include "config_server.h"
 #include "fields.h"
+#include "config_server.h"
 #include "parse_lut.h"
 #include "enums.h"
 
@@ -45,7 +45,7 @@ struct attr {
 };
 
 
-struct type {
+struct type_methods {
     const char *name;
     bool tied;          // Set for types exclusive to specific classes
 
@@ -56,22 +56,28 @@ struct type {
     void (*destroy)(void *type_data, unsigned int count);
 
     /* This is called during startup to process an attribute line. */
-    error__t (*add_attribute_line)(void *type_data, const char *string);
+    error__t (*add_attribute_line)(void *type_data, const char **string);
 
     /* This converts a string to a writeable integer. */
     error__t (*parse)(
-        const struct type_context *context,
+        void *type_data, unsigned int number,
         const char *string, unsigned int *value);
 
     /* This formats the value into a string according to the type rules. */
     error__t (*format)(
-        const struct type_context *context,
+        void *type_data, unsigned int number,
         unsigned int value, char string[], size_t length);
 
     const struct attr *attrs;
     unsigned int attr_count;
 };
 
+
+struct type {
+    const struct type_methods *methods;
+    unsigned int count;
+    void *type_data;
+};
 
 
 /*****************************************************************************/
@@ -106,37 +112,41 @@ static error__t __attribute__((format(printf, 3, 4))) format_string(
 static error__t raw_format_int(
     const struct type_attr_context *context, char result[], size_t length)
 {
-    return format_string(result, length, "%d",
-        (int) read_field_register(context->field, context->number));
+    return FAIL_("Not implemented");
+//     return format_string(result, length, "%d",
+//         (int) read_field_register(context->field, context->number));
 }
 
 static error__t raw_format_uint(
     const struct type_attr_context *context, char result[], size_t length)
 {
-    return format_string(result, length, "%u",
-        read_field_register(context->field, context->number));
+    return FAIL_("Not implemented");
+//     return format_string(result, length, "%u",
+//         read_field_register(context->field, context->number));
 }
 
 
 static error__t raw_put_uint(
     const struct type_attr_context *context, const char *string)
 {
-    unsigned int value;
-    return
-        parse_uint(&string, &value)  ?:
-        parse_eos(&string)  ?:
-        DO(write_field_register(context->field, context->number, value));
+    return FAIL_("Not implemented");
+//     unsigned int value;
+//     return
+//         parse_uint(&string, &value)  ?:
+//         parse_eos(&string)  ?:
+//         DO(write_field_register(context->field, context->number, value));
 }
 
 static error__t raw_put_int(
     const struct type_attr_context *context, const char *string)
 {
-    int value;
-    return
-        parse_int(&string, &value)  ?:
-        parse_eos(&string)  ?:
-        DO(write_field_register(
-            context->field, context->number, (unsigned int) value));
+    return FAIL_("Not implemented");
+//     int value;
+//     return
+//         parse_int(&string, &value)  ?:
+//         parse_eos(&string)  ?:
+//         DO(write_field_register(
+//             context->field, context->number, (unsigned int) value));
 }
 
 
@@ -144,14 +154,14 @@ static error__t raw_put_int(
 /* Multiplexer selector type. */
 
 static error__t bit_mux_format(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     unsigned int value, char result[], size_t length)
 {
     return mux_lookup_index(bit_mux_lookup, value, result, length);
 }
 
 static error__t pos_mux_format(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     unsigned int value, char result[], size_t length)
 {
     return mux_lookup_index(pos_mux_lookup, value, result, length);
@@ -159,14 +169,14 @@ static error__t pos_mux_format(
 
 
 static error__t bit_mux_parse(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
     return mux_lookup_name(bit_mux_lookup, string, value);
 }
 
 static error__t pos_mux_parse(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
     return mux_lookup_name(pos_mux_lookup, string, value);
@@ -193,9 +203,10 @@ static error__t uint_init(
 
 
 static error__t uint_parse(
-    const struct type_context *context, const char *string, unsigned int *value)
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
 {
-    unsigned int *max_value = context->type_data;
+    unsigned int *max_value = type_data;
     return
         parse_uint(&string, value)  ?:
         parse_eos(&string)  ?:
@@ -204,7 +215,7 @@ static error__t uint_parse(
 
 
 static error__t uint_format(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
     snprintf(string, length, "%u", value);
@@ -224,7 +235,8 @@ static error__t uint_max_format(
 /* Bit type: input can only be 0 or 1. */
 
 static error__t bit_parse(
-    const struct type_context *context, const char *string, unsigned int *value)
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
 {
     return
         TEST_OK_(strchr("01", *string), "Invalid bit value")  ?:
@@ -234,7 +246,7 @@ static error__t bit_parse(
 
 
 static error__t bit_format(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
     snprintf(string, length, "%s", value ? "1" : "0");
@@ -247,7 +259,8 @@ static error__t bit_format(
 /* Action types must have an empty write, and cannot be read. */
 
 static error__t action_parse(
-    const struct type_context *context, const char *string, unsigned int *value)
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
 {
     *value = 0;
     return parse_eos(&string);
@@ -283,10 +296,11 @@ static void position_destroy(void *type_data, unsigned int count)
 
 
 static error__t position_parse(
-    const struct type_context *context, const char *string, unsigned int *value)
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
 {
-    struct position_state *state = context->type_data;
-    state = &state[context->number];
+    struct position_state *state = type_data;
+    state = &state[number];
 
     double position;
     double converted;
@@ -314,11 +328,11 @@ static error__t format_double(char result[], size_t length, double value)
 
 
 static error__t position_format(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     unsigned int value, char result[], size_t length)
 {
-    struct position_state *state = context->type_data;
-    state = &state[context->number];
+    struct position_state *state = type_data;
+    state = &state[number];
     return format_double(
         result, length, (int) value * state->scale + state->offset);
 }
@@ -431,10 +445,11 @@ static error__t do_parse_lut(const char *string, unsigned int *value)
 
 
 static error__t lut_parse(
-    const struct type_context *context, const char *string, unsigned int *value)
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
 {
-    struct lut_state *state = context->type_data;
-    state += context->number;
+    struct lut_state *state = type_data;
+    state += number;
 
     error__t error = do_parse_lut(string, value);
     if (!error)
@@ -450,11 +465,11 @@ static error__t lut_parse(
 
 
 static error__t lut_format(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
-    struct lut_state *state = context->type_data;
-    state += context->number;
+    struct lut_state *state = type_data;
+    state += number;
 
     LOCK();
     error__t error =
@@ -473,39 +488,37 @@ static error__t lut_format(
 
 /* Implements block[n].field? */
 error__t type_format(
-    const struct type_context *context,
+    struct type *type, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
     return
-        TEST_OK_(context->type->parse,
-            "Cannot read %s value", context->type->name)  ?:
-        context->type->format(context, value, string, length);
+        TEST_OK_(type->methods->parse,
+            "Cannot read %s value", type->methods->name)  ?:
+        type->methods->format(type->type_data, number, value, string, length);
 }
 
 
 /* Implements block[n].field=value */
 error__t type_parse(
-    const struct type_context *context,
+    struct type *type, unsigned int number,
     const char *string, unsigned int *value)
 {
     return
-        TEST_OK_(context->type->parse,
-            "Cannot write %s value", context->type->name)  ?:
-        context->type->parse(context, string, value);
+        TEST_OK_(type->methods->parse,
+            "Cannot write %s value", type->methods->name)  ?:
+        type->methods->parse(type->type_data, number, string, value);
 }
 
 
 /* Implements block.field.*? */
-error__t type_attr_list_get(
+void type_attr_list_get(
     const struct type *type,
     struct config_connection *connection,
     const struct connection_result *result)
 {
-    if (type->attrs)
-        for (unsigned int i = 0; i < type->attr_count; i ++)
-            result->write_many(connection, type->attrs[i].name);
-    result->write_many_end(connection);
-    return ERROR_OK;
+    if (type->methods->attrs)
+        for (unsigned int i = 0; i < type->methods->attr_count; i ++)
+            result->write_many(connection, type->methods->attrs[i].name);
 }
 
 
@@ -548,67 +561,77 @@ error__t type_attr_put(
 static struct hash_table *field_type_map;
 
 
-error__t type_lookup_attr(
-    const struct type *type, const char *name,
-    const struct attr **attr)
+const struct attr *type_lookup_attr(
+    const struct type *type, const char *name)
 {
-    if (type->attrs)
-        for (unsigned int i = 0; i < type->attr_count; i ++)
-            if (strcmp(name, type->attrs[i].name) == 0)
-            {
-                *attr = &type->attrs[i];
-                return ERROR_OK;
-            }
-    return FAIL_("No such attribute");
+    const struct attr *attrs = type->methods->attrs;
+    if (attrs)
+        for (unsigned int i = 0; i < type->methods->attr_count; i ++)
+            if (strcmp(name, attrs[i].name) == 0)
+                return &attrs[i];
+    return NULL;
 }
 
 
-const char *type_get_type_name(const struct type *type)
+const char *get_type_name(const struct type *type)
 {
-    return type->name;
+    return type->methods->name;
 }
 
+
+static struct type *create_type_block(
+    const struct type_methods *methods, unsigned int count, void *type_data)
+{
+    struct type *type = malloc(sizeof(struct type));
+    *type = (struct type) {
+        .methods = methods,
+        .count = count,
+        .type_data = type_data,
+    };
+    return type;
+}
 
 error__t create_type(
-    const char *string, bool forced, unsigned int count,
-    const struct type **type, void **type_data)
+    const char **string, bool forced, unsigned int count, struct type **type)
 {
-    *type_data = NULL;
     char type_name[MAX_NAME_LENGTH];
+    const struct type_methods *methods;
+    void *type_data = NULL;
     return
-        parse_name(&string, type_name, sizeof(type_name))  ?:
+        parse_name(string, type_name, sizeof(type_name))  ?:
         TEST_OK_(
-            *type = hash_table_lookup(field_type_map, type_name),
+            methods = hash_table_lookup(field_type_map, type_name),
             "Unknown field type %s", type_name)  ?:
-        TEST_OK_(!(*type)->tied  ||  forced,
+        TEST_OK_(!methods->tied  ||  forced,
             "Cannot use this type with this class")  ?:
-        IF((*type)->init,
-            (*type)->init(&string, count, type_data))  ?:
-        parse_eos(&string);
+        IF(methods->init,
+            methods->init(string, count, &type_data))  ?:
+        DO(*type = create_type_block(methods, count, type_data));
 }
 
 
-error__t type_add_attribute_line(
-    const struct type *type, void *type_data, const char *line)
+error__t type_parse_attribute(struct type *type, const char **line)
 {
     return
-        TEST_OK_(type->add_attribute_line, "Cannot add attribute to type")  ?:
-        type->add_attribute_line(type_data, line);
+        TEST_OK_(type->methods->add_attribute_line,
+            "Cannot add attribute to type")  ?:
+        type->methods->add_attribute_line(type->type_data, line);
 }
 
 
-void destroy_type(const struct type *type, void *type_data, unsigned int count)
+void destroy_type(struct type *type)
 {
-    if (type->destroy)
-        type->destroy(type_data, count);
-    free(type_data);
+    if (type->methods->destroy)
+        type->methods->destroy(type->type_data, type->count);
+    free(type->type_data);
+    free(type);
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
-static const struct type field_type_table[] = {
+static const struct type_methods field_type_table[] = {
     /* Unsigned integer with optional maximum limit. */
     { "uint",
         .init = uint_init,
@@ -698,8 +721,8 @@ error__t initialise_types(void)
     field_type_map = hash_table_create(false);
     for (unsigned int i = 0; i < ARRAY_SIZE(field_type_table); i ++)
     {
-        const struct type *type = &field_type_table[i];
-        hash_table_insert_const(field_type_map, type->name, type);
+        const struct type_methods *methods = &field_type_table[i];
+        hash_table_insert_const(field_type_map, methods->name, methods);
     }
 
     return ERROR_OK;

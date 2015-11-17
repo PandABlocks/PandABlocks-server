@@ -232,9 +232,17 @@ static inline error__t __attribute__((warn_unused_result))
  * late enough to pass this form through. */
 #define BRACES(args...)                 { args }
 
+
 /* A tricksy compile time bug checking macro modified from the kernel.  Causes a
  * compiler error if e doesn't evaluate to true (a non-zero value). */
 #define COMPILE_ASSERT(e)           ((void) sizeof(struct { int:-!(e); }))
+
+/* For a static version we drop the COMPILE_ASSERT() expression into a
+ * discardable anonymous function. */
+#define _id_STATIC_COMPILE_ASSERT(f, e) \
+    static inline void f(void) { COMPILE_ASSERT(e); }
+#define STATIC_COMPILE_ASSERT(e)    _id_STATIC_COMPILE_ASSERT(UNIQUE_ID(), e)
+
 
 /* A rather randomly placed helper routine.  This and its equivalents are
  * defined all over the place, but there doesn't appear to be a definitive

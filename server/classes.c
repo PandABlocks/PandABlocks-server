@@ -8,400 +8,346 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "mux_lookup.h"
+#include "fields.h"
 #include "config_server.h"
 #include "types.h"
-#include "fields.h"
 
 #include "classes.h"
 
 
+#define UNASSIGNED_REGISTER ((unsigned int) -1)
 
-/* A field class is an abstract interface implementing access functions. */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* Abstract interface to class. */
+struct class_methods {
+    const char *name;
+
+    /* Type information. */
+    const char *default_type;   // Default type.  If NULL no type is created
+    bool force_type;            // If set default_type cannot be modified
+
+    /* Called to parse the class definition line for a field.  The corresponding
+     * class has already been identified. */
+    error__t (*init)(
+        const struct class_methods *methods, unsigned int count,
+        void **class_data);
+
+    /* Parses the register definition line for this field. */
+    error__t (*parse_register)(
+        struct class *class, const char *block_name, const char *field_name,
+        const char **line);
+    /* Called after startup to validate setup. */
+    error__t (*validate)(struct class *class);
+    /* Called during shutdown to release all class resources. */
+    void (*destroy)(struct class *class);
+
+    /* Register read/write methods. */
+    uint32_t (*read)(struct class *class);
+    void (*write)(struct class *class, uint32_t value);
+    void (*refresh)(struct class *class);
+
+    /* Access to table data. */
+    error__t (*get_many)(
+        struct class *class, unsigned int ix,
+        struct config_connection *connection,
+        const struct connection_result *result);
+    error__t (*put_table)(
+        struct class *class, unsigned int ix,
+        bool append, struct put_table_writer *writer);
+
+    /* Defines which change set, if any, this class contributes to. */
+    int change_set_ix;      // -1 for no change set
+
+    /* Field attributes. */
+    const struct attr *attrs;
+    unsigned int attr_count;
+};
+
+
 struct class {
-    const char *name;   // Name of this class
-    const char *type;   // Default type to use if no type specified
-
-    /* Flags controlling behaviour of this class. */
-    bool force_type;    // If set only default type can be used
-    bool get;           // Fields can be read
-    bool put;           // Fields can be written
-    bool table;         // Special table support class
-    bool changes;       // Fields support parameter change set readout
-
-    /* Special mux index initialiser for the two _out classes. */
-    error__t (*add_indices)(
-        const char *block_name, const char *field_name, unsigned int count,
-        unsigned int indices[]);
-};
-
-
-struct class_data {
-    const struct field *field;
+    const struct class_methods *methods;
     unsigned int count;
-    const struct class *class;
-    const struct type *type;
-    void *type_data;
+    unsigned int reg;
+    void *class_data;
 };
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Mux class support.  This may move to types. */
-
-
-/* Adds each field name <-> index mapping to the appropriate multiplexer lookup
- * table. */
-static error__t add_mux_indices(
-    struct mux_lookup *mux_lookup,
-    const char *block_name, const char *field_name, unsigned int count,
-    unsigned int indices[])
-{
-    /* Add mux entries for our instances. */
-    error__t error = ERROR_OK;
-    for (unsigned int i = 0; !error  &&  i < count; i ++)
-    {
-        char name[MAX_NAME_LENGTH];
-        snprintf(name, sizeof(name), "%s%d.%s", block_name, i, field_name);
-        error = mux_lookup_insert(mux_lookup, indices[i], name);
-    }
-    return error;
-}
-
-
-static error__t bit_out_add_indices(
-    const char *block_name, const char *field_name, unsigned int count,
-    unsigned int indices[])
-{
-    return add_mux_indices(
-        bit_mux_lookup, block_name, field_name, count, indices);
-}
-
-static error__t pos_out_add_indices(
-    const char *block_name, const char *field_name, unsigned int count,
-    unsigned int indices[])
-{
-    return add_mux_indices(
-        pos_mux_lookup, block_name, field_name, count, indices);
-}
-
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Table specific methods. */
+/* Class field access. */
 
-
-/* Reads current table. */
-static error__t table_get(
-    const struct class_context *context, const struct connection_result *result)
+error__t class_read(struct class *class, uint32_t *value, bool refresh)
 {
-    return FAIL_("table_get not implemented");
-}
-
-
-
-/* Writes to table. */
-static error__t table_put_table(
-    const struct class_context *context, bool append,
-    const struct put_table_writer *writer)
-{
-    return FAIL_("block.field< not implemented yet");
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Class access methods. */
-
-
-static struct type_context create_type_context(
-    const struct class_context *context)
-{
-    return (struct type_context) {
-        .number = context->number,
-        .type = context->class_data->type,
-        .type_data = context->class_data->type_data,
-    };
-}
-
-
-/* General get method: retrieves value from register associated with field,
- * formats the result according to the type, and returns the result. */
-static error__t value_get(
-    const struct class_context *context, const struct connection_result *result)
-{
-    const struct class_data *class_data = context->class_data;
-    unsigned int value;
-    struct type_context type_context = create_type_context(context);
-    char string[MAX_RESULT_LENGTH];
     return
-        TEST_OK_(class_data->class->get, "Field not readable")  ?:
-        DO(value = read_field_register(class_data->field, context->number))  ?:
-        type_format(&type_context, value, string, sizeof(string))  ?:
-        DO(result->write_one(context->connection, string));
+        TEST_OK_(class->methods->read, "Field not readable")  ?:
+        IF(refresh  &&  class->methods->refresh,
+            DO(class->methods->refresh(class)))  ?:
+        DO(*value = class->methods->read(class));
 }
 
 
-/*  block[n].field?
- * Implements reading from a field. */
+error__t class_write(struct class *class, uint32_t value)
+{
+    return
+        TEST_OK_(class->methods->write, "Field not writeable")  ?:
+        DO(class->methods->write(class, value));
+}
+
+
 error__t class_get(
-    const struct class_context *context,
-    const struct connection_result *result)
-{
-    if (context->class_data->class->table)
-        return table_get(context, result);
-    else
-        return value_get(context, result);
-}
-
-
-/*  block[n].field=value
- * Implements writing to the field. */
-/* General put method: parses string according to type and writes register. */
-error__t class_put(
-    const struct class_context *context, const char *string)
-{
-    const struct class *class = context->class_data->class;
-    struct type_context type_context = create_type_context(context);
-    unsigned int value;
-    return
-        TEST_OK_(class->put, "Field not writeable")  ?:
-        type_parse(&type_context, string, &value)  ?:
-        DO(write_field_register(
-            context->class_data->field, context->number, value));
-}
-
-
-/*  block[n].field< */
-error__t class_put_table(
-    const struct class_context *context,
-    bool append, const struct put_table_writer *writer)
-{
-    const struct class *class = context->class_data->class;
-    return
-        TEST_OK_(class->table, "Field is not a table")  ?:
-        table_put_table(context, append, writer);
-}
-
-
-/*  block.field.*? */
-error__t class_attr_list_get(
-    const struct class_data *class_data,
+    struct class *class, unsigned int number,
     struct config_connection *connection,
     const struct connection_result *result)
 {
-    return type_attr_list_get(class_data->type, connection, result);
+    return FAIL_("Not implemented");
 }
 
 
-static struct type_attr_context create_type_attr_context(
-    const struct class_attr_context *context)
+error__t class_put_table(
+    struct class *class, unsigned int number,
+    bool append, struct put_table_writer *writer)
 {
-    return (struct type_attr_context) {
-        .number = context->number,
-        .connection = context->connection,
-        .field = context->class_data->field,
-        .type_data = context->class_data->type_data,
-        .attr = context->attr,
-    };
+    return FAIL_("Not implemented");
 }
 
-/*  block[n].field.attr? */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Change support. */
+
+/* This number is used to work out which fields have changed since we last
+ * looked.  This is incremented on every update. */
+static uint64_t global_change_index = 0;
+
+
+/* Allocates and returns a fresh change index. */
+uint64_t get_change_index(void)
+{
+    return __sync_add_and_fetch(&global_change_index, 1);
+}
+
+
+void get_class_change_set(
+    struct class *class, uint64_t report_index[], bool changes[])
+{
+    printf("Not implemented\n");
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Attribute access. */
+
+void class_attr_list_get(
+    const struct class *class,
+    struct config_connection *connection,
+    const struct connection_result *result)
+{
+//     if (class->methods->attrs)
+//         for (unsigned int i = 0; i < class->methods->attr_count; i ++)
+//             result->write_many(connection, class->methods->attrs[i].name);
+}
+
+
+const struct attr *class_lookup_attr(struct class *class, const char *name)
+{
+//     const struct attr *attrs = class->methods->attrs;
+//     if (attrs)
+//         for (unsigned int i = 0; i < class->methods->attr_count; i ++)
+//             if (strcmp(name, attrs[i].name) == 0)
+//                 return &attrs[i];
+    return NULL;
+}
+
+
 error__t class_attr_get(
     const struct class_attr_context *context,
     const struct connection_result *result)
 {
-    struct type_attr_context attr_context = create_type_attr_context(context);
-    return type_attr_get(&attr_context, result);
+    return FAIL_("Not implemented");
 }
 
 
-/*  block[n].field.attr=value */
 error__t class_attr_put(
     const struct class_attr_context *context, const char *value)
 {
-    struct type_attr_context attr_context = create_type_attr_context(context);
-    return type_attr_put(&attr_context, value);
+    return FAIL_("Not implemented");
 }
 
 
-error__t class_lookup_attr(
-    const struct class_data *class_data, const char *name,
-    const struct attr **attr)
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+static error__t default_init(
+    const struct class_methods *methods, unsigned int count, void **class_data)
 {
-    return type_lookup_attr(class_data->type, name, attr);
+    return ERROR_OK;
 }
 
-
-error__t class_add_indices(
-    const struct class_data *class_data,
-    const char *block_name, const char *field_name, unsigned int count,
-    unsigned int indices[])
+static error__t default_validate(struct class *class)
 {
-    const struct class *class = class_data->class;
+    return ERROR_OK;
     return
-        TEST_OK_(class->add_indices, "Class does not have indices")  ?:
-        class->add_indices(block_name, field_name, count, indices);
+        TEST_OK_(class->reg != UNASSIGNED_REGISTER,
+            "No register assigned to field");
+}
+
+static error__t default_parse_register(
+    struct class *class, const char *block_name, const char *field_name,
+    const char **line)
+{
+    return
+        TEST_OK_(class->reg == UNASSIGNED_REGISTER,
+            "Register already assigned")  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &class->reg);
 }
 
 
-error__t class_add_attribute_line(
-    const struct class_data *class_data, const char *line)
+static error__t mux_parse_register(
+    struct mux_lookup *lookup,
+    struct class *class, const char *block_name, const char *field_name,
+    const char **line)
 {
-    return type_add_attribute_line(
-        class_data->type, class_data->type_data, line);
+    unsigned int indices[class->count];
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < class->count; i ++)
+        error =
+            parse_whitespace(line)  ?:
+            parse_uint(line, &indices[i]);
+    return
+        error ?:
+        add_mux_indices(lookup, block_name, field_name, class->count, indices);
 }
 
-
-bool is_config_class(const struct class_data *class_data)
+static error__t bit_out_parse_register(
+    struct class *class, const char *block_name, const char *field_name,
+    const char **line)
 {
-    return class_data->class->changes;
+    return mux_parse_register(
+        bit_mux_lookup, class, block_name, field_name, line);
 }
 
-
-/* To report a single changed value we have to re-do the normal formatting in
- * value_get, but we have one big issue: there's nowhere to report errors to, so
- * we have to handle them locally. */
-void report_changed_value(
-    const char *block_name, const char *field_name, unsigned int number,
-    const struct class_data *class_data,
-    struct config_connection *connection,
-    const struct connection_result *result)
+static error__t pos_out_parse_register(
+    struct class *class, const char *block_name, const char *field_name,
+    const char **line)
 {
-    char string[MAX_RESULT_LENGTH];
-    size_t prefix = (size_t) snprintf(
-        string, sizeof(string), "%s%d.%s=", block_name, number, field_name);
-
-    /* Read and format register value into remainder of result string. */
-    unsigned int value = read_field_register(class_data->field, number);
-    error__t error = type_format(
-        &(struct type_context) {
-            .number = number,
-            .type = class_data->type,
-            .type_data = class_data->type_data },
-        value, string + prefix, sizeof(string) - prefix);
-
-    if (error)
-    {
-        /* Alas it is possible for an error to be detected during formatting.
-         * In this case overwrite the = with space and write an error mark. */
-        prefix -= 1;
-        snprintf(string + prefix, sizeof(string) - prefix, " (error)");
-        ERROR_REPORT(error, "Unexpected error during report_changed_value");
-    }
-    result->write_many(connection, string);
+    return mux_parse_register(
+        pos_mux_lookup, class, block_name, field_name, line);
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Top level list of classes. */
 
-static const struct class classes_table[] = {
-    /* Class        default     force                   change
-     *  name        type        class   get     put     table   set  */
-    {  "bit_in",    "bit_mux",  true,   true,   true,   false,  true,   },
-    {  "pos_in",    "pos_mux",  true,   true,   true,   false,  true,   },
-    {  "bit_out",   "bit",      false,  true,   false,  false,  false,
-        bit_out_add_indices, },
-    {  "pos_out",   "position", false,  true,   false,  false,  false,
-        pos_out_add_indices, },
-    {  "param",     "uint",     false,  true,   true,   false,  true,   },
-    {  "read",      "uint",     false,  true,   false,  false,  false,  },
-    {  "write",     "uint",     false,  false,  true,   false,  false,  },
-    {  "table",     "table",    true,   true,   false,  true,   false,  },
+#define CLASS_DEFAULTS \
+    .init = default_init, \
+    .validate = default_validate, \
+    .parse_register = default_parse_register, \
+    .change_set_ix = -1
+
+static const struct class_methods classes_table[] = {
+    { "bit_in", "bit_mux", true, CLASS_DEFAULTS,
+    },
+    { "pos_in", "pos_mux", true, CLASS_DEFAULTS, },
+    { "bit_out", "bit", CLASS_DEFAULTS,
+        .parse_register = bit_out_parse_register, },
+    { "pos_out", "position", CLASS_DEFAULTS,
+        .parse_register = pos_out_parse_register, },
+    { "param", "uint", CLASS_DEFAULTS, },
+    { "read", "uint", CLASS_DEFAULTS, },
+    { "write", "uint", CLASS_DEFAULTS, },
+    { "table", CLASS_DEFAULTS, .parse_register = NULL, },
 };
 
-/* Used for lookup during initialisation, initialised from table above. */
-static struct hash_table *class_map;
-
-
-const char *get_class_name(const struct class_data *class_data)
-{
-    return class_data->class->name;
-}
-
-const char *get_type_name(const struct class_data *class_data)
-{
-    if (class_data->class->force_type)
-        /* The name of forced types is concealed. */
-        return "";
-    else
-        /* Ask the type for its name. */
-        return type_get_type_name(class_data->type);
-}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Initialisation and shutdown. */
+/* Class inititialisation. */
 
 
-static struct class_data *create_class_data(
-    const struct field *field, unsigned int count,
-    const struct class *class,
-    const struct type *type, void *type_data)
+static error__t lookup_class(
+    const char *name, const struct class_methods **result)
 {
-    struct class_data *class_data = malloc(sizeof(struct class_data));
-    *class_data = (struct class_data) {
-        .field = field,
-        .count = count,
-        .class = class,
-        .type = type,
-        .type_data = type_data,
-    };
-    return class_data;
+    for (unsigned int i = 0; i < ARRAY_SIZE(classes_table); i ++)
+    {
+        const struct class_methods *methods = &classes_table[i];
+        if (strcmp(name, methods->name) == 0)
+        {
+            *result = methods;
+            return ERROR_OK;
+        }
+    }
+    return FAIL_("Class %s not found", name);
 }
 
+static struct class *create_class_block(
+    const struct class_methods *methods,
+    unsigned int count, void *class_data)
+{
+    struct class *class = malloc(sizeof(struct class));
+    *class = (struct class) {
+        .methods = methods,
+        .count = count,
+        .class_data = class_data,
+        .reg = UNASSIGNED_REGISTER,
+    };
+    return class;
+}
 
 error__t create_class(
-    struct field *field, unsigned int count,
-    const char *class_name, const char *type_name,
-    struct class_data **class_data)
+    const char *class_name, const char **line,
+    unsigned int count, struct class **class, struct type **type)
 {
-    bool no_type_name = *type_name == '\0';
-
-    const struct class *class;
-    const struct type *type;
-    void *type_data;
+    const struct class_methods *methods = NULL;
+    void *class_data;
+    const char *default_type;
     return
-        TEST_OK_(class = hash_table_lookup(class_map, class_name),
-            "Invalid field class %s", class_name)  ?:
-        /* Make sure no type name is specified if the type is forced. */
-        TEST_OK_(no_type_name  ||  !class->force_type,
-            "Cannot specify type for this class")  ?:
-        /* If no type name has been specified, use the default type for the
-         * class. */
-        create_type(
-            no_type_name ? class->type : type_name, class->force_type, count,
-            &type, &type_data)  ?:
-        /* Finally create the class data structure. */
-        DO(*class_data =
-            create_class_data(field, count, class, type, type_data));
+        lookup_class(class_name, &methods)  ?:
+        DO(default_type = methods->default_type)  ?:
+        methods->init(methods, count, &class_data)  ?:
+        DO(*class = create_class_block(methods, count, class_data))  ?:
+
+        /* Figure out which type to generate.  If a type is specified and we
+         * don't consume it then an error will be reported. */
+        IF(default_type,
+            /* If no type specified use the default. */
+            IF(**line == '\0', DO(line = &default_type))  ?:
+            create_type(line, methods->force_type, count, type));
 }
 
-
-void destroy_class(struct class_data *class_data)
+error__t class_parse_register(
+    struct class *class, const char *block_name, const char *field_name,
+    const char **line)
 {
-    if (class_data)
-    {
-        destroy_type(
-            class_data->type, class_data->type_data, class_data->count);
-        free(class_data);
-    }
+    return
+        IF(class->methods->parse_register,
+            class->methods->parse_register(
+                class, block_name, field_name, line));
 }
 
+error__t validate_class(struct class *class)
+{
+    return
+        IF(class->methods->validate,
+            class->methods->validate(class));
+}
+
+const char *get_class_name(struct class *class)
+{
+    return class->methods->name;
+}
+
+void destroy_class(struct class *class)
+{
+    if (class->methods->destroy)
+        class->methods->destroy(class);
+    free(class);
+}
 
 error__t initialise_classes(void)
 {
-    /* Class lookup map.  Used during configuration file loading. */
-    class_map = hash_table_create(false);
-    for (unsigned int i = 0; i < ARRAY_SIZE(classes_table); i ++)
-    {
-        const struct class *class = &classes_table[i];
-        hash_table_insert_const(class_map, class->name, class);
-    }
-
     return ERROR_OK;
 }
 
-
 void terminate_classes(void)
 {
-    if (class_map)
-        hash_table_destroy(class_map);
 }

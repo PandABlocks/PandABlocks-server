@@ -16,9 +16,15 @@ error__t process_config_socket(int scon);
 struct config_connection;
 
 
-/* This is used to manage the change index for this connection. */
-uint64_t update_connection_index(
-    struct config_connection *connection, uint64_t change_index);
+/* For each of the four change sets any change is associated with an increment
+ * of a global change_index.  Each connection maintains a list of the most
+ * recent change index seen for each change set.  This call updates the change
+ * index for each selected change set and returns the previous change index for
+ * all change sets. */
+void update_change_index(
+    struct config_connection *connection,
+    enum change_set change_set, uint64_t change_index,
+    uint64_t reported[]);
 
 
 /* This structure is used by get to communicate its results back to the server.

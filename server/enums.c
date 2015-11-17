@@ -10,6 +10,7 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "fields.h"
 #include "config_server.h"
 #include "types.h"
 
@@ -55,29 +56,31 @@ void enum_destroy(void *type_data, unsigned int count)
 
 
 /* Adds a single enumeration label to the enumeration set. */
-error__t enum_add_label(void *type_data, const char *string)
+error__t enum_add_label(void *type_data, const char **string)
 {
     struct enum_state *state = type_data;
     unsigned int ix;
     return
-        parse_uint(&string, &ix)  ?:
-        parse_whitespace(&string)  ?:
+        parse_uint(string, &ix)  ?:
+        parse_whitespace(string)  ?:
         TEST_OK_(ix < state->count, "Index out of range")  ?:
-        TEST_OK_(*string != '\0', "No label specified")  ?:
+        TEST_OK_(**string != '\0', "No label specified")  ?:
         TEST_OK_(state->strings[ix] == NULL, "Reusing index")  ?:
-        DO(state->strings[ix] = strdup(string))  ?:
+        DO(state->strings[ix] = strdup(*string))  ?:
         TEST_OK_(!hash_table_insert(
             state->map, state->strings[ix], (void *) (intptr_t) ix),
-            "Label already in use");
+            "Label already in use")  ?:
+        /* Skip to end of string to complete the parse. */
+        DO(*string = strchr(*string, '\0'));
 }
 
 
 /* Parses valid enumeration into corresponding value, otherwise error. */
 error__t enum_parse(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
-    struct enum_state *state = context->type_data;
+    struct enum_state *state = type_data;
     void *ix;
     return
         TEST_OK_(hash_table_lookup_bool(state->map, string, &ix),
@@ -88,10 +91,10 @@ error__t enum_parse(
 
 /* Formats valid value into enumeration string, otherwise error. */
 error__t enum_format(
-    const struct type_context *context,
+    void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
-    struct enum_state *state = context->type_data;
+    struct enum_state *state = type_data;
     return
         TEST_OK_(value < state->count, "Index out of range")  ?:
         TEST_OK_(state->strings[value], "No label for value")  ?:

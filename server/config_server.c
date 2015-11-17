@@ -11,6 +11,7 @@
 #include "error.h"
 #include "hardware.h"
 #include "parse.h"
+#include "fields.h"
 #include "config_command.h"
 #include "system_command.h"
 
@@ -200,20 +201,24 @@ static void write_char(struct buffered_file *file, char ch)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Interface to external implementation of commands. */
 
-
 /* This structure holds the local state for a config socket connection. */
 struct config_connection {
     struct buffered_file file;
-    uint64_t change_index;
+    uint64_t change_index[CHANGE_SET_SIZE];
 };
 
 
-uint64_t update_connection_index(
-    struct config_connection *connection, uint64_t change_index)
+void update_change_index(
+    struct config_connection *connection,
+    enum change_set change_set, uint64_t change_index,
+    uint64_t reported[CHANGE_SET_SIZE])
 {
-    uint64_t result = connection->change_index;
-    connection->change_index = change_index;
-    return result;
+    for (unsigned int i = 0; i < CHANGE_SET_SIZE; i ++)
+    {
+        reported[i] = connection->change_index[i];
+        if (change_set & (1U << i))
+            connection->change_index[i] = change_index;
+    }
 }
 
 

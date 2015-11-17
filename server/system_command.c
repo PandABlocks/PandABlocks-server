@@ -13,9 +13,9 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "fields.h"
 #include "config_server.h"
 #include "socket_server.h"
-#include "fields.h"
 #include "config_command.h"
 
 #include "system_command.h"
@@ -109,7 +109,7 @@ static error__t system_get_changes(
             parse_name(&command, action, sizeof(action))  ?:
             lookup_change_set(action, &change_set))  ?:
         parse_eos(&command)  ?:
-        DO(generate_changes(connection, result, change_set));
+        DO(generate_change_sets(connection, result, change_set));
 }
 
 

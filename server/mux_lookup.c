@@ -9,13 +9,11 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "hardware.h"       // For bus size definitions
+#include "fields.h"
+#include "config_server.h"
 
 #include "mux_lookup.h"
-
-
-#define BIT_MUX_COUNT       128
-#define POSITION_MUX_COUNT  64
-
 
 
 /* These manage the conversion between bit and position multiplexer register
@@ -55,7 +53,7 @@ static void mux_lookup_destroy(struct mux_lookup *lookup)
 
 
 /* Add name<->index mapping, called during configuration file parsing. */
-error__t mux_lookup_insert(
+static error__t mux_lookup_insert(
     struct mux_lookup *lookup, unsigned int ix, const char *name)
 {
     return
@@ -65,6 +63,23 @@ error__t mux_lookup_insert(
         TEST_OK_(!hash_table_insert(
             lookup->numbers, lookup->names[ix], (void *) (uintptr_t) ix),
             "Duplicate mux name %s", name);
+}
+
+
+error__t add_mux_indices(
+    struct mux_lookup *lookup,
+    const char *block_name, const char *field_name, unsigned int count,
+    unsigned int indices[])
+{
+    /* Add mux entries for our instances. */
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < count; i ++)
+    {
+        char name[MAX_NAME_LENGTH];
+        snprintf(name, sizeof(name), "%s%d.%s", block_name, i, field_name);
+        error = mux_lookup_insert(lookup, indices[i], name);
+    }
+    return error;
 }
 
 
@@ -99,8 +114,8 @@ error__t initialise_mux_lookup(void)
 {
     /* Block input multiplexer maps.  These are initialised by each
      * {bit,pos}_out field as it is loaded. */
-    bit_mux_lookup = mux_lookup_create(BIT_MUX_COUNT);
-    pos_mux_lookup = mux_lookup_create(POSITION_MUX_COUNT);
+    bit_mux_lookup = mux_lookup_create(BIT_BUS_COUNT);
+    pos_mux_lookup = mux_lookup_create(POS_BUS_COUNT);
 
     return ERROR_OK;
 }

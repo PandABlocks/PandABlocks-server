@@ -10,8 +10,8 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
-#include "config_server.h"
 #include "fields.h"
+#include "config_server.h"
 
 #include "config_command.h"
 
@@ -44,7 +44,7 @@ struct entity_actions {
     error__t (*put)(const struct entity_context *context, const char *value);
     error__t (*put_table)(
         const struct entity_context *context,
-        bool append, const struct put_table_writer *writer);
+        bool append, struct put_table_writer *writer);
 };
 
 
@@ -90,7 +90,7 @@ static error__t do_field_put(
 /* Implements  block.field<  command. */
 static error__t do_field_put_table(
     const struct entity_context *context,
-    bool append, const struct put_table_writer *writer)
+    bool append, struct put_table_writer *writer)
 {
     struct field_context field_context = create_field_context(context);
     return field_put_table(&field_context, append, writer);

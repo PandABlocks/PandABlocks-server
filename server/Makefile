@@ -14,9 +14,9 @@ CFLAGS += -g
 CPPFLAGS += -D_GNU_SOURCE
 
 CFLAGS += -Werror
-CFLAGS += -Wall -Wextra
-CFLAGS += -Wno-unused-parameter
-CFLAGS += -Wno-missing-field-initializers
+CFLAGS += -Wall
+CFLAGS += -Wextra
+
 CFLAGS += -Wundef
 CFLAGS += -Wshadow
 CFLAGS += -Wcast-align
@@ -28,6 +28,11 @@ CFLAGS += -Wstrict-prototypes
 CFLAGS += -Wcast-qual
 CFLAGS += -Woverflow
 CFLAGS += -Wconversion
+
+CFLAGS += -Wno-unused-parameter
+CFLAGS += -Wno-missing-field-initializers
+CFLAGS += -Wno-override-init
+
 
 # Pick up kernel driver header file
 CPPFLAGS += -I$(TOP)/driver
@@ -48,11 +53,11 @@ SRCS += database.c
 SRCS += config_command.c
 SRCS += system_command.c
 SRCS += fields.c
+SRCS += classes.c
 SRCS += mux_lookup.c
 SRCS += parse_lut.c
-SRCS += enums.c
 SRCS += types.c
-SRCS += classes.c
+SRCS += enums.c
 
 ifdef SIMSERVER
 CFLAGS += -DSIMSERVER

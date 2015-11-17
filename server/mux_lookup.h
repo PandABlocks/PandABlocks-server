@@ -5,8 +5,12 @@
 struct mux_lookup;
 
 
-error__t mux_lookup_insert(
-    struct mux_lookup *lookup, unsigned int ix, const char *name);
+/* Adds a set of entries to the given mux lookup table. */
+error__t add_mux_indices(
+    struct mux_lookup *lookup,
+    const char *block_name, const char *field_name, unsigned int count,
+    unsigned int indices[]);
+
 
 /* Converts MUX name into hardware index to write to register. */
 error__t mux_lookup_name(
