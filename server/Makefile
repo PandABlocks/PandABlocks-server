@@ -5,6 +5,10 @@ $(error Do not call this make file directly)
 endif
 
 
+# Discover name of compiler: we're going to want different flags in some cases
+CC_NAME := $(shell $(CC) --version | sed 's/ .*//;q')
+
+
 default:    # Default target comes first!
 .PHONY: default
 
@@ -29,9 +33,33 @@ CFLAGS += -Wcast-qual
 CFLAGS += -Woverflow
 CFLAGS += -Wconversion
 
+CFLAGS += -fstrict-overflow
+CFLAGS += -Wsign-compare
+
+CFLAGS += -Wstrict-overflow=5
+
+CFLAGS_clang += -Wmost
+CFLAGS_clang += -Weverything
+
+CFLAGS += -Wno-switch-enum
+CFLAGS += -Wno-variadic-macros
+CFLAGS += -Wno-padded
+CFLAGS += -Wno-format-nonliteral
+CFLAGS += -Wno-vla
+CFLAGS += -Wno-c++-compat
+CFLAGS += -Wno-pointer-arith
+
+CFLAGS_clang += -Wno-language-extension-token
+CFLAGS_clang += -Wno-disabled-macro-expansion
+CFLAGS_clang += -Wno-gnu-conditional-omitted-operand
+CFLAGS_clang += -Wno-gnu-statement-expression
+CFLAGS_clang += -Wno-gnu-empty-struct
+CFLAGS_clang += -Wno-gnu-zero-variadic-macro-arguments
+
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-missing-field-initializers
-CFLAGS += -Wno-override-init
+CFLAGS_cc    += -Wno-override-init
+CFLAGS_clang += -Wno-initializer-overrides
 
 
 # Pick up kernel driver header file
@@ -40,6 +68,8 @@ CPPFLAGS += -I$(TOP)/driver
 LDLIBS += -lpthread
 LDLIBS += -lrt
 LDLIBS += -lm
+
+CFLAGS += $(CFLAGS_$(CC_NAME))
 
 
 SRCS += server.c

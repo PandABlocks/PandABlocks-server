@@ -293,7 +293,7 @@ static void do_read_command(
     {
         struct connection_result result = connection_result;
         result.connection = connection;
-        error__t error = command_set->get(command, &connection_result);
+        error__t error = command_set->get(command, &result);
         /* We only need to report an error, any success will have been reported
          * by .get(). */
         if (error)
@@ -361,7 +361,7 @@ static error__t fill_ascii_buffer(
     error__t error = ERROR_OK;
     while (!error  &&  !*eos  &&  *seen < to_read)
     {
-        const char *data_in;
+        const char *data_in = NULL;
         error =
             TEST_OK_(
                read_line(&connection->file, line, sizeof(line), false),

@@ -47,7 +47,7 @@ enum change_set {
 };
 
 #define CHANGE_SET_SIZE     4
-STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE);
+STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE)
 
 /* Generates list of all changed fields and their values. */
 void generate_change_sets(
