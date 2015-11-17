@@ -367,15 +367,21 @@ error__t run_socket_server(void)
 
 /* Creates listening socket on the given port. */
 static error__t create_and_listen(
-    struct listen_socket *listen_socket, unsigned int port)
+    struct listen_socket *listen_socket, unsigned int port, bool reuse_addr)
 {
     struct sockaddr_in sin = {
         .sin_family = AF_INET,
         .sin_addr.s_addr = INADDR_ANY,
         .sin_port = htons(port)
     };
+    const int one = 1;
     return
         TEST_IO(listen_socket->sock = socket(AF_INET, SOCK_STREAM, 0))  ?:
+        /* If told to reuse address then set relevant flag. */
+        IF(reuse_addr,
+            TEST_IO(setsockopt(
+                listen_socket->sock, SOL_SOCKET, SO_REUSEADDR,
+                &one, sizeof(one))))  ?:
         TEST_IO_(
             bind(listen_socket->sock, (struct sockaddr *) &sin, sizeof(sin)),
             "Unable to bind to server socket")  ?:
@@ -386,11 +392,11 @@ static error__t create_and_listen(
 
 
 error__t initialise_socket_server(
-    unsigned int config_port, unsigned int data_port)
+    unsigned int config_port, unsigned int data_port, bool reuse_addr)
 {
     return
-        create_and_listen(&config_socket, config_port)  ?:
-        create_and_listen(&data_socket, data_port);
+        create_and_listen(&config_socket, config_port, reuse_addr)  ?:
+        create_and_listen(&data_socket, data_port, reuse_addr);
 }
 
 
