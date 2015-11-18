@@ -170,11 +170,62 @@ static error__t load_register_database(const char *db_name)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+
+static error__t description_parse_block_line(
+    void *context, const char *line, void **indent_context)
+{
+    char block_name[MAX_NAME_LENGTH];
+    struct block *block;
+    return
+        parse_name(&line, block_name, sizeof(block_name))  ?:
+        lookup_block(block_name, &block, NULL)  ?:
+        DO(*indent_context = block)  ?:
+        parse_whitespace(&line)  ?:
+        block_set_description(block, line);
+}
+
+
+static error__t description_parse_field_line(
+    void *context, const char *line, void **indent_context)
+{
+    struct block *block = context;
+    char field_name[MAX_NAME_LENGTH];
+    struct field *field;
+    return
+        parse_name(&line, field_name, sizeof(field_name))  ?:
+        lookup_field(block, field_name, &field)  ?:
+        parse_whitespace(&line)  ?:
+        field_set_description(field, line);
+}
+
+
+static error__t description_parse_line(
+    unsigned int indent, void *context, const char *line, void **indent_context)
+{
+    switch (indent)
+    {
+        case 0:
+            return description_parse_block_line(context, line, indent_context);
+        case 1:
+            return description_parse_field_line(context, line, indent_context);
+        default:
+            /* Should not happen, we've set maximum indent in call to
+             * parse_indented_file below. */
+            ASSERT_FAIL();
+    }
+}
+
+
+static const struct indent_parser description_indent_parser = {
+    .parse_line = description_parse_line,
+};
+
 static error__t load_description_database(const char *db_name)
 {
     log_message("Loading description database from \"%s\"", db_name);
-    return ERROR_OK;
+    return parse_indented_file(db_name, 1, &description_indent_parser);
 }
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

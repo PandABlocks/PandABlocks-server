@@ -31,6 +31,7 @@ struct block {
     unsigned int count;         // Number of instances of this block
     unsigned int base;          // Block register base
     struct hash_table *fields;  // Map from field name to fields
+    char *description;          // User readable description
 };
 
 
@@ -45,6 +46,7 @@ struct field {
 
     struct class *class;            // Class defining hardware interface and
     struct type *type;              // Optional type handler
+    char *description;              // User readable description
 };
 
 
@@ -304,6 +306,7 @@ static void destroy_field(struct field *field)
     destroy_class(field->class);
     if (field->type)
         destroy_type(field->type);
+    free(field->description);
     free(field);
 }
 
@@ -313,6 +316,7 @@ static void destroy_block(struct block *block)
         destroy_field(field);
     hash_table_destroy(block->fields);
     free(block->name);
+    free(block->description);
     free(block);
 }
 
@@ -353,6 +357,14 @@ error__t block_set_register(struct block *block, unsigned int base)
         TEST_OK_(block->base == UNASSIGNED_REGISTER,
             "Register already assigned")  ?:
         DO(block->base = base);
+}
+
+
+error__t block_set_description(struct block *block, const char *description)
+{
+    return
+        TEST_OK_(block->description == NULL, "Description already set")  ?:
+        DO(block->description = strdup(description));
 }
 
 
@@ -402,6 +414,14 @@ error__t field_parse_register(struct field *field, const char **line)
 {
     return class_parse_register(
         field->class, field->block->name, field->name, line);
+}
+
+
+error__t field_set_description(struct field *field, const char *description)
+{
+    return
+        TEST_OK_(field->description == NULL, "Description already set")  ?:
+        DO(field->description = strdup(description));
 }
 
 

@@ -115,7 +115,9 @@ error__t class_put_table(
     struct class *class, unsigned int number,
     bool append, struct put_table_writer *writer)
 {
-    return FAIL_("Not implemented");
+    return
+        TEST_OK_(class->methods->put_table, "Field is not a table")  ?:
+        class->methods->put_table(class, number, append, writer);
 }
 
 

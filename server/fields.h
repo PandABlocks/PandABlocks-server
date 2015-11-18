@@ -97,6 +97,9 @@ error__t create_block(
 /* Sets base address for block. */
 error__t block_set_register(struct block *block, unsigned int base);
 
+/* Sets description string for block. */
+error__t block_set_description(struct block *block, const char *description);
+
 
 /* Call this to create each field. */
 error__t create_field(
@@ -108,6 +111,9 @@ error__t field_parse_attribute(struct field *field, const char **line);
 
 /* Parse register setting for field. */
 error__t field_parse_register(struct field *field, const char **line);
+
+/* Sets description string for field. */
+error__t field_set_description(struct field *field, const char *description);
 
 
 /* Must be called after loading configuration and register database to check
