@@ -33,7 +33,7 @@ struct class_methods {
 
     /* Called to parse the class definition line for a field.  The corresponding
      * class has already been identified. */
-    error__t (*init)(
+    void (*init)(
         const struct class_methods *methods, unsigned int count,
         void **class_data);
 
@@ -72,10 +72,11 @@ struct class_methods {
 
 
 struct class {
-    const struct class_methods *methods;
-    unsigned int count;
-    unsigned int reg;
-    void *class_data;
+    const struct class_methods *methods;    // Class implementation
+    unsigned int count;             // Number of instances of this block
+    unsigned int block_base;        // Register base for block
+    unsigned int field_register;    // Register for field (if required)
+    void *class_data;               // Class specific data
 };
 
 
@@ -206,14 +207,13 @@ static struct pos_out_state {
 
 
 /* The class specific state is just the index array. */
-static error__t bit_pos_out_init(
+static void bit_pos_out_init(
     const struct class_methods *methods, unsigned int count, void **class_data)
 {
     unsigned int *index_array = malloc(count * sizeof(unsigned int));
     for (unsigned int i = 0; i < count; i ++)
         index_array[i] = UNASSIGNED_REGISTER;
     *class_data = index_array;
-    return ERROR_OK;
 }
 
 
@@ -354,6 +354,112 @@ static void pos_out_change_set(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Parameters. */
+
+/* All of bit_in, pos_in and param have very similar behaviour: values are
+ * written to a register, the written value is cached for readback, and we keep
+ * track of the report index. */
+
+struct param_state {
+    uint32_t value;
+    uint64_t update_index;
+};
+
+static void param_init(
+    const struct class_methods *methods, unsigned int count, void **class_data)
+{
+    *class_data = calloc(count, sizeof(struct param_state));
+}
+
+
+static uint32_t param_read(struct class *class, unsigned int number)
+{
+    struct param_state *state = class->class_data;
+    return state[number].value;
+}
+
+
+static void param_write(
+    struct class *class, unsigned int number, uint32_t value)
+{
+    struct param_state *state = class->class_data;
+    state[number].value = value;
+    state[number].update_index = get_change_index();
+    hw_write_register(class->block_base, number, class->field_register, value);
+}
+
+
+static void param_change_set(
+    struct class *class, const uint64_t report_index[], bool changes[])
+{
+    struct param_state *state = class->class_data;
+    uint64_t report = report_index[CHANGE_IX_CONFIG];
+    for (unsigned int i = 0; i < class->count; i ++)
+        changes[i] = state[i].update_index >= report;
+}
+
+#define PARAM_CLASS \
+    .init = param_init, \
+    .parse_register = default_parse_register, \
+    .read = param_read, \
+    .write = param_write, \
+    .change_set = param_change_set
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Read class. */
+
+/* We track each read and use changes in the read value to update the change
+ * index. */
+
+struct read_state {
+    uint32_t value;
+    uint64_t update_index;
+};
+
+
+static void read_init(
+    const struct class_methods *methods, unsigned int count, void **class_data)
+{
+    *class_data = calloc(count, sizeof(struct read_state));
+}
+
+static uint32_t read_read(struct class *class, unsigned int number)
+{
+    struct read_state *state = class->class_data;
+    uint32_t result =
+        hw_read_register(class->block_base, number, class->field_register);
+    if (result != state[number].value)
+    {
+        state[number].value = result;
+        state[number].update_index = get_change_index();
+    }
+    return result;
+}
+
+static void read_change_set(
+    struct class *class, const uint64_t report_index[], bool changes[])
+{
+    struct param_state *state = class->class_data;
+    uint64_t report = report_index[CHANGE_IX_READ];
+    for (unsigned int i = 0; i < class->count; i ++)
+        changes[i] = state[i].update_index >= report;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Write class. */
+
+/* This one is simple.  We write to the register.  That's all. */
+
+static void write_write(
+    struct class *class, unsigned int number, uint32_t value)
+{
+    hw_write_register(class->block_base, number, class->field_register, value);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table definitions. */
 
 /* The register assignment for tables doesn't include a field register. */
@@ -364,18 +470,12 @@ static error__t table_validate(struct class *class)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Common defaults. */
-
-static error__t default_init(
-    const struct class_methods *methods, unsigned int count, void **class_data)
-{
-    return ERROR_OK;
-}
+/* Common defaults for simple register assignment. */
 
 static error__t default_validate(struct class *class)
 {
     return
-        TEST_OK_(class->reg != UNASSIGNED_REGISTER,
+        TEST_OK_(class->field_register != UNASSIGNED_REGISTER,
             "No register assigned to field");
 }
 
@@ -384,25 +484,20 @@ static error__t default_parse_register(
     const char **line)
 {
     return
-        TEST_OK_(class->reg == UNASSIGNED_REGISTER,
+        TEST_OK_(class->field_register == UNASSIGNED_REGISTER,
             "Register already assigned")  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &class->reg);
+        parse_uint(line, &class->field_register);
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Top level list of classes. */
 
-#define CLASS_DEFAULTS \
-    .init = default_init, \
-    .validate = default_validate, \
-    .parse_register = default_parse_register
-
 static const struct class_methods classes_table[] = {
-    { "bit_in", "bit_mux", true, CLASS_DEFAULTS,
-    },
-    { "pos_in", "pos_mux", true, CLASS_DEFAULTS, },
+    { "bit_in", "bit_mux", true, PARAM_CLASS, },
+    { "pos_in", "pos_mux", true, PARAM_CLASS, },
+    { "param", "uint", PARAM_CLASS, },
     { "bit_out", "bit",
         .init = bit_pos_out_init,
         .parse_register = bit_out_parse_register,
@@ -417,11 +512,19 @@ static const struct class_methods classes_table[] = {
         .read = pos_out_read, .refresh = pos_out_refresh,
         .change_set = pos_out_change_set,
     },
-    { "param", "uint", CLASS_DEFAULTS, },
-    { "read", "uint", CLASS_DEFAULTS, },
-    { "write", "uint", CLASS_DEFAULTS, },
+    { "read", "uint",
+        .init = read_init,
+        .validate = default_validate,
+        .parse_register = default_parse_register,
+        .read = read_read,
+        .change_set = read_change_set,
+    },
+    { "write", "uint",
+        .validate = default_validate,
+        .parse_register = default_parse_register,
+        .write = write_write,
+    },
     { "table",
-        .init = default_init,
         .validate = table_validate,
     },
 };
@@ -448,21 +551,23 @@ static error__t lookup_class(
 
 static struct class *create_class_block(
     const struct class_methods *methods,
-    unsigned int count, void *class_data)
+    unsigned int count, unsigned int block_base, void *class_data)
 {
     struct class *class = malloc(sizeof(struct class));
     *class = (struct class) {
         .methods = methods,
         .count = count,
+        .block_base = block_base,
+        .field_register = UNASSIGNED_REGISTER,
         .class_data = class_data,
-        .reg = UNASSIGNED_REGISTER,
     };
     return class;
 }
 
 error__t create_class(
     const char *class_name, const char **line,
-    unsigned int count, struct class **class, struct type **type)
+    unsigned int block_base, unsigned int count,
+    struct class **class, struct type **type)
 {
     const struct class_methods *methods = NULL;
     void *class_data = NULL;
@@ -470,8 +575,10 @@ error__t create_class(
     return
         lookup_class(class_name, &methods)  ?:
         DO(default_type = methods->default_type)  ?:
-        methods->init(methods, count, &class_data)  ?:
-        DO(*class = create_class_block(methods, count, class_data))  ?:
+        IF(methods->init,
+            DO(methods->init(methods, count, &class_data)))  ?:
+        DO(*class = create_class_block(
+            methods, count, block_base, class_data))  ?:
 
         /* Figure out which type to generate.  If a type is specified and we
          * don't consume it then an error will be reported. */

@@ -63,11 +63,11 @@ static error__t read_all(int file, void *data, size_t length)
 }
 
 
-void hw_write_config(
+void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value)
 {
-    printf("hw_write_config %u:%u:%u <= %u\n",
+    printf("hw_write_register %u:%u:%u <= %u\n",
         block_base, block_number, reg, value);
     unsigned char command[8] = {
         'W',
@@ -89,10 +89,10 @@ void hw_write_config(
 }
 
 
-uint32_t hw_read_data(
+uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
-    printf("hw_read_data %u:%u:%u ", block_base, block_number, reg);
+    printf("hw_read_register %u:%u:%u ", block_base, block_number, reg);
     unsigned char command[4] = {
         'R',
         (unsigned char) block_base,

@@ -73,7 +73,8 @@ error__t class_attr_put(
 /* Performs class initialisation and creates any associated type. */
 error__t create_class(
     const char *class_name, const char **line,
-    unsigned int count, struct class **class, struct type **type);
+    unsigned int block_base, unsigned int count,
+    struct class **class, struct type **type);
 
 /* Parse register definition line. */
 error__t class_parse_register(

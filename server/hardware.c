@@ -39,20 +39,20 @@ static unsigned int make_offset(
         (reg & 0xf);
 }
 
-void hw_write_config(
+void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value)
 {
-    printf("hw_write_config %u:%u:%u <= %u\n",
+    printf("hw_write_register %u:%u:%u <= %u\n",
         block_base, block_number, reg, value);
     register_map[make_offset(block_base, block_number, reg)] = value;
 }
 
-uint32_t hw_read_data(
+uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     uint32_t result = register_map[make_offset(block_base, block_number, reg)];
-    printf("hw_read_data %u:%u:%u => %u\n",
+    printf("hw_read_register %u:%u:%u => %u\n",
         block_base, block_number, reg, result);
     return result;
 }

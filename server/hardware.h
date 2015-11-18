@@ -13,10 +13,10 @@ void terminate_hardware(void);
 /* Read and write function block configuration registers.  Each function block
  * is identified by its function number or "block base", the block number within
  * that function, and finally the register within the block. */
-void hw_write_config(
+void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value);
-uint32_t hw_read_data(
+uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg);
 
 /* Write table data. */

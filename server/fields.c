@@ -375,7 +375,8 @@ error__t create_field(
     *field = create_field_block(block, field_name);
     return
         TRY_CATCH(
-            create_class(class_name, line, block->count,
+            create_class(
+                class_name, line, block->base, block->count,
                 &(*field)->class, &(*field)->type)  ?:
             /* Insert the field into the blocks map of fields. */
             TEST_OK_(
