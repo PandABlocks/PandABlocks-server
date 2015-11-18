@@ -213,11 +213,15 @@ void update_change_index(
     uint64_t reported[CHANGE_SET_SIZE])
 {
     for (unsigned int i = 0; i < CHANGE_SET_SIZE; i ++)
-    {
-        reported[i] = connection->change_index[i];
         if (change_set & (1U << i))
+        {
+            reported[i] = connection->change_index[i];
             connection->change_index[i] = change_index;
-    }
+        }
+        else
+            /* If this change isn't to be reported, push the report index out to
+             * the indefinite future. */
+            reported[i] = (uint64_t) (int64_t) -1;
 }
 
 

@@ -11,10 +11,11 @@ struct class;
 /* Class field access. */
 
 /* Reads value from associated register, or error if reading not supported. */
-error__t class_read(struct class *class, uint32_t *value, bool refresh);
+error__t class_read(
+    struct class *class, unsigned int number, uint32_t *value, bool refresh);
 
 /* Writes value to register, or returns error if not supported. */
-error__t class_write(struct class *class, uint32_t value);
+error__t class_write(struct class *class, unsigned int number, uint32_t value);
 
 
 /* This method will only be called if there is no type support for the class. */
@@ -33,7 +34,7 @@ uint64_t get_change_index(void);
 
 /* Retrieves change set for the given class. */
 void get_class_change_set(
-    struct class *class, uint64_t report_index[], bool changes[]);
+    struct class *class, const uint64_t report_index[], bool changes[]);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

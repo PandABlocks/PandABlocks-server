@@ -174,7 +174,7 @@ error__t field_get(
         uint32_t value;
         char string[MAX_RESULT_LENGTH];
         return
-            class_read(field->class, &value, true)  ?:
+            class_read(field->class, number, &value, true)  ?:
             type_format(field->type, number, value, string, sizeof(string))  ?:
             DO(result->write_one(result->connection, string));
     }
@@ -191,7 +191,7 @@ error__t field_put(
     return
         TEST_OK_(field->type, "Field not writeable")  ?:
         type_parse(field->type, number, string, &value)  ?:
-        class_write(field->class, value);
+        class_write(field->class, number, value);
 }
 
 
@@ -239,7 +239,7 @@ static void report_changed_value(
     uint32_t value;
     error__t error =
         TEST_OK(field->type)  ?:        // A big surprise if this fails here
-        class_read(field->class, &value, false)  ?:
+        class_read(field->class, number, &value, false)  ?:
         type_format(
             field->type, number, value,
             string + prefix, sizeof(string) - prefix);
@@ -272,7 +272,6 @@ void generate_change_sets(
         FOR_EACH_FIELD(block->fields, field)
         {
             bool changes[block->count];
-            memset(changes, 0, sizeof(changes));
             get_class_change_set(field->class, report_index, changes);
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
