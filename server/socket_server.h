@@ -5,7 +5,7 @@ struct connection_result;
 
 /* Initialises the socket server but doesn't run the server yet. */
 error__t initialise_socket_server(
-    unsigned int config_port, unsigned int data_port);
+    unsigned int config_port, unsigned int data_port, bool reuse_addr);
 
 /* Ensures all connections are terminated and releases any resources. */
 void terminate_socket_server(void);

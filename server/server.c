@@ -23,6 +23,7 @@
 
 static unsigned int config_port = 8888;
 static unsigned int data_port = 8889;
+static bool reuse_addr = false;
 
 /* Paths to configuration databases. */
 static const char *config_db;
@@ -40,6 +41,7 @@ static void usage(const char *argv0)
 "   -h  Show this usage\n"
 "   -p: Specify configuration port (default %d)\n"
 "   -d: Specify data port (default %d)\n"
+"   -R: Reuse address immediately, don't wait for stray packets to expire\n"
 "   -c: Specify configuration database\n"
 "   -r: Specify register database\n"
 "   -D: Specify description database\n"
@@ -53,11 +55,12 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:c:r:D:"))
+        switch (getopt(argc, argv, "+hp:d:Rc:r:D:"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   config_port = (unsigned int) atoi(optarg);      break;
             case 'd':   data_port   = (unsigned int) atoi(optarg);      break;
+            case 'R':   reuse_addr = true;                              break;
             case 'c':   config_db = optarg;                             break;
             case 'r':   register_db = optarg;                           break;
             case 'D':   description_db = optarg;                        break;
@@ -123,7 +126,7 @@ int main(int argc, char *const argv[])
 
         initialise_hardware()  ?:
         initialise_system_command()  ?:
-        initialise_socket_server(config_port, data_port)  ?:
+        initialise_socket_server(config_port, data_port, reuse_addr)  ?:
 
         maybe_daemonise()  ?:
         initialise_signals();
