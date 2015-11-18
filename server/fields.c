@@ -108,8 +108,6 @@ error__t lookup_attr(
     /* Both classes and types can have attributes.  Try the type attribute
      * first, fail if neither succeeds. */
     *attr = type_lookup_attr(field->type, name);
-    if (*attr == NULL)
-        *attr = class_lookup_attr(field->class, name);
     return TEST_OK_(*attr, "No such attribute");
 }
 
@@ -153,7 +151,6 @@ error__t attr_list_get(
 {
     if (field->type)
         type_attr_list_get(field->type, result);
-    class_attr_list_get(field->class, result);
     result->write_many_end(result->connection);
     return ERROR_OK;
 }
@@ -211,8 +208,6 @@ error__t attr_get(
     const struct connection_result *result)
 {
     return FAIL_("Not implemented");
-//     struct class_attr_context attr_context = create_class_attr_context(context);
-//     return class_attr_get(&attr_context, result);
 }
 
 
@@ -220,8 +215,6 @@ error__t attr_get(
 error__t attr_put(const struct attr_context *context, const char *value)
 {
     return FAIL_("Not implemented");
-//     struct class_attr_context attr_context = create_class_attr_context(context);
-//     return class_attr_put(&attr_context, value);
 }
 
 

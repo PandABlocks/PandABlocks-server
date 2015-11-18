@@ -58,16 +58,12 @@ struct class_methods {
         struct class *class, const uint64_t report_index[], bool changes[]);
 
     /* Access to table data. */
-    error__t (*get_many)(
+    error__t (*get)(
         struct class *class, unsigned int ix,
         const struct connection_result *result);
     error__t (*put_table)(
         struct class *class, unsigned int ix,
         bool append, struct put_table_writer *writer);
-
-    /* Field attributes. */
-    const struct attr *attrs;
-    unsigned int attr_count;
 };
 
 
@@ -81,7 +77,15 @@ struct class {
 
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+static pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define LOCK(x)     ASSERT_PTHREAD(pthread_mutex_lock(&state_mutex))
+#define UNLOCK(x)   ASSERT_PTHREAD(pthread_mutex_unlock(&state_mutex))
+
+
+
+/*****************************************************************************/
+/* External API. */
+
 /* Class field access. */
 
 error__t class_read(
@@ -107,7 +111,9 @@ error__t class_get(
     struct class *class, unsigned int number,
     const struct connection_result *result)
 {
-    return FAIL_("Not implemented");
+    return
+        TEST_OK_(class->methods->get, "Field not readable")  ?:
+        class->methods->get(class, number, result);
 }
 
 
@@ -121,7 +127,6 @@ error__t class_put_table(
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Change support. */
 
 /* This number is used to work out which fields have changed since we last
@@ -146,56 +151,15 @@ void get_class_change_set(
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Attribute access. */
+/*****************************************************************************/
+/* Individual class implementations. */
 
-void class_attr_list_get(
-    const struct class *class,
-    const struct connection_result *result)
-{
-//     if (class->methods->attrs)
-//         for (unsigned int i = 0; i < class->methods->attr_count; i ++)
-//             result->write_many(connection, class->methods->attrs[i].name);
-}
-
-
-const struct attr *class_lookup_attr(struct class *class, const char *name)
-{
-//     const struct attr *attrs = class->methods->attrs;
-//     if (attrs)
-//         for (unsigned int i = 0; i < class->methods->attr_count; i ++)
-//             if (strcmp(name, attrs[i].name) == 0)
-//                 return &attrs[i];
-    return NULL;
-}
-
-
-error__t class_attr_get(
-    const struct class_attr_context *context,
-    const struct connection_result *result)
-{
-    return FAIL_("Not implemented");
-}
-
-
-error__t class_attr_put(
-    const struct class_attr_context *context, const char *value)
-{
-    return FAIL_("Not implemented");
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* bit_out and pos_out classes. */
 
 /* For bit and pos out classes we read all the values together and record the
  * corresponding change indexes.  This means we need a global state structure to
  * record the last reading, together with index information for each class index
  * to identify the corresponding fields per class. */
-
-static pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
-#define LOCK(x)     ASSERT_PTHREAD(pthread_mutex_lock(&state_mutex))
-#define UNLOCK(x)   ASSERT_PTHREAD(pthread_mutex_unlock(&state_mutex))
 
 static struct bit_out_state {
     bool bits[BIT_BUS_COUNT];
@@ -464,10 +428,18 @@ static void write_write(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table definitions. */
 
-/* The register assignment for tables doesn't include a field register. */
-static error__t table_validate(struct class *class)
+static error__t table_get(
+    struct class *class, unsigned int ix,
+    const struct connection_result *result)
 {
-    return ERROR_OK;
+    return FAIL_("Not implemented");
+}
+
+static error__t table_put_table(
+    struct class *class, unsigned int ix,
+    bool append, struct put_table_writer *writer)
+{
+    return FAIL_("block.field< not implemented yet");
 }
 
 
@@ -493,7 +465,7 @@ static error__t default_parse_register(
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*****************************************************************************/
 /* Top level list of classes. */
 
 static const struct class_methods classes_table[] = {
@@ -527,7 +499,8 @@ static const struct class_methods classes_table[] = {
         .write = write_write,
     },
     { "table",
-        .validate = table_validate,
+        .get = table_get,
+        .put_table = table_put_table,
     },
 };
 
@@ -618,13 +591,4 @@ void destroy_class(struct class *class)
         class->methods->destroy(class);
     free(class->class_data);
     free(class);
-}
-
-error__t initialise_classes(void)
-{
-    return ERROR_OK;
-}
-
-void terminate_classes(void)
-{
 }

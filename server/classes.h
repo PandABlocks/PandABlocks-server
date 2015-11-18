@@ -38,36 +38,6 @@ void get_class_change_set(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Attribute access. */
-
-/* Outputs list of class attributes. */
-void class_attr_list_get(
-    const struct class *class,
-    const struct connection_result *result);
-
-/* Looks up named attribute. */
-const struct attr *class_lookup_attr(struct class *class, const char *name);
-
-
-struct class_attr_context {
-    struct class *class;
-    unsigned int number;
-    const struct attr *attr;
-};
-
-/*  block[n].field.attr?
- * Reads from field attribute. */
-error__t class_attr_get(
-    const struct class_attr_context *context,
-    const struct connection_result *result);
-
-/*  block[n].field.attr=value
- * Writes to field attribute. */
-error__t class_attr_put(
-    const struct class_attr_context *context, const char *value);
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Class inititialisation. */
 
 /* Performs class initialisation and creates any associated type. */
@@ -90,8 +60,3 @@ const char *get_class_name(struct class *class);
 
 /* This should be called during shutdown for each created class. */
 void destroy_class(struct class *class);
-
-/* Must be called first before any other method exported here. */
-error__t initialise_classes(void);
-/* To be called during program termination to release any resources. */
-void terminate_classes(void);

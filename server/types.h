@@ -56,8 +56,3 @@ error__t type_parse_attribute(struct type *type, const char **line);
 
 /* Returns name of type. */
 const char *get_type_name(const struct type *type);
-
-
-error__t initialise_types(void);
-
-void terminate_types(void);

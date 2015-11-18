@@ -115,7 +115,6 @@ error__t initialise_mux_lookup(void)
      * {bit,pos}_out field as it is loaded. */
     bit_mux_lookup = mux_lookup_create(BIT_BUS_COUNT);
     pos_mux_lookup = mux_lookup_create(POS_BUS_COUNT);
-
     return ERROR_OK;
 }
 

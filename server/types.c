@@ -556,10 +556,6 @@ error__t type_attr_put(
 /* Type access helpers. */
 
 
-/* Map from type name to type definition, filled in by initialiser. */
-static struct hash_table *field_type_map;
-
-
 const struct attr *type_lookup_attr(
     const struct type *type, const char *name)
 {
@@ -575,37 +571,6 @@ const struct attr *type_lookup_attr(
 const char *get_type_name(const struct type *type)
 {
     return type->methods->name;
-}
-
-
-static struct type *create_type_block(
-    const struct type_methods *methods, unsigned int count, void *type_data)
-{
-    struct type *type = malloc(sizeof(struct type));
-    *type = (struct type) {
-        .methods = methods,
-        .count = count,
-        .type_data = type_data,
-    };
-    return type;
-}
-
-error__t create_type(
-    const char **string, bool forced, unsigned int count, struct type **type)
-{
-    char type_name[MAX_NAME_LENGTH];
-    const struct type_methods *methods;
-    void *type_data = NULL;
-    return
-        parse_name(string, type_name, sizeof(type_name))  ?:
-        TEST_OK_(
-            methods = hash_table_lookup(field_type_map, type_name),
-            "Unknown field type %s", type_name)  ?:
-        TEST_OK_(!methods->tied  ||  forced,
-            "Cannot use this type with this class")  ?:
-        IF(methods->init,
-            methods->init(string, count, &type_data))  ?:
-        DO(*type = create_type_block(methods, count, type_data));
 }
 
 
@@ -630,7 +595,7 @@ void destroy_type(struct type *type)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
-static const struct type_methods field_type_table[] = {
+static const struct type_methods types_table[] = {
     /* Unsigned integer with optional maximum limit. */
     { "uint",
         .init = uint_init,
@@ -715,21 +680,48 @@ static const struct type_methods field_type_table[] = {
 };
 
 
-error__t initialise_types(void)
-{
-    field_type_map = hash_table_create(false);
-    for (unsigned int i = 0; i < ARRAY_SIZE(field_type_table); i ++)
-    {
-        const struct type_methods *methods = &field_type_table[i];
-        hash_table_insert_const(field_type_map, methods->name, methods);
-    }
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Initialisation. */
 
-    return ERROR_OK;
+static error__t lookup_type(
+    const char *name, const struct type_methods **result)
+{
+    for (unsigned int i = 0; i < ARRAY_SIZE(types_table); i ++)
+    {
+        const struct type_methods *methods = &types_table[i];
+        if (strcmp(name, methods->name) == 0)
+        {
+            *result = methods;
+            return ERROR_OK;
+        }
+    }
+    return FAIL_("Unknown field type %s", name);
 }
 
-
-void terminate_types(void)
+static struct type *create_type_block(
+    const struct type_methods *methods, unsigned int count, void *type_data)
 {
-    if (field_type_map)
-        hash_table_destroy(field_type_map);
+    struct type *type = malloc(sizeof(struct type));
+    *type = (struct type) {
+        .methods = methods,
+        .count = count,
+        .type_data = type_data,
+    };
+    return type;
+}
+
+error__t create_type(
+    const char **string, bool forced, unsigned int count, struct type **type)
+{
+    char type_name[MAX_NAME_LENGTH];
+    const struct type_methods *methods = NULL;
+    void *type_data = NULL;
+    return
+        parse_name(string, type_name, sizeof(type_name))  ?:
+        lookup_type(type_name, &methods)  ?:
+        TEST_OK_(!methods->tied  ||  forced,
+            "Cannot use this type with this class")  ?:
+        IF(methods->init,
+            methods->init(string, count, &type_data))  ?:
+        DO(*type = create_type_block(methods, count, type_data));
 }
