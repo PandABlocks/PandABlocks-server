@@ -11,7 +11,6 @@
 #include "error.h"
 #include "hardware.h"
 #include "parse.h"
-#include "fields.h"
 #include "config_command.h"
 #include "system_command.h"
 

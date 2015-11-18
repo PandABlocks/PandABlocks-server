@@ -10,12 +10,12 @@
 
 #include "error.h"
 #include "hardware.h"
-#include "fields.h"
 #include "config_server.h"
 #include "socket_server.h"
 #include "database.h"
 #include "config_command.h"
 #include "system_command.h"
+#include "fields.h"
 #include "types.h"
 #include "mux_lookup.h"
 #include "classes.h"

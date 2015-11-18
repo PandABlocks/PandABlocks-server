@@ -29,26 +29,6 @@ error__t lookup_attr(
     const struct field *field, const char *name, const struct attr **attr);
 
 
-/* We group the reportable changes into four groups, each separately reportable.
- * Normal configuration changes, two sets of live data updates, and a polled
- * readback change set. */
-#define CHANGE_IX_CONFIG    0   // *CHANGES.CONFIG?     Configuration changes
-#define CHANGE_IX_BITS      1   // *CHANGES.BITS?       Bit output changes
-#define CHANGE_IX_POSITION  2   // *CHANGES.POSN?       Position output changes
-#define CHANGE_IX_READ      3   // *CHANGES.READ?       Read register changes
-enum change_set {
-    CHANGES_NONE     = 0,
-    CHANGES_CONFIG   = 1 << CHANGE_IX_CONFIG,
-    CHANGES_BITS     = 1 << CHANGE_IX_BITS,
-    CHANGES_POSITION = 1 << CHANGE_IX_POSITION,
-    CHANGES_READ     = 1 << CHANGE_IX_READ,
-    CHANGES_ALL =               // *CHANGES?            All changes
-        CHANGES_CONFIG | CHANGES_BITS | CHANGES_POSITION | CHANGES_READ,
-};
-
-#define CHANGE_SET_SIZE     4
-STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE)
-
 /* Generates list of all changed fields and their values. */
 void generate_change_sets(
     const struct connection_result *result, enum change_set changes);

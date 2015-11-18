@@ -9,12 +9,12 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
-#include "fields.h"
 #include "config_server.h"
 #include "types.h"
 #include "classes.h"
 #include "hardware.h"
 
+#include "fields.h"
 
 
 #define UNASSIGNED_REGISTER ((unsigned int) -1)

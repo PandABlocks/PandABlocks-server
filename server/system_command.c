@@ -13,10 +13,10 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
-#include "fields.h"
 #include "config_server.h"
 #include "socket_server.h"
 #include "config_command.h"
+#include "fields.h"
 
 #include "system_command.h"
 

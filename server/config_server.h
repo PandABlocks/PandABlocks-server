@@ -5,6 +5,29 @@
 #define MAX_RESULT_LENGTH   256
 
 
+/* Reportable changes are grouped into several groups, each separately
+ * reportable:  Normal configuration changes, two sets of live data updates, and
+ * a polled readback change set. */
+#define CHANGE_IX_CONFIG    0   // *CHANGES.CONFIG?     Configuration changes
+#define CHANGE_IX_BITS      1   // *CHANGES.BITS?       Bit output changes
+#define CHANGE_IX_POSITION  2   // *CHANGES.POSN?       Position output changes
+#define CHANGE_IX_READ      3   // *CHANGES.READ?       Read register changes
+#define CHANGE_IX_ATTR      4   // *CHANGES.ATTR?       Read attribute changes
+enum change_set {
+    CHANGES_NONE     = 0,
+    CHANGES_CONFIG   = 1 << CHANGE_IX_CONFIG,
+    CHANGES_BITS     = 1 << CHANGE_IX_BITS,
+    CHANGES_POSITION = 1 << CHANGE_IX_POSITION,
+    CHANGES_READ     = 1 << CHANGE_IX_READ,
+    CHANGES_ATTR     = 1 << CHANGE_IX_ATTR,
+    CHANGES_ALL =               // *CHANGES?            All changes
+        CHANGES_CONFIG | CHANGES_BITS | CHANGES_POSITION | CHANGES_READ |
+        CHANGES_ATTR,
+};
+
+#define CHANGE_SET_SIZE     5
+STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE)
+
 
 /* This should be called in a separate thread for each configuration interface
  * socket connection.  This function will run until the given socket closes. */

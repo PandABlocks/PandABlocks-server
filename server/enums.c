@@ -10,7 +10,6 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
-#include "fields.h"
 #include "config_server.h"
 #include "types.h"
 

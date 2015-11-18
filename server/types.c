@@ -15,7 +15,6 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "mux_lookup.h"
-#include "fields.h"
 #include "config_server.h"
 #include "parse_lut.h"
 #include "enums.h"

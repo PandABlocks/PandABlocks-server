@@ -1,6 +1,7 @@
 /* Code for loading configuration and register databases during startup. */
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -9,14 +10,11 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "config_server.h"
 #include "fields.h"
 
 #include "database.h"
 
-
-
-/* We'll reject identifiers longer than this. */
-#define MAX_NAME_LENGTH     20
 
 
 /* Parses a block definition header.  This is simply a name, optionally followed

@@ -10,7 +10,6 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "hardware.h"       // For bus size definitions
-#include "fields.h"
 #include "config_server.h"
 
 #include "mux_lookup.h"

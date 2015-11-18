@@ -16,7 +16,6 @@
 
 #include "error.h"
 #include "list.h"
-#include "fields.h"
 #include "config_server.h"
 #include "data_server.h"
 
