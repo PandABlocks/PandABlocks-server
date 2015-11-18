@@ -10,7 +10,7 @@ error__t parse_whitespace(const char **string);
 
 /* This parses out a sequence of letters and underscores into the result array.
  * The given max_length includes the trailing null character. */
-error__t parse_name(const char **string, char result[], int max_length);
+error__t parse_name(const char **string, char result[], size_t max_length);
 
 /* Tests whether the next character in *string is ch and if so consumes it and
  * returns true, otherwise returns false. */

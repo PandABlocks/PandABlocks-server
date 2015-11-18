@@ -45,9 +45,9 @@ static bool valid_name_char(char ch)
 }
 
 
-error__t parse_name(const char **string, char result[], int max_length)
+error__t parse_name(const char **string, char result[], size_t max_length)
 {
-    int ix = 0;
+    size_t ix = 0;
     while (ix < max_length  &&  valid_name_char(**string))
     {
         result[ix] = *(*string)++;
