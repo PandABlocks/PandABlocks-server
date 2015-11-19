@@ -89,74 +89,6 @@ static pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 /*****************************************************************************/
-/* External API. */
-
-/* Class field access. */
-
-error__t class_read(
-    struct class *class, unsigned int number, uint32_t *value, bool refresh)
-{
-    return
-        TEST_OK_(class->methods->read, "Field not readable")  ?:
-        IF(refresh  &&  class->methods->refresh,
-            DO(class->methods->refresh(class, number)))  ?:
-        DO(*value = class->methods->read(class, number));
-}
-
-
-error__t class_write(struct class *class, unsigned int number, uint32_t value)
-{
-    return
-        TEST_OK_(class->methods->write, "Field not writeable")  ?:
-        DO(class->methods->write(class, number, value));
-}
-
-
-error__t class_get(
-    struct class *class, unsigned int number,
-    const struct connection_result *result)
-{
-    return
-        TEST_OK_(class->methods->get, "Field not readable")  ?:
-        class->methods->get(class, number, result);
-}
-
-
-error__t class_put_table(
-    struct class *class, unsigned int number,
-    bool append, struct put_table_writer *writer)
-{
-    return
-        TEST_OK_(class->methods->put_table, "Field is not a table")  ?:
-        class->methods->put_table(class, number, append, writer);
-}
-
-
-/* Change support. */
-
-/* This number is used to work out which fields have changed since we last
- * looked.  This is incremented on every update. */
-static uint64_t global_change_index = 0;
-
-
-/* Allocates and returns a fresh change index. */
-uint64_t get_change_index(void)
-{
-    return __sync_add_and_fetch(&global_change_index, 1);
-}
-
-
-void get_class_change_set(
-    struct class *class, const uint64_t report_index[], bool changes[])
-{
-    if (class->methods->change_set)
-        class->methods->change_set(class, report_index, changes);
-    else
-        memset(changes, 0, sizeof(bool) * class->count);
-}
-
-
-/*****************************************************************************/
 /* Individual class implementations. */
 
 /* bit_out and pos_out classes. */
@@ -493,7 +425,7 @@ static const struct class_methods classes_table[] = {
         .change_set = bit_out_change_set,
         .attrs = (struct attr_methods[]) {
             { "CAPTURE", true, },
-            { "INDEX", },
+            { "CAPTURE_INDEX", },
         },
         .attr_count = 2,
     },
@@ -505,7 +437,7 @@ static const struct class_methods classes_table[] = {
         .change_set = pos_out_change_set,
         .attrs = (struct attr_methods[]) {
             { "CAPTURE", true, },
-            { "INDEX", },
+            { "CAPTURE_INDEX", },
         },
         .attr_count = 2,
     },
@@ -527,10 +459,88 @@ static const struct class_methods classes_table[] = {
         .attrs = (struct attr_methods[]) {
             { "LENGTH", },
             { "B", },
+            { "FIELDS", },
         },
         .attr_count = 2,
     },
 };
+
+
+/*****************************************************************************/
+/* External API. */
+
+/* Class field access. */
+
+error__t class_read(
+    struct class *class, unsigned int number, uint32_t *value, bool refresh)
+{
+    return
+        TEST_OK_(class->methods->read, "Field not readable")  ?:
+        IF(refresh  &&  class->methods->refresh,
+            DO(class->methods->refresh(class, number)))  ?:
+        DO(*value = class->methods->read(class, number));
+}
+
+
+error__t class_write(struct class *class, unsigned int number, uint32_t value)
+{
+    return
+        TEST_OK_(class->methods->write, "Field not writeable")  ?:
+        DO(class->methods->write(class, number, value));
+}
+
+
+error__t class_get(
+    struct class *class, unsigned int number,
+    const struct connection_result *result)
+{
+    return
+        TEST_OK_(class->methods->get, "Field not readable")  ?:
+        class->methods->get(class, number, result);
+}
+
+
+error__t class_put_table(
+    struct class *class, unsigned int number,
+    bool append, struct put_table_writer *writer)
+{
+    return
+        TEST_OK_(class->methods->put_table, "Field is not a table")  ?:
+        class->methods->put_table(class, number, append, writer);
+}
+
+
+/* Change support. */
+
+/* This number is used to work out which fields have changed since we last
+ * looked.  This is incremented on every update. */
+static uint64_t global_change_index = 0;
+
+
+/* Allocates and returns a fresh change index. */
+uint64_t get_change_index(void)
+{
+    return __sync_add_and_fetch(&global_change_index, 1);
+}
+
+
+void refresh_class_changes(enum change_set change_set)
+{
+    if (change_set & CHANGES_BITS)
+        bit_out_refresh(NULL, 0);
+    if (change_set & CHANGES_POSITION)
+        pos_out_refresh(NULL, 0);
+}
+
+
+void get_class_change_set(
+    struct class *class, const uint64_t report_index[], bool changes[])
+{
+    if (class->methods->change_set)
+        class->methods->change_set(class, report_index, changes);
+    else
+        memset(changes, 0, sizeof(bool) * class->count);
+}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

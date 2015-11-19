@@ -33,6 +33,9 @@ error__t class_put_table(
 /* Allocates and returns a fresh change index. */
 uint64_t get_change_index(void);
 
+/* Global refresh of changes for those classes which need a global refresh. */
+void refresh_class_changes(enum change_set change_set);
+
 /* Retrieves change set for the given class. */
 void get_class_change_set(
     struct class *class, const uint64_t report_index[], bool changes[]);

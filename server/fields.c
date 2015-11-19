@@ -230,7 +230,7 @@ static void handle_error_report(
     {
         prefix -= 1;
         snprintf(string + prefix, length - prefix, " (error)");
-        ERROR_REPORT(error, "Unexpected error during *CHANGES report");
+        ERROR_REPORT(error, "Error during *CHANGES report");
     }
 }
 
@@ -297,6 +297,7 @@ void generate_change_sets(
     uint64_t report_index[CHANGE_SET_SIZE];
     update_change_index(
         result->connection, change_set, get_change_index(), report_index);
+    refresh_class_changes(change_set);
 
     /* Work through all fields in all blocks. */
     FOR_EACH_BLOCK(block)
