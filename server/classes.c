@@ -563,6 +563,13 @@ error__t create_class(
             create_type(line, methods->force_type, count, type));
 }
 
+
+void create_class_attributes(
+    struct class *class, struct hash_table *attr_map)
+{
+}
+
+
 error__t class_parse_register(
     struct class *class, const char *block_name, const char *field_name,
     const char **line)
@@ -572,6 +579,7 @@ error__t class_parse_register(
             class->methods->parse_register(
                 class, block_name, field_name, line));
 }
+
 
 error__t validate_class(struct class *class)
 {

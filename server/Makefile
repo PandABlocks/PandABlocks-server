@@ -88,6 +88,7 @@ SRCS += mux_lookup.c
 SRCS += parse_lut.c
 SRCS += types.c
 SRCS += enums.c
+SRCS += attributes.c
 
 ifdef SIMSERVER
 CFLAGS += -DSIMSERVER

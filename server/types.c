@@ -17,31 +17,12 @@
 #include "mux_lookup.h"
 #include "config_server.h"
 #include "parse_lut.h"
+#include "classes.h"
+#include "attributes.h"
 #include "enums.h"
 
 #include "types.h"
 
-
-
-struct attr {
-    /* Name of this attribute. */
-    const char *name;
-
-    error__t (*format)(
-        const struct type_attr_context *context, char result[], size_t length);
-
-    /* Reads attribute value.  Only need to implement this for multi-line
-     * results, otherwise just implement format. */
-    error__t (*get_many)(
-        const struct type_attr_context *context,
-        const struct connection_result *result);
-
-    /* Writes attribute value. */
-    error__t (*put)(const struct type_attr_context *context, const char *value);
-
-    /* Context for shared attribute data. */
-    void *context;
-};
 
 
 struct type_methods {
@@ -67,7 +48,7 @@ struct type_methods {
         void *type_data, unsigned int number,
         unsigned int value, char string[], size_t length);
 
-    const struct attr *attrs;
+    const struct attr_methods *attrs;
     unsigned int attr_count;
 };
 
@@ -109,43 +90,42 @@ static error__t __attribute__((format(printf, 3, 4))) format_string(
 /* Raw field implementation for those fields that need it. */
 
 static error__t raw_format_int(
-    const struct type_attr_context *context, char result[], size_t length)
+    struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    return FAIL_("Not implemented");
-//     return format_string(result, length, "%d",
-//         (int) read_field_register(context->field, context->number));
+    uint32_t value;
+    return
+        class_read(attr->class, number, &value, true)  ?:
+        format_string(result, length, "%d", value);
 }
 
 static error__t raw_format_uint(
-    const struct type_attr_context *context, char result[], size_t length)
+    struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    return FAIL_("Not implemented");
-//     return format_string(result, length, "%u",
-//         read_field_register(context->field, context->number));
+    uint32_t value;
+    return
+        class_read(attr->class, number, &value, true)  ?:
+        format_string(result, length, "%u", value);
 }
 
 
 static error__t raw_put_uint(
-    const struct type_attr_context *context, const char *string)
+    struct attr *attr, unsigned int number, const char *string)
 {
-    return FAIL_("Not implemented");
-//     unsigned int value;
-//     return
-//         parse_uint(&string, &value)  ?:
-//         parse_eos(&string)  ?:
-//         DO(write_field_register(context->field, context->number, value));
+    unsigned int value;
+    return
+        parse_uint(&string, &value)  ?:
+        parse_eos(&string)  ?:
+        class_write(attr->class, number, value);
 }
 
 static error__t raw_put_int(
-    const struct type_attr_context *context, const char *string)
+    struct attr *attr, unsigned int number, const char *string)
 {
-    return FAIL_("Not implemented");
-//     int value;
-//     return
-//         parse_int(&string, &value)  ?:
-//         parse_eos(&string)  ?:
-//         DO(write_field_register(
-//             context->field, context->number, (unsigned int) value));
+    int value;
+    return
+        parse_int(&string, &value)  ?:
+        parse_eos(&string)  ?:
+        class_write(attr->class, number, (uint32_t) value);
 }
 
 
@@ -223,9 +203,9 @@ static error__t uint_format(
 
 
 static error__t uint_max_format(
-    const struct type_attr_context *context, char result[], size_t length)
+    struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    unsigned int *max_value = context->type_data;
+    unsigned int *max_value = attr->type_data;
     return format_string(result, length, "%u", *max_value);
 }
 
@@ -338,36 +318,36 @@ static error__t position_format(
 
 
 static error__t position_scale_format(
-    const struct type_attr_context *context, char result[], size_t length)
+    struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    struct position_state *state = context->type_data;
-    state += context->number;
+    struct position_state *state = attr->type_data;
+    state = &state[number];
     return format_double(result, length, state->scale);
 }
 
 static error__t position_scale_put(
-    const struct type_attr_context *context, const char *value)
+    struct attr *attr, unsigned int number, const char *value)
 {
-    struct position_state *state = context->type_data;
-    state += context->number;
+    struct position_state *state = attr->type_data;
+    state = &state[number];
     return
         parse_double(&value, &state->scale)  ?:
         parse_eos(&value);
 }
 
 static error__t position_offset_format(
-    const struct type_attr_context *context, char result[], size_t length)
+    struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    struct position_state *state = context->type_data;
-    state += context->number;
+    struct position_state *state = attr->type_data;
+    state = &state[number];
     return format_double(result, length, state->offset);
 }
 
 static error__t position_offset_put(
-    const struct type_attr_context *context, const char *value)
+    struct attr *attr, unsigned int number, const char *value)
 {
-    struct position_state *state = context->type_data;
-    state += context->number;
+    struct position_state *state = attr->type_data;
+    state = &state[number];
     return
         parse_double(&value, &state->offset)  ?:
         parse_eos(&value);
@@ -375,10 +355,10 @@ static error__t position_offset_put(
 
 
 static error__t position_units_format(
-    const struct type_attr_context *context, char result[], size_t length)
+    struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    struct position_state *state = context->type_data;
-    state += context->number;
+    struct position_state *state = attr->type_data;
+    state = &state[number];
     LOCK();
     error__t error = format_string(result, length, "%s", state->units ?: "");
     UNLOCK();
@@ -386,10 +366,10 @@ static error__t position_units_format(
 }
 
 static error__t position_units_put(
-    const struct type_attr_context *context, const char *value)
+    struct attr *attr, unsigned int number, const char *value)
 {
-    struct position_state *state = context->type_data;
-    state += context->number;
+    struct position_state *state = attr->type_data;
+    state = &state[number];
 
     LOCK();
     free(state->units);
@@ -509,63 +489,8 @@ error__t type_parse(
 }
 
 
-/* Implements block.field.*? */
-void type_attr_list_get(
-    const struct type *type,
-    const struct connection_result *result)
-{
-    if (type->methods->attrs)
-        for (unsigned int i = 0; i < type->methods->attr_count; i ++)
-            result->write_many(
-                result->connection, type->methods->attrs[i].name);
-}
-
-
-/* Implements block[n].field.attr? */
-error__t type_attr_get(
-    const struct type_attr_context *context,
-    const struct connection_result *result)
-{
-    /* We have two possible implementations of field get: .format and .get_many.
-     * If the .format field is available then we use that by preference. */
-    if (context->attr->format)
-    {
-        char string[MAX_RESULT_LENGTH];
-        return
-            context->attr->format(context, string, sizeof(string))  ?:
-            DO(result->write_one(result->connection, string));
-    }
-    else if (context->attr->get_many)
-        return context->attr->get_many(context, result);
-    else
-        return FAIL_("Attribute not readable");
-}
-
-
-/* Implements block[n].field.attr=value */
-error__t type_attr_put(
-    const struct type_attr_context *context, const char *value)
-{
-    return
-        TEST_OK_(context->attr->put, "Attribute not writeable")  ?:
-        context->attr->put(context, value);
-}
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Type access helpers. */
-
-
-const struct attr *type_lookup_attr(
-    const struct type *type, const char *name)
-{
-    const struct attr *attrs = type->methods->attrs;
-    if (attrs)
-        for (unsigned int i = 0; i < type->methods->attr_count; i ++)
-            if (strcmp(name, attrs[i].name) == 0)
-                return &attrs[i];
-    return NULL;
-}
 
 
 const char *get_type_name(const struct type *type)
@@ -600,7 +525,9 @@ static const struct type_methods types_table[] = {
     { "uint",
         .init = uint_init,
         .parse = uint_parse, .format = uint_format,
-        .attrs = (struct attr[]) { { "MAX", .format = uint_max_format, }, },
+        .attrs = (struct attr_methods[]) {
+            { "MAX", .format = uint_max_format, },
+        },
         .attr_count = 1,
     },
 
@@ -612,7 +539,7 @@ static const struct type_methods types_table[] = {
     { "position",
         .init = position_init, .destroy = position_destroy,
         .parse = position_parse, .format = position_format,
-        .attrs = (struct attr[]) {
+        .attrs = (struct attr_methods[]) {
             { "RAW",
                 .format = raw_format_int, .put = raw_put_int, },
             { "SCALE",
@@ -627,7 +554,7 @@ static const struct type_methods types_table[] = {
     { "scaled_time",
         .init = position_init, .destroy = position_destroy,
         .parse = position_parse, .format = position_format,
-        .attrs = (struct attr[]) {
+        .attrs = (struct attr_methods[]) {
             { "RAW",
                 .format = raw_format_int, .put = raw_put_int, },
             { "SCALE",
@@ -652,7 +579,7 @@ static const struct type_methods types_table[] = {
     { "lut",
         .init = lut_init, .destroy = lut_destroy,
         .parse = lut_parse, .format = lut_format,
-        .attrs = (struct attr[]) {
+        .attrs = (struct attr_methods[]) {
             { "RAW", .format = raw_format_uint, .put = raw_put_uint, }, },
         .attr_count = 1,
     },
@@ -662,7 +589,7 @@ static const struct type_methods types_table[] = {
         .init = enum_init, .destroy = enum_destroy,
         .add_attribute_line = enum_add_label,
         .parse = enum_parse, .format = enum_format,
-        .attrs = (struct attr[]) {
+        .attrs = (struct attr_methods[]) {
             { "RAW", .format = raw_format_uint, .put = raw_put_uint, },
             { "LABELS", .get_many = enum_labels_get, },
         },
@@ -671,7 +598,7 @@ static const struct type_methods types_table[] = {
 
     /* Implements table access. */
     { "table", .tied = true,
-        .attrs = (struct attr[]) {
+        .attrs = (struct attr_methods[]) {
             { "LENGTH", },
             { "B", },
         },
@@ -724,4 +651,13 @@ error__t create_type(
         IF(methods->init,
             methods->init(string, count, &type_data))  ?:
         DO(*type = create_type_block(methods, count, type_data));
+}
+
+
+void create_type_attributes(
+    struct class *class, struct type *type, struct hash_table *attr_map)
+{
+    for (unsigned int i = 0; i < type->methods->attr_count; i ++)
+        create_attribute(
+            &type->methods->attrs[i], class, type->type_data, attr_map);
 }

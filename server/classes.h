@@ -5,6 +5,7 @@ struct put_table_writer;
 struct connection_result;
 
 struct class;
+struct type;
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -45,6 +46,10 @@ error__t create_class(
     const char *class_name, const char **line,
     unsigned int block_base, unsigned int count,
     struct class **class, struct type **type);
+
+/* Adds class attributes to given attr_map. */
+void create_class_attributes(
+    struct class *class, struct hash_table *attr_map);
 
 /* Parse register definition line. */
 error__t class_parse_register(

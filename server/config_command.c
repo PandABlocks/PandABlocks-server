@@ -12,6 +12,7 @@
 #include "parse.h"
 #include "config_server.h"
 #include "fields.h"
+#include "attributes.h"
 
 #include "config_command.h"
 
@@ -28,7 +29,7 @@ struct entity_context {
     struct block *block;                    // Block database entry
     unsigned int number;                    // Block number, within valid range
     struct field *field;                    // Field database entry
-    const struct attr *attr;                // Attribute data, may be absent
+    struct attr *attr;                      // Attribute data, may be absent
 };
 
 
@@ -90,24 +91,12 @@ static error__t do_attr_list_get(
 }
 
 
-static struct attr_context create_attr_context(
-    const struct entity_context *context)
-{
-    return (struct attr_context) {
-        .field = context->field,
-        .number = context->number,
-        .attr = context->attr,
-    };
-}
-
-
 /* Implements  block.field.attr?  command. */
 static error__t do_attr_get(
     const struct entity_context *context,
     const struct connection_result *result)
 {
-    struct attr_context attr_context = create_attr_context(context);
-    return attr_get(&attr_context, result);
+    return attr_get(context->attr, context->number, result);
 }
 
 
@@ -115,8 +104,7 @@ static error__t do_attr_get(
 static error__t do_attr_put(
     const struct entity_context *context, const char *value)
 {
-    struct attr_context attr_context = create_attr_context(context);
-    return attr_put(&attr_context, value);
+    return attr_put(context->attr, context->number, value);
 }
 
 

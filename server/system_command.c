@@ -89,6 +89,7 @@ static error__t lookup_change_set(
     else if (strcmp(action, "BITS"  ) == 0)   *change_set = CHANGES_BITS;
     else if (strcmp(action, "POSN"  ) == 0)   *change_set = CHANGES_POSITION;
     else if (strcmp(action, "READ"  ) == 0)   *change_set = CHANGES_READ;
+    else if (strcmp(action, "ATTR"  ) == 0)   *change_set = CHANGES_ATTR;
     else
         return FAIL_("Unknown changes selection");
     return ERROR_OK;

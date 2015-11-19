@@ -12,6 +12,7 @@
 #include "parse.h"
 #include "config_server.h"
 #include "types.h"
+#include "attributes.h"
 
 #include "enums.h"
 
@@ -103,10 +104,10 @@ error__t enum_format(
 
 /* Returns list of enumeration values and strings. */
 error__t enum_labels_get(
-    const struct type_attr_context *context,
+    struct attr *attr, unsigned int number,
     const struct connection_result *result)
 {
-    struct enum_state *state = context->type_data;
+    struct enum_state *state = attr->type_data;
     for (unsigned int i = 0; i < state->count; i ++)
         if (state->strings[i])
         {

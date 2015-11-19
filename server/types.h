@@ -1,7 +1,7 @@
 /* Support for types. */
 
-
 struct field;
+struct class;
 struct type;
 struct attr;
 
@@ -26,23 +26,6 @@ error__t type_format(
     struct type *type, unsigned int number,
     unsigned int value, char string[], size_t length);
 
-/* Outputs list of attributes for the specified type to result. */
-void type_attr_list_get(
-    const struct type *type,
-    const struct connection_result *result);
-
-/* Returns attribute with the given name or NULL if not found. */
-const struct attr *type_lookup_attr(const struct type *type, const char *name);
-
-/* Reads identified attribute. */
-error__t type_attr_get(
-    const struct type_attr_context *context,
-    const struct connection_result *result);
-
-/* Writes identified attribute. */
-error__t type_attr_put(
-    const struct type_attr_context *context, const char *value);
-
 
 /* Parses type description in name and returns type. */
 error__t create_type(
@@ -52,6 +35,11 @@ void destroy_type(struct type *type);
 
 /* Adds attribute line to specified type. */
 error__t type_parse_attribute(struct type *type, const char **line);
+
+
+/* Adds type attributes to given attr_map. */
+void create_type_attributes(
+    struct class *class, struct type *type, struct hash_table *attr_map);
 
 
 /* Returns name of type. */

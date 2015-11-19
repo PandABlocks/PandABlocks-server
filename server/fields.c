@@ -12,7 +12,7 @@
 #include "config_server.h"
 #include "types.h"
 #include "classes.h"
-#include "hardware.h"
+#include "attributes.h"
 
 #include "fields.h"
 
@@ -47,6 +47,8 @@ struct field {
     struct class *class;            // Class defining hardware interface and
     struct type *type;              // Optional type handler
     char *description;              // User readable description
+
+    struct hash_table *attrs;       // Attribute lookup table
 };
 
 
@@ -103,12 +105,13 @@ error__t lookup_field(
 
 
 error__t lookup_attr(
-    const struct field *field, const char *name, const struct attr **attr)
+    const struct field *field, const char *name, struct attr **attr)
 {
     /* Both classes and types can have attributes.  Try the type attribute
      * first, fail if neither succeeds. */
-    *attr = type_lookup_attr(field->type, name);
-    return TEST_OK_(*attr, "No such attribute");
+    return
+        TEST_OK_(*attr = hash_table_lookup(field->attrs, name),
+            "No such attribute");
 }
 
 
@@ -157,11 +160,13 @@ error__t field_list_get(
 
 /* Return union of type and class attributes. */
 error__t attr_list_get(
-    struct field *field,
-    const struct connection_result *result)
+    struct field *field, const struct connection_result *result)
 {
-    if (field->type)
-        type_attr_list_get(field->type, result);
+    int ix = 0;
+    const void *key;
+    void *value;
+    while (hash_table_walk(field->attrs, &ix, &key, &value))
+        result->write_many(result->connection, key);
     result->write_many_end(result->connection);
     return ERROR_OK;
 }
@@ -211,23 +216,6 @@ error__t field_put_table(
 {
     return class_put_table(field->class, number, append, writer);
 }
-
-
-/* Retrieves current value of field:  block<n>.field?  */
-error__t attr_get(
-    const struct attr_context *context,
-    const struct connection_result *result)
-{
-    return FAIL_("Not implemented");
-}
-
-
-/* Writes value to field:  block<n>.field=value  */
-error__t attr_put(const struct attr_context *context, const char *value)
-{
-    return FAIL_("Not implemented");
-}
-
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -311,6 +299,8 @@ static void destroy_field(struct field *field)
     if (field->type)
         destroy_type(field->type);
     free(field->description);
+    delete_attributes(field->attrs);
+    hash_table_destroy(field->attrs);
     free(field);
 }
 
@@ -380,6 +370,7 @@ static struct field *create_field_block(
         .block = block,
         .name = strdup(name),
         .sequence = (unsigned int) hash_table_count(block->fields),
+        .attrs = hash_table_create(false),
     };
     return field;
 }
@@ -394,6 +385,11 @@ error__t create_field(
             create_class(
                 class_name, line, block->base, block->count,
                 &(*field)->class, &(*field)->type)  ?:
+            DO(
+                if ((*field)->type)
+                    create_type_attributes(
+                        (*field)->class, (*field)->type, (*field)->attrs);
+                create_class_attributes((*field)->class, (*field)->attrs))  ?:
             /* Insert the field into the blocks map of fields. */
             TEST_OK_(
                 hash_table_insert(

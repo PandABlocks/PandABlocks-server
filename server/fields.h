@@ -26,7 +26,7 @@ error__t lookup_field(
 
 /* Returns attribute with the given name for this field. */
 error__t lookup_attr(
-    const struct field *field, const char *name, const struct attr **attr);
+    const struct field *field, const char *name, struct attr **attr);
 
 
 /* Description field access. */
@@ -65,28 +65,10 @@ error__t field_put_table(
     bool append, struct put_table_writer *writer);
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Attribute access methods. */
-
-struct attr_context {
-    unsigned int number;                    // Block number, within valid range
-    struct field *field;                    // Field database entry
-    const struct attr *attr;                // Field attribute
-};
-
 /* List of attributes for field:  block.field.*?  */
 error__t attr_list_get(
     struct field *field,
     const struct connection_result *result);
-
-
-/* Retrieves current value of field:  block<n>.field?  */
-error__t attr_get(
-    const struct attr_context *context,
-    const struct connection_result *result);
-
-/* Writes value to field:  block<n>.field=value  */
-error__t attr_put(const struct attr_context *context, const char *value);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

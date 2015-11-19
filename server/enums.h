@@ -24,5 +24,5 @@ error__t enum_format(
 
 /* Returns list of enumeration values and strings. */
 error__t enum_labels_get(
-    const struct type_attr_context *context,
+    struct attr *attr, unsigned int number,
     const struct connection_result *result);
