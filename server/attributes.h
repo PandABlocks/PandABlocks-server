@@ -3,6 +3,7 @@
  * The definitions of attributes are more exposed than for other entites because
  * their implementation is shared between classes and types. */
 
+struct class;
 struct attr;
 struct connection_result;
 
@@ -14,26 +15,19 @@ struct attr_methods {
     bool in_change_set;
 
     error__t (*format)(
-        struct attr *attr, unsigned int number,
+        struct class *class, void *data, unsigned int number,
         char result[], size_t length);
 
     /* Reads attribute value.  Only need to implement this for multi-line
      * results, otherwise just implement format. */
     error__t (*get_many)(
-        struct attr *attr, unsigned int number,
+        struct class *class, void *data, unsigned int number,
         const struct connection_result *result);
 
     /* Writes attribute value. */
-    error__t (*put)(struct attr *attr, unsigned int number, const char *value);
-};
-
-
-struct attr {
-    const struct attr_methods *methods;
-    struct class *class;        // Class associated with this attribute
-    void *data;                 // Any data associated with this attribute
-    unsigned int count;         // Number of field instances
-    uint64_t *change_index;     // History management for reported attributes
+    error__t (*put)(
+        struct class *class, void *data, unsigned int number,
+        const char *value);
 };
 
 
@@ -42,12 +36,20 @@ error__t attr_get(
     struct attr *attr, unsigned int number,
     const struct connection_result *result);
 
+/* Calls attr format method. */
+error__t attr_format(
+    struct attr *attr, unsigned int number, char result[], size_t length);
+
+
 /* Writes value to attribute:  block<n>.field.attr=value  */
 error__t attr_put(struct attr *attr, unsigned int number, const char *value);
 
 /* Retrieves change set for attribute. */
 void get_attr_change_set(
     struct attr *attr, uint64_t report_index, bool change_set[]);
+
+/* Name of attribute. */
+const char *get_attr_name(struct attr *attr);
 
 
 /* This function creates an attribute with the given class and type pointers and

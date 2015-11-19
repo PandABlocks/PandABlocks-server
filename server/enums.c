@@ -104,10 +104,10 @@ error__t enum_format(
 
 /* Returns list of enumeration values and strings. */
 error__t enum_labels_get(
-    struct attr *attr, unsigned int number,
+    struct class *class, void *data, unsigned int number,
     const struct connection_result *result)
 {
-    struct enum_state *state = attr->data;
+    struct enum_state *state = data;
     for (unsigned int i = 0; i < state->count; i ++)
         if (state->strings[i])
         {

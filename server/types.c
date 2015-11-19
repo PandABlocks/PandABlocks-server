@@ -91,42 +91,44 @@ static error__t __attribute__((format(printf, 3, 4))) format_string(
 /* Raw field implementation for those fields that need it. */
 
 static error__t raw_format_int(
-    struct attr *attr, unsigned int number, char result[], size_t length)
+    struct class *class, void *data, unsigned int number,
+    char result[], size_t length)
 {
     uint32_t value;
     return
-        class_read(attr->class, number, &value, true)  ?:
+        class_read(class, number, &value, true)  ?:
         format_string(result, length, "%d", value);
 }
 
 static error__t raw_format_uint(
-    struct attr *attr, unsigned int number, char result[], size_t length)
+    struct class *class, void *data, unsigned int number,
+    char result[], size_t length)
 {
     uint32_t value;
     return
-        class_read(attr->class, number, &value, true)  ?:
+        class_read(class, number, &value, true)  ?:
         format_string(result, length, "%u", value);
 }
 
 
 static error__t raw_put_uint(
-    struct attr *attr, unsigned int number, const char *string)
+    struct class *class, void *data, unsigned int number, const char *string)
 {
     unsigned int value;
     return
         parse_uint(&string, &value)  ?:
         parse_eos(&string)  ?:
-        class_write(attr->class, number, value);
+        class_write(class, number, value);
 }
 
 static error__t raw_put_int(
-    struct attr *attr, unsigned int number, const char *string)
+    struct class *class, void *data, unsigned int number, const char *string)
 {
     int value;
     return
         parse_int(&string, &value)  ?:
         parse_eos(&string)  ?:
-        class_write(attr->class, number, (uint32_t) value);
+        class_write(class, number, (uint32_t) value);
 }
 
 
@@ -204,9 +206,10 @@ static error__t uint_format(
 
 
 static error__t uint_max_format(
-    struct attr *attr, unsigned int number, char result[], size_t length)
+    struct class *class, void *data, unsigned int number,
+    char result[], size_t length)
 {
-    unsigned int *max_value = attr->data;
+    unsigned int *max_value = data;
     return format_string(result, length, "%u", *max_value);
 }
 
@@ -319,17 +322,18 @@ static error__t position_format(
 
 
 static error__t position_scale_format(
-    struct attr *attr, unsigned int number, char result[], size_t length)
+    struct class *class, void *data, unsigned int number,
+    char result[], size_t length)
 {
-    struct position_state *state = attr->data;
+    struct position_state *state = data;
     state = &state[number];
     return format_double(result, length, state->scale);
 }
 
 static error__t position_scale_put(
-    struct attr *attr, unsigned int number, const char *value)
+    struct class *class, void *data, unsigned int number, const char *value)
 {
-    struct position_state *state = attr->data;
+    struct position_state *state = data;
     state = &state[number];
     return
         parse_double(&value, &state->scale)  ?:
@@ -337,17 +341,18 @@ static error__t position_scale_put(
 }
 
 static error__t position_offset_format(
-    struct attr *attr, unsigned int number, char result[], size_t length)
+    struct class *class, void *data, unsigned int number,
+    char result[], size_t length)
 {
-    struct position_state *state = attr->data;
+    struct position_state *state = data;
     state = &state[number];
     return format_double(result, length, state->offset);
 }
 
 static error__t position_offset_put(
-    struct attr *attr, unsigned int number, const char *value)
+    struct class *class, void *data, unsigned int number, const char *value)
 {
-    struct position_state *state = attr->data;
+    struct position_state *state = data;
     state = &state[number];
     return
         parse_double(&value, &state->offset)  ?:
@@ -356,9 +361,10 @@ static error__t position_offset_put(
 
 
 static error__t position_units_format(
-    struct attr *attr, unsigned int number, char result[], size_t length)
+    struct class *class, void *data, unsigned int number,
+    char result[], size_t length)
 {
-    struct position_state *state = attr->data;
+    struct position_state *state = data;
     state = &state[number];
     LOCK();
     error__t error = format_string(result, length, "%s", state->units ?: "");
@@ -367,9 +373,9 @@ static error__t position_units_format(
 }
 
 static error__t position_units_put(
-    struct attr *attr, unsigned int number, const char *value)
+    struct class *class, void *data, unsigned int number, const char *value)
 {
-    struct position_state *state = attr->data;
+    struct position_state *state = data;
     state = &state[number];
 
     LOCK();

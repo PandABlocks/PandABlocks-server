@@ -13,6 +13,16 @@
 #include "attributes.h"
 
 
+struct attr {
+    const struct attr_methods *methods;
+    struct class *class;        // Class associated with this attribute
+    void *data;                 // Any data associated with this attribute
+    unsigned int count;         // Number of field instances
+    uint64_t *change_index;     // History management for reported attributes
+};
+
+
+
 /* Implements block[n].field.attr? */
 error__t attr_get(
     struct attr *attr, unsigned int number,
@@ -24,13 +34,24 @@ error__t attr_get(
     {
         char string[MAX_RESULT_LENGTH];
         return
-            attr->methods->format(attr, number, string, sizeof(string))  ?:
+            attr->methods->format(
+                attr->class, attr->data, number, string, sizeof(string))  ?:
             DO(result->write_one(result->connection, string));
     }
     else if (attr->methods->get_many)
-        return attr->methods->get_many(attr, number, result);
+        return attr->methods->get_many(attr->class, attr->data, number, result);
     else
         return FAIL_("Attribute not readable");
+}
+
+
+error__t attr_format(
+    struct attr *attr, unsigned int number, char result[], size_t length)
+{
+    return
+        TEST_OK_(attr->methods->format, "Attribute not readable")  ?:
+        attr->methods->format(
+            attr->class, attr->data, number, result, length);
 }
 
 
@@ -38,7 +59,7 @@ error__t attr_put(struct attr *attr, unsigned int number, const char *value)
 {
     return
         TEST_OK_(attr->methods->put, "Attribute not writeable")  ?:
-        attr->methods->put(attr, number, value)  ?:
+        attr->methods->put(attr->class, attr->data, number, value)  ?:
         DO(attr->change_index[number] = get_change_index());
 }
 
@@ -50,6 +71,12 @@ void get_attr_change_set(
         change_set[i] =
             attr->methods->in_change_set  &&
             attr->change_index[i] >= report_index;
+}
+
+
+const char *get_attr_name(struct attr *attr)
+{
+    return attr->methods->name;
 }
 
 

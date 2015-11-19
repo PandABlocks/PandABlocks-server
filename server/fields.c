@@ -262,12 +262,10 @@ static void report_changed_attr(
     char string[MAX_RESULT_LENGTH];
     size_t prefix = (size_t) snprintf(
         string, sizeof(string), "%s%d.%s.%s=",
-        field->block->name, number, field->name, attr->methods->name);
+        field->block->name, number, field->name, get_attr_name(attr));
 
     handle_error_report(string, sizeof(string), prefix,
-        TEST_OK(attr->methods->format)  ?:  // A big surprise if this fails!
-        attr->methods->format(
-            attr, number, string + prefix, sizeof(string) - prefix));
+        attr_format(attr, number, string + prefix, sizeof(string) - prefix));
     result->write_many(result->connection, string);
 }
 
