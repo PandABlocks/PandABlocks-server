@@ -158,7 +158,6 @@ error__t field_list_get(
 }
 
 
-/* Return union of type and class attributes. */
 error__t attr_list_get(
     struct field *field, const struct connection_result *result)
 {
@@ -221,6 +220,21 @@ error__t field_put_table(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Change set management. */
 
+/* Alas it is possible for an error to be detected during formatting when
+ * generating a change report.  If this occurs we back up over the value being
+ * written and write an error mark instead. */
+static void handle_error_report(
+    char *string, size_t length, size_t prefix, error__t error)
+{
+    if (error)
+    {
+        prefix -= 1;
+        snprintf(string + prefix, length - prefix, " (error)");
+        ERROR_REPORT(error, "Unexpected error during *CHANGES report");
+    }
+}
+
+
 static void report_changed_value(
     const struct field *field, unsigned int number,
     const struct connection_result *result)
@@ -231,22 +245,46 @@ static void report_changed_value(
         field->block->name, number, field->name);
 
     uint32_t value;
-    error__t error =
-        TEST_OK(field->type)  ?:        // A big surprise if this fails here
+    handle_error_report(string, sizeof(string), prefix,
+        TEST_OK(field->type)  ?:        // A big surprise if this fails!
         class_read(field->class, number, &value, false)  ?:
         type_format(
             field->type, number, value,
-            string + prefix, sizeof(string) - prefix);
-    if (error)
-    {
-        /* Alas it is possible for an error to be detected during formatting.
-         * In this case overwrite the = with space and write an error mark. */
-        prefix -= 1;
-        snprintf(string + prefix, sizeof(string) - prefix, " (error)");
-        ERROR_REPORT(error, "Unexpected error during report_changed_value");
-    }
-
+            string + prefix, sizeof(string) - prefix));
     result->write_many(result->connection, string);
+}
+
+
+static void report_changed_attr(
+    struct field *field, struct attr *attr, unsigned int number,
+    const struct connection_result *result)
+{
+    char string[MAX_RESULT_LENGTH];
+    size_t prefix = (size_t) snprintf(
+        string, sizeof(string), "%s%d.%s.%s=",
+        field->block->name, number, field->name, attr->methods->name);
+
+    handle_error_report(string, sizeof(string), prefix,
+        TEST_OK(attr->methods->format)  ?:  // A big surprise if this fails!
+        attr->methods->format(
+            attr, number, string + prefix, sizeof(string) - prefix));
+    result->write_many(result->connection, string);
+}
+
+
+static void generate_attr_change_sets(
+    const struct connection_result *result, struct field *field,
+    uint64_t report_index)
+{
+    /* Also work through all attributes for their change sets. */
+    FOR_EACH_TYPE(struct attr *, true, field->attrs, attr)
+    {
+        bool changes[field->block->count];
+        get_attr_change_set(attr, report_index, changes);
+        for (unsigned int i = 0; i < field->block->count; i ++)
+            if (changes[i])
+                report_changed_attr(field, attr, i, result);
+    }
 }
 
 
@@ -270,6 +308,10 @@ void generate_change_sets(
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
                     report_changed_value(field, i, result);
+
+            if (change_set & CHANGES_ATTR)
+                generate_attr_change_sets(
+                    result, field, report_index[CHANGE_IX_ATTR]);
         }
     }
     result->write_many_end(result->connection);

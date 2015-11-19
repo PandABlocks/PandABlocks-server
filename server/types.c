@@ -48,6 +48,7 @@ struct type_methods {
         void *type_data, unsigned int number,
         unsigned int value, char string[], size_t length);
 
+    /* Type specific attributes. */
     const struct attr_methods *attrs;
     unsigned int attr_count;
 };
@@ -205,7 +206,7 @@ static error__t uint_format(
 static error__t uint_max_format(
     struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    unsigned int *max_value = attr->type_data;
+    unsigned int *max_value = attr->data;
     return format_string(result, length, "%u", *max_value);
 }
 
@@ -320,7 +321,7 @@ static error__t position_format(
 static error__t position_scale_format(
     struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    struct position_state *state = attr->type_data;
+    struct position_state *state = attr->data;
     state = &state[number];
     return format_double(result, length, state->scale);
 }
@@ -328,7 +329,7 @@ static error__t position_scale_format(
 static error__t position_scale_put(
     struct attr *attr, unsigned int number, const char *value)
 {
-    struct position_state *state = attr->type_data;
+    struct position_state *state = attr->data;
     state = &state[number];
     return
         parse_double(&value, &state->scale)  ?:
@@ -338,7 +339,7 @@ static error__t position_scale_put(
 static error__t position_offset_format(
     struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    struct position_state *state = attr->type_data;
+    struct position_state *state = attr->data;
     state = &state[number];
     return format_double(result, length, state->offset);
 }
@@ -346,7 +347,7 @@ static error__t position_offset_format(
 static error__t position_offset_put(
     struct attr *attr, unsigned int number, const char *value)
 {
-    struct position_state *state = attr->type_data;
+    struct position_state *state = attr->data;
     state = &state[number];
     return
         parse_double(&value, &state->offset)  ?:
@@ -357,7 +358,7 @@ static error__t position_offset_put(
 static error__t position_units_format(
     struct attr *attr, unsigned int number, char result[], size_t length)
 {
-    struct position_state *state = attr->type_data;
+    struct position_state *state = attr->data;
     state = &state[number];
     LOCK();
     error__t error = format_string(result, length, "%s", state->units ?: "");
@@ -368,7 +369,7 @@ static error__t position_units_format(
 static error__t position_units_put(
     struct attr *attr, unsigned int number, const char *value)
 {
-    struct position_state *state = attr->type_data;
+    struct position_state *state = attr->data;
     state = &state[number];
 
     LOCK();
@@ -542,11 +543,11 @@ static const struct type_methods types_table[] = {
         .attrs = (struct attr_methods[]) {
             { "RAW",
                 .format = raw_format_int, .put = raw_put_int, },
-            { "SCALE",
+            { "SCALE", true,
                 .format = position_scale_format, .put = position_scale_put, },
-            { "OFFSET",
+            { "OFFSET", true,
                 .format = position_offset_format, .put = position_offset_put, },
-            { "UNITS",
+            { "UNITS", true,
                 .format = position_units_format, .put = position_units_put, },
         },
         .attr_count = 4,
@@ -557,9 +558,9 @@ static const struct type_methods types_table[] = {
         .attrs = (struct attr_methods[]) {
             { "RAW",
                 .format = raw_format_int, .put = raw_put_int, },
-            { "SCALE",
+            { "SCALE", true,
                 .format = position_scale_format, .put = position_scale_put, },
-            { "UNITS",
+            { "UNITS", true,
                 .format = position_units_format, .put = position_units_put, },
         },
         .attr_count = 3,
@@ -592,15 +593,6 @@ static const struct type_methods types_table[] = {
         .attrs = (struct attr_methods[]) {
             { "RAW", .format = raw_format_uint, .put = raw_put_uint, },
             { "LABELS", .get_many = enum_labels_get, },
-        },
-        .attr_count = 2,
-    },
-
-    /* Implements table access. */
-    { "table", .tied = true,
-        .attrs = (struct attr_methods[]) {
-            { "LENGTH", },
-            { "B", },
         },
         .attr_count = 2,
     },
@@ -659,5 +651,6 @@ void create_type_attributes(
 {
     for (unsigned int i = 0; i < type->methods->attr_count; i ++)
         create_attribute(
-            &type->methods->attrs[i], class, type->type_data, attr_map);
+            &type->methods->attrs[i], class, type->type_data, type->count,
+            attr_map);
 }

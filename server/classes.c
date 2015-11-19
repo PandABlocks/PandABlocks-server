@@ -13,6 +13,7 @@
 #include "config_server.h"
 #include "fields.h"
 #include "types.h"
+#include "attributes.h"
 #include "hardware.h"
 
 #include "classes.h"
@@ -64,6 +65,10 @@ struct class_methods {
     error__t (*put_table)(
         struct class *class, unsigned int ix,
         bool append, struct put_table_writer *writer);
+
+    /* Class specific attributes. */
+    const struct attr_methods *attrs;
+    unsigned int attr_count;
 };
 
 
@@ -390,7 +395,10 @@ static void read_init(
     *class_data = calloc(count, sizeof(struct read_state));
 }
 
-static uint32_t read_read(struct class *class, unsigned int number)
+
+/* Reading is a two stage process: each time we do a read we check the value and
+ * update the update_index accordingly. */
+static void read_refresh(struct class *class, unsigned int number)
 {
     struct read_state *state = class->class_data;
     uint32_t result =
@@ -400,7 +408,12 @@ static uint32_t read_read(struct class *class, unsigned int number)
         state[number].value = result;
         state[number].update_index = get_change_index();
     }
-    return result;
+}
+
+static uint32_t read_read(struct class *class, unsigned int number)
+{
+    struct read_state *state = class->class_data;
+    return state[number].value;
 }
 
 static void read_change_set(
@@ -478,6 +491,11 @@ static const struct class_methods classes_table[] = {
         .validate = bit_pos_out_validate,
         .read = bit_out_read, .refresh = bit_out_refresh,
         .change_set = bit_out_change_set,
+        .attrs = (struct attr_methods[]) {
+            { "CAPTURE", true, },
+            { "INDEX", },
+        },
+        .attr_count = 2,
     },
     { "pos_out", "position",
         .init = bit_pos_out_init,
@@ -485,12 +503,17 @@ static const struct class_methods classes_table[] = {
         .validate = bit_pos_out_validate,
         .read = pos_out_read, .refresh = pos_out_refresh,
         .change_set = pos_out_change_set,
+        .attrs = (struct attr_methods[]) {
+            { "CAPTURE", true, },
+            { "INDEX", },
+        },
+        .attr_count = 2,
     },
     { "read", "uint",
         .init = read_init,
         .validate = default_validate,
         .parse_register = default_parse_register,
-        .read = read_read,
+        .read = read_read, .refresh = read_refresh,
         .change_set = read_change_set,
     },
     { "write", "uint",
@@ -501,6 +524,11 @@ static const struct class_methods classes_table[] = {
     { "table",
         .get = table_get,
         .put_table = table_put_table,
+        .attrs = (struct attr_methods[]) {
+            { "LENGTH", },
+            { "B", },
+        },
+        .attr_count = 2,
     },
 };
 
@@ -567,6 +595,10 @@ error__t create_class(
 void create_class_attributes(
     struct class *class, struct hash_table *attr_map)
 {
+    for (unsigned int i = 0; i < class->methods->attr_count; i ++)
+        create_attribute(
+            &class->methods->attrs[i], class, class->class_data,
+            class->count, attr_map);
 }
 
 

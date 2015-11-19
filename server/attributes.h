@@ -31,8 +31,9 @@ struct attr_methods {
 struct attr {
     const struct attr_methods *methods;
     struct class *class;        // Class associated with this attribute
-    void *type_data;            // Any type data associated with this attribute
-    uint64_t change_index;      // History management for reported attributes
+    void *data;                 // Any data associated with this attribute
+    unsigned int count;         // Number of field instances
+    uint64_t *change_index;     // History management for reported attributes
 };
 
 
@@ -44,13 +45,17 @@ error__t attr_get(
 /* Writes value to attribute:  block<n>.field.attr=value  */
 error__t attr_put(struct attr *attr, unsigned int number, const char *value);
 
+/* Retrieves change set for attribute. */
+void get_attr_change_set(
+    struct attr *attr, uint64_t report_index, bool change_set[]);
+
 
 /* This function creates an attribute with the given class and type pointers and
  * inserts it into the given attr_map.  If an attribute with the same name is
  * already present it is silently replaced. */
 void create_attribute(
     const struct attr_methods *methods,
-    struct class *class, void *type_data,
+    struct class *class, void *data, unsigned int count,
     struct hash_table *attr_map);
 
 /* Thus function walks the given map of attributes and deletes all attributes.
