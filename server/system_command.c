@@ -108,6 +108,39 @@ static error__t system_get_changes(
 }
 
 
+/* *DESC.block?
+ * *DESC.block.field?
+ *
+ * Returns description field for block or field. */
+
+static error__t system_get_desc(
+    const char *command, const struct connection_result *result)
+{
+    char block_name[MAX_NAME_LENGTH];
+    struct block *block;
+    const char *string = NULL;
+    char field_name[MAX_NAME_LENGTH];
+    struct field *field;
+    return
+        parse_char(&command, '.')  ?:
+        parse_name(&command, block_name, sizeof(block_name))  ?:
+        lookup_block(block_name, &block, NULL)  ?:
+        IF_ELSE(read_char(&command, '.'),
+            /* Field follows: *DESC.block.field? */
+            parse_name(&command, field_name, sizeof(field_name))  ?:
+            lookup_field(block, field_name, &field)  ?:
+            TEST_OK_(string = get_field_description(field),
+                "No description set for field"),
+        //else
+            /* Just a block: *DESC.block? */
+            TEST_OK_(string = get_block_description(block),
+                "No description set for block")
+        )  ?:
+        parse_eos(&command)  ?:
+        DO(result->write_one(result->connection, string));
+}
+
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
@@ -128,6 +161,7 @@ static const struct command_table_entry command_table_list[] = {
     { "ECHO",       .get = system_get_echo, .allow_arg = true },
     { "WHO",        .get = system_get_who, },
     { "CHANGES",    .get = system_get_changes, .allow_arg = true },
+    { "DESC",       .get = system_get_desc, .allow_arg = true },
 };
 
 static struct hash_table *command_table;

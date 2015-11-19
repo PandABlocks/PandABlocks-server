@@ -112,6 +112,17 @@ error__t lookup_attr(
 }
 
 
+const char *get_block_description(struct block *block)
+{
+    return block->description;
+}
+
+const char *get_field_description(struct field *field)
+{
+    return field->description;
+}
+
+
 error__t block_list_get(const struct connection_result *result)
 {
     FOR_EACH_BLOCK(block)

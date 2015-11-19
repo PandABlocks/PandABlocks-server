@@ -29,6 +29,11 @@ error__t lookup_attr(
     const struct field *field, const char *name, const struct attr **attr);
 
 
+/* Description field access. */
+const char *get_block_description(struct block *block);
+const char *get_field_description(struct field *field);
+
+
 /* Generates list of all changed fields and their values. */
 void generate_change_sets(
     const struct connection_result *result, enum change_set changes);
