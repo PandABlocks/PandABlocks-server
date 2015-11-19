@@ -29,6 +29,9 @@ static uint32_t register_map_size;
 #define POS_READ_VALUE          (CONTROL_BASE + 3)
 #define POS_READ_CHANGES        (CONTROL_BASE + 4)
 
+#define BIT_CAPTURE_MASK        (CONTROL_BASE + 5)
+#define POS_CAPTURE_MASK        (CONTROL_BASE + 6)
+
 
 static unsigned int make_offset(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
@@ -95,6 +98,17 @@ void hw_read_positions(
     uint32_t word = register_map[POS_READ_CHANGES];
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
         changes[i] = (word >> i) & 1;
+}
+
+
+void hw_write_bit_capture(uint32_t capture_mask)
+{
+    register_map[BIT_CAPTURE_MASK] = capture_mask;
+}
+
+void hw_write_position_capture(uint32_t capture_mask)
+{
+    register_map[POS_CAPTURE_MASK] = capture_mask;
 }
 
 

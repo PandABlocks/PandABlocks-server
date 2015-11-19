@@ -25,6 +25,9 @@
 #define SERVER_PORT     9999
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Support functions. */
+
 static int sock = -1;
 
 /* Need to make sure our communications are atomic. */
@@ -63,29 +66,61 @@ static error__t read_all(int file, void *data, size_t length)
 }
 
 
+static error__t write_command(
+    char command,
+    unsigned int block_base, unsigned int block_number, unsigned int reg)
+{
+    unsigned char string[4] = {
+        (unsigned char) command,
+        (unsigned char) block_base,
+        (unsigned char) block_number,
+        (unsigned char) reg
+    };
+    return write_all(sock, string, sizeof(string));
+}
+
+
+static error__t write_command_int(
+    char command,
+    unsigned int block_base, unsigned int block_number, unsigned int reg,
+    uint32_t arg)
+{
+    unsigned char string[8] = {
+        (unsigned char) command,
+        (unsigned char) block_base,
+        (unsigned char) block_number,
+        (unsigned char) reg
+    };
+    *CAST_FROM_TO(unsigned char *, uint32_t *, &string[4]) = (uint32_t) arg;
+    return write_all(sock, string, sizeof(string));
+}
+
+
+static void handle_error(error__t error)
+{
+    if (error)
+    {
+        ERROR_REPORT(error, "Error in simulation connection");
+        kill_socket_server();
+    }
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Hardware simulation methods. */
+
+
 void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value)
 {
     printf("hw_write_register %u:%u:%u <= %u\n",
         block_base, block_number, reg, value);
-    unsigned char command[8] = {
-        'W',
-        (unsigned char) block_base,
-        (unsigned char) block_number,
-        (unsigned char) reg
-    };
-    *CAST_FROM_TO(unsigned char *, uint32_t *, &command[4]) = value;
 
     LOCK();
-    error__t error = write_all(sock, command, 8);
+    handle_error(
+        write_command_int('W', block_base, block_number, reg, value));
     UNLOCK();
-
-    if (error)
-    {
-        ERROR_REPORT(error, "Failed to write register");
-        kill_socket_server();
-    }
 }
 
 
@@ -93,25 +128,14 @@ uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     printf("hw_read_register %u:%u:%u ", block_base, block_number, reg);
-    unsigned char command[4] = {
-        'R',
-        (unsigned char) block_base,
-        (unsigned char) block_number,
-        (unsigned char) reg
-    };
 
     LOCK();
     uint32_t result = 0;
-    error__t error =
-        write_all(sock, command, 4)  ?:
-        read_all(sock, &result, 4);
+    handle_error(
+        write_command('R', block_base, block_number, reg)  ?:
+        read_all(sock, &result, 4));
     UNLOCK();
 
-    if (error)
-    {
-        ERROR_REPORT(error, "Failed to read register");
-        kill_socket_server();
-    }
     printf("=> %u\n", result);
     return result;
 }
@@ -123,45 +147,27 @@ void hw_write_table_data(
 {
     printf("hw_write_table_data %u:%u:%u %d %p %zu",
         block_base, block_number, reg, start, data, length);
-    unsigned char command[8] = {
-        start ? 'B' : 'A',      // Block or Append
-        (unsigned char) block_base,
-        (unsigned char) block_number,
-        (unsigned char) reg
-    };
-    *CAST_FROM_TO(unsigned char *, uint32_t *, &command[4]) = (uint32_t) length;
 
     LOCK();
-    error__t error =
-        write_all(sock, command, 8)  ?:
-        write_all(sock, data, length);
+    handle_error(
+        write_command_int(
+            start ? 'B' : 'A',      // Block or Append
+            block_base, block_number, reg, (uint32_t) length)  ?:
+        write_all(sock, data, length));
     UNLOCK();
-
-    if (error)
-    {
-        ERROR_REPORT(error, "Failed to write block");
-        kill_socket_server();
-    }
 }
 
 
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
 {
     printf("hw_read_bits\n");
-    unsigned char command[4] = { 'C', 0, 0, 0 };
 
     LOCK();
-    error__t error =
-        write_all(sock, command, 4)  ?:
+    handle_error(
+        write_command('C', 0, 0, 0)  ?:
         read_all(sock, bits, BIT_BUS_COUNT)  ?:
-        read_all(sock, changes, BIT_BUS_COUNT);
+        read_all(sock, changes, BIT_BUS_COUNT));
     UNLOCK();
-
-    if (error)
-    {
-        ERROR_REPORT(error, "Failed to read bits");
-        kill_socket_server();
-    }
 }
 
 
@@ -169,20 +175,30 @@ void hw_read_positions(
     uint32_t positions[POS_BUS_COUNT], bool changes[POS_BUS_COUNT])
 {
     printf("hw_read_positions\n");
-    unsigned char command[4] = { 'P', 0, 0, 0 };
 
     LOCK();
-    error__t error =
-        write_all(sock, command, 4)  ?:
+    handle_error(
+        write_command('P', 0, 0, 0)  ?:
         read_all(sock, positions, sizeof(uint32_t) * POS_BUS_COUNT)  ?:
-        read_all(sock, changes, POS_BUS_COUNT);
+        read_all(sock, changes, POS_BUS_COUNT));
     UNLOCK();
+}
 
-    if (error)
-    {
-        ERROR_REPORT(error, "Failed to read positions");
-        kill_socket_server();
-    }
+
+void hw_write_bit_capture(uint32_t capture_mask)
+{
+    printf("hw_write_bit_capture %08x\n", capture_mask);
+    LOCK();
+    handle_error(write_command_int('K', 0, 0, 0, capture_mask));
+    UNLOCK();
+}
+
+void hw_write_position_capture(uint32_t capture_mask)
+{
+    printf("hw_write_pos_capture %08x\n", capture_mask);
+    LOCK();
+    handle_error(write_command_int('M', 0, 0, 0, capture_mask));
+    UNLOCK();
 }
 
 

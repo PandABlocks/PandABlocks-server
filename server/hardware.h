@@ -30,3 +30,7 @@ void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT]);
 /* Read position values and changes. */
 void hw_read_positions(
     uint32_t positions[POS_BUS_COUNT], bool changes[POS_BUS_COUNT]);
+
+/* Set bit and position capture masks. */
+void hw_write_bit_capture(uint32_t capture_mask);
+void hw_write_position_capture(uint32_t capture_mask);
