@@ -18,6 +18,7 @@
 #include "config_command.h"
 #include "fields.h"
 #include "capture.h"
+#include "classes.h"
 
 #include "system_command.h"
 
@@ -30,8 +31,7 @@
 /* *IDN?
  *
  * Returns simple system identification. */
-
-static error__t system_get_idn(
+static error__t get_idn(
     const char *command, const struct connection_result *result)
 {
     result->write_one(result->connection, "PandA");
@@ -42,8 +42,7 @@ static error__t system_get_idn(
 /* *BLOCKS?
  *
  * Returns formatted list of all the blocks in the system. */
-
-static error__t system_get_blocks(
+static error__t get_blocks(
     const char *command, const struct connection_result *result)
 {
     return block_list_get(result);
@@ -53,8 +52,7 @@ static error__t system_get_blocks(
 /* *ECHO echo string?
  *
  * Echos echo string back to caller. */
-
-static error__t system_get_echo(
+static error__t get_echo(
     const char *command, const struct connection_result *result)
 {
     return
@@ -66,8 +64,7 @@ static error__t system_get_echo(
 /* *WHO?
  *
  * Returns list of connections. */
-
-static error__t system_get_who(
+static error__t get_who(
     const char *command, const struct connection_result *result)
 {
     generate_connection_list(result);
@@ -96,17 +93,46 @@ static error__t lookup_change_set(
     return ERROR_OK;
 }
 
-static error__t system_get_changes(
-    const char *command, const struct connection_result *result)
+static error__t parse_change_set(
+    const char **command, enum change_set *change_set)
 {
-    enum change_set change_set = CHANGES_ALL;
+    *change_set = CHANGES_ALL;
     char action[MAX_NAME_LENGTH];
     return
-        IF(read_char(&command, '.'),
-            parse_name(&command, action, sizeof(action))  ?:
-            lookup_change_set(action, &change_set))  ?:
-        parse_eos(&command)  ?:
+        IF(read_char(command, '.'),
+            parse_name(command, action, sizeof(action))  ?:
+            lookup_change_set(action, change_set))  ?:
+        parse_eos(command);
+}
+
+static error__t get_changes(
+    const char *command, const struct connection_result *result)
+{
+    enum change_set change_set;
+    return
+        parse_change_set(&command, &change_set)  ?:
         DO(generate_change_sets(result, change_set));
+}
+
+
+/* *CHANGES=
+ * *CHANGES.CONFIG=
+ * *CHANGES.BITS=
+ * *CHANGES.POSN=
+ * *CHANGES.READ=
+ *
+ * Resets change reporting for selected change set. */
+static error__t put_changes(
+    struct config_connection *connection,
+    const char *command, const char *value)
+{
+    enum change_set change_set;
+    uint64_t report_index[CHANGE_SET_SIZE];
+    return
+        parse_change_set(&command, &change_set)  ?:
+        parse_eos(&value)  ?:
+        DO(update_change_index(
+            connection, change_set, get_change_index(), report_index));
 }
 
 
@@ -114,8 +140,7 @@ static error__t system_get_changes(
  * *DESC.block.field?
  *
  * Returns description field for block or field. */
-
-static error__t system_get_desc(
+static error__t get_desc(
     const char *command, const struct connection_result *result)
 {
     char block_name[MAX_NAME_LENGTH];
@@ -146,20 +171,30 @@ static error__t system_get_desc(
 /* *CAPTURE?
  *
  * Returns list of captured field in capture order. */
-
-static error__t system_get_capture(
+static error__t get_capture(
     const char *command, const struct connection_result *result)
 {
     report_capture_list(result);
     return ERROR_OK;
 }
 
+/* *CAPTURE=
+ *
+ * Resets capture to empty. */
+static error__t put_capture(
+    struct config_connection *connection,
+    const char *command, const char *value)
+{
+    return
+        parse_eos(&value)  ?:
+        DO(reset_capture_list());
+}
+
 
 /* *BITSn?
  *
  * Returns list of bit field names for each bit capture block. */
-
-static error__t system_get_bits(
+static error__t get_bits(
     const char *command, const struct connection_result *result)
 {
     unsigned int bit;
@@ -178,21 +213,22 @@ static error__t system_get_bits(
 struct command_table_entry {
     const char *name;
     bool allow_arg;
-    error__t (*get)(const char *name, const struct connection_result *result);
+    error__t (*get)(
+        const char *command, const struct connection_result *result);
     error__t (*put)(
         struct config_connection *connection,
-        const char *name, const char *value);
+        const char *command, const char *value);
 };
 
 static const struct command_table_entry command_table_list[] = {
-    { "IDN",        .get = system_get_idn, },
-    { "BLOCKS",     .get = system_get_blocks, },
-    { "ECHO",       .get = system_get_echo, .allow_arg = true },
-    { "WHO",        .get = system_get_who, },
-    { "CHANGES",    .get = system_get_changes, .allow_arg = true },
-    { "DESC",       .get = system_get_desc, .allow_arg = true },
-    { "CAPTURE",    .get = system_get_capture, },
-    { "BITS",       .get = system_get_bits, .allow_arg = true },
+    { "IDN",        .get = get_idn, },
+    { "BLOCKS",     .get = get_blocks, },
+    { "ECHO",       .get = get_echo, .allow_arg = true },
+    { "WHO",        .get = get_who, },
+    { "CHANGES",    .get = get_changes, .allow_arg = true, .put = put_changes },
+    { "DESC",       .get = get_desc, .allow_arg = true },
+    { "CAPTURE",    .get = get_capture, .put = put_capture, },
+    { "BITS",       .get = get_bits, .allow_arg = true },
 };
 
 static struct hash_table *command_table;

@@ -99,6 +99,9 @@ error__t pos_out_index_format(
 /* *CAPTURE? implementation: returns list of all captured fields. */
 void report_capture_list(const struct connection_result *result);
 
+/* Resets all capture bits. */
+void reset_capture_list(void);
+
 /* *BITSn? implementation, reports bit names in specific capture block. */
 void report_capture_bits(
-    const struct connection_result *result, unsigned int bit);
+    const struct connection_result *result, unsigned int group);

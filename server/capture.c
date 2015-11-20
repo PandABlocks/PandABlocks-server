@@ -46,18 +46,21 @@ struct mux_lookup {
  * to identify the corresponding fields per class. */
 
 static struct {
-    struct mux_lookup lookup;
-    bool bits[BIT_BUS_COUNT];
-    uint64_t change_index[BIT_BUS_COUNT];
-    uint32_t capture[BIT_BUS_COUNT / 32];
+    struct mux_lookup lookup;       // Map between mux index and names
+    bool bits[BIT_BUS_COUNT];       // Current value of each bit
+    uint64_t change_index[BIT_BUS_COUNT];   // Change flag for each bit
+    uint32_t capture[BIT_BUS_COUNT / 32];   // Capture request for each bit
+    int capture_index[BIT_BUS_COUNT / 32];  // Capture index for each bit
 } bit_out_state = { };
 
 static struct {
-    struct mux_lookup lookup;
-    uint32_t positions[POS_BUS_COUNT];
-    uint64_t change_index[POS_BUS_COUNT];
-    uint32_t capture;
+    struct mux_lookup lookup;       // Map between mux index and names
+    uint32_t positions[POS_BUS_COUNT];      // Current array of positions
+    uint64_t change_index[POS_BUS_COUNT];   // Change flag for each position
+    uint32_t capture;                   // Capture request for each position
+    int capture_index[POS_BUS_COUNT];   // Capture index for each position
 } pos_out_state = { };
+
 
 
 /*****************************************************************************/
@@ -102,6 +105,7 @@ static error__t mux_lookup_insert(
 }
 
 
+/* During register definition parsing add index<->name conversions. */
 static error__t add_mux_indices(
     struct mux_lookup *lookup,
     const char *block_name, const char *field_name, unsigned int count,
@@ -119,6 +123,7 @@ static error__t add_mux_indices(
 }
 
 
+/* Converts field name to corresponding index. */
 static error__t mux_lookup_name(
     struct mux_lookup *lookup, const char *name, unsigned int *ix)
 {
@@ -140,23 +145,6 @@ static error__t mux_lookup_index(
         TEST_OK_(lookup->names[ix], "Mux name unassigned")  ?:
         TEST_OK(strlen(lookup->names[ix]) < length)  ?:
         DO(strcpy(result, lookup->names[ix]));
-}
-
-
-static error__t initialise_mux_lookup(void)
-{
-    /* Block input multiplexer maps.  These are initialised by each
-     * {bit,pos}_out field as it is loaded. */
-    mux_lookup_initialise(&bit_out_state.lookup, BIT_BUS_COUNT);
-    mux_lookup_initialise(&pos_out_state.lookup, POS_BUS_COUNT);
-    return ERROR_OK;
-}
-
-
-static void terminate_mux_lookup(void)
-{
-    mux_lookup_destroy(&bit_out_state.lookup);
-    mux_lookup_destroy(&pos_out_state.lookup);
 }
 
 
@@ -349,6 +337,29 @@ void pos_out_change_set(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Attributes. */
 
+
+/* Update the bit and pos capture index arrays.  This needs to be called each
+ * time either capture mask is written. */
+static void update_capture_index(void)
+{
+    int capture_index = 0;
+
+    /* Position capture. */
+    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
+        if (pos_out_state.capture & (1U << i))
+            pos_out_state.capture_index[i] = capture_index++;
+        else
+            pos_out_state.capture_index[i] = -1;
+
+    /* Bit capture. */
+    for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
+        if (bit_out_state.capture[i])
+            bit_out_state.capture_index[i] = capture_index++;
+        else
+            bit_out_state.capture_index[i] = -1;
+}
+
+
 error__t bit_out_capture_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
@@ -398,6 +409,7 @@ error__t bit_out_capture_put(
         for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
             capture_mask |= (uint32_t) (bool) bit_out_state.capture[i] << i;
         hw_write_bit_capture(capture_mask);
+        update_capture_index();
     }
     return error;
 }
@@ -417,6 +429,7 @@ error__t pos_out_capture_put(
 
         update_bit(&pos_out_state.capture, ix, capture);
         hw_write_position_capture(pos_out_state.capture);
+        update_capture_index();
     }
     return error;
 }
@@ -425,7 +438,13 @@ error__t bit_out_index_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
 {
-    snprintf(result, length, "in a bit");
+    unsigned int *index_array = data;
+    unsigned int ix = index_array[number];
+    int capture_index = bit_out_state.capture_index[ix / 32];
+    if (capture_index >= 0)
+        snprintf(result, length, "%d:%d", capture_index, ix % 32);
+    else
+        *result = '\0';
     return ERROR_OK;
 }
 
@@ -433,7 +452,13 @@ error__t pos_out_index_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
 {
-    snprintf(result, length, "in a bit");
+    unsigned int *index_array = data;
+    unsigned int ix = index_array[number];
+    int capture_index = pos_out_state.capture_index[ix];
+    if (capture_index >= 0)
+        snprintf(result, length, "%d", capture_index);
+    else
+        *result = '\0';
     return ERROR_OK;
 }
 
@@ -443,14 +468,41 @@ error__t pos_out_index_format(
 
 void report_capture_list(const struct connection_result *result)
 {
+    /* Position capture. */
+    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
+        if (pos_out_state.capture & (1U << i))
+            result->write_many(
+                result->connection, pos_out_state.lookup.names[i]);
+
+    /* Bit capture. */
+    for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
+        if (bit_out_state.capture[i])
+        {
+            char string[MAX_NAME_LENGTH];
+            snprintf(string, sizeof(string), "*BITS%d", i);
+            result->write_many(result->connection, string);
+        }
+
     result->write_many_end(result->connection);
 }
 
-void report_capture_bits(
-    const struct connection_result *result, unsigned int bit)
-{
 
+void report_capture_bits(
+    const struct connection_result *result, unsigned int group)
+{
+    for (unsigned int i = 0; i < 32; i ++)
+        result->write_many(result->connection,
+            bit_out_state.lookup.names[32*group + i] ?: "");
     result->write_many_end(result->connection);
+}
+
+
+void reset_capture_list(void)
+{
+    for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
+        bit_out_state.capture[i] = 0;
+    pos_out_state.capture = 0;
+    update_capture_index();
 }
 
 
@@ -460,11 +512,17 @@ void report_capture_bits(
 
 error__t initialise_capture(void)
 {
-    return initialise_mux_lookup();
+    /* Block input multiplexer maps.  These are initialised by each
+     * {bit,pos}_out field as it is loaded. */
+    mux_lookup_initialise(&bit_out_state.lookup, BIT_BUS_COUNT);
+    mux_lookup_initialise(&pos_out_state.lookup, POS_BUS_COUNT);
+    update_capture_index();
+    return ERROR_OK;
 }
 
 
 void terminate_capture(void)
 {
-    terminate_mux_lookup();
+    mux_lookup_destroy(&bit_out_state.lookup);
+    mux_lookup_destroy(&pos_out_state.lookup);
 }
