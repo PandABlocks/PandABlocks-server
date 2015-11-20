@@ -198,14 +198,18 @@ error__t field_get(
 
 
 error__t field_put(
-    struct field *field, unsigned int number,
-    const char *string)
+    struct field *field, unsigned int number, const char *string)
 {
-    uint32_t value;
-    return
-        TEST_OK_(field->type, "Field not writeable")  ?:
-        type_parse(field->type, number, string, &value)  ?:
-        class_write(field->class, number, value);
+    /* Similarly, put can be direct or via the type handler. */
+    if (field->type)
+    {
+        uint32_t value;
+        return
+            type_parse(field->type, number, string, &value)  ?:
+            class_write(field->class, number, value);
+    }
+    else
+        return class_put(field->class, number, string);
 }
 
 

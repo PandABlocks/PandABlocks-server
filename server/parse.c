@@ -1,6 +1,7 @@
 /* Simple parsing support. */
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -104,6 +105,7 @@ static error__t check_number(const char *start, const char *end)
 
 DEFINE_PARSE_NUM(parse_int,    int,          strtol,  10)
 DEFINE_PARSE_NUM(parse_uint,   unsigned int, strtoul,  10)
+DEFINE_PARSE_NUM(parse_uint64, uint64_t,     strtoull,  10)
 DEFINE_PARSE_NUM(parse_double, double,       strtod)
 
 

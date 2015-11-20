@@ -70,7 +70,7 @@ static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
 #define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
 
 
-static error__t __attribute__((format(printf, 3, 4))) format_string(
+error__t __attribute__((format(printf, 3, 4))) format_string(
     char result[], size_t length, const char *format, ...)
 {
     va_list args;
@@ -268,7 +268,7 @@ static error__t position_parse(
 /* Alas the double formatting rules are ill mannered, in particular I don't want
  * to allow leading spaces.  I'd also love to prune trailing zeros, but we'll
  * see. */
-static error__t format_double(char result[], size_t length, double value)
+error__t format_double(char result[], size_t length, double value)
 {
     snprintf(result, length, "%12g", value);    // Not going to overflow
     const char *skip = skip_whitespace(result);
@@ -525,19 +525,6 @@ static const struct type_methods types_table[] = {
                 .format = position_units_format, .put = position_units_put, },
         },
         .attr_count = 4,
-    },
-    { "scaled_time",
-        .init = position_init, .destroy = position_destroy,
-        .parse = position_parse, .format = position_format,
-        .attrs = (struct attr_methods[]) {
-            { "RAW",
-                .format = raw_format_int, .put = raw_put_int, },
-            { "SCALE", true,
-                .format = position_scale_format, .put = position_scale_put, },
-            { "UNITS", true,
-                .format = position_units_format, .put = position_units_put, },
-        },
-        .attr_count = 3,
     },
 
     /* The mux types are only valid for bit_in and pos_in classes. */
