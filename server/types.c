@@ -14,12 +14,12 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
-#include "mux_lookup.h"
 #include "config_server.h"
 #include "parse_lut.h"
 #include "classes.h"
 #include "attributes.h"
 #include "enums.h"
+#include "capture.h"
 
 #include "types.h"
 
@@ -129,39 +129,6 @@ static error__t raw_put_int(
         parse_int(&string, &value)  ?:
         parse_eos(&string)  ?:
         class_write(class, number, (uint32_t) value);
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Multiplexer selector type. */
-
-static error__t bit_mux_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length)
-{
-    return mux_lookup_index(bit_mux_lookup, value, result, length);
-}
-
-static error__t pos_mux_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length)
-{
-    return mux_lookup_index(pos_mux_lookup, value, result, length);
-}
-
-
-static error__t bit_mux_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
-{
-    return mux_lookup_name(bit_mux_lookup, string, value);
-}
-
-static error__t pos_mux_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
-{
-    return mux_lookup_name(pos_mux_lookup, string, value);
 }
 
 

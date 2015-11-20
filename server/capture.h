@@ -1,6 +1,32 @@
-/* Definitions of methods for bit_out and pos_out classes. */
+/* Definitions of methods for bit_out and pos_out classes and bit_mux and
+ * pos_mux types. */
 
 struct class;
+
+
+error__t initialise_capture(void);
+
+void terminate_capture(void);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Type definitions. */
+
+/* Converts hardware index into a printable string. */
+error__t bit_mux_format(
+    void *type_data, unsigned int number,
+    unsigned int value, char result[], size_t length);
+error__t pos_mux_format(
+    void *type_data, unsigned int number,
+    unsigned int value, char result[], size_t length);
+
+/* Converts _out field name into hardware multiplexer index. */
+error__t bit_mux_parse(
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value);
+error__t pos_mux_parse(
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

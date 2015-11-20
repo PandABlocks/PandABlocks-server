@@ -16,7 +16,7 @@
 #include "config_command.h"
 #include "system_command.h"
 #include "fields.h"
-#include "mux_lookup.h"
+#include "capture.h"
 
 
 static unsigned int config_port = 8888;
@@ -117,7 +117,7 @@ int main(int argc, char *const argv[])
         process_options(argc, argv)  ?:
 
         initialise_fields()  ?:
-        initialise_mux_lookup()  ?:
+        initialise_capture()  ?:
         load_config_databases(config_db, register_db, description_db)  ?:
 
         initialise_hardware()  ?:
@@ -148,7 +148,7 @@ int main(int argc, char *const argv[])
     terminate_system_command();
     terminate_hardware();
     terminate_databases();
-    terminate_mux_lookup();
+    terminate_capture();
     terminate_fields();
 
     return error ? 1 : 0;
