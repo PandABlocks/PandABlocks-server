@@ -46,7 +46,7 @@ void hash_table_resize(struct hash_table *table, size_t min_size);
  * true until the entire table has been walked, when false will be returned.
  * Either key or value can be null if the result is not required. */
 bool hash_table_walk(
-    struct hash_table *table, int *ix, const void **key, void **value);
+    struct hash_table *table, size_t *ix, const void **key, void **value);
 #define hash_table_walk_const(table, ix, key, value) \
     hash_table_walk(table, ix, key, CAST_FROM_TO(const void **, void **, value))
 

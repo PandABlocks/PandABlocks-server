@@ -63,7 +63,7 @@ static struct hash_table *block_map;
 
 /* A couple of helpers for walking the block and field maps. */
 #define _id_FOR_EACH_TYPE(ix, key, type, test, map, value) \
-    int ix = 0; \
+    size_t ix = 0; \
     const void *key; \
     for (type value; \
          (test)  &&  hash_table_walk(map, &ix, &key, (void **) &value); )
@@ -161,7 +161,7 @@ error__t field_list_get(
 error__t attr_list_get(
     struct field *field, const struct connection_result *result)
 {
-    int ix = 0;
+    size_t ix = 0;
     const void *key;
     void *value;
     while (hash_table_walk(field->attrs, &ix, &key, &value))

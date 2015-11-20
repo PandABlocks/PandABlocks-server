@@ -320,12 +320,9 @@ void hash_table_resize(struct hash_table *table, size_t min_size)
 
 
 bool hash_table_walk(
-    struct hash_table *table, int *ix, const void **key, void **value)
+    struct hash_table *table, size_t *ix, const void **key, void **value)
 {
-    if (*ix < 0)
-        return false;
-
-    for (; *ix <= (int) table->size_mask; (*ix) ++)
+    for (; *ix <= table->size_mask; (*ix) ++)
     {
         struct table_entry *entry = &table->table[*ix];
         if (!empty_entry(entry))

@@ -99,7 +99,7 @@ void create_attribute(
 
 void delete_attributes(struct hash_table *attr_map)
 {
-    int ix = 0;
+    size_t ix = 0;
     const void *key;
     void *value;
     while (hash_table_walk(attr_map, &ix, &key, &value))
