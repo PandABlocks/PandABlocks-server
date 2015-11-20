@@ -221,10 +221,11 @@ static error__t bit_parse(
     void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
+    bool result;
     return
-        TEST_OK_(strchr("01", *string), "Invalid bit value")  ?:
-        DO(*value = *string++ == '1')  ?:
-        parse_eos(&string);
+        parse_bit(&string, &result)  ?:
+        parse_eos(&string)  ?:
+        DO(*value = result);
 }
 
 

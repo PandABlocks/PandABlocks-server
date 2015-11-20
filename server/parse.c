@@ -107,6 +107,14 @@ DEFINE_PARSE_NUM(parse_uint,   unsigned int, strtoul,  10)
 DEFINE_PARSE_NUM(parse_double, double,       strtod)
 
 
+error__t parse_bit(const char **string, bool *result)
+{
+    return
+        TEST_OK_(strchr("01", **string), "Invalid bit value")  ?:
+        DO(*result = *(*string)++ == '1');
+}
+
+
 error__t parse_eos(const char **string)
 {
     return TEST_OK_(**string == '\0', "Unexpected character at end");

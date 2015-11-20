@@ -28,6 +28,9 @@ error__t parse_int(const char **string, int *result);
 /* Parses a double from *string. */
 error__t parse_double(const char **string, double *result);
 
+/* Parses bit from *string. */
+error__t parse_bit(const char **string, bool *result);
+
 /* Checks for end of input string. */
 error__t parse_eos(const char **string);
 

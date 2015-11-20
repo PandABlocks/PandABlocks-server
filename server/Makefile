@@ -55,6 +55,7 @@ CFLAGS_clang += -Wno-gnu-conditional-omitted-operand
 CFLAGS_clang += -Wno-gnu-statement-expression
 CFLAGS_clang += -Wno-gnu-empty-struct
 CFLAGS_clang += -Wno-gnu-zero-variadic-macro-arguments
+CFLAGS_clang += -Wno-gnu-empty-initializer
 
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-missing-field-initializers
@@ -89,6 +90,7 @@ SRCS += parse_lut.c
 SRCS += types.c
 SRCS += enums.c
 SRCS += attributes.c
+SRCS += capture.c
 
 ifdef SIMSERVER
 CFLAGS += -DSIMSERVER

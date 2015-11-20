@@ -17,6 +17,7 @@
 #include "socket_server.h"
 #include "config_command.h"
 #include "fields.h"
+#include "capture.h"
 
 #include "system_command.h"
 
@@ -142,6 +143,33 @@ static error__t system_get_desc(
 }
 
 
+/* *CAPTURE?
+ *
+ * Returns list of captured field in capture order. */
+
+static error__t system_get_capture(
+    const char *command, const struct connection_result *result)
+{
+    report_capture_list(result);
+    return ERROR_OK;
+}
+
+
+/* *BITSn?
+ *
+ * Returns list of bit field names for each bit capture block. */
+
+static error__t system_get_bits(
+    const char *command, const struct connection_result *result)
+{
+    unsigned int bit;
+    return
+        parse_uint(&command, &bit)  ?:
+        parse_eos(&command)  ?:
+        TEST_OK_(bit < 4, "Bit capture index too high")  ?:
+        DO(report_capture_bits(result, bit));
+}
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
@@ -163,6 +191,8 @@ static const struct command_table_entry command_table_list[] = {
     { "WHO",        .get = system_get_who, },
     { "CHANGES",    .get = system_get_changes, .allow_arg = true },
     { "DESC",       .get = system_get_desc, .allow_arg = true },
+    { "CAPTURE",    .get = system_get_capture, },
+    { "BITS",       .get = system_get_bits, .allow_arg = true },
 };
 
 static struct hash_table *command_table;

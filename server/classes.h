@@ -3,9 +3,19 @@
 
 struct put_table_writer;
 struct connection_result;
+struct hash_table;
 
 struct class;
 struct type;
+
+
+struct class {
+    const struct class_methods *methods;    // Class implementation
+    unsigned int count;             // Number of instances of this block
+    unsigned int block_base;        // Register base for block
+    unsigned int field_register;    // Register for field (if required)
+    void *class_data;               // Class specific data
+};
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

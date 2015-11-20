@@ -15,6 +15,7 @@
 #include "types.h"
 #include "attributes.h"
 #include "hardware.h"
+#include "capture.h"
 
 #include "classes.h"
 
@@ -34,9 +35,7 @@ struct class_methods {
 
     /* Called to parse the class definition line for a field.  The corresponding
      * class has already been identified. */
-    void (*init)(
-        const struct class_methods *methods, unsigned int count,
-        void **class_data);
+    void (*init)(unsigned int count, void **class_data);
 
     /* Parses the register definition line for this field. */
     error__t (*parse_register)(
@@ -72,188 +71,10 @@ struct class_methods {
 };
 
 
-struct class {
-    const struct class_methods *methods;    // Class implementation
-    unsigned int count;             // Number of instances of this block
-    unsigned int block_base;        // Register base for block
-    unsigned int field_register;    // Register for field (if required)
-    void *class_data;               // Class specific data
-};
-
-
-
-static pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
-#define LOCK(x)     ASSERT_PTHREAD(pthread_mutex_lock(&state_mutex))
-#define UNLOCK(x)   ASSERT_PTHREAD(pthread_mutex_unlock(&state_mutex))
-
-
 
 /*****************************************************************************/
 /* Individual class implementations. */
 
-/* bit_out and pos_out classes. */
-
-/* For bit and pos out classes we read all the values together and record the
- * corresponding change indexes.  This means we need a global state structure to
- * record the last reading, together with index information for each class index
- * to identify the corresponding fields per class. */
-
-static struct bit_out_state {
-    bool bits[BIT_BUS_COUNT];
-    uint64_t change_index[BIT_BUS_COUNT];
-} bit_out_state = { };
-
-static struct pos_out_state {
-    uint32_t positions[POS_BUS_COUNT];
-    uint64_t change_index[POS_BUS_COUNT];
-} pos_out_state = { };
-
-
-/* The class specific state is just the index array. */
-static void bit_pos_out_init(
-    const struct class_methods *methods, unsigned int count, void **class_data)
-{
-    unsigned int *index_array = malloc(count * sizeof(unsigned int));
-    for (unsigned int i = 0; i < count; i ++)
-        index_array[i] = UNASSIGNED_REGISTER;
-    *class_data = index_array;
-}
-
-
-/* For validation ensure that an index has been assigned to each field. */
-static error__t bit_pos_out_validate(struct class *class)
-{
-    unsigned int *index_array = class->class_data;
-    for (unsigned int i = 0; i < class->count; i ++)
-        if (index_array[i] == UNASSIGNED_REGISTER)
-            return FAIL_("Output selector not assigned");
-    return ERROR_OK;
-}
-
-
-/* We fill in the index array and create name lookups at the same time. */
-
-static error__t check_out_unassigned(
-    unsigned int *index_array, unsigned int count)
-{
-    /* Check that we're starting with an unassigned field set. */
-    for (unsigned int i = 0; i < count; i ++)
-        if (index_array[i] != UNASSIGNED_REGISTER)
-            return FAIL_("Output selection already assigned");
-    return ERROR_OK;
-}
-
-static error__t parse_out_registers(
-    const char **line, unsigned int count, unsigned int limit,
-    unsigned int indices[])
-{
-    error__t error = ERROR_OK;
-    for (unsigned int i = 0; !error  &&  i < count; i ++)
-        error =
-            parse_whitespace(line)  ?:
-            parse_uint(line, &indices[i])  ?:
-            TEST_OK_(indices[i] < limit, "Mux index out of range");
-    return error;
-}
-
-static error__t bit_pos_out_parse_register(
-    struct mux_lookup *lookup, unsigned int limit,
-    struct class *class, const char *block_name, const char *field_name,
-    const char **line)
-{
-    unsigned int *index_array = class->class_data;
-    return
-        check_out_unassigned(index_array, class->count)  ?:
-        parse_out_registers(line, class->count, limit, index_array) ?:
-        add_mux_indices(
-            lookup, block_name, field_name, class->count, index_array);
-}
-
-static error__t bit_out_parse_register(
-    struct class *class, const char *block_name, const char *field_name,
-    const char **line)
-{
-    return bit_pos_out_parse_register(
-        bit_mux_lookup, BIT_BUS_COUNT, class, block_name, field_name, line);
-}
-
-static error__t pos_out_parse_register(
-    struct class *class, const char *block_name, const char *field_name,
-    const char **line)
-{
-    return bit_pos_out_parse_register(
-        pos_mux_lookup, POS_BUS_COUNT, class, block_name, field_name, line);
-}
-
-
-/* The refresh method is called when we need a fresh value.  We retrieve values
- * and changed bits from the hardware and update settings accordingly. */
-
-static void bit_out_refresh(struct class *class, unsigned int number)
-{
-    LOCK();
-    uint64_t change_index = get_change_index();
-    bool changes[BIT_BUS_COUNT];
-    hw_read_bits(bit_out_state.bits, changes);
-    for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
-        if (changes[i])
-            bit_out_state.change_index[i] = change_index;
-    UNLOCK();
-}
-
-static void pos_out_refresh(struct class *class, unsigned int number)
-{
-    LOCK();
-    uint64_t change_index = get_change_index();
-    bool changes[POS_BUS_COUNT];
-    hw_read_positions(pos_out_state.positions, changes);
-    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-        if (changes[i])
-            pos_out_state.change_index[i] = change_index;
-    UNLOCK();
-}
-
-
-/* When reading just return the current value from our static state. */
-
-static uint32_t bit_out_read(struct class *class, unsigned int number)
-{
-    unsigned int *index_array = class->class_data;
-    return bit_out_state.bits[index_array[number]];
-}
-
-static uint32_t pos_out_read(struct class *class, unsigned int number)
-{
-    unsigned int *index_array = class->class_data;
-    return pos_out_state.positions[index_array[number]];
-}
-
-
-/* Computation of change set. */
-static void bit_pos_change_set(
-    struct class *class, const uint64_t change_index[],
-    const uint64_t report_index, bool changes[])
-{
-    unsigned int *index_array = class->class_data;
-    for (unsigned int i = 0; i < class->count; i ++)
-        changes[i] = change_index[index_array[i]] >= report_index;
-}
-
-static void bit_out_change_set(
-    struct class *class, const uint64_t report_index[], bool changes[])
-{
-    bit_pos_change_set(
-        class, bit_out_state.change_index,
-        report_index[CHANGE_IX_BITS], changes);
-}
-
-static void pos_out_change_set(
-    struct class *class, const uint64_t report_index[], bool changes[])
-{
-    bit_pos_change_set(
-        class, pos_out_state.change_index,
-        report_index[CHANGE_IX_POSITION], changes);
-}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -268,8 +89,7 @@ struct param_state {
     uint64_t update_index;
 };
 
-static void param_init(
-    const struct class_methods *methods, unsigned int count, void **class_data)
+static void param_init(unsigned int count, void **class_data)
 {
     *class_data = calloc(count, sizeof(struct param_state));
 }
@@ -321,8 +141,7 @@ struct read_state {
 };
 
 
-static void read_init(
-    const struct class_methods *methods, unsigned int count, void **class_data)
+static void read_init(unsigned int count, void **class_data)
 {
     *class_data = calloc(count, sizeof(struct read_state));
 }
@@ -424,8 +243,13 @@ static const struct class_methods classes_table[] = {
         .read = bit_out_read, .refresh = bit_out_refresh,
         .change_set = bit_out_change_set,
         .attrs = (struct attr_methods[]) {
-            { "CAPTURE", true, },
-            { "CAPTURE_INDEX", },
+            { "CAPTURE", true,
+                .format = bit_out_capture_format,
+                .put = bit_out_capture_put,
+            },
+            { "CAPTURE_INDEX",
+                .format = bit_out_index_format,
+            },
         },
         .attr_count = 2,
     },
@@ -436,8 +260,13 @@ static const struct class_methods classes_table[] = {
         .read = pos_out_read, .refresh = pos_out_refresh,
         .change_set = pos_out_change_set,
         .attrs = (struct attr_methods[]) {
-            { "CAPTURE", true, },
-            { "CAPTURE_INDEX", },
+            { "CAPTURE", true,
+                .format = pos_out_capture_format,
+                .put = pos_out_capture_put,
+            },
+            { "CAPTURE_INDEX",
+                .format = pos_out_index_format,
+            },
         },
         .attr_count = 2,
     },
@@ -589,7 +418,7 @@ error__t create_class(
         lookup_class(class_name, &methods)  ?:
         DO(default_type = methods->default_type)  ?:
         IF(methods->init,
-            DO(methods->init(methods, count, &class_data)))  ?:
+            DO(methods->init(count, &class_data)))  ?:
         DO(*class = create_class_block(
             methods, count, block_base, class_data))  ?:
 
