@@ -60,8 +60,7 @@ void get_class_change_set(
 
 /* Performs class initialisation and creates any associated type. */
 error__t create_class(
-    const char *class_name, const char **line,
-    unsigned int block_base, unsigned int count,
+    const char *class_name, const char **line, unsigned int count,
     struct class **class, struct type **type);
 
 /* Adds class attributes to given attr_map. */
@@ -74,8 +73,9 @@ error__t class_parse_register(
     const char **line);
 
 /* To be called after database loading is complete to ensure that all classes
- * have their required register assignments. */
-error__t validate_class(struct class *class);
+ * have their required register assignments.  Also at this point we assign the
+ * block base address. */
+error__t validate_class(struct class *class, unsigned int block_base);
 
 /* Returns name of class. */
 const char *get_class_name(struct class *class);

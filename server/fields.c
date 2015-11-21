@@ -428,7 +428,7 @@ error__t create_field(
     return
         TRY_CATCH(
             create_class(
-                class_name, line, block->base, block->count,
+                class_name, line, block->count,
                 &(*field)->class, &(*field)->type)  ?:
             DO(
                 if ((*field)->type)
@@ -480,7 +480,7 @@ error__t validate_database(void)
             "No base address for block %s", block->name);
         FOR_EACH_FIELD_WHILE(!error, block->fields, field)
         {
-            error = validate_class(field->class);
+            error = validate_class(field->class, block->base);
             if (error)
                 error_extend(error,
                     "Checking field %s.%s", block->name, field->name);

@@ -570,14 +570,13 @@ static error__t lookup_class(
 }
 
 static struct class *create_class_block(
-    const struct class_methods *methods,
-    unsigned int count, unsigned int block_base, void *class_data)
+    const struct class_methods *methods, unsigned int count, void *class_data)
 {
     struct class *class = malloc(sizeof(struct class));
     *class = (struct class) {
         .methods = methods,
         .count = count,
-        .block_base = block_base,
+        .block_base = UNASSIGNED_REGISTER,
         .field_register = UNASSIGNED_REGISTER,
         .class_data = class_data,
     };
@@ -585,8 +584,7 @@ static struct class *create_class_block(
 }
 
 error__t create_class(
-    const char *class_name, const char **line,
-    unsigned int block_base, unsigned int count,
+    const char *class_name, const char **line, unsigned int count,
     struct class **class, struct type **type)
 {
     const struct class_methods *methods = NULL;
@@ -597,8 +595,7 @@ error__t create_class(
         DO(default_type = methods->default_type)  ?:
         IF(methods->init,
             DO(methods->init(count, &class_data)))  ?:
-        DO(*class = create_class_block(
-            methods, count, block_base, class_data))  ?:
+        DO(*class = create_class_block(methods, count, class_data))  ?:
 
         /* Figure out which type to generate.  If a type is specified and we
          * don't consume it then an error will be reported. */
@@ -630,8 +627,9 @@ error__t class_parse_register(
 }
 
 
-error__t validate_class(struct class *class)
+error__t validate_class(struct class *class, unsigned int block_base)
 {
+    class->block_base = block_base;
     return
         IF(class->methods->validate,
             class->methods->validate(class));
