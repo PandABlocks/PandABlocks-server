@@ -60,30 +60,43 @@ void reset_change_context(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
+
+/* A couple of helper routines for output formatting. */
+error__t __attribute__((format(printf, 3, 4))) format_string(
+    char result[], size_t length, const char *format, ...);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
 /* This is used to pass information about the connection to name= commands. */
 struct connection_context {
-    struct change_set_context *context;
+    struct change_set_context *change_set_context;
 };
 
 
-/* This structure is used by get to communicate its results back to the server.
- * Either a single value is written, or a multi-line result.  Only one of either
- * .write_one or .write_many may be called. */
+/* Structure used to return response to name? command.  If an error code is not
+ * returned either a result should be written to .string[:.length] and .response
+ * set to RESPONSE_ONE, or else .write_many() should be called for each multiple
+ * result and set .response to RESPONSE_MANY. */
 struct connection_result {
-    struct change_set_context *context; // temporary
-    /* This is filled in to be passed back through the methods here. */
-    struct config_connection *connection;
-    /* If this is called then it must be called exactly once. */
-    void (*write_one)(
-        struct config_connection *connection, const char *result);
-    /* This can be called repeatedly (or not at all) if .write_one was not
-     * called, but in this case .write_many_end() MUST be called at the end. */
-    void (*write_many)(
-        struct config_connection *connection, const char *result);
-    /* If write_many() was called this is called to signal the end of writes. */
-    void (*write_many_end)(struct config_connection *connection);
+    /* This can be passed to update_change_index() to get a change set. */
+    struct change_set_context *change_set_context;
+    /* To return a single result it should be formatted into this array and
+     * .response set to RESPONSE_ONE. */
+    char *string;
+    size_t length;
+    /* To return multiple results this function should be called for each result
+     * and .response set to RESPONSE_MANY. */
+    void *write_context;
+    void (*write_many)(void *write_context, const char *string);
+    enum { RESPONSE_ERROR, RESPONSE_ONE, RESPONSE_MANY } response;
 };
 
+
+#define write_one_result(result, format...) \
+    ( format_string(result->string, result->length, format)  ?: \
+      DO(result->response = RESPONSE_ONE))
 
 
 /* This is filled in by a successful call to put_table. */
@@ -103,7 +116,7 @@ struct config_command_set {
      * connection_result interface.
      *    Note that ERROR_OK must be returned precisely if either
      * connection_result method was called, otherwise there was an error. */
-    error__t (*get)(const char *name, const struct connection_result *result);
+    error__t (*get)(const char *name, struct connection_result *result);
 
     /* Implements name=value command. */
     error__t (*put)(

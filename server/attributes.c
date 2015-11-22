@@ -26,17 +26,17 @@ struct attr {
 /* Implements block[n].field.attr? */
 error__t attr_get(
     struct attr *attr, unsigned int number,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     /* We have two possible implementations of attr get: .format and .get_many.
      * If the .format field is available then we use that by preference. */
     if (attr->methods->format)
     {
-        char string[MAX_RESULT_LENGTH];
         return
             attr->methods->format(
-                attr->class, attr->data, number, string, sizeof(string))  ?:
-            DO(result->write_one(result->connection, string));
+                attr->class, attr->data, number,
+                result->string, result->length)  ?:
+            DO(result->response = RESPONSE_ONE);
     }
     else if (attr->methods->get_many)
         return attr->methods->get_many(attr->class, attr->data, number, result);

@@ -105,7 +105,7 @@ error__t enum_format(
 /* Returns list of enumeration values and strings. */
 error__t enum_labels_get(
     struct class *class, void *data, unsigned int number,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     struct enum_state *state = data;
     for (unsigned int i = 0; i < state->count; i ++)
@@ -113,8 +113,8 @@ error__t enum_labels_get(
         {
             char string[MAX_RESULT_LENGTH];
             snprintf(string, sizeof(string), "%d %s", i, state->strings[i]);
-            result->write_many(result->connection, string);
+            result->write_many(result->write_context, string);
         }
-    result->write_many_end(result->connection);
+    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }

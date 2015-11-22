@@ -39,7 +39,7 @@ struct entity_context {
 struct entity_actions {
     error__t (*get)(
         const struct entity_context *context,
-        const struct connection_result *result);
+        struct connection_result *result);
     error__t (*put)(const struct entity_context *context, const char *value);
     error__t (*put_table)(
         const struct entity_context *context,
@@ -50,7 +50,7 @@ struct entity_actions {
 /* Implements  block.*?  command, returns list of fields. */
 static error__t do_field_list_get(
     const struct entity_context *context,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     return field_list_get(context->block, result);
 }
@@ -59,7 +59,7 @@ static error__t do_field_list_get(
 /* Implements  block.field?  command. */
 static error__t do_field_get(
     const struct entity_context *context,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     return field_get(context->field, context->number, result);
 }
@@ -85,7 +85,7 @@ static error__t do_field_put_table(
 /* Implements  block.field.*?  command. */
 static error__t do_attr_list_get(
     const struct entity_context *context,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     return attr_list_get(context->field, result);
 }
@@ -94,7 +94,7 @@ static error__t do_attr_list_get(
 /* Implements  block.field.attr?  command. */
 static error__t do_attr_get(
     const struct entity_context *context,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     return attr_get(context->attr, context->number, result);
 }
@@ -264,7 +264,7 @@ static error__t compute_entity_handler(
 
 /* Process  entity?  commands. */
 static error__t process_entity_get(
-    const char *name, const struct connection_result *result)
+    const char *name, struct connection_result *result)
 {
     struct entity_context context;
     const struct entity_actions *actions;

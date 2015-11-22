@@ -124,21 +124,21 @@ const char *get_field_description(struct field *field)
 }
 
 
-error__t block_list_get(const struct connection_result *result)
+error__t block_list_get(struct connection_result *result)
 {
     FOR_EACH_BLOCK(block)
     {
         char value[MAX_RESULT_LENGTH];
         snprintf(value, sizeof(value), "%s %d", block->name, block->count);
-        result->write_many(result->connection, value);
+        result->write_many(result->write_context, value);
     }
-    result->write_many_end(result->connection);
+    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 
 
 error__t field_list_get(
-    const struct block *block, const struct connection_result *result)
+    const struct block *block, struct connection_result *result)
 {
     FOR_EACH_FIELD(block->fields, field)
     {
@@ -149,21 +149,20 @@ error__t field_list_get(
             snprintf(value + length, sizeof(value) - (size_t) length, " %s",
                 get_type_name(field->type));
 
-        result->write_many(result->connection, value);
+        result->write_many(result->write_context, value);
     }
-    result->write_many_end(result->connection);
+    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 
 
-error__t attr_list_get(
-    struct field *field, const struct connection_result *result)
+error__t attr_list_get(struct field *field, struct connection_result *result)
 {
     size_t ix = 0;
     const void *key;
     while (hash_table_walk(field->attrs, &ix, &key, NULL))
-        result->write_many(result->connection, key);
-    result->write_many_end(result->connection);
+        result->write_many(result->write_context, key);
+    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 
@@ -174,8 +173,7 @@ error__t attr_list_get(
 
 
 error__t field_get(
-    struct field *field, unsigned int number,
-    const struct connection_result *result)
+    struct field *field, unsigned int number, struct connection_result *result)
 {
     /* We have two possible implementations: a single value get which we perform
      * by reading the register and formatting with the type, or else we need to
@@ -183,11 +181,11 @@ error__t field_get(
     if (field->type)
     {
         uint32_t value;
-        char string[MAX_RESULT_LENGTH];
         return
             class_read(field->class, number, &value, true)  ?:
-            type_format(field->type, number, value, string, sizeof(string))  ?:
-            DO(result->write_one(result->connection, string));
+            type_format(
+                field->type, number, value, result->string, result->length)  ?:
+            DO(result->response = RESPONSE_ONE);
     }
     else
         return class_get(field->class, number, result);
@@ -238,7 +236,7 @@ static void handle_error_report(
 
 static void report_changed_value(
     const struct field *field, unsigned int number,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     char string[MAX_RESULT_LENGTH];
     size_t prefix = (size_t) snprintf(
@@ -252,13 +250,13 @@ static void report_changed_value(
         type_format(
             field->type, number, value,
             string + prefix, sizeof(string) - prefix));
-    result->write_many(result->connection, string);
+    result->write_many(result->write_context, string);
 }
 
 
 static void report_changed_attr(
     struct field *field, struct attr *attr, unsigned int number,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     char string[MAX_RESULT_LENGTH];
     size_t prefix = (size_t) snprintf(
@@ -267,12 +265,12 @@ static void report_changed_attr(
 
     handle_error_report(string, sizeof(string), prefix,
         attr_format(attr, number, string + prefix, sizeof(string) - prefix));
-    result->write_many(result->connection, string);
+    result->write_many(result->write_context, string);
 }
 
 
 static void generate_attr_change_sets(
-    const struct connection_result *result, struct field *field,
+    struct connection_result *result, struct field *field,
     uint64_t report_index)
 {
     /* Also work through all attributes for their change sets. */
@@ -289,12 +287,12 @@ static void generate_attr_change_sets(
 
 /* Walks all fields and generates a change event for all changed fields. */
 void generate_change_sets(
-    const struct connection_result *result, enum change_set change_set)
+    struct connection_result *result, enum change_set change_set)
 {
     /* Get the change index for this connection and update it so the next
      * changes request will be up to date.  Use a fresh index for this. */
     uint64_t report_index[CHANGE_SET_SIZE];
-    update_change_index(result->context, change_set, report_index);
+    update_change_index(result->change_set_context, change_set, report_index);
     refresh_class_changes(change_set);
 
     /* Work through all fields in all blocks. */
@@ -313,7 +311,7 @@ void generate_change_sets(
                     result, field, report_index[CHANGE_IX_ATTR]);
         }
     }
-    result->write_many_end(result->connection);
+    result->response = RESPONSE_MANY;
 }
 
 

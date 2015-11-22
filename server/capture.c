@@ -466,13 +466,13 @@ error__t pos_out_index_format(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Capture enumeration. */
 
-void report_capture_list(const struct connection_result *result)
+void report_capture_list(struct connection_result *result)
 {
     /* Position capture. */
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
         if (pos_out_state.capture & (1U << i))
             result->write_many(
-                result->connection, pos_out_state.lookup.names[i]);
+                result->write_context, pos_out_state.lookup.names[i]);
 
     /* Bit capture. */
     for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
@@ -480,20 +480,19 @@ void report_capture_list(const struct connection_result *result)
         {
             char string[MAX_NAME_LENGTH];
             snprintf(string, sizeof(string), "*BITS%d", i);
-            result->write_many(result->connection, string);
+            result->write_many(result->write_context, string);
         }
 
-    result->write_many_end(result->connection);
+    result->response = RESPONSE_MANY;
 }
 
 
-void report_capture_bits(
-    const struct connection_result *result, unsigned int group)
+void report_capture_bits(struct connection_result *result, unsigned int group)
 {
     for (unsigned int i = 0; i < 32; i ++)
-        result->write_many(result->connection,
+        result->write_many(result->write_context,
             bit_out_state.lookup.names[32*group + i] ?: "");
-    result->write_many_end(result->connection);
+    result->response = RESPONSE_MANY;
 }
 
 

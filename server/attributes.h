@@ -22,7 +22,7 @@ struct attr_methods {
      * results, otherwise just implement format. */
     error__t (*get_many)(
         struct class *class, void *data, unsigned int number,
-        const struct connection_result *result);
+        struct connection_result *result);
 
     /* Writes attribute value. */
     error__t (*put)(
@@ -34,7 +34,7 @@ struct attr_methods {
 /* Retrieves current value of attribute:  block<n>.field.attr?  */
 error__t attr_get(
     struct attr *attr, unsigned int number,
-    const struct connection_result *result);
+    struct connection_result *result);
 
 /* Calls attr format method. */
 error__t attr_format(

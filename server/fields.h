@@ -36,7 +36,7 @@ const char *get_field_description(struct field *field);
 
 /* Generates list of all changed fields and their values. */
 void generate_change_sets(
-    const struct connection_result *result, enum change_set changes);
+    struct connection_result *result, enum change_set changes);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -44,17 +44,16 @@ void generate_change_sets(
 
 
 /* Implements block meta-data listing command:  *BLOCKS?  */
-error__t block_list_get(const struct connection_result *result);
+error__t block_list_get(struct connection_result *result);
 
 /* Implements field meta-data listing command:  block.*?  */
 error__t field_list_get(
-    const struct block *block, const struct connection_result *result);
+    const struct block *block, struct connection_result *result);
 
 
 /* Retrieves current value of field:  block<n>.field?  */
 error__t field_get(
-    struct field *field, unsigned int number,
-    const struct connection_result *result);
+    struct field *field, unsigned int number, struct connection_result *result);
 
 /* Writes value to field:  block<n>.field=value  */
 error__t field_put(struct field *field, unsigned int number, const char *value);
@@ -66,9 +65,7 @@ error__t field_put_table(
 
 
 /* List of attributes for field:  block.field.*?  */
-error__t attr_list_get(
-    struct field *field,
-    const struct connection_result *result);
+error__t attr_list_get(struct field *field, struct connection_result *result);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

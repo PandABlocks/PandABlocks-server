@@ -42,12 +42,9 @@ void create_type_attributes(
     struct class *class, struct type *type, struct hash_table *attr_map);
 
 
+/* Formats double without leading spaces. */
+error__t format_double(char result[], size_t length, double value);
+
+
 /* Returns name of type. */
 const char *get_type_name(const struct type *type);
-
-
-/* A couple of helper routines for output formatting. */
-error__t __attribute__((format(printf, 3, 4))) format_string(
-    char result[], size_t length, const char *format, ...);
-
-error__t format_double(char result[], size_t length, double value);

@@ -23,4 +23,4 @@ void kill_socket_server(void);
 error__t set_timeout(int sock, int timeout, int seconds);
 
 /* Generates list of currently active connections. */
-void generate_connection_list(const struct connection_result *result);
+void generate_connection_list(struct connection_result *result);

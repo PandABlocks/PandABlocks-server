@@ -61,7 +61,7 @@ struct class_methods {
     /* Direct access to fields bypassing read/write/type handling. */
     error__t (*get)(
         struct class *class, unsigned int ix,
-        const struct connection_result *result);
+        struct connection_result *result);
     error__t (*put)(
         struct class *class, unsigned int ix, const char *value);
     error__t (*put_table)(
@@ -249,17 +249,17 @@ static void write_time_register(
 
 static error__t time_get(
     struct class *class, unsigned int number,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     struct time_state *state = class->class_data;
     state = &state[number];
 
     double conversion = time_conversion[state->time_scale];
-    char string[MAX_RESULT_LENGTH];
     return
         format_double(
-            string, sizeof(string), (double) state->value / conversion)  ?:
-        DO(result->write_one(result->connection, string));
+            result->string, result->length,
+            (double) state->value / conversion)  ?:
+        DO(result->response = RESPONSE_ONE);
 }
 
 
@@ -344,7 +344,7 @@ static error__t time_scale_put(
 
 static error__t table_get(
     struct class *class, unsigned int ix,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     return FAIL_("Not implemented");
 }
@@ -490,7 +490,7 @@ error__t class_write(struct class *class, unsigned int number, uint32_t value)
 
 error__t class_get(
     struct class *class, unsigned int number,
-    const struct connection_result *result)
+    struct connection_result *result)
 {
     return
         TEST_OK_(class->methods->get, "Field not readable")  ?:

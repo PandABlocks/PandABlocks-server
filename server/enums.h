@@ -25,4 +25,4 @@ error__t enum_format(
 /* Returns list of enumeration values and strings. */
 error__t enum_labels_get(
     struct class *class, void *data, unsigned int number,
-    const struct connection_result *result);
+    struct connection_result *result);

@@ -34,8 +34,7 @@ error__t class_write(struct class *class, unsigned int number, uint32_t value);
 /* These methods will only be called if there is no type support for the class,
  * in this case the class operates directly on the strings. */
 error__t class_get(
-    struct class *class, unsigned int number,
-    const struct connection_result *result);
+    struct class *class, unsigned int number, struct connection_result *result);
 error__t class_put(
     struct class *class, unsigned int number, const char *value);
 

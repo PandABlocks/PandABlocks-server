@@ -70,19 +70,6 @@ static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
 #define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
 
 
-error__t __attribute__((format(printf, 3, 4))) format_string(
-    char result[], size_t length, const char *format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    int written = vsnprintf(result, length, format, args);
-    va_end(args);
-
-    return TEST_OK_(written >= 0  &&  (size_t) written < length,
-        "Result too long");
-}
-
-
 
 /*****************************************************************************/
 /* Individual type implementations. */

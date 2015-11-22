@@ -32,16 +32,27 @@
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Interface to external implementation of commands. */
+/* Formatting helper methods. */
+
+error__t __attribute__((format(printf, 3, 4))) format_string(
+    char result[], size_t length, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int written = vsnprintf(result, length, format, args);
+    va_end(args);
+
+    return TEST_OK_(written >= 0  &&  (size_t) written < length,
+        "Result too long");
+}
+
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Change set management. */
 
 struct change_set_context {
     uint64_t change_index[CHANGE_SET_SIZE];
-};
-
-/* This structure holds the local state for a config socket connection. */
-struct config_connection {
-    struct buffered_file *file;
-    struct change_set_context change_set_context;
 };
 
 
@@ -73,6 +84,15 @@ void reset_change_context(
 }
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* This structure holds the local state for a config socket connection. */
+struct config_connection {
+    struct buffered_file *file;
+    struct change_set_context change_set_context;
+};
+
+
 /* Writes error code to client, consumes and released error. */
 static void report_error(
     struct config_connection *connection, error__t error)
@@ -97,41 +117,19 @@ static void report_status(
 }
 
 
-/* Interface for single data response. */
-static void write_one_result(
-    struct config_connection *connection, const char *result)
-{
-    write_string(connection->file, "OK =", 4);
-    write_string(connection->file, result, strlen(result));
-    write_char(connection->file, '\n');
-}
-
-
-/* Interface for multi-line response, called repeatedly until all done. */
-static void write_many_result(
-    struct config_connection *connection, const char *result)
-{
-    write_char(connection->file, '!');
-    write_string(connection->file, result, strlen(result));
-    write_char(connection->file, '\n');
-}
-
-/* Called to complete multi-line response. */
-static void write_many_end(struct config_connection *connection)
-{
-    write_string(connection->file, ".\n", 2);
-}
-
-
-static const struct connection_result connection_result = {
-    .write_one  = write_one_result,
-    .write_many = write_many_result,
-    .write_many_end = write_many_end,
-};
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Simple read and write commands. */
+
+
+/* Interface for multi-line response, called repeatedly until all done. */
+static void write_many_result(void *context, const char *result)
+{
+    struct buffered_file *file = context;
+    write_char(file, '!');
+    write_string(file, result, strlen(result));
+    write_char(file, '\n');
+}
 
 
 /* Processes command of the form [*]name? */
@@ -142,14 +140,32 @@ static void do_read_command(
 {
     if (*value == '\0')
     {
-        struct connection_result result = connection_result;
-        result.context = &connection->change_set_context;
-        result.connection = connection;
+        char string[MAX_RESULT_LENGTH];
+        struct connection_result result = {
+            .change_set_context = &connection->change_set_context,
+            .string = string,
+            .length = sizeof(string),
+            .write_context = connection->file,
+            .write_many = write_many_result,
+            .response = RESPONSE_ERROR,
+        };
         error__t error = command_set->get(command, &result);
-        /* We only need to report an error, any success will have been reported
-         * by .get(). */
-        if (error)
-            report_error(connection, error);
+        /* Ensure error return and result response are consistent. */
+        ASSERT_OK((error != ERROR_OK) == (result.response == RESPONSE_ERROR));
+        switch (result.response)
+        {
+            case RESPONSE_ERROR:
+                report_error(connection, error);
+                break;
+            case RESPONSE_ONE:
+                write_string(connection->file, "OK =", 4);
+                write_string(connection->file, string, strlen(string));
+                write_char(connection->file, '\n');
+                break;
+            case RESPONSE_MANY:
+                write_string(connection->file, ".\n", 2);
+                break;
+        }
     }
     else
         report_error(connection, FAIL_("Unexpected text after command"));
@@ -163,10 +179,11 @@ static void do_write_command(
     const struct config_command_set *command_set)
 {
     struct connection_context context = {
-        .context = &connection->change_set_context,
+        .change_set_context = &connection->change_set_context,
     };
     report_status(connection, command_set->put(&context, command, value));
 }
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
