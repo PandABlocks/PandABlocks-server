@@ -5,6 +5,14 @@
 #define MAX_RESULT_LENGTH   256
 
 
+/* Opaque type used to represent a single connection to the configuration
+ * server, supports the connection_result methods when performing a get. */
+struct config_connection;
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Change set reporting. */
+
 /* Reportable changes are grouped into several groups, each separately
  * reportable:  Normal configuration changes, two sets of live data updates, and
  * a polled readback change set. */
@@ -29,16 +37,6 @@ enum change_set {
 STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE)
 
 
-/* This should be called in a separate thread for each configuration interface
- * socket connection.  This function will run until the given socket closes. */
-error__t process_config_socket(int scon);
-
-
-/* Opaque type used to represent a single connection to the configuration
- * server, supports the connection_result methods when performing a get. */
-struct config_connection;
-
-
 /* For each of the four change sets any change is associated with an increment
  * of a global change_index.  Each connection maintains a list of the most
  * recent change index seen for each change set.  This call updates the change
@@ -48,6 +46,13 @@ void update_change_index(
     struct config_connection *connection,
     enum change_set change_set, uint64_t change_index,
     uint64_t reported[]);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* This should be called in a separate thread for each configuration interface
+ * socket connection.  This function will run until the given socket closes. */
+error__t process_config_socket(int scon);
 
 
 /* This structure is used by get to communicate its results back to the server.
@@ -65,4 +70,38 @@ struct connection_result {
         struct config_connection *connection, const char *result);
     /* If write_many() was called this is called to signal the end of writes. */
     void (*write_many_end)(struct config_connection *connection);
+};
+
+
+
+/* This is filled in by a successful call to put_table. */
+struct put_table_writer {
+    void *context;
+    /* Call this repeatedly with blocks of data (length counts number of data
+     * items, not bytes). */
+    error__t (*write)(void *context, const unsigned int data[], size_t length);
+    /* This must be called when this writer is finished with. */
+    void (*close)(void *context);
+};
+
+
+/* Uniform interface to entity and system commands. */
+struct config_command_set {
+    /* Implements name? command.  All results are returned through the
+     * connection_result interface.
+     *    Note that ERROR_OK must be returned precisely if either
+     * connection_result method was called, otherwise there was an error. */
+    error__t (*get)(const char *name, const struct connection_result *result);
+
+    /* Implements name=value command. */
+    error__t (*put)(
+        struct config_connection *connection,
+        const char *name, const char *value);
+
+    /* Implements name< command.  This implements writing an array of values via
+     * the returned put_table_writer interface. */
+    error__t (*put_table)(
+        struct config_connection *connection,
+        const char *name, bool append,
+        struct put_table_writer *writer);
 };

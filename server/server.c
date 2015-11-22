@@ -13,7 +13,6 @@
 #include "config_server.h"
 #include "socket_server.h"
 #include "database.h"
-#include "config_command.h"
 #include "system_command.h"
 #include "fields.h"
 #include "capture.h"

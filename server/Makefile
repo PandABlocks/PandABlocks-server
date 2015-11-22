@@ -77,6 +77,7 @@ SRCS += server.c
 SRCS += error.c
 SRCS += socket_server.c
 SRCS += config_server.c
+SRCS += buffered_file.c
 SRCS += data_server.c
 SRCS += parse.c
 SRCS += hashtable.c
