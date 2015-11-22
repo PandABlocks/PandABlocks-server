@@ -100,9 +100,8 @@ void create_attribute(
 void delete_attributes(struct hash_table *attr_map)
 {
     size_t ix = 0;
-    const void *key;
     void *value;
-    while (hash_table_walk(attr_map, &ix, &key, &value))
+    while (hash_table_walk(attr_map, &ix, NULL, &value))
     {
         struct attr *attr = value;
         free(attr->change_index);

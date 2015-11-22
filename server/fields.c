@@ -62,11 +62,10 @@ static struct hash_table *block_map;
 
 
 /* A couple of helpers for walking the block and field maps. */
-#define _id_FOR_EACH_TYPE(ix, key, type, test, map, value) \
+#define _id_FOR_EACH_TYPE(ix, type, test, map, value) \
     size_t ix = 0; \
-    const void *key; \
     for (type value; \
-         (test)  &&  hash_table_walk(map, &ix, &key, (void **) &value); )
+         (test)  &&  hash_table_walk(map, &ix, NULL, (void **) &value); )
 /* Called thus:
  *  FOR_EACH_TYPE(type, test, map, value) { loop }
  *
@@ -74,8 +73,7 @@ static struct hash_table *block_map;
  * test     Condition for testing loop: loops while test is true
  * map      Hash table containing set of value for iteration
  * value    Name of variable to which each value is assigned. */
-#define FOR_EACH_TYPE(args...) \
-    _id_FOR_EACH_TYPE(UNIQUE_ID(), UNIQUE_ID(), args)
+#define FOR_EACH_TYPE(args...)  _id_FOR_EACH_TYPE(UNIQUE_ID(), args)
 
 #define FOR_EACH_BLOCK_WHILE(cond, block_var) \
     FOR_EACH_TYPE(struct block *, cond, block_map, block_var)
@@ -163,8 +161,7 @@ error__t attr_list_get(
 {
     size_t ix = 0;
     const void *key;
-    void *value;
-    while (hash_table_walk(field->attrs, &ix, &key, &value))
+    while (hash_table_walk(field->attrs, &ix, &key, NULL))
         result->write_many(result->connection, key);
     result->write_many_end(result->connection);
     return ERROR_OK;
