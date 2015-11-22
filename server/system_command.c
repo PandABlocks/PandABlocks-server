@@ -122,16 +122,14 @@ static error__t get_changes(
  *
  * Resets change reporting for selected change set. */
 static error__t put_changes(
-    struct config_connection *connection,
+    struct connection_context *connection,
     const char *command, const char *value)
 {
     enum change_set change_set;
-    uint64_t report_index[CHANGE_SET_SIZE];
     return
         parse_change_set(&command, &change_set)  ?:
         parse_eos(&value)  ?:
-        DO(update_change_index(
-            connection, change_set, get_change_index(), report_index));
+        DO(reset_change_context(connection->context, change_set));
 }
 
 
@@ -181,7 +179,7 @@ static error__t get_capture(
  *
  * Resets capture to empty. */
 static error__t put_capture(
-    struct config_connection *connection,
+    struct connection_context *connection,
     const char *command, const char *value)
 {
     return
@@ -215,7 +213,7 @@ struct command_table_entry {
     error__t (*get)(
         const char *command, const struct connection_result *result);
     error__t (*put)(
-        struct config_connection *connection,
+        struct connection_context *connection,
         const char *command, const char *value);
 };
 
@@ -259,7 +257,7 @@ static error__t process_system_get(
 
 /* Process  *command=value  commands. */
 static error__t process_system_put(
-    struct config_connection *connection,
+    struct connection_context *connection,
     const char *command, const char *value)
 {
     const struct command_table_entry *command_set;
@@ -271,8 +269,7 @@ static error__t process_system_put(
 
 
 static error__t process_system_put_table(
-    struct config_connection *connection, const char *command, bool append,
-    struct put_table_writer *writer)
+    const char *command, bool append, struct put_table_writer *writer)
 {
     return FAIL_("Not a table");
 }

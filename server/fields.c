@@ -294,8 +294,7 @@ void generate_change_sets(
     /* Get the change index for this connection and update it so the next
      * changes request will be up to date.  Use a fresh index for this. */
     uint64_t report_index[CHANGE_SET_SIZE];
-    update_change_index(
-        result->connection, change_set, get_change_index(), report_index);
+    update_change_index(result->context, change_set, report_index);
     refresh_class_changes(change_set);
 
     /* Work through all fields in all blocks. */

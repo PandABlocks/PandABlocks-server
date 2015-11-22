@@ -8,6 +8,8 @@ struct hash_table;
 struct class;
 struct type;
 
+enum change_set;
+
 
 struct class {
     const struct class_methods *methods;    // Class implementation

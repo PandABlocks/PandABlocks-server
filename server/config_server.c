@@ -14,6 +14,7 @@
 #include "buffered_file.h"
 #include "config_command.h"
 #include "system_command.h"
+#include "classes.h"
 
 #include "config_server.h"
 
@@ -33,28 +34,42 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Interface to external implementation of commands. */
 
+struct change_set_context {
+    uint64_t change_index[CHANGE_SET_SIZE];
+};
+
 /* This structure holds the local state for a config socket connection. */
 struct config_connection {
     struct buffered_file *file;
-    uint64_t change_index[CHANGE_SET_SIZE];
+    struct change_set_context change_set_context;
 };
 
 
 void update_change_index(
-    struct config_connection *connection,
-    enum change_set change_set, uint64_t change_index,
-    uint64_t reported[CHANGE_SET_SIZE])
+    struct change_set_context *context,
+    enum change_set change_set, uint64_t reported[CHANGE_SET_SIZE])
 {
+    uint64_t change_index = get_change_index();
     for (unsigned int i = 0; i < CHANGE_SET_SIZE; i ++)
         if (change_set & (1U << i))
         {
-            reported[i] = connection->change_index[i];
-            connection->change_index[i] = change_index;
+            reported[i] = context->change_index[i];
+            context->change_index[i] = change_index;
         }
         else
             /* If this change isn't to be reported, push the report index out to
              * the indefinite future. */
             reported[i] = (uint64_t) (int64_t) -1;
+}
+
+
+void reset_change_context(
+    struct change_set_context *context, enum change_set change_set)
+{
+    uint64_t change_index = get_change_index();
+    for (unsigned int i = 0; i < CHANGE_SET_SIZE; i ++)
+        if (change_set & (1U << i))
+            context->change_index[i] = change_index;
 }
 
 
@@ -128,6 +143,7 @@ static void do_read_command(
     if (*value == '\0')
     {
         struct connection_result result = connection_result;
+        result.context = &connection->change_set_context;
         result.connection = connection;
         error__t error = command_set->get(command, &result);
         /* We only need to report an error, any success will have been reported
@@ -146,7 +162,10 @@ static void do_write_command(
     const char *command, const char *value,
     const struct config_command_set *command_set)
 {
-    report_status(connection, command_set->put(connection, command, value));
+    struct connection_context context = {
+        .context = &connection->change_set_context,
+    };
+    report_status(connection, command_set->put(&context, command, value));
 }
 
 
@@ -276,8 +295,7 @@ static void complete_table_command(
     struct put_table_writer writer = dummy_table_writer;
     /* Call .put_table to start the transaction, which must then be
      * completed with calls to writer. */
-    error__t error =
-        command_set->put_table(connection, command, append, &writer);
+    error__t error = command_set->put_table(command, append, &writer);
     /* If we failed here then at least give the client a chance to discover
      * early.  If we're in ASCII mode the force the message out. */
     bool reported = error != ERROR_OK;

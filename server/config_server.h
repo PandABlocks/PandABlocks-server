@@ -37,28 +37,40 @@ enum change_set {
 STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE)
 
 
+/* Used for change management for a single connection. */
+struct change_set_context;
+
+
 /* For each of the four change sets any change is associated with an increment
  * of a global change_index.  Each connection maintains a list of the most
  * recent change index seen for each change set.  This call updates the change
  * index for each selected change set and returns the previous change index for
  * all change sets. */
 void update_change_index(
-    struct config_connection *connection,
-    enum change_set change_set, uint64_t change_index,
-    uint64_t reported[]);
+    struct change_set_context *context,
+    enum change_set change_set, uint64_t reported[]);
+
+/* Resets change counters.  Same as calling update_change_index and discarding
+ * the reported array. */
+void reset_change_context(
+    struct change_set_context *context, enum change_set change_set);
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* This should be called in a separate thread for each configuration interface
- * socket connection.  This function will run until the given socket closes. */
-error__t process_config_socket(int scon);
+
+/* This is used to pass information about the connection to name= commands. */
+struct connection_context {
+    struct change_set_context *context;
+};
 
 
 /* This structure is used by get to communicate its results back to the server.
  * Either a single value is written, or a multi-line result.  Only one of either
  * .write_one or .write_many may be called. */
 struct connection_result {
+    struct change_set_context *context; // temporary
     /* This is filled in to be passed back through the methods here. */
     struct config_connection *connection;
     /* If this is called then it must be called exactly once. */
@@ -95,13 +107,18 @@ struct config_command_set {
 
     /* Implements name=value command. */
     error__t (*put)(
-        struct config_connection *connection,
+        struct connection_context *connection,
         const char *name, const char *value);
 
     /* Implements name< command.  This implements writing an array of values via
      * the returned put_table_writer interface. */
     error__t (*put_table)(
-        struct config_connection *connection,
-        const char *name, bool append,
-        struct put_table_writer *writer);
+        const char *name, bool append, struct put_table_writer *writer);
 };
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* This should be called in a separate thread for each configuration interface
+ * socket connection.  This function will run until the given socket closes. */
+error__t process_config_socket(int scon);
