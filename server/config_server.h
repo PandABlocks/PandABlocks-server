@@ -38,7 +38,13 @@ STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE)
 
 
 /* Used for change management for a single connection. */
-struct change_set_context;
+struct change_set_context {
+    uint64_t change_index[CHANGE_SET_SIZE];
+};
+
+
+/* Allocates and returns a fresh change index. */
+uint64_t get_change_index(void);
 
 
 /* For each of the four change sets any change is associated with an increment

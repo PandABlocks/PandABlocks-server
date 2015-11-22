@@ -20,8 +20,8 @@
 
 
 static pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
-#define LOCK(x)     ASSERT_PTHREAD(pthread_mutex_lock(&state_mutex))
-#define UNLOCK(x)   ASSERT_PTHREAD(pthread_mutex_unlock(&state_mutex))
+#define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&state_mutex))
+#define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&state_mutex))
 
 
 

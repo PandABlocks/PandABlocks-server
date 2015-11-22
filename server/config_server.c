@@ -51,9 +51,16 @@ error__t __attribute__((format(printf, 3, 4))) format_string(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Change set management. */
 
-struct change_set_context {
-    uint64_t change_index[CHANGE_SET_SIZE];
-};
+/* This number is used to work out which fields have changed since we last
+ * looked.  This is incremented on every update. */
+static uint64_t global_change_index = 0;
+
+
+/* Allocates and returns a fresh change index. */
+uint64_t get_change_index(void)
+{
+    return __sync_add_and_fetch(&global_change_index, 1);
+}
 
 
 void update_change_index(

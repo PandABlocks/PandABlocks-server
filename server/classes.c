@@ -519,18 +519,6 @@ error__t class_put_table(
 
 /* Change support. */
 
-/* This number is used to work out which fields have changed since we last
- * looked.  This is incremented on every update. */
-static uint64_t global_change_index = 0;
-
-
-/* Allocates and returns a fresh change index. */
-uint64_t get_change_index(void)
-{
-    return __sync_add_and_fetch(&global_change_index, 1);
-}
-
-
 void refresh_class_changes(enum change_set change_set)
 {
     if (change_set & CHANGES_BITS)

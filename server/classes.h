@@ -45,9 +45,6 @@ error__t class_put_table(
     bool append, struct put_table_writer *writer);
 
 
-/* Allocates and returns a fresh change index. */
-uint64_t get_change_index(void);
-
 /* Global refresh of changes for those classes which need a global refresh. */
 void refresh_class_changes(enum change_set change_set);
 
