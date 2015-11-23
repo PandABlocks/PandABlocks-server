@@ -30,9 +30,12 @@ error__t class_read(
 error__t class_write(struct class *class, unsigned int number, uint32_t value);
 
 
-/* Read formatted value from class. */
+/* Read formatted value from class.  If refresh is set then the latest value
+ * will be read from hardware (if appropriate), otherwise the most recent cached
+ * value is returned. */
 error__t class_get(
-    struct class *class, unsigned int number, struct connection_result *result);
+    struct class *class, unsigned int number, bool refresh,
+    struct connection_result *result);
 
 /* Writes formatted value to class. */
 error__t class_put(struct class *class, unsigned int number, const char *value);

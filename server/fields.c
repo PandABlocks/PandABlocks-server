@@ -173,7 +173,7 @@ error__t attr_list_get(struct field *field, struct connection_result *result)
 error__t field_get(
     struct field *field, unsigned int number, struct connection_result *result)
 {
-    return class_get(field->class, number, result);
+    return class_get(field->class, number, true, result);
 }
 
 
@@ -233,7 +233,7 @@ static void report_changed_value(
         .write_many = dummy_write_many,
     };
     handle_error_report(string, sizeof(string), prefix,
-        class_get(field->class, number, &format_result)  ?:
+        class_get(field->class, number, false, &format_result)  ?:
         TEST_OK(format_result.response == RESPONSE_ONE));
     result->write_many(result->write_context, string);
 }

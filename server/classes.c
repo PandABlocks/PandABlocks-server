@@ -489,7 +489,7 @@ error__t class_write(struct class *class, unsigned int number, uint32_t value)
 
 
 error__t class_get(
-    struct class *class, unsigned int number,
+    struct class *class, unsigned int number, bool refresh,
     struct connection_result *result)
 {
     /* For the moment we delegate this method to class_read if there is a type.
@@ -498,7 +498,7 @@ error__t class_get(
     {
         uint32_t value;
         return
-            class_read(class, number, &value, true)  ?:
+            class_read(class, number, &value, refresh)  ?:
             type_format(
                 class->type, number, value, result->string, result->length)  ?:
             DO(result->response = RESPONSE_ONE);
