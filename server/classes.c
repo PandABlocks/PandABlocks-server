@@ -151,9 +151,9 @@ static void read_init(unsigned int count, void **class_data)
 }
 
 
-/* Reading is a two stage process: each time we do a read we check the value and
- * update the update_index accordingly. */
-static void read_refresh(struct class *class, unsigned int number)
+/* Each time we read check whether the value has changed and update the change
+ * index accordingly. */
+static uint32_t read_read(struct class *class, unsigned int number)
 {
     struct read_state *state = class->class_data;
     uint32_t result =
@@ -163,21 +163,21 @@ static void read_refresh(struct class *class, unsigned int number)
         state[number].value = result;
         state[number].update_index = get_change_index();
     }
+    return result;
 }
 
-static uint32_t read_read(struct class *class, unsigned int number)
-{
-    struct read_state *state = class->class_data;
-    return state[number].value;
-}
 
+/* To read the change set we'll need to read each register. */
 static void read_change_set(
     struct class *class, const uint64_t report_index[], bool changes[])
 {
     struct param_state *state = class->class_data;
     uint64_t report = report_index[CHANGE_IX_READ];
     for (unsigned int i = 0; i < class->count; i ++)
+    {
+        read_read(class, i);
         changes[i] = state[i].update_index >= report;
+    }
 }
 
 
@@ -443,7 +443,7 @@ static const struct class_methods classes_table[] = {
         .init = read_init,
         .validate = default_validate,
         .parse_register = default_parse_register,
-        .read = read_read, .refresh = read_refresh,
+        .read = read_read,
         .change_set = read_change_set,
     },
     { "write", "uint",

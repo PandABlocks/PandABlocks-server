@@ -6,16 +6,6 @@ struct type;
 struct attr;
 
 
-/* Context require to read or write a type attribute. */
-struct type_attr_context {
-    unsigned int number;
-    const struct field *field;
-    struct type *type;
-    void *type_data;
-    const struct attr *attr;
-};
-
-
 /* This converts a string to a writeable integer. */
 error__t type_parse(
     struct type *type, unsigned int number,

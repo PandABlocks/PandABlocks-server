@@ -43,10 +43,8 @@ struct field {
     const struct block *block;      // Parent block
     char *name;                     // Field name
     unsigned int sequence;          // Field sequence number
-
-    struct class *class;            // Class defining hardware interface and
     char *description;              // User readable description
-
+    struct class *class;            // Class defining hardware interface and
     struct hash_table *attrs;       // Attribute lookup table
 };
 
@@ -166,22 +164,19 @@ error__t attr_list_get(struct field *field, struct connection_result *result)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Method dispatch down to class. */
+/* Field read and write.  These all just delegate the implementation down to the
+ * class. */
 
-
-/* Just delegate implementation down to class. */
 error__t field_get(
     struct field *field, unsigned int number, struct connection_result *result)
 {
     return class_get(field->class, number, true, result);
 }
 
-
 error__t field_put(struct field *field, unsigned int number, const char *string)
 {
     return class_put(field->class, number, string);
 }
-
 
 error__t field_put_table(
     struct field *field, unsigned int number,
@@ -211,9 +206,9 @@ static void handle_error_report(
 }
 
 
-/* Placeholder for formatting result. */
+/* Placeholder for formatting result.  If the class wants to return a multi-line
+ * result then this let's us just throw it away. */
 static void dummy_write_many(void *write_context, const char *string) { }
-
 
 static void report_changed_value(
     const struct field *field, unsigned int number,
