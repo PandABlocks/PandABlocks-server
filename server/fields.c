@@ -45,7 +45,6 @@ struct field {
     unsigned int sequence;          // Field sequence number
 
     struct class *class;            // Class defining hardware interface and
-    struct type *type;              // Optional type handler
     char *description;              // User readable description
 
     struct hash_table *attrs;       // Attribute lookup table
@@ -142,14 +141,12 @@ error__t field_list_get(
 {
     FOR_EACH_FIELD(block->fields, field)
     {
-        char value[MAX_RESULT_LENGTH];
-        int length = snprintf(value, sizeof(value), "%s %u %s",
-            field->name, field->sequence, get_class_name(field->class));
-        if (field->type)
-            snprintf(value + length, sizeof(value) - (size_t) length, " %s",
-                get_type_name(field->type));
+        char string[MAX_RESULT_LENGTH];
+        size_t length = (size_t) snprintf(string, sizeof(string), "%s %u ",
+            field->name, field->sequence);
+        describe_class(field->class, string + length, sizeof(string) - length);
 
-        result->write_many(result->write_context, value);
+        result->write_many(result->write_context, string);
     }
     result->response = RESPONSE_MANY;
     return ERROR_OK;
@@ -172,39 +169,17 @@ error__t attr_list_get(struct field *field, struct connection_result *result)
 /* Method dispatch down to class. */
 
 
+/* Just delegate implementation down to class. */
 error__t field_get(
     struct field *field, unsigned int number, struct connection_result *result)
 {
-    /* We have two possible implementations: a single value get which we perform
-     * by reading the register and formatting with the type, or else we need to
-     * hand the implementation down to the class. */
-    if (field->type)
-    {
-        uint32_t value;
-        return
-            class_read(field->class, number, &value, true)  ?:
-            type_format(
-                field->type, number, value, result->string, result->length)  ?:
-            DO(result->response = RESPONSE_ONE);
-    }
-    else
-        return class_get(field->class, number, result);
+    return class_get(field->class, number, result);
 }
 
 
-error__t field_put(
-    struct field *field, unsigned int number, const char *string)
+error__t field_put(struct field *field, unsigned int number, const char *string)
 {
-    /* Similarly, put can be direct or via the type handler. */
-    if (field->type)
-    {
-        uint32_t value;
-        return
-            type_parse(field->type, number, string, &value)  ?:
-            class_write(field->class, number, value);
-    }
-    else
-        return class_put(field->class, number, string);
+    return class_put(field->class, number, string);
 }
 
 
@@ -228,10 +203,16 @@ static void handle_error_report(
     if (error)
     {
         prefix -= 1;
+        string[prefix] = '\0';
+        ERROR_REPORT(error, "Error reporting *CHANGES for %s", string);
+
         snprintf(string + prefix, length - prefix, " (error)");
-        ERROR_REPORT(error, "Error during *CHANGES report");
     }
 }
+
+
+/* Placeholder for formatting result. */
+static void dummy_write_many(void *write_context, const char *string) { }
 
 
 static void report_changed_value(
@@ -243,13 +224,17 @@ static void report_changed_value(
         string, sizeof(string), "%s%d.%s=",
         field->block->name, number, field->name);
 
-    uint32_t value;
+    /* Use the class's own formatting method to format into the result string
+     * via our own connection result.  If a multiple string result is returned
+     * then, for the moment, we report an unexpected error. */
+    struct connection_result format_result = {
+        .string = string + prefix,
+        .length = sizeof(string) - prefix,
+        .write_many = dummy_write_many,
+    };
     handle_error_report(string, sizeof(string), prefix,
-        TEST_OK(field->type)  ?:        // A big surprise if this fails!
-        class_read(field->class, number, &value, false)  ?:
-        type_format(
-            field->type, number, value,
-            string + prefix, sizeof(string) - prefix));
+        class_get(field->class, number, &format_result)  ?:
+        TEST_OK(format_result.response == RESPONSE_ONE));
     result->write_many(result->write_context, string);
 }
 
@@ -335,8 +320,6 @@ static void destroy_field(struct field *field)
 {
     free(field->name);
     destroy_class(field->class);
-    if (field->type)
-        destroy_type(field->type);
     free(field->description);
     delete_attributes(field->attrs);
     hash_table_destroy(field->attrs);
@@ -421,14 +404,8 @@ error__t create_field(
     *field = create_field_block(block, field_name);
     return
         TRY_CATCH(
-            create_class(
-                class_name, line, block->count,
-                &(*field)->class, &(*field)->type)  ?:
-            DO(
-                if ((*field)->type)
-                    create_type_attributes(
-                        (*field)->class, (*field)->type, (*field)->attrs);
-                create_class_attributes((*field)->class, (*field)->attrs))  ?:
+            create_class(class_name, line, block->count, &(*field)->class)  ?:
+            DO(create_class_attributes((*field)->class, (*field)->attrs))  ?:
             /* Insert the field into the blocks map of fields. */
             TEST_OK_(
                 hash_table_insert(
@@ -443,9 +420,7 @@ error__t create_field(
 
 error__t field_parse_attribute(struct field *field, const char **line)
 {
-    return
-        TEST_OK_(field->type, "Cannot add attribute to field")  ?:
-        type_parse_attribute(field->type, line);
+    return class_parse_attribute(field->class, line);
 }
 
 

@@ -19,7 +19,7 @@
 
 struct enum_state {
     struct hash_table *map;     // String to index
-    unsigned int count;         // Lenght of strings array
+    unsigned int count;         // Length of strings array
     char *strings[];
 };
 

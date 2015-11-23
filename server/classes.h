@@ -17,27 +17,25 @@ struct class {
     unsigned int block_base;        // Register base for block
     unsigned int field_register;    // Register for field (if required)
     void *class_data;               // Class specific data
+    struct type *type;              // Optional type handler
 };
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Class field access. */
 
-/* Reads value from associated register, or error if reading not supported. */
+// !!!! Deprecated
 error__t class_read(
     struct class *class, unsigned int number, uint32_t *value, bool refresh);
-
-/* Writes value to register, or returns error if not supported. */
 error__t class_write(struct class *class, unsigned int number, uint32_t value);
 
 
-/* These methods will only be called if there is no type support for the class,
- * in this case the class operates directly on the strings. */
+/* Read formatted value from class. */
 error__t class_get(
     struct class *class, unsigned int number, struct connection_result *result);
-error__t class_put(
-    struct class *class, unsigned int number, const char *value);
 
+/* Writes formatted value to class. */
+error__t class_put(struct class *class, unsigned int number, const char *value);
 
 /* Direct implementation of table support. */
 error__t class_put_table(
@@ -59,11 +57,13 @@ void get_class_change_set(
 /* Performs class initialisation and creates any associated type. */
 error__t create_class(
     const char *class_name, const char **line, unsigned int count,
-    struct class **class, struct type **type);
+    struct class **class);
 
 /* Adds class attributes to given attr_map. */
-void create_class_attributes(
-    struct class *class, struct hash_table *attr_map);
+void create_class_attributes(struct class *class, struct hash_table *attr_map);
+
+/* Parses field attribute in configuration file. */
+error__t class_parse_attribute(struct class *class, const char **line);
 
 /* Parse register definition line. */
 error__t class_parse_register(
@@ -75,8 +75,8 @@ error__t class_parse_register(
  * block base address. */
 error__t validate_class(struct class *class, unsigned int block_base);
 
-/* Returns name of class. */
-const char *get_class_name(struct class *class);
+/* Returns description of class including any type. */
+void describe_class(struct class *class, char *string, size_t length);
 
 /* This should be called during shutdown for each created class. */
 void destroy_class(struct class *class);

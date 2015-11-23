@@ -492,18 +492,39 @@ error__t class_get(
     struct class *class, unsigned int number,
     struct connection_result *result)
 {
-    return
-        TEST_OK_(class->methods->get, "Field not readable")  ?:
-        class->methods->get(class, number, result);
+    /* For the moment we delegate this method to class_read if there is a type.
+     * This is going to be rewritten shortly. */
+    if (class->type)
+    {
+        uint32_t value;
+        return
+            class_read(class, number, &value, true)  ?:
+            type_format(
+                class->type, number, value, result->string, result->length)  ?:
+            DO(result->response = RESPONSE_ONE);
+    }
+    else
+        return
+            TEST_OK_(class->methods->get, "Field not readable")  ?:
+            class->methods->get(class, number, result);
 }
 
 
 error__t class_put(
-    struct class *class, unsigned int number, const char *value)
+    struct class *class, unsigned int number, const char *string)
 {
-    return
-        TEST_OK_(class->methods->put, "Field not writeable")  ?:
-        class->methods->put(class, number, value);
+    /* Same story as for class_get */
+    if (class->type)
+    {
+        uint32_t value;
+        return
+            type_parse(class->type, number, string, &value)  ?:
+            class_write(class, number, value);
+    }
+    else
+        return
+            TEST_OK_(class->methods->put, "Field not writeable")  ?:
+            class->methods->put(class, number, string);
 }
 
 
@@ -573,7 +594,7 @@ static struct class *create_class_block(
 
 error__t create_class(
     const char *class_name, const char **line, unsigned int count,
-    struct class **class, struct type **type)
+    struct class **class)
 {
     const struct class_methods *methods = NULL;
     void *class_data = NULL;
@@ -590,7 +611,7 @@ error__t create_class(
         IF(default_type,
             /* If no type specified use the default. */
             IF(**line == '\0', DO(line = &default_type))  ?:
-            create_type(line, methods->force_type, count, type));
+            create_type(line, methods->force_type, count, &(*class)->type));
 }
 
 
@@ -601,6 +622,16 @@ void create_class_attributes(
         create_attribute(
             &class->methods->attrs[i], class, class->class_data,
             class->count, attr_map);
+    if (class->type)
+        create_type_attributes(class, class->type, attr_map);
+}
+
+
+error__t class_parse_attribute(struct class *class, const char **line)
+{
+    return
+        TEST_OK_(class->type, "Cannot add attribute to this field")  ?:
+        type_parse_attribute(class->type, line);
 }
 
 
@@ -623,9 +654,13 @@ error__t validate_class(struct class *class, unsigned int block_base)
             class->methods->validate(class));
 }
 
-const char *get_class_name(struct class *class)
+void describe_class(struct class *class, char *string, size_t length)
 {
-    return class->methods->name;
+    size_t written =
+        (size_t) snprintf(string, length, "%s", class->methods->name);
+    if (class->type)
+        snprintf(string + written, length - written, " %s",
+            get_type_name(class->type));
 }
 
 void destroy_class(struct class *class)
@@ -633,5 +668,7 @@ void destroy_class(struct class *class)
     if (class->methods->destroy)
         class->methods->destroy(class);
     free(class->class_data);
+    if (class->type)
+        destroy_type(class->type);
     free(class);
 }
