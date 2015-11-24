@@ -27,55 +27,6 @@
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Abstract interface to class. */
-struct class_methods {
-    const char *name;
-
-    /* Type information. */
-    const char *default_type;   // Default type.  If NULL no type is created
-    bool force_type;            // If set default_type cannot be modified
-
-    /* Called to parse the class definition line for a field.  The corresponding
-     * class has already been identified. */
-    void (*init)(unsigned int count, void **class_data);
-
-    /* Parses the register definition line for this field. */
-    error__t (*parse_register)(
-        struct class *class, const char *block_name, const char *field_name,
-        const char **line);
-    /* Called after startup to validate setup. */
-    error__t (*validate)(struct class *class, unsigned int block_base);
-    /* Called during shutdown to release all class resources. */
-    void (*destroy)(struct class *class);
-
-    /* Register read/write methods. */
-    uint32_t (*read)(struct class *class, unsigned int number);
-    void (*write)(struct class *class, unsigned int number, uint32_t value);
-    /* For the _out classes the data provided by .read() needs to be loaded as a
-     * separate action, this optional method does this. */
-    void (*refresh)(struct class *class, unsigned int number);
-    /* Computes change set for this class.  The class looks up its own change
-     * index in report_index[] and updates changes[] accordingly. */
-    void (*change_set)(
-        struct class *class, const uint64_t report_index[], bool changes[]);
-
-    /* Direct access to fields bypassing read/write/type handling. */
-    error__t (*get)(
-        struct class *class, unsigned int ix,
-        struct connection_result *result);
-    error__t (*put)(
-        struct class *class, unsigned int ix, const char *value);
-    error__t (*put_table)(
-        struct class *class, unsigned int ix,
-        bool append, struct put_table_writer *writer);
-
-    /* Class specific attributes. */
-    const struct attr_methods *attrs;
-    unsigned int attr_count;
-};
-
-
-
 /*****************************************************************************/
 /* Individual class implementations. */
 
@@ -205,19 +156,38 @@ static void param_init(unsigned int count, void **class_data)
     .change_set = typed_register_change_set
 
 
+static const struct class_methods param_class_methods = {
+    "param", "uint",
+    PARAM_CLASS_METHODS,
+};
+
+static const struct class_methods bit_in_class_methods = {
+    "bit_in", "bit_mux", true,
+    PARAM_CLASS_METHODS,
+};
+
+static const struct class_methods pos_in_class_methods = {
+    "pos_in", "pos_mux", true,
+    PARAM_CLASS_METHODS,
+};
+
+
+
 static void read_init(unsigned int count, void **class_data)
 {
     typed_register_init(create_read_register(count), class_data);
 }
 
-#define READ_CLASS_METHODS \
-    .init = read_init, \
-    .destroy = typed_register_destroy, \
-    .parse_register = typed_register_parse_register, \
-    .validate = typed_register_validate, \
-    .read = typed_register_read, \
-    .get = typed_register_get, \
-    .change_set = typed_register_change_set
+static const struct class_methods read_class_methods = {
+    "read", "uint",
+    .init = read_init,
+    .destroy = typed_register_destroy,
+    .parse_register = typed_register_parse_register,
+    .validate = typed_register_validate,
+    .read = typed_register_read,
+    .get = typed_register_get,
+    .change_set = typed_register_change_set,
+};
 
 
 static void write_init(unsigned int count, void **class_data)
@@ -225,125 +195,17 @@ static void write_init(unsigned int count, void **class_data)
     typed_register_init(create_write_register(count), class_data);
 }
 
-#define WRITE_CLASS_METHODS \
-    .init = write_init, \
-    .destroy = typed_register_destroy, \
-    .parse_register = typed_register_parse_register, \
-    .validate = typed_register_validate, \
-    .write = typed_register_write, \
-    .put = typed_register_put
-
-
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Common defaults for simple register assignment. */
-
-static error__t default_validate(struct class *class, unsigned int block_base)
-{
-    return
-        TEST_OK_(class->field_register != UNASSIGNED_REGISTER,
-            "No register assigned to field");
-}
-
-static error__t default_parse_register(
-    struct class *class, const char *block_name, const char *field_name,
-    const char **line)
-{
-    return
-        TEST_OK_(class->field_register == UNASSIGNED_REGISTER,
-            "Register already assigned")  ?:
-        parse_whitespace(line)  ?:
-        parse_uint(line, &class->field_register);
-}
-
-
-/*****************************************************************************/
-/* Top level list of classes. */
-
-static const struct class_methods classes_table[] = {
-    { "bit_in", "bit_mux", true, PARAM_CLASS_METHODS, },
-    { "pos_in", "pos_mux", true, PARAM_CLASS_METHODS, },
-    { "param",  "uint",          PARAM_CLASS_METHODS, },
-    { "read",   "uint",          READ_CLASS_METHODS, },
-    { "write",  "uint",          WRITE_CLASS_METHODS, },
-
-    { "time",
-        .init = time_init,
-        .parse_register = default_parse_register,
-        .validate = default_validate,
-        .get = time_get,
-        .put = time_put,
-        .change_set = time_change_set,
-        .attrs = (struct attr_methods[]) {
-            { "RAW",
-                .format = time_raw_format,
-                .put = time_raw_put,
-            },
-            { "UNITS", true,
-                .format = time_scale_format,
-                .put = time_scale_put,
-            },
-        },
-        .attr_count = 2,
-    },
-
-    { "bit_out", "bit",
-        .init = bit_pos_out_init,
-        .parse_register = bit_out_parse_register,
-        .validate = bit_pos_out_validate,
-        .read = bit_out_read, .refresh = bit_out_refresh,
-        .change_set = bit_out_change_set,
-        .attrs = (struct attr_methods[]) {
-            { "CAPTURE", true,
-                .format = bit_out_capture_format,
-                .put = bit_out_capture_put,
-            },
-            { "CAPTURE_INDEX",
-                .format = bit_out_index_format,
-            },
-        },
-        .attr_count = 2,
-    },
-
-    { "pos_out", "position",
-        .init = bit_pos_out_init,
-        .parse_register = pos_out_parse_register,
-        .validate = bit_pos_out_validate,
-        .read = pos_out_read, .refresh = pos_out_refresh,
-        .change_set = pos_out_change_set,
-        .attrs = (struct attr_methods[]) {
-            { "CAPTURE", true,
-                .format = pos_out_capture_format,
-                .put = pos_out_capture_put,
-            },
-            { "CAPTURE_INDEX",
-                .format = pos_out_index_format,
-            },
-        },
-        .attr_count = 2,
-    },
-
-    { "table",
-        .get = table_get,
-        .put_table = table_put_table,
-        .attrs = (struct attr_methods[]) {
-            { "LENGTH", },
-            { "B", },
-            { "FIELDS", },
-        },
-        .attr_count = 3,
-    },
-
-    { "short_table",
-        .attrs = (struct attr_methods[]) {
-            { "LENGTH", },
-            { "B", },
-            { "FIELDS", },
-        },
-        .attr_count = 3,
-    },
+static const struct class_methods write_class_methods = {
+    "write", "uint",
+    .init = write_init,
+    .destroy = typed_register_destroy,
+    .parse_register = typed_register_parse_register,
+    .validate = typed_register_validate,
+    .write = typed_register_write,
+    .put = typed_register_put,
 };
+
+
 
 
 /*****************************************************************************/
@@ -425,9 +287,9 @@ error__t class_put_table(
 void refresh_class_changes(enum change_set change_set)
 {
     if (change_set & CHANGES_BITS)
-        bit_out_refresh(NULL, 0);
+        do_bit_out_refresh();
     if (change_set & CHANGES_POSITION)
-        pos_out_refresh(NULL, 0);
+        do_pos_out_refresh();
 }
 
 
@@ -445,12 +307,32 @@ void get_class_change_set(
 /* Class inititialisation. */
 
 
+/* Top level list of classes. */
+
+static const struct class_methods *classes_table[] = {
+    &param_class_methods,           // param
+    &bit_in_class_methods,          // bit_in
+    &pos_in_class_methods,          // pos_in
+
+    &read_class_methods,            // read
+    &write_class_methods,           // write
+
+    &time_class_methods,            // time
+
+    &bit_out_class_methods,         // bit_out
+    &pos_out_class_methods,         // pos_out
+
+    &short_table_class_methods,     // short_table
+    &long_table_class_methods,      // long_table
+};
+
+
 static error__t lookup_class(
     const char *name, const struct class_methods **result)
 {
     for (unsigned int i = 0; i < ARRAY_SIZE(classes_table); i ++)
     {
-        const struct class_methods *methods = &classes_table[i];
+        const struct class_methods *methods = classes_table[i];
         if (strcmp(name, methods->name) == 0)
         {
             *result = methods;

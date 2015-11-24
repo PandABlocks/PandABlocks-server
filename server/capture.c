@@ -13,6 +13,7 @@
 #include "parse.h"
 #include "config_server.h"
 #include "classes.h"
+#include "attributes.h"
 
 #include "capture.h"
 
@@ -184,7 +185,7 @@ error__t pos_mux_parse(
 /* Class initialisation. */
 
 /* The class specific state is just the index array. */
-void bit_pos_out_init(unsigned int count, void **class_data)
+static void bit_pos_out_init(unsigned int count, void **class_data)
 {
     unsigned int *index_array = malloc(count * sizeof(unsigned int));
     for (unsigned int i = 0; i < count; i ++)
@@ -194,7 +195,8 @@ void bit_pos_out_init(unsigned int count, void **class_data)
 
 
 /* For validation ensure that an index has been assigned to each field. */
-error__t bit_pos_out_validate(struct class *class, unsigned int block_base)
+static error__t bit_pos_out_validate(
+    struct class *class, unsigned int block_base)
 {
     unsigned int *index_array = class->class_data;
     for (unsigned int i = 0; i < class->count; i ++)
@@ -242,7 +244,7 @@ static error__t bit_pos_out_parse_register(
             lookup, block_name, field_name, class->count, index_array);
 }
 
-error__t bit_out_parse_register(
+static error__t bit_out_parse_register(
     struct class *class, const char *block_name, const char *field_name,
     const char **line)
 {
@@ -250,7 +252,7 @@ error__t bit_out_parse_register(
         &bit_out_state.lookup, class, block_name, field_name, line);
 }
 
-error__t pos_out_parse_register(
+static error__t pos_out_parse_register(
     struct class *class, const char *block_name, const char *field_name,
     const char **line)
 {
@@ -265,7 +267,7 @@ error__t pos_out_parse_register(
 /* The refresh method is called when we need a fresh value.  We retrieve values
  * and changed bits from the hardware and update settings accordingly. */
 
-void bit_out_refresh(struct class *class, unsigned int number)
+static void bit_out_refresh(struct class *class, unsigned int number)
 {
     LOCK();
     uint64_t change_index = get_change_index();
@@ -277,7 +279,7 @@ void bit_out_refresh(struct class *class, unsigned int number)
     UNLOCK();
 }
 
-void pos_out_refresh(struct class *class, unsigned int number)
+static void pos_out_refresh(struct class *class, unsigned int number)
 {
     LOCK();
     uint64_t change_index = get_change_index();
@@ -289,16 +291,19 @@ void pos_out_refresh(struct class *class, unsigned int number)
     UNLOCK();
 }
 
+void do_bit_out_refresh(void) { bit_out_refresh(NULL, 0); }
+void do_pos_out_refresh(void) { pos_out_refresh(NULL, 0); }
+
 
 /* When reading just return the current value from our static state. */
 
-uint32_t bit_out_read(struct class *class, unsigned int number)
+static uint32_t bit_out_read(struct class *class, unsigned int number)
 {
     unsigned int *index_array = class->class_data;
     return bit_out_state.bits[index_array[number]];
 }
 
-uint32_t pos_out_read(struct class *class, unsigned int number)
+static uint32_t pos_out_read(struct class *class, unsigned int number)
 {
     unsigned int *index_array = class->class_data;
     return pos_out_state.positions[index_array[number]];
@@ -315,7 +320,7 @@ static void bit_pos_change_set(
         changes[i] = change_index[index_array[i]] >= report_index;
 }
 
-void bit_out_change_set(
+static void bit_out_change_set(
     struct class *class, const uint64_t report_index[], bool changes[])
 {
     bit_pos_change_set(
@@ -323,7 +328,7 @@ void bit_out_change_set(
         report_index[CHANGE_IX_BITS], changes);
 }
 
-void pos_out_change_set(
+static void pos_out_change_set(
     struct class *class, const uint64_t report_index[], bool changes[])
 {
     bit_pos_change_set(
@@ -358,7 +363,7 @@ static void update_capture_index(void)
 }
 
 
-error__t bit_out_capture_format(
+static error__t bit_out_capture_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
 {
@@ -369,7 +374,7 @@ error__t bit_out_capture_format(
     return ERROR_OK;
 }
 
-error__t pos_out_capture_format(
+static error__t pos_out_capture_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
 {
@@ -389,7 +394,7 @@ static void update_bit(uint32_t *target, unsigned int ix, bool value)
         *target &= ~(1U << ix);
 }
 
-error__t bit_out_capture_put(
+static error__t bit_out_capture_put(
     struct class *class, void *data, unsigned int number, const char *value)
 {
     bool capture;
@@ -412,7 +417,7 @@ error__t bit_out_capture_put(
     return error;
 }
 
-error__t pos_out_capture_put(
+static error__t pos_out_capture_put(
     struct class *class, void *data, unsigned int number, const char *value)
 {
     bool capture;
@@ -432,7 +437,7 @@ error__t pos_out_capture_put(
     return error;
 }
 
-error__t bit_out_index_format(
+static error__t bit_out_index_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
 {
@@ -446,7 +451,7 @@ error__t bit_out_index_format(
     return ERROR_OK;
 }
 
-error__t pos_out_index_format(
+static error__t pos_out_index_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
 {
@@ -523,3 +528,42 @@ void terminate_capture(void)
     mux_lookup_destroy(&bit_out_state.lookup);
     mux_lookup_destroy(&pos_out_state.lookup);
 }
+
+
+const struct class_methods bit_out_class_methods = {
+    "bit_out", "bit",
+    .init = bit_pos_out_init,
+    .parse_register = bit_out_parse_register,
+    .validate = bit_pos_out_validate,
+    .read = bit_out_read, .refresh = bit_out_refresh,
+    .change_set = bit_out_change_set,
+    .attrs = (struct attr_methods[]) {
+        { "CAPTURE", true,
+            .format = bit_out_capture_format,
+            .put = bit_out_capture_put,
+        },
+        { "CAPTURE_INDEX",
+            .format = bit_out_index_format,
+        },
+    },
+    .attr_count = 2,
+};
+
+const struct class_methods pos_out_class_methods = {
+    "pos_out", "position",
+    .init = bit_pos_out_init,
+    .parse_register = pos_out_parse_register,
+    .validate = bit_pos_out_validate,
+    .read = pos_out_read, .refresh = pos_out_refresh,
+    .change_set = pos_out_change_set,
+    .attrs = (struct attr_methods[]) {
+        { "CAPTURE", true,
+            .format = pos_out_capture_format,
+            .put = pos_out_capture_put,
+        },
+        { "CAPTURE_INDEX",
+            .format = pos_out_index_format,
+        },
+    },
+    .attr_count = 2,
+};

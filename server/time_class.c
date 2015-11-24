@@ -13,6 +13,7 @@
 #include "parse.h"
 #include "config_server.h"
 #include "classes.h"
+#include "attributes.h"
 #include "types.h"
 
 #include "time_class.h"
@@ -41,7 +42,7 @@ static const double time_conversion[] =
 static const char *time_units[] = { "min", "s", "ms", "us", };
 
 
-void time_init(unsigned int count, void **class_data)
+static void time_init(unsigned int count, void **class_data)
 {
     struct time_state *state = calloc(count, sizeof(struct time_state));
     for (unsigned int i = 0; i < count; i ++)
@@ -50,7 +51,7 @@ void time_init(unsigned int count, void **class_data)
 }
 
 
-void time_change_set(
+static void time_change_set(
     struct class *class, const uint64_t report_index[], bool changes[])
 {
     struct time_state *state = class->class_data;
@@ -72,7 +73,7 @@ static void write_time_register(
 }
 
 
-error__t time_get(
+static error__t time_get(
     struct class *class, unsigned int number,
     struct connection_result *result)
 {
@@ -99,7 +100,7 @@ static void write_time_value(
 }
 
 
-error__t time_put(
+static error__t time_put(
     struct class *class, unsigned int number, const char *string)
 {
     struct time_state *state = class->class_data;
@@ -118,7 +119,7 @@ error__t time_put(
 }
 
 
-error__t time_raw_format(
+static error__t time_raw_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
 {
@@ -128,7 +129,7 @@ error__t time_raw_format(
 }
 
 
-error__t time_raw_put(
+static error__t time_raw_put(
     struct class *class, void *data, unsigned int number, const char *string)
 {
     uint64_t value;
@@ -139,7 +140,7 @@ error__t time_raw_put(
 }
 
 
-error__t time_scale_format(
+static error__t time_scale_format(
     struct class *class, void *data, unsigned int number,
     char result[], size_t length)
 {
@@ -149,7 +150,7 @@ error__t time_scale_format(
 }
 
 
-error__t time_scale_put(
+static error__t time_scale_put(
     struct class *class, void *data, unsigned int number, const char *value)
 {
     struct time_state *state = class->class_data;
@@ -162,3 +163,45 @@ error__t time_scale_put(
         }
     return FAIL_("Invalid time units");
 }
+
+
+static error__t time_validate(struct class *class, unsigned int block_base)
+{
+    return
+        TEST_OK_(class->field_register != UNASSIGNED_REGISTER,
+            "No register assigned to field");
+}
+
+static error__t time_parse_register(
+    struct class *class, const char *block_name, const char *field_name,
+    const char **line)
+{
+    return
+        TEST_OK_(class->field_register == UNASSIGNED_REGISTER,
+            "Register already assigned")  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &class->field_register);
+}
+
+
+
+const struct class_methods time_class_methods = {
+    "time",
+    .init = time_init,
+    .parse_register = time_parse_register,
+    .validate = time_validate,
+    .get = time_get,
+    .put = time_put,
+    .change_set = time_change_set,
+    .attrs = (struct attr_methods[]) {
+        { "RAW",
+            .format = time_raw_format,
+            .put = time_raw_put,
+        },
+        { "UNITS", true,
+            .format = time_scale_format,
+            .put = time_scale_put,
+        },
+    },
+    .attr_count = 2,
+};

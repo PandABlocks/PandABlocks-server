@@ -11,6 +11,7 @@ struct type;
 enum change_set;
 
 
+// This will shortly become opaque
 struct class {
     const struct class_methods *methods;    // Class implementation
     unsigned int count;             // Number of instances of this block
@@ -19,6 +20,57 @@ struct class {
     void *class_data;               // Class specific data
     struct type *type;              // Optional type handler
 };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* Abstract interface to class. */
+struct class_methods {
+    const char *name;
+
+    /* Type information. */
+    const char *default_type;   // Default type.  If NULL no type is created
+    bool force_type;            // If set default_type cannot be modified
+
+    /* Called to parse the class definition line for a field.  The corresponding
+     * class has already been identified. */
+    void (*init)(unsigned int count, void **class_data);
+
+    /* Parses the register definition line for this field. */
+    error__t (*parse_register)(
+        struct class *class, const char *block_name, const char *field_name,
+        const char **line);
+    /* Called after startup to validate setup. */
+    error__t (*validate)(struct class *class, unsigned int block_base);
+    /* Called during shutdown to release all class resources. */
+    void (*destroy)(struct class *class);
+
+    /* Register read/write methods. */
+    uint32_t (*read)(struct class *class, unsigned int number);
+    void (*write)(struct class *class, unsigned int number, uint32_t value);
+    /* For the _out classes the data provided by .read() needs to be loaded as a
+     * separate action, this optional method does this. */
+    void (*refresh)(struct class *class, unsigned int number);
+    /* Computes change set for this class.  The class looks up its own change
+     * index in report_index[] and updates changes[] accordingly. */
+    void (*change_set)(
+        struct class *class, const uint64_t report_index[], bool changes[]);
+
+    /* Direct access to fields bypassing read/write/type handling. */
+    error__t (*get)(
+        struct class *class, unsigned int ix,
+        struct connection_result *result);
+    error__t (*put)(
+        struct class *class, unsigned int ix, const char *value);
+    error__t (*put_table)(
+        struct class *class, unsigned int ix,
+        bool append, struct put_table_writer *writer);
+
+    /* Class specific attributes. */
+    const struct attr_methods *attrs;
+    unsigned int attr_count;
+};
+
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

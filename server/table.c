@@ -7,21 +7,47 @@
 
 #include "error.h"
 #include "classes.h"
+#include "attributes.h"
 
 #include "table.h"
 
 
 
-error__t table_get(
+static error__t table_get(
     struct class *class, unsigned int ix,
     struct connection_result *result)
 {
     return FAIL_("Not implemented");
 }
 
-error__t table_put_table(
+static error__t table_put_table(
     struct class *class, unsigned int ix,
     bool append, struct put_table_writer *writer)
 {
     return FAIL_("block.field< not implemented yet");
 }
+
+const struct class_methods short_table_class_methods = {
+    "table",
+    .get = table_get,
+    .put_table = table_put_table,
+    .attrs = (struct attr_methods[]) {
+        { "LENGTH", },
+        { "B", },
+        { "FIELDS", },
+    },
+    .attr_count = 3,
+};
+
+const struct class_methods long_table_class_methods = {
+    "short_table",
+    .get = table_get,
+    .put_table = table_put_table,
+    .attrs = (struct attr_methods[]) {
+        { "LENGTH", },
+        { "B", },
+        { "FIELDS", },
+    },
+    .attr_count = 3,
+};
+
