@@ -46,7 +46,7 @@ error__t pos_out_parse_register(
     const char **line);
 
 /* Common validation function after register processing. */
-error__t bit_pos_out_validate(struct class *class);
+error__t bit_pos_out_validate(struct class *class, unsigned int block_base);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

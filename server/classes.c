@@ -17,11 +17,12 @@
 #include "attributes.h"
 #include "hardware.h"
 #include "capture.h"
+#include "register.h"
+#include "time_class.h"
+#include "table.h"
 
 #include "classes.h"
 
-
-#define UNASSIGNED_REGISTER ((unsigned int) -1)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -43,7 +44,7 @@ struct class_methods {
         struct class *class, const char *block_name, const char *field_name,
         const char **line);
     /* Called after startup to validate setup. */
-    error__t (*validate)(struct class *class);
+    error__t (*validate)(struct class *class, unsigned int block_base);
     /* Called during shutdown to release all class resources. */
     void (*destroy)(struct class *class);
 
@@ -79,288 +80,166 @@ struct class_methods {
 /* Individual class implementations. */
 
 
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Parameters. */
-
-/* All of bit_in, pos_in and param have very similar behaviour: values are
- * written to a register, the written value is cached for readback, and we keep
- * track of the report index. */
-
-struct param_state {
-    uint32_t value;
-    uint64_t update_index;
+/* Support for classes with simple typed registers. */
+struct typed_register {
+    struct register_api *reg;
+    struct type *type;
 };
 
-static void param_init(unsigned int count, void **class_data)
+
+// !!!!!! These two methods will disappear shortly!
+
+static uint32_t typed_register_read(struct class *class, unsigned int number)
 {
-    *class_data = calloc(count, sizeof(struct param_state));
+    struct typed_register *state = class->class_data;
+    return read_register(state->reg, number);
 }
 
-
-static uint32_t param_read(struct class *class, unsigned int number)
-{
-    struct param_state *state = class->class_data;
-    return state[number].value;
-}
-
-
-static void param_write(
+static void typed_register_write(
     struct class *class, unsigned int number, uint32_t value)
 {
-    struct param_state *state = class->class_data;
-    state[number].value = value;
-    state[number].update_index = get_change_index();
-    hw_write_register(class->block_base, number, class->field_register, value);
+    struct typed_register *state = class->class_data;
+    write_register(state->reg, number, value);
 }
 
 
-static void param_change_set(
+
+static error__t typed_register_parse_register(
+    struct class *class, const char *block_name, const char *field_name,
+    const char **line)
+{
+    struct typed_register *state = class->class_data;
+    return register_parse_register(line, state->reg);
+}
+
+
+/* We can delegate the change set calculation to the register class. */
+static void typed_register_change_set(
     struct class *class, const uint64_t report_index[], bool changes[])
 {
-    struct param_state *state = class->class_data;
-    uint64_t report = report_index[CHANGE_IX_CONFIG];
-    for (unsigned int i = 0; i < class->count; i ++)
-        changes[i] = state[i].update_index >= report;
+    struct typed_register *state = class->class_data;
+    register_change_set(state->reg, report_index, changes);
 }
 
-#define PARAM_CLASS \
-    .init = param_init, \
-    .parse_register = default_parse_register, \
-    .validate = default_validate, \
-    .read = param_read, \
-    .write = param_write, \
-    .change_set = param_change_set
+
+static error__t typed_register_validate(
+    struct class *class, unsigned int block_base)
+{
+    struct typed_register *state = class->class_data;
+    return validate_register(state->reg, block_base);
+}
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Read class. */
+/* Formatting with register and type. */
+static error__t type_and_register_get(
+    struct register_api *reg, struct type *type,
+    unsigned int number, struct connection_result *result)
+{
+    uint32_t value = read_register(reg, number);
+    return
+        type_format(type, number, value, result->string, result->length)  ?:
+        DO(result->response = RESPONSE_ONE);
+}
 
-/* We track each read and use changes in the read value to update the change
- * index. */
-
-struct read_state {
+static error__t type_and_register_put(
+    struct register_api *reg, struct type *type,
+    unsigned int number, const char *string)
+{
     uint32_t value;
-    uint64_t update_index;
-};
-
-
-static void read_init(unsigned int count, void **class_data)
-{
-    *class_data = calloc(count, sizeof(struct read_state));
+    return
+        type_parse(type, number, string, &value)  ?:
+        DO(write_register(reg, number, value));
 }
 
 
-/* Each time we read check whether the value has changed and update the change
- * index accordingly. */
-static uint32_t read_read(struct class *class, unsigned int number)
+static error__t typed_register_get(
+    struct class *class, unsigned int number, struct connection_result *result)
 {
-    struct read_state *state = class->class_data;
-    uint32_t result =
-        hw_read_register(class->block_base, number, class->field_register);
-    if (result != state[number].value)
-    {
-        state[number].value = result;
-        state[number].update_index = get_change_index();
-    }
-    return result;
+    struct typed_register *state = class->class_data;
+    return type_and_register_get(state->reg, state->type, number, result);
 }
 
 
-/* To read the change set we'll need to read each register. */
-static void read_change_set(
-    struct class *class, const uint64_t report_index[], bool changes[])
+static error__t typed_register_put(
+    struct class *class, unsigned int number, const char *string)
 {
-    struct param_state *state = class->class_data;
-    uint64_t report = report_index[CHANGE_IX_READ];
-    for (unsigned int i = 0; i < class->count; i ++)
-    {
-        read_read(class, i);
-        changes[i] = state[i].update_index >= report;
-    }
+    struct typed_register *state = class->class_data;
+    return type_and_register_put(state->reg, state->type, number, string);
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Write class. */
-
-/* This one is simple.  We write to the register.  That's all. */
-
-static void write_write(
-    struct class *class, unsigned int number, uint32_t value)
+static void typed_register_init(
+    struct register_api *reg, void **class_data)
 {
-    hw_write_register(class->block_base, number, class->field_register, value);
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Time definitions. */
-
-
-enum time_scale { TIME_MINS, TIME_SECS, TIME_MSECS, TIME_USECS, };
-
-struct time_state {
-    enum time_scale time_scale;
-    uint64_t value;
-    uint64_t update_index;
-};
-
-static const double time_conversion[] =
-{
-    (double) 60 * CLOCK_FREQUENCY,      // TIME_MINS
-    CLOCK_FREQUENCY,                    // TIME_SECS
-    CLOCK_FREQUENCY / 1e3,              // TIME_MSECS
-    CLOCK_FREQUENCY / 1e6,              // TIME_USECS
-};
-
-static const char *time_units[] = { "min", "s", "ms", "us", };
-
-
-static void time_init(unsigned int count, void **class_data)
-{
-    struct time_state *state = calloc(count, sizeof(struct time_state));
-    for (unsigned int i = 0; i < count; i ++)
-        state[i].time_scale = TIME_SECS;
+    struct typed_register *state = malloc(sizeof(struct typed_register));
+    *state = (struct typed_register) {
+        .reg = reg,
+        // .type to be moved down here shortly
+    };
     *class_data = state;
 }
 
 
-static void time_change_set(
-    struct class *class, const uint64_t report_index[], bool changes[])
+static void typed_register_destroy(struct class *class)
 {
-    struct time_state *state = class->class_data;
-    uint64_t report = report_index[CHANGE_IX_CONFIG];
-    for (unsigned int i = 0; i < class->count; i ++)
-        changes[i] = state[i].update_index >= report;
+    struct typed_register *state = class->class_data;
+    destroy_register(state->reg);
 }
 
 
-static void write_time_register(
-    struct class *class, unsigned int number, uint64_t value)
+static void param_init(unsigned int count, void **class_data)
 {
-    hw_write_register(
-        class->block_base, number, class->field_register,
-        (uint32_t) value);
-    hw_write_register(
-        class->block_base, number, class->field_register + 1,
-        (uint32_t) (value >> 32));
+    typed_register_init(create_param_register(count), class_data);
 }
 
 
-static error__t time_get(
-    struct class *class, unsigned int number,
-    struct connection_result *result)
-{
-    struct time_state *state = class->class_data;
-    state = &state[number];
+#define PARAM_CLASS_METHODS \
+    .init = param_init, \
+    .destroy = typed_register_destroy, \
+    .parse_register = typed_register_parse_register, \
+    .validate = typed_register_validate, \
+    .read = typed_register_read, \
+    .write = typed_register_write, \
+    .get = typed_register_get, \
+    .put = typed_register_put, \
+    .change_set = typed_register_change_set
 
-    double conversion = time_conversion[state->time_scale];
-    return
-        format_double(
-            result->string, result->length,
-            (double) state->value / conversion)  ?:
-        DO(result->response = RESPONSE_ONE);
+
+static void read_init(unsigned int count, void **class_data)
+{
+    typed_register_init(create_read_register(count), class_data);
 }
 
+#define READ_CLASS_METHODS \
+    .init = read_init, \
+    .destroy = typed_register_destroy, \
+    .parse_register = typed_register_parse_register, \
+    .validate = typed_register_validate, \
+    .read = typed_register_read, \
+    .get = typed_register_get, \
+    .change_set = typed_register_change_set
 
-static void write_time_value(
-    struct class *class, unsigned int number, uint64_t value)
+
+static void write_init(unsigned int count, void **class_data)
 {
-    struct time_state *state = class->class_data;
-    state = &state[number];
-    state->value = value;
-    write_time_register(class, number, value);
-    state->update_index = get_change_index();
+    typed_register_init(create_write_register(count), class_data);
 }
 
-
-static error__t time_put(
-    struct class *class, unsigned int number, const char *string)
-{
-    struct time_state *state = class->class_data;
-    state = &state[number];
-
-    double conversion = time_conversion[state->time_scale];
-    double scaled_value;
-    double value;
-    return
-        parse_double(&string, &scaled_value)  ?:
-        parse_eos(&string)  ?:
-        DO(value = scaled_value * conversion)  ?:
-        TEST_OK_(0 <= value  &&  value <= MAX_CLOCK_VALUE,
-            "Time setting out of range")  ?:
-        DO(write_time_value(class, number, (uint64_t) llround(value)));
-}
+#define WRITE_CLASS_METHODS \
+    .init = write_init, \
+    .destroy = typed_register_destroy, \
+    .parse_register = typed_register_parse_register, \
+    .validate = typed_register_validate, \
+    .write = typed_register_write, \
+    .put = typed_register_put
 
 
-static error__t time_raw_format(
-    struct class *class, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct time_state *state = class->class_data;
-    state = &state[number];
-    return format_string(result, length, "%"PRIu64, state->value);
-}
-
-
-static error__t time_raw_put(
-    struct class *class, void *data, unsigned int number, const char *string)
-{
-    uint64_t value;
-    return
-        parse_uint64(&string, &value)  ?:
-        parse_eos(&string)  ?:
-        DO(write_time_value(class, number, value));
-}
-
-
-static error__t time_scale_format(
-    struct class *class, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct time_state *state = class->class_data;
-    state = &state[number];
-    return format_string(result, length, "%s", time_units[state->time_scale]);
-}
-
-
-static error__t time_scale_put(
-    struct class *class, void *data, unsigned int number, const char *value)
-{
-    struct time_state *state = class->class_data;
-    state = &state[number];
-    for (unsigned int i = 0; i < ARRAY_SIZE(time_units); i ++)
-        if (strcmp(value, time_units[i]) == 0)
-        {
-            state->time_scale = (enum time_scale) i;
-            return ERROR_OK;
-        }
-    return FAIL_("Invalid time units");
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Table definitions. */
-
-static error__t table_get(
-    struct class *class, unsigned int ix,
-    struct connection_result *result)
-{
-    return FAIL_("Not implemented");
-}
-
-static error__t table_put_table(
-    struct class *class, unsigned int ix,
-    bool append, struct put_table_writer *writer)
-{
-    return FAIL_("block.field< not implemented yet");
-}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Common defaults for simple register assignment. */
 
-static error__t default_validate(struct class *class)
+static error__t default_validate(struct class *class, unsigned int block_base)
 {
     return
         TEST_OK_(class->field_register != UNASSIGNED_REGISTER,
@@ -383,9 +262,12 @@ static error__t default_parse_register(
 /* Top level list of classes. */
 
 static const struct class_methods classes_table[] = {
-    { "bit_in", "bit_mux", true, PARAM_CLASS, },
-    { "pos_in", "pos_mux", true, PARAM_CLASS, },
-    { "param", "uint", PARAM_CLASS, },
+    { "bit_in", "bit_mux", true, PARAM_CLASS_METHODS, },
+    { "pos_in", "pos_mux", true, PARAM_CLASS_METHODS, },
+    { "param",  "uint",          PARAM_CLASS_METHODS, },
+    { "read",   "uint",          READ_CLASS_METHODS, },
+    { "write",  "uint",          WRITE_CLASS_METHODS, },
+
     { "time",
         .init = time_init,
         .parse_register = default_parse_register,
@@ -405,6 +287,7 @@ static const struct class_methods classes_table[] = {
         },
         .attr_count = 2,
     },
+
     { "bit_out", "bit",
         .init = bit_pos_out_init,
         .parse_register = bit_out_parse_register,
@@ -422,6 +305,7 @@ static const struct class_methods classes_table[] = {
         },
         .attr_count = 2,
     },
+
     { "pos_out", "position",
         .init = bit_pos_out_init,
         .parse_register = pos_out_parse_register,
@@ -439,18 +323,7 @@ static const struct class_methods classes_table[] = {
         },
         .attr_count = 2,
     },
-    { "read", "uint",
-        .init = read_init,
-        .validate = default_validate,
-        .parse_register = default_parse_register,
-        .read = read_read,
-        .change_set = read_change_set,
-    },
-    { "write", "uint",
-        .validate = default_validate,
-        .parse_register = default_parse_register,
-        .write = write_write,
-    },
+
     { "table",
         .get = table_get,
         .put_table = table_put_table,
@@ -459,7 +332,16 @@ static const struct class_methods classes_table[] = {
             { "B", },
             { "FIELDS", },
         },
-        .attr_count = 2,
+        .attr_count = 3,
+    },
+
+    { "short_table",
+        .attrs = (struct attr_methods[]) {
+            { "LENGTH", },
+            { "B", },
+            { "FIELDS", },
+        },
+        .attr_count = 3,
     },
 };
 
@@ -651,7 +533,7 @@ error__t validate_class(struct class *class, unsigned int block_base)
     class->block_base = block_base;
     return
         IF(class->methods->validate,
-            class->methods->validate(class));
+            class->methods->validate(class, block_base));
 }
 
 void describe_class(struct class *class, char *string, size_t length)

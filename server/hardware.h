@@ -7,6 +7,9 @@
 #define MAX_CLOCK_VALUE ((1ULL << 48) - 1)
 
 
+#define UNASSIGNED_REGISTER ((unsigned int) -1)
+
+
 /* Must be called before any hardware functions.  If an error occurs then
  * program startup should be terminated. */
 error__t initialise_hardware(void);

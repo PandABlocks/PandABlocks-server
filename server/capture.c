@@ -16,8 +16,6 @@
 
 #include "capture.h"
 
-#define UNASSIGNED_REGISTER ((unsigned int) -1)
-
 
 static pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&state_mutex))
@@ -196,7 +194,7 @@ void bit_pos_out_init(unsigned int count, void **class_data)
 
 
 /* For validation ensure that an index has been assigned to each field. */
-error__t bit_pos_out_validate(struct class *class)
+error__t bit_pos_out_validate(struct class *class, unsigned int block_base)
 {
     unsigned int *index_array = class->class_data;
     for (unsigned int i = 0; i < class->count; i ++)

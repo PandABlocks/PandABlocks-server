@@ -91,6 +91,9 @@ SRCS += types.c
 SRCS += enums.c
 SRCS += attributes.c
 SRCS += capture.c
+SRCS += time_class.c
+SRCS += table.c
+SRCS += register.c
 
 ifdef SIMSERVER
 CFLAGS += -DSIMSERVER

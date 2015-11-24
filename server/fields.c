@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "hardware.h"
 #include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
@@ -16,8 +17,6 @@
 
 #include "fields.h"
 
-
-#define UNASSIGNED_REGISTER ((unsigned int) -1)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
