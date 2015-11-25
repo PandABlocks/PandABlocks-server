@@ -1,6 +1,7 @@
 /* Abstract single register API for class and type support. */
 
 struct register_api;
+struct register_methods;
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -41,7 +42,7 @@ struct register_api *create_pos_out_register(void *class_data);
 /* Register administration. */
 
 /* Alas we don't get the block base address until after we've been created. */
-error__t validate_register(struct register_api *reg, unsigned int block_base);
+error__t finalise_register(struct register_api *reg, unsigned int block_base);
 
 /* Call during shutdown to release resources. */
 void destroy_register(struct register_api *reg);

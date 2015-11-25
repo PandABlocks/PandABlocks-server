@@ -10,6 +10,7 @@
 #include "config_server.h"
 #include "hardware.h"
 #include "parse.h"
+#include "capture.h"
 
 #include "register.h"
 
@@ -22,20 +23,22 @@ struct register_methods {
     void (*write)(
         void *reg_data, unsigned int block_base, unsigned int number,
         uint32_t value);
+
+    /* Parses register definition line. */
+    error__t (*parse_register)(const char **line, void *reg_data);
+
     /* Computes associated change set. */
     void (*change_set)(
         void *reg_data, unsigned int block_base,
         const uint64_t report_index[], bool changes[]);
 
-    /* Parses register definition line. */
-    error__t (*parse_register)(const char **line, void *reg_data);
     /* Releases any register specific resources. */
     void (*destroy)(void *reg_data);
 };
 
 
 struct register_api {
-    struct register_methods *methods;
+    const struct register_methods *methods;
     void *data;
     unsigned int block_base;
     bool initialised;
@@ -78,7 +81,7 @@ error__t register_parse_register(const char **line, struct register_api *reg)
 
 
 static struct register_api *create_register_api(
-    struct register_methods *methods, void *data)
+    const struct register_methods *methods, void *data)
 {
     struct register_api *reg = malloc(sizeof(struct register_api));
     *reg = (struct register_api) {
@@ -89,7 +92,7 @@ static struct register_api *create_register_api(
 }
 
 
-error__t validate_register(struct register_api *reg, unsigned int block_base)
+error__t finalise_register(struct register_api *reg, unsigned int block_base)
 {
     reg->block_base = block_base;
     return TEST_OK_(reg->initialised, "No register assigned for field");
@@ -293,13 +296,9 @@ struct register_api *create_write_register(unsigned int count)
  * basic hooks for register access to help with type integration. */
 
 
-static uint32_t bit_out_read(
-    void *reg_data, unsigned int block_base, unsigned int number)
-{
-    return 0;
-}
-
-static struct register_methods bit_out_methods = { .read = bit_out_read, };
+static const struct register_methods bit_out_methods = {
+    .read = bit_out_read,
+};
 
 struct register_api *create_bit_out_register(void *class_data)
 {
@@ -307,13 +306,9 @@ struct register_api *create_bit_out_register(void *class_data)
 }
 
 
-static uint32_t pos_out_read(
-    void *reg_data, unsigned int block_base, unsigned int number)
-{
-    return 0;
-}
-
-static struct register_methods pos_out_methods = { .read = pos_out_read, };
+static const struct register_methods pos_out_methods = {
+    .read = pos_out_read,
+};
 
 struct register_api *create_pos_out_register(void *class_data)
 {

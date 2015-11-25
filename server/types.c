@@ -16,10 +16,10 @@
 #include "parse.h"
 #include "config_server.h"
 #include "parse_lut.h"
-#include "classes.h"
 #include "attributes.h"
 #include "enums.h"
 #include "capture.h"
+#include "register.h"
 
 #include "types.h"
 
@@ -27,7 +27,6 @@
 
 struct type_methods {
     const char *name;
-    bool tied;          // Set for types exclusive to specific classes
 
     /* This creates and initialises any type specific data needed. */
     error__t (*init)(const char **string, unsigned int count, void **type_data);
@@ -56,6 +55,7 @@ struct type_methods {
 
 struct type {
     const struct type_methods *methods;
+    struct register_api *reg;
     unsigned int count;
     void *type_data;
 };
@@ -78,44 +78,44 @@ static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
 /* Raw field implementation for those fields that need it. */
 
 static error__t raw_format_int(
-    struct class *class, void *data, unsigned int number,
+    void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
-    uint32_t value;
-    return
-        class_read(class, number, &value, true)  ?:
-        format_string(result, length, "%d", value);
+    struct type *type = owner;
+    uint32_t value = read_register(type->reg, number);
+    return format_string(result, length, "%d", value);
 }
 
 static error__t raw_format_uint(
-    struct class *class, void *data, unsigned int number,
+    void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
-    uint32_t value;
-    return
-        class_read(class, number, &value, true)  ?:
-        format_string(result, length, "%u", value);
+    struct type *type = owner;
+    uint32_t value = read_register(type->reg, number);
+    return format_string(result, length, "%u", value);
 }
 
 
 static error__t raw_put_uint(
-    struct class *class, void *data, unsigned int number, const char *string)
+    void *owner, void *data, unsigned int number, const char *string)
 {
+    struct type *type = owner;
     unsigned int value;
     return
         parse_uint(&string, &value)  ?:
         parse_eos(&string)  ?:
-        class_write(class, number, value);
+        DO(write_register(type->reg, number, value));
 }
 
 static error__t raw_put_int(
-    struct class *class, void *data, unsigned int number, const char *string)
+    void *owner, void *data, unsigned int number, const char *string)
 {
+    struct type *type = owner;
     int value;
     return
         parse_int(&string, &value)  ?:
         parse_eos(&string)  ?:
-        class_write(class, number, (uint32_t) value);
+        DO(write_register(type->reg, number, (uint32_t) value));
 }
 
 
@@ -160,7 +160,7 @@ static error__t uint_format(
 
 
 static error__t uint_max_format(
-    struct class *class, void *data, unsigned int number,
+    void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
     unsigned int *max_value = data;
@@ -277,7 +277,7 @@ static error__t position_format(
 
 
 static error__t position_scale_format(
-    struct class *class, void *data, unsigned int number,
+    void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
     struct position_state *state = data;
@@ -286,7 +286,7 @@ static error__t position_scale_format(
 }
 
 static error__t position_scale_put(
-    struct class *class, void *data, unsigned int number, const char *value)
+    void *owner, void *data, unsigned int number, const char *value)
 {
     struct position_state *state = data;
     state = &state[number];
@@ -296,7 +296,7 @@ static error__t position_scale_put(
 }
 
 static error__t position_offset_format(
-    struct class *class, void *data, unsigned int number,
+    void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
     struct position_state *state = data;
@@ -305,7 +305,7 @@ static error__t position_offset_format(
 }
 
 static error__t position_offset_put(
-    struct class *class, void *data, unsigned int number, const char *value)
+    void *owner, void *data, unsigned int number, const char *value)
 {
     struct position_state *state = data;
     state = &state[number];
@@ -316,7 +316,7 @@ static error__t position_offset_put(
 
 
 static error__t position_units_format(
-    struct class *class, void *data, unsigned int number,
+    void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
     struct position_state *state = data;
@@ -328,7 +328,7 @@ static error__t position_units_format(
 }
 
 static error__t position_units_put(
-    struct class *class, void *data, unsigned int number, const char *value)
+    void *owner, void *data, unsigned int number, const char *value)
 {
     struct position_state *state = data;
     state = &state[number];
@@ -427,27 +427,30 @@ static error__t lut_format(
 /* Type formatting API. */
 
 
-/* Implements block[n].field? */
-error__t type_format(
-    struct type *type, unsigned int number,
-    unsigned int value, char string[], size_t length)
+/* Implements block[n].field=value */
+error__t type_get(
+    struct type *type, unsigned int number, struct connection_result *result)
 {
+    uint32_t value;
     return
-        TEST_OK_(type->methods->parse,
+        TEST_OK_(type->methods->format,
             "Cannot read %s value", type->methods->name)  ?:
-        type->methods->format(type->type_data, number, value, string, length);
+        DO(value = read_register(type->reg, number))  ?:
+        type->methods->format(
+            type->type_data, number, value, result->string, result->length)  ?:
+        DO(result->response = RESPONSE_ONE);
 }
 
 
-/* Implements block[n].field=value */
-error__t type_parse(
-    struct type *type, unsigned int number,
-    const char *string, unsigned int *value)
+/* Implements block[n].field? */
+error__t type_put(struct type *type, unsigned int number, const char *string)
 {
+    uint32_t value;
     return
         TEST_OK_(type->methods->parse,
             "Cannot write %s value", type->methods->name)  ?:
-        type->methods->parse(type->type_data, number, string, value);
+        type->methods->parse(type->type_data, number, string, &value)  ?:
+        DO(write_register(type->reg, number, value));
 }
 
 
@@ -515,10 +518,8 @@ static const struct type_methods types_table[] = {
     },
 
     /* The mux types are only valid for bit_in and pos_in classes. */
-    { "bit_mux", .tied = true,
-        .parse = bit_mux_parse, .format = bit_mux_format },
-    { "pos_mux", .tied = true,
-        .parse = pos_mux_parse, .format = pos_mux_format },
+    { "bit_mux", .parse = bit_mux_parse, .format = bit_mux_format },
+    { "pos_mux", .parse = pos_mux_parse, .format = pos_mux_format },
 
     /* A type for fields where the data is never read and only the action of
      * writing is important: no data allowed. */
@@ -566,11 +567,13 @@ static error__t lookup_type(
 }
 
 static struct type *create_type_block(
-    const struct type_methods *methods, unsigned int count, void *type_data)
+    const struct type_methods *methods, struct register_api *reg,
+    unsigned int count, void *type_data)
 {
     struct type *type = malloc(sizeof(struct type));
     *type = (struct type) {
         .methods = methods,
+        .reg = reg,
         .count = count,
         .type_data = type_data,
     };
@@ -578,7 +581,8 @@ static struct type *create_type_block(
 }
 
 error__t create_type(
-    const char **string, bool forced, unsigned int count, struct type **type)
+    const char **string, unsigned int count,
+    struct register_api *reg, struct type **type)
 {
     char type_name[MAX_NAME_LENGTH];
     const struct type_methods *methods = NULL;
@@ -586,19 +590,16 @@ error__t create_type(
     return
         parse_name(string, type_name, sizeof(type_name))  ?:
         lookup_type(type_name, &methods)  ?:
-        TEST_OK_(!methods->tied  ||  forced,
-            "Cannot use this type with this class")  ?:
         IF(methods->init,
             methods->init(string, count, &type_data))  ?:
-        DO(*type = create_type_block(methods, count, type_data));
+        DO(*type = create_type_block(methods, reg, count, type_data));
 }
 
 
-void create_type_attributes(
-    struct class *class, struct type *type, struct hash_table *attr_map)
+void create_type_attributes(struct type *type, struct hash_table *attr_map)
 {
     for (unsigned int i = 0; i < type->methods->attr_count; i ++)
         create_attribute(
-            &type->methods->attrs[i], class, type->type_data, type->count,
+            &type->methods->attrs[i], type, type->type_data, type->count,
             attr_map);
 }

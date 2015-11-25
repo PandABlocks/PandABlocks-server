@@ -242,8 +242,14 @@ static void report_changed_attr(
         string, sizeof(string), "%s%d.%s.%s=",
         field->block->name, number, field->name, get_attr_name(attr));
 
+    struct connection_result format_result = {
+        .string = string + prefix,
+        .length = sizeof(string) - prefix,
+        .write_many = dummy_write_many,
+    };
     handle_error_report(string, sizeof(string), prefix,
-        attr_format(attr, number, string + prefix, sizeof(string) - prefix));
+        attr_get(attr, number, &format_result)  ?:
+        TEST_OK(format_result.response == RESPONSE_ONE));
     result->write_many(result->write_context, string);
 }
 
@@ -313,7 +319,8 @@ error__t initialise_fields(void)
 static void destroy_field(struct field *field)
 {
     free(field->name);
-    destroy_class(field->class);
+    if (field->class)
+        destroy_class(field->class);
     free(field->description);
     delete_attributes(field->attrs);
     hash_table_destroy(field->attrs);
@@ -443,7 +450,7 @@ error__t validate_database(void)
             "No base address for block %s", block->name);
         FOR_EACH_FIELD_WHILE(!error, block->fields, field)
         {
-            error = validate_class(field->class, block->base);
+            error = finalise_class(field->class, block->base);
             if (error)
                 error_extend(error,
                     "Checking field %s.%s", block->name, field->name);

@@ -19,16 +19,19 @@
 #include "time_class.h"
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Time definitions. */
-
 
 enum time_scale { TIME_MINS, TIME_SECS, TIME_MSECS, TIME_USECS, };
 
 struct time_state {
-    enum time_scale time_scale;
-    uint64_t value;
-    uint64_t update_index;
+    unsigned int block_base;
+    unsigned int low_register;
+    unsigned int high_register;
+    unsigned int count;
+    struct time_field {
+        enum time_scale time_scale;
+        uint64_t value;
+        uint64_t update_index;
+    } values[];
 };
 
 static const double time_conversion[] =
@@ -42,71 +45,96 @@ static const double time_conversion[] =
 static const char *time_units[] = { "min", "s", "ms", "us", };
 
 
-static void time_init(unsigned int count, void **class_data)
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Initialisation. */
+
+
+static error__t time_init(
+    const char **line, unsigned int count, void **class_data)
 {
-    struct time_state *state = calloc(count, sizeof(struct time_state));
+    size_t fields_size = count * sizeof(struct time_field);
+    struct time_state *state = malloc(sizeof(struct time_state) + fields_size);
+    *state = (struct time_state) {
+        .block_base = UNASSIGNED_REGISTER,
+        .low_register = UNASSIGNED_REGISTER,
+        .high_register = UNASSIGNED_REGISTER,
+        .count = count,
+    };
     for (unsigned int i = 0; i < count; i ++)
-        state[i].time_scale = TIME_SECS;
+        state->values[i] = (struct time_field) { .time_scale = TIME_SECS, };
     *class_data = state;
+    return ERROR_OK;
 }
 
 
-static void time_change_set(
-    struct class *class, const uint64_t report_index[], bool changes[])
+/* Expects a pair of registers: low bits then high bits. */
+static error__t time_parse_register(
+    void *class_data, const char *block_name, const char *field_name,
+    const char **line)
 {
-    struct time_state *state = class->class_data;
-    uint64_t report = report_index[CHANGE_IX_CONFIG];
-    for (unsigned int i = 0; i < class->count; i ++)
-        changes[i] = state[i].update_index >= report;
+    struct time_state *state = class_data;
+    return
+        TEST_OK_(state->low_register == UNASSIGNED_REGISTER,
+            "Register already assigned")  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->low_register)  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->high_register);
 }
 
 
-static void write_time_register(
-    struct class *class, unsigned int number, uint64_t value)
+static error__t time_finalise(void *class_data, unsigned int block_base)
 {
-    hw_write_register(
-        class->block_base, number, class->field_register,
-        (uint32_t) value);
-    hw_write_register(
-        class->block_base, number, class->field_register + 1,
-        (uint32_t) (value >> 32));
+    struct time_state *state = class_data;
+    state->block_base = block_base;
+    return
+        // Don't need to check high_register, they're assigned together
+        TEST_OK_(state->low_register != UNASSIGNED_REGISTER,
+            "No register assigned to field");
 }
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Value access. */
 
 
 static error__t time_get(
-    struct class *class, unsigned int number,
-    struct connection_result *result)
+    void *class_data, unsigned int number, struct connection_result *result)
 {
-    struct time_state *state = class->class_data;
-    state = &state[number];
+    struct time_state *state = class_data;
 
-    double conversion = time_conversion[state->time_scale];
+    double conversion = time_conversion[state->values[number].time_scale];
     return
         format_double(
             result->string, result->length,
-            (double) state->value / conversion)  ?:
+            (double) state->values[number].value / conversion)  ?:
         DO(result->response = RESPONSE_ONE);
 }
 
 
 static void write_time_value(
-    struct class *class, unsigned int number, uint64_t value)
+    void *class_data, unsigned int number, uint64_t value)
 {
-    struct time_state *state = class->class_data;
-    state = &state[number];
-    state->value = value;
-    write_time_register(class, number, value);
-    state->update_index = get_change_index();
+    struct time_state *state = class_data;
+
+    hw_write_register(
+        state->block_base, number, state->low_register,
+        (uint32_t) value);
+    hw_write_register(
+        state->block_base, number, state->high_register,
+        (uint32_t) (value >> 32));
+
+    state->values[number].value = value;
+    state->values[number].update_index = get_change_index();
 }
 
 
 static error__t time_put(
-    struct class *class, unsigned int number, const char *string)
+    void *class_data, unsigned int number, const char *string)
 {
-    struct time_state *state = class->class_data;
-    state = &state[number];
+    struct time_state *state = class_data;
 
-    double conversion = time_conversion[state->time_scale];
+    double conversion = time_conversion[state->values[number].time_scale];
     double scaled_value;
     double value;
     return
@@ -115,81 +143,81 @@ static error__t time_put(
         DO(value = scaled_value * conversion)  ?:
         TEST_OK_(0 <= value  &&  value <= MAX_CLOCK_VALUE,
             "Time setting out of range")  ?:
-        DO(write_time_value(class, number, (uint64_t) llround(value)));
+        DO(write_time_value(state, number, (uint64_t) llround(value)));
 }
 
 
+static void time_change_set(
+    void *class_data, const uint64_t report_index[], bool changes[])
+{
+    struct time_state *state = class_data;
+    uint64_t report = report_index[CHANGE_IX_CONFIG];
+    for (unsigned int i = 0; i < state->count; i ++)
+        changes[i] = state->values[i].update_index >= report;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Attributes. */
+
+
+/* block.time.RAW? */
 static error__t time_raw_format(
-    struct class *class, void *data, unsigned int number,
+    void *owner, void *class_data, unsigned int number,
     char result[], size_t length)
 {
-    struct time_state *state = class->class_data;
-    state = &state[number];
-    return format_string(result, length, "%"PRIu64, state->value);
+    struct time_state *state = class_data;
+    return format_string(
+        result, length, "%"PRIu64, state->values[number].value);
 }
 
 
+/* block.time.RAW=string */
 static error__t time_raw_put(
-    struct class *class, void *data, unsigned int number, const char *string)
+    void *owner, void *class_data, unsigned int number, const char *string)
 {
+    struct time_state *state = class_data;
     uint64_t value;
     return
         parse_uint64(&string, &value)  ?:
         parse_eos(&string)  ?:
-        DO(write_time_value(class, number, value));
+        DO(write_time_value(state, number, value));
 }
 
 
-static error__t time_scale_format(
-    struct class *class, void *data, unsigned int number,
+/* block.time.UNITS? */
+static error__t time_units_format(
+    void *owner, void *class_data, unsigned int number,
     char result[], size_t length)
 {
-    struct time_state *state = class->class_data;
-    state = &state[number];
-    return format_string(result, length, "%s", time_units[state->time_scale]);
+    struct time_state *state = class_data;
+    return format_string(
+        result, length, "%s", time_units[state->values[number].time_scale]);
 }
 
 
-static error__t time_scale_put(
-    struct class *class, void *data, unsigned int number, const char *value)
+/* block.time.UNITS=string */
+static error__t time_units_put(
+    void *owner, void *class_data, unsigned int number, const char *string)
 {
-    struct time_state *state = class->class_data;
-    state = &state[number];
+    struct time_state *state = class_data;
     for (unsigned int i = 0; i < ARRAY_SIZE(time_units); i ++)
-        if (strcmp(value, time_units[i]) == 0)
+        if (strcmp(string, time_units[i]) == 0)
         {
-            state->time_scale = (enum time_scale) i;
+            state->values[number].time_scale = (enum time_scale) i;
             return ERROR_OK;
         }
     return FAIL_("Invalid time units");
 }
 
 
-static error__t time_validate(struct class *class, unsigned int block_base)
-{
-    return
-        TEST_OK_(class->field_register != UNASSIGNED_REGISTER,
-            "No register assigned to field");
-}
-
-static error__t time_parse_register(
-    struct class *class, const char *block_name, const char *field_name,
-    const char **line)
-{
-    return
-        TEST_OK_(class->field_register == UNASSIGNED_REGISTER,
-            "Register already assigned")  ?:
-        parse_whitespace(line)  ?:
-        parse_uint(line, &class->field_register);
-}
-
-
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 const struct class_methods time_class_methods = {
     "time",
     .init = time_init,
     .parse_register = time_parse_register,
-    .validate = time_validate,
+    .finalise = time_finalise,
     .get = time_get,
     .put = time_put,
     .change_set = time_change_set,
@@ -199,8 +227,8 @@ const struct class_methods time_class_methods = {
             .put = time_raw_put,
         },
         { "UNITS", true,
-            .format = time_scale_format,
-            .put = time_scale_put,
+            .format = time_units_format,
+            .put = time_units_put,
         },
     },
     .attr_count = 2,

@@ -32,10 +32,18 @@ error__t pos_mux_parse(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Refresh methods used to bring cached _out values up to date with values read
  * from hardware. */
+
 void do_bit_out_refresh(void);
 void do_pos_out_refresh(void);
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Access methods for reading current bit_out and pos_out values. */
+
+uint32_t bit_out_read(
+    void *reg_data, unsigned int block_base, unsigned int number);
+uint32_t pos_out_read(
+    void *reg_data, unsigned int block_base, unsigned int number);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Capture enumeration. */

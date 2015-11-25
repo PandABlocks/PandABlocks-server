@@ -11,59 +11,48 @@ struct type;
 enum change_set;
 
 
-// This will shortly become opaque
-struct class {
-    const struct class_methods *methods;    // Class implementation
-    unsigned int count;             // Number of instances of this block
-    unsigned int block_base;        // Register base for block
-    unsigned int field_register;    // Register for field (if required)
-    void *class_data;               // Class specific data
-    struct type *type;              // Optional type handler
-};
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /* Abstract interface to class. */
 struct class_methods {
     const char *name;
 
-    /* Type information. */
-    const char *default_type;   // Default type.  If NULL no type is created
-    bool force_type;            // If set default_type cannot be modified
-
     /* Called to parse the class definition line for a field.  The corresponding
      * class has already been identified. */
-    void (*init)(unsigned int count, void **class_data);
+    error__t (*init)(const char **line, unsigned int count, void **class_data);
 
+    /* Parses the attribute definition line for this field. */
+    error__t (*parse_attribute)(void *class_data, const char **line);
     /* Parses the register definition line for this field. */
     error__t (*parse_register)(
-        struct class *class, const char *block_name, const char *field_name,
+        void *class_data, const char *block_name, const char *field_name,
         const char **line);
-    /* Called after startup to validate setup. */
-    error__t (*validate)(struct class *class, unsigned int block_base);
+    /* Called at end of startup to finalise and validate setup. */
+    error__t (*finalise)(void *class_data, unsigned int block_base);
     /* Called during shutdown to release all class resources. */
-    void (*destroy)(struct class *class);
+    void (*destroy)(void *class_data);
 
-    /* Register read/write methods. */
-    uint32_t (*read)(struct class *class, unsigned int number);
-    void (*write)(struct class *class, unsigned int number, uint32_t value);
+    /* Implements  block.field? */
+    error__t (*get)(
+        void *class_data, unsigned int ix, struct connection_result *result);
+    /* Implements  block.field=value */
+    error__t (*put)(void *class_data, unsigned int ix, const char *value);
+    /* Implements  block.field<  */
+    error__t (*put_table)(
+        void *class_data, unsigned int ix,
+        bool append, struct put_table_writer *writer);
+
     /* For the _out classes the data provided by .read() needs to be loaded as a
      * separate action, this optional method does this. */
-    void (*refresh)(struct class *class, unsigned int number);
+    void (*refresh)(void *class_data, unsigned int number);
+
     /* Computes change set for this class.  The class looks up its own change
      * index in report_index[] and updates changes[] accordingly. */
     void (*change_set)(
-        struct class *class, const uint64_t report_index[], bool changes[]);
+        void *class_data, const uint64_t report_index[], bool changes[]);
 
-    /* Direct access to fields bypassing read/write/type handling. */
-    error__t (*get)(
-        struct class *class, unsigned int ix,
-        struct connection_result *result);
-    error__t (*put)(
-        struct class *class, unsigned int ix, const char *value);
-    error__t (*put_table)(
-        struct class *class, unsigned int ix,
-        bool append, struct put_table_writer *writer);
+    /* Optionally returns class description. */
+    const char *(*describe)(void *class_data);
 
     /* Class specific attributes. */
     const struct attr_methods *attrs;
@@ -75,11 +64,6 @@ struct class_methods {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Class field access. */
-
-// !!!! Deprecated
-error__t class_read(
-    struct class *class, unsigned int number, uint32_t *value, bool refresh);
-error__t class_write(struct class *class, unsigned int number, uint32_t value);
 
 
 /* Read formatted value from class.  If refresh is set then the latest value
@@ -128,7 +112,7 @@ error__t class_parse_register(
 /* To be called after database loading is complete to ensure that all classes
  * have their required register assignments.  Also at this point we assign the
  * block base address. */
-error__t validate_class(struct class *class, unsigned int block_base);
+error__t finalise_class(struct class *class, unsigned int block_base);
 
 /* Returns description of class including any type. */
 void describe_class(struct class *class, char *string, size_t length);
