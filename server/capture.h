@@ -57,6 +57,9 @@ void reset_capture_list(void);
 /* *BITSn? implementation, reports bit names in specific capture block. */
 void report_capture_bits(struct connection_result *result, unsigned int group);
 
+/* *POSITIONS? implementation, reports all position names. */
+void report_capture_positions(struct connection_result *result);
+
 
 /* Capture class api. */
 extern const struct class_methods bit_out_class_methods;

@@ -548,6 +548,15 @@ void report_capture_bits(struct connection_result *result, unsigned int group)
 }
 
 
+void report_capture_positions(struct connection_result *result)
+{
+    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
+        result->write_many(result->write_context,
+            pos_out_state.lookup.names[i] ?: "");
+    result->response = RESPONSE_MANY;
+}
+
+
 void reset_capture_list(void)
 {
     for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)

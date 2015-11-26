@@ -197,6 +197,17 @@ static error__t get_bits(const char *command, struct connection_result *result)
 }
 
 
+/* *POSITIONSn?
+ *
+ * Returns list of bit field names for each bit capture block. */
+static error__t get_positions(
+    const char *command, struct connection_result *result)
+{
+    report_capture_positions(result);
+    return ERROR_OK;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
 
@@ -219,6 +230,7 @@ static const struct command_table_entry command_table_list[] = {
     { "DESC",       .get = get_desc, .allow_arg = true },
     { "CAPTURE",    .get = get_capture, .put = put_capture, },
     { "BITS",       .get = get_bits, .allow_arg = true },
+    { "POSITIONS",  .get = get_positions, },
 };
 
 static struct hash_table *command_table;
