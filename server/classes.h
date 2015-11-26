@@ -19,7 +19,9 @@ struct class_methods {
 
     /* Called to parse the class definition line for a field.  The corresponding
      * class has already been identified. */
-    error__t (*init)(const char **line, unsigned int count, void **class_data);
+    error__t (*init)(
+        const char **line, unsigned int count,
+        struct hash_table *attr_map, void **class_data);
 
     /* Parses the attribute definition line for this field. */
     error__t (*parse_attribute)(void *class_data, const char **line);
@@ -96,10 +98,7 @@ void get_class_change_set(
 /* Performs class initialisation and creates any associated type. */
 error__t create_class(
     const char *class_name, const char **line, unsigned int count,
-    struct class **class);
-
-/* Adds class attributes to given attr_map. */
-void create_class_attributes(struct class *class, struct hash_table *attr_map);
+    struct hash_table *attr_map, struct class **class);
 
 /* Parses field attribute in configuration file. */
 error__t class_parse_attribute(struct class *class, const char **line);

@@ -78,6 +78,13 @@ static error__t typed_register_finalise(
 }
 
 
+static const char *typed_register_describe(void *class_data)
+{
+    struct typed_register *state = class_data;
+    return get_type_name(state->type);
+}
+
+
 static error__t typed_register_get(
     void *class_data, unsigned int number, struct connection_result *result)
 {
@@ -108,7 +115,8 @@ static struct typed_register *create_typed_register_block(
 
 static error__t typed_register_init(
     struct register_api *reg,
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
     /* Default type to "uint" if not given. */
     const char *default_type = "uint";
@@ -117,7 +125,7 @@ static error__t typed_register_init(
 
     struct type *type;
     return
-        create_type(line, count, reg, &type)  ?:
+        create_type(line, count, reg, attr_map, &type)  ?:
         DO(*class_data = create_typed_register_block(reg, type));
 }
 
@@ -131,20 +139,25 @@ static void typed_register_destroy(void *class_data)
 
 
 static error__t param_init(
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
     return typed_register_init(
-        create_param_register(count), line, count, class_data);
+        create_param_register(count), line, count, attr_map, class_data);
 }
 
 
+#define TYPED_REGISTER_METHODS \
+    .destroy = typed_register_destroy, \
+    .parse_attribute = typed_register_parse_attribute, \
+    .parse_register = typed_register_parse_register, \
+    .finalise = typed_register_finalise, \
+    .describe = typed_register_describe
+
 static const struct class_methods param_class_methods = {
     "param",
+    TYPED_REGISTER_METHODS,
     .init = param_init,
-    .destroy = typed_register_destroy,
-    .parse_attribute = typed_register_parse_attribute,
-    .parse_register = typed_register_parse_register,
-    .finalise = typed_register_finalise,
     .get = typed_register_get,
     .put = typed_register_put,
     .change_set = typed_register_change_set
@@ -153,38 +166,33 @@ static const struct class_methods param_class_methods = {
 
 
 static error__t read_init(
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
     return typed_register_init(
-        create_read_register(count), line, count, class_data);
+        create_read_register(count), line, count, attr_map, class_data);
 }
 
 static const struct class_methods read_class_methods = {
     "read",
+    TYPED_REGISTER_METHODS,
     .init = read_init,
-    .destroy = typed_register_destroy,
-    .parse_attribute = typed_register_parse_attribute,
-    .parse_register = typed_register_parse_register,
-    .finalise = typed_register_finalise,
     .get = typed_register_get,
     .change_set = typed_register_change_set,
 };
 
 
 static error__t  write_init(
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count, struct hash_table *attr_map, void **class_data)
 {
     return typed_register_init(
-        create_write_register(count), line, count, class_data);
+        create_write_register(count), line, count, attr_map, class_data);
 }
 
 static const struct class_methods write_class_methods = {
     "write",
+    TYPED_REGISTER_METHODS,
     .init = write_init,
-    .destroy = typed_register_destroy,
-    .parse_attribute = typed_register_parse_attribute,
-    .parse_register = typed_register_parse_register,
-    .finalise = typed_register_finalise,
     .put = typed_register_put,
 };
 
@@ -295,26 +303,27 @@ static struct class *create_class_block(
     return class;
 }
 
-error__t create_class(
-    const char *class_name, const char **line, unsigned int count,
-    struct class **class)
-{
-    const struct class_methods *methods = NULL;
-    void *class_data = NULL;
-    return
-        lookup_class(class_name, &methods)  ?:
-        methods->init(line, count, &class_data)  ?:
-        DO(*class = create_class_block(methods, count, class_data));
-}
-
-
-void create_class_attributes(
+static void create_class_attributes(
     struct class *class, struct hash_table *attr_map)
 {
     for (unsigned int i = 0; i < class->methods->attr_count; i ++)
         create_attribute(
             &class->methods->attrs[i], class, class->class_data,
             class->count, attr_map);
+}
+
+error__t create_class(
+    const char *class_name, const char **line, unsigned int count,
+    struct hash_table *attr_map, struct class **class)
+{
+    const struct class_methods *methods = NULL;
+    void *class_data = NULL;
+    return
+        lookup_class(class_name, &methods)  ?:
+        methods->init(line, count, attr_map, &class_data)  ?:
+        DO(
+            *class = create_class_block(methods, count, class_data);
+            create_class_attributes(*class, attr_map));
 }
 
 

@@ -50,7 +50,8 @@ static const char *time_units[] = { "min", "s", "ms", "us", };
 
 
 static error__t time_init(
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
     size_t fields_size = count * sizeof(struct time_field);
     struct time_state *state = malloc(sizeof(struct time_state) + fields_size);

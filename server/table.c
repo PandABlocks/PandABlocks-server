@@ -13,7 +13,8 @@
 
 
 static error__t table_init(
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
     return ERROR_OK;
 }

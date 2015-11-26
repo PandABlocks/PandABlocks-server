@@ -405,8 +405,9 @@ error__t create_field(
     *field = create_field_block(block, field_name);
     return
         TRY_CATCH(
-            create_class(class_name, line, block->count, &(*field)->class)  ?:
-            DO(create_class_attributes((*field)->class, (*field)->attrs))  ?:
+            create_class(
+                class_name, line, block->count,
+                (*field)->attrs, &(*field)->class)  ?:
             /* Insert the field into the blocks map of fields. */
             TEST_OK_(
                 hash_table_insert(

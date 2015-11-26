@@ -197,7 +197,8 @@ struct capture_state {
 /* The class specific state is just the index array. */
 static error__t capture_init(
     struct register_api *(*create_reg)(void *class_data), const char *type_name,
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
     struct capture_state *state =
         malloc(sizeof(struct capture_state) + count * sizeof(unsigned int));
@@ -208,23 +209,25 @@ static error__t capture_init(
         state->index_array[i] = UNASSIGNED_REGISTER;
     *class_data = state;
 
-    return create_type(&type_name, count, state->reg, &state->type);
+    return create_type(&type_name, count, state->reg, attr_map, &state->type);
 }
 
 
 static error__t bit_out_init(
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
     return capture_init(
-        create_bit_out_register, "bit", line, count, class_data);
+        create_bit_out_register, "bit", line, count, attr_map, class_data);
 }
 
 
 static error__t pos_out_init(
-    const char **line, unsigned int count, void **class_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
     return capture_init(
-        create_pos_out_register, "position", line, count, class_data);
+        create_pos_out_register, "position", line, count, attr_map, class_data);
 }
 
 
@@ -413,8 +416,8 @@ static error__t bit_out_capture_format(
     void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
-    unsigned int *index_array = data;
-    unsigned int ix = index_array[number];
+    struct capture_state *state = data;
+    unsigned int ix = state->index_array[number];
     bool capture = bit_out_state.capture[ix / 32] & (1U << (ix % 32));
     snprintf(result, length, "%d", capture);
     return ERROR_OK;
@@ -424,8 +427,8 @@ static error__t pos_out_capture_format(
     void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
-    unsigned int *index_array = data;
-    unsigned int ix = index_array[number];
+    struct capture_state *state = data;
+    unsigned int ix = state->index_array[number];
     bool capture = pos_out_state.capture & (1U << (ix % 32));
     snprintf(result, length, "%d", capture);
     return ERROR_OK;
@@ -443,6 +446,9 @@ static void update_bit(uint32_t *target, unsigned int ix, bool value)
 static error__t bit_out_capture_put(
     void *owner, void *data, unsigned int number, const char *value)
 {
+    struct capture_state *state = data;
+    unsigned int ix = state->index_array[number];
+
     bool capture;
     error__t error =
         parse_bit(&value, &capture)  ?:
@@ -450,9 +456,6 @@ static error__t bit_out_capture_put(
 
     if (!error)
     {
-        unsigned int *index_array = data;
-        unsigned int ix = index_array[number];
-
         update_bit(&bit_out_state.capture[ix / 32], ix % 32, capture);
         uint32_t capture_mask = 0;
         for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
@@ -466,6 +469,9 @@ static error__t bit_out_capture_put(
 static error__t pos_out_capture_put(
     void *owner, void *data, unsigned int number, const char *value)
 {
+    struct capture_state *state = data;
+    unsigned int ix = state->index_array[number];
+
     bool capture;
     error__t error =
         parse_bit(&value, &capture)  ?:
@@ -473,9 +479,6 @@ static error__t pos_out_capture_put(
 
     if (!error)
     {
-        unsigned int *index_array = data;
-        unsigned int ix = index_array[number];
-
         update_bit(&pos_out_state.capture, ix, capture);
         hw_write_position_capture(pos_out_state.capture);
         update_capture_index();
@@ -487,8 +490,9 @@ static error__t bit_out_index_format(
     void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
-    unsigned int *index_array = data;
-    unsigned int ix = index_array[number];
+    struct capture_state *state = data;
+    unsigned int ix = state->index_array[number];
+
     int capture_index = bit_out_state.capture_index[ix / 32];
     if (capture_index >= 0)
         snprintf(result, length, "%d:%d", capture_index, ix % 32);
@@ -501,8 +505,9 @@ static error__t pos_out_index_format(
     void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
-    unsigned int *index_array = data;
-    unsigned int ix = index_array[number];
+    struct capture_state *state = data;
+    unsigned int ix = state->index_array[number];
+
     int capture_index = pos_out_state.capture_index[ix];
     if (capture_index >= 0)
         snprintf(result, length, "%d", capture_index);

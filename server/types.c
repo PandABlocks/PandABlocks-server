@@ -580,9 +580,18 @@ static struct type *create_type_block(
     return type;
 }
 
+static void create_type_attributes(
+    struct type *type, struct hash_table *attr_map)
+{
+    for (unsigned int i = 0; i < type->methods->attr_count; i ++)
+        create_attribute(
+            &type->methods->attrs[i], type, type->type_data, type->count,
+            attr_map);
+}
+
 error__t create_type(
     const char **string, unsigned int count,
-    struct register_api *reg, struct type **type)
+    struct register_api *reg, struct hash_table *attr_map, struct type **type)
 {
     char type_name[MAX_NAME_LENGTH];
     const struct type_methods *methods = NULL;
@@ -592,14 +601,7 @@ error__t create_type(
         lookup_type(type_name, &methods)  ?:
         IF(methods->init,
             methods->init(string, count, &type_data))  ?:
-        DO(*type = create_type_block(methods, reg, count, type_data));
-}
-
-
-void create_type_attributes(struct type *type, struct hash_table *attr_map)
-{
-    for (unsigned int i = 0; i < type->methods->attr_count; i ++)
-        create_attribute(
-            &type->methods->attrs[i], type, type->type_data, type->count,
-            attr_map);
+        DO(
+            *type = create_type_block(methods, reg, count, type_data);
+            create_type_attributes(*type, attr_map));
 }
