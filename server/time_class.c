@@ -88,10 +88,7 @@ static error__t time_finalise(void *class_data, unsigned int block_base)
 {
     struct time_state *state = class_data;
     state->block_base = block_base;
-    return
-        // Don't need to check high_register, they're assigned together
-        TEST_OK_(state->low_register != UNASSIGNED_REGISTER,
-            "No register assigned to field");
+    return ERROR_OK;
 }
 
 

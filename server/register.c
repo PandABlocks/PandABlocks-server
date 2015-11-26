@@ -41,7 +41,6 @@ struct register_api {
     const struct register_methods *methods;
     void *data;
     unsigned int block_base;
-    bool initialised;
 };
 
 
@@ -70,9 +69,7 @@ void register_change_set(
 
 error__t register_parse_register(const char **line, struct register_api *reg)
 {
-    return
-        reg->methods->parse_register(line, reg->data)  ?:
-        DO(reg->initialised = true);
+    return reg->methods->parse_register(line, reg->data);
 }
 
 
@@ -95,7 +92,7 @@ static struct register_api *create_register_api(
 error__t finalise_register(struct register_api *reg, unsigned int block_base)
 {
     reg->block_base = block_base;
-    return TEST_OK_(reg->initialised, "No register assigned for field");
+    return ERROR_OK;
 }
 
 

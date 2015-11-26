@@ -29,6 +29,7 @@ struct class {
     const struct class_methods *methods;    // Class implementation
     unsigned int count;             // Number of instances of this block
     void *class_data;               // Class specific data
+    bool initialised;               // Checked during finalisation
 };
 
 
@@ -343,14 +344,18 @@ error__t class_parse_register(
     return
         TEST_OK(class->methods->parse_register)  ?:
         class->methods->parse_register(
-            class->class_data, block_name, field_name, line);
+            class->class_data, block_name, field_name, line)  ?:
+        DO(class->initialised = true);
 }
 
 
 error__t finalise_class(struct class *class, unsigned int block_base)
 {
-    return IF(class->methods->finalise,
-        class->methods->finalise(class->class_data, block_base));
+    return
+        /* Alas at this point we don't have a name or location to report. */
+        TEST_OK_(class->initialised, "No register assigned for class")  ?:
+        IF(class->methods->finalise,
+            class->methods->finalise(class->class_data, block_base));
 }
 
 void describe_class(struct class *class, char *string, size_t length)
