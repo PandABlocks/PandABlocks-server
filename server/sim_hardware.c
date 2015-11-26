@@ -114,9 +114,6 @@ void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value)
 {
-    printf("hw_write_register %u:%u:%u <= %u\n",
-        block_base, block_number, reg, value);
-
     LOCK();
     handle_error(
         write_command_int('W', block_base, block_number, reg, value));
@@ -127,8 +124,6 @@ void hw_write_register(
 uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
-    printf("hw_read_register %u:%u:%u ", block_base, block_number, reg);
-
     LOCK();
     uint32_t result = 0;
     handle_error(
@@ -136,7 +131,6 @@ uint32_t hw_read_register(
         read_all(sock, &result, 4));
     UNLOCK();
 
-    printf("=> %u\n", result);
     return result;
 }
 
@@ -146,9 +140,6 @@ void hw_write_short_table(
     unsigned int reset_reg, unsigned int fill_reg,
     const uint32_t data[], size_t length)
 {
-    printf("hw_write_short_table %u:%u:%u/%u %p %zu\n",
-        block_base, block_number, reset_reg, fill_reg, data, length);
-
     LOCK();
     handle_error(
         write_command_int(
@@ -160,8 +151,6 @@ void hw_write_short_table(
 
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
 {
-    printf("hw_read_bits\n");
-
     LOCK();
     handle_error(
         write_command('C', 0, 0, 0)  ?:
@@ -174,8 +163,6 @@ void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
 void hw_read_positions(
     uint32_t positions[POS_BUS_COUNT], bool changes[POS_BUS_COUNT])
 {
-    printf("hw_read_positions\n");
-
     LOCK();
     handle_error(
         write_command('P', 0, 0, 0)  ?:
@@ -187,7 +174,6 @@ void hw_read_positions(
 
 void hw_write_bit_capture(uint32_t capture_mask)
 {
-    printf("hw_write_bit_capture %08x\n", capture_mask);
     LOCK();
     handle_error(write_command_int('K', 0, 0, 0, capture_mask));
     UNLOCK();
@@ -195,7 +181,6 @@ void hw_write_bit_capture(uint32_t capture_mask)
 
 void hw_write_position_capture(uint32_t capture_mask)
 {
-    printf("hw_write_pos_capture %08x\n", capture_mask);
     LOCK();
     handle_error(write_command_int('M', 0, 0, 0, capture_mask));
     UNLOCK();
