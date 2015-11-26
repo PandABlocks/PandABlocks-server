@@ -141,18 +141,18 @@ uint32_t hw_read_register(
 }
 
 
-void hw_write_table_data(
-    unsigned int block_base, unsigned int block_number, unsigned int reg,
-    bool start, const uint32_t data[], size_t length)
+void hw_write_short_table(
+    unsigned int block_base, unsigned int block_number,
+    unsigned int reset_reg, unsigned int fill_reg,
+    const uint32_t data[], size_t length)
 {
-    printf("hw_write_table_data %u:%u:%u %d %p %zu",
-        block_base, block_number, reg, start, data, length);
+    printf("hw_write_short_table %u:%u:%u/%u %p %zu",
+        block_base, block_number, reset_reg, fill_reg, data, length);
 
     LOCK();
     handle_error(
         write_command_int(
-            start ? 'B' : 'A',      // Block or Append
-            block_base, block_number, reg, (uint32_t) length)  ?:
+            'S', block_base, block_number, fill_reg, (uint32_t) length)  ?:
         write_all(sock, data, length));
     UNLOCK();
 }

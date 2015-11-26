@@ -60,11 +60,17 @@ uint32_t hw_read_register(
     return result;
 }
 
-void hw_write_table_data(
-    unsigned int block_base, unsigned int block_number, unsigned int reg,
-    bool start, const uint32_t data[], size_t length)
+
+/* Short tables are written as a burst: first write to the reset register to
+ * start the write, then to the fill register. */
+void hw_write_short_table(
+    unsigned int block_base, unsigned int block_number,
+    unsigned int reset_reg, unsigned int fill_reg,
+    const uint32_t data[], size_t length)
 {
-    /* Nothing implemented yet. */
+    register_map[make_offset(block_base, block_number, reset_reg)] = 1;
+    for (size_t i = 0; i < length; i ++)
+        register_map[make_offset(block_base, block_number, fill_reg)] = data[i];
 }
 
 

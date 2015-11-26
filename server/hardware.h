@@ -26,9 +26,10 @@ uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg);
 
 /* Write table data. */
-void hw_write_table_data(
-    unsigned int block_base, unsigned int block_number, unsigned int reg,
-    bool start, const uint32_t data[], size_t length);
+void hw_write_short_table(
+    unsigned int block_base, unsigned int block_number,
+    unsigned int reset_reg, unsigned int fill_reg,
+    const uint32_t data[], size_t length);
 
 /* Read bit values and changes. */
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT]);
