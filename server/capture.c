@@ -419,8 +419,7 @@ static error__t bit_out_capture_format(
     struct capture_state *state = data;
     unsigned int ix = state->index_array[number];
     bool capture = bit_out_state.capture[ix / 32] & (1U << (ix % 32));
-    snprintf(result, length, "%d", capture);
-    return ERROR_OK;
+    return format_string(result, length, "%d", capture);
 }
 
 static error__t pos_out_capture_format(
@@ -430,8 +429,7 @@ static error__t pos_out_capture_format(
     struct capture_state *state = data;
     unsigned int ix = state->index_array[number];
     bool capture = pos_out_state.capture & (1U << (ix % 32));
-    snprintf(result, length, "%d", capture);
-    return ERROR_OK;
+    return format_string(result, length, "%d", capture);
 }
 
 
@@ -494,11 +492,11 @@ static error__t bit_out_index_format(
     unsigned int ix = state->index_array[number];
 
     int capture_index = bit_out_state.capture_index[ix / 32];
-    if (capture_index >= 0)
-        snprintf(result, length, "%d:%d", capture_index, ix % 32);
-    else
-        *result = '\0';
-    return ERROR_OK;
+    return
+        IF_ELSE(capture_index >= 0,
+            format_string(result, length, "%d:%d", capture_index, ix % 32),
+        // else
+            DO(*result = '\0'));
 }
 
 static error__t pos_out_index_format(
@@ -509,11 +507,11 @@ static error__t pos_out_index_format(
     unsigned int ix = state->index_array[number];
 
     int capture_index = pos_out_state.capture_index[ix];
-    if (capture_index >= 0)
-        snprintf(result, length, "%d", capture_index);
-    else
-        *result = '\0';
-    return ERROR_OK;
+    return
+        IF_ELSE(capture_index >= 0,
+            format_string(result, length, "%d", capture_index),
+        // else
+            DO(*result = '\0'));
 }
 
 

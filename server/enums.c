@@ -98,7 +98,7 @@ error__t enum_format(
     return
         TEST_OK_(value < state->count, "Index out of range")  ?:
         TEST_OK_(state->strings[value], "No label for value")  ?:
-        DO(snprintf(string, length, "%s", state->strings[value]));
+        format_string(string, length, "%s", state->strings[value]);
 }
 
 

@@ -64,12 +64,13 @@ void reset_change_context(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-
-
 /* A couple of helper routines for output formatting. */
+
 error__t __attribute__((format(printf, 3, 4))) format_string(
     char result[], size_t length, const char *format, ...);
+
+/* Formats double without leading spaces. */
+error__t format_double(char result[], size_t length, double value);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

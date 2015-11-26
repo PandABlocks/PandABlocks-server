@@ -154,8 +154,7 @@ static error__t uint_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
-    snprintf(string, length, "%u", value);
-    return ERROR_OK;
+    return format_string(string, length, "%u", value);
 }
 
 
@@ -187,8 +186,7 @@ static error__t bit_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
-    snprintf(string, length, "%s", value ? "1" : "0");
-    return ERROR_OK;
+    return format_string(string, length, "%s", value ? "1" : "0");
 }
 
 
@@ -249,19 +247,6 @@ static error__t position_parse(
         TEST_OK_(INT_MIN <= converted  &&  converted <= INT_MAX,
             "Position out of range")  ?:
         DO(*value = (unsigned int) lround(converted));
-}
-
-
-/* Alas the double formatting rules are ill mannered, in particular I don't want
- * to allow leading spaces.  I'd also love to prune trailing zeros, but we'll
- * see. */
-error__t format_double(char result[], size_t length, double value)
-{
-    snprintf(result, length, "%12g", value);    // Not going to overflow
-    const char *skip = skip_whitespace(result);
-    if (skip > result)
-        memmove(result, skip, strlen(skip) + 1);
-    return ERROR_OK;
 }
 
 

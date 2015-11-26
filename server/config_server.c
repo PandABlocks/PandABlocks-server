@@ -47,6 +47,19 @@ error__t __attribute__((format(printf, 3, 4))) format_string(
 }
 
 
+/* Alas the double formatting rules are ill mannered, in particular I don't want
+ * to allow leading spaces.  I'd also love to prune trailing zeros, but we'll
+ * see. */
+error__t format_double(char result[], size_t length, double value)
+{
+    ASSERT_OK((size_t) snprintf(result, length, "%12g", value) < length);
+    const char *skip = skip_whitespace(result);
+    if (skip > result)
+        memmove(result, skip, strlen(skip) + 1);
+    return ERROR_OK;
+}
+
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Change set management. */

@@ -28,7 +28,3 @@ const char *get_type_name(const struct type *type);
 
 /* Adds attribute line to specified type.  Used to add enumeration options. */
 error__t type_parse_attribute(struct type *type, const char **line);
-
-
-/* Formats double without leading spaces. */
-error__t format_double(char result[], size_t length, double value);
