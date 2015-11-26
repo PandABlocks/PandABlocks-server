@@ -216,7 +216,7 @@ static void report_changed_value(
     char string[MAX_RESULT_LENGTH];
     size_t prefix = (size_t) snprintf(
         string, sizeof(string), "%s%d.%s=",
-        field->block->name, number, field->name);
+        field->block->name, number + 1, field->name);
 
     /* Use the class's own formatting method to format into the result string
      * via our own connection result.  If a multiple string result is returned
@@ -240,7 +240,7 @@ static void report_changed_attr(
     char string[MAX_RESULT_LENGTH];
     size_t prefix = (size_t) snprintf(
         string, sizeof(string), "%s%d.%s.%s=",
-        field->block->name, number, field->name, get_attr_name(attr));
+        field->block->name, number + 1, field->name, get_attr_name(attr));
 
     struct connection_result format_result = {
         .string = string + prefix,

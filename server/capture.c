@@ -117,7 +117,7 @@ static error__t add_mux_indices(
     for (unsigned int i = 0; !error  &&  i < count; i ++)
     {
         char name[MAX_NAME_LENGTH];
-        snprintf(name, sizeof(name), "%s%d.%s", block_name, i, field_name);
+        snprintf(name, sizeof(name), "%s%d.%s", block_name, i + 1, field_name);
         error = mux_lookup_insert(lookup, indices[i], name);
     }
     return error;

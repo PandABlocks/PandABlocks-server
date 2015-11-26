@@ -155,9 +155,11 @@ static error__t parse_block_name(
         /* Parse the number or flag its absence, and if present check that it's
          * in valid range. */
         IF_ELSE(isdigit(**input),
-            DO(*number_present = true)  ?:
             parse_uint(input, &context->number)  ?:
-            TEST_OK_(context->number < *max_number, "Block number too large"),
+            TEST_OK_(
+                0 < context->number  &&  context->number <= *max_number,
+                "Invalid block number") ?:
+            DO(*number_present = true;  context->number -= 1),
         //else
             DO(*number_present = false; context->number = 0))  ?:
 
