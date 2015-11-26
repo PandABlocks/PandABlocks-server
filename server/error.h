@@ -275,3 +275,12 @@ static inline error__t __attribute__((warn_unused_result))
     ( { typeof(x) tx = (x); typeof(y) ty = (y); tx > ty ? tx : ty; } )
 #define MIN(x, y)   _MIN(UNIQUE_ID(), UNIQUE_ID(), x, y)
 #define MAX(x, y)   _MAX(UNIQUE_ID(), UNIQUE_ID(), x, y)
+
+
+/* Casts a member of a structure out to the containing structure. */
+#define _id_container_of(mptr, ptr, type, member) \
+    ( { \
+        typeof(((type *)0)->member) *mptr = (ptr); \
+        (type *)((void *) mptr - offsetof(type, member)); \
+    } )
+#define container_of(args...)   _id_container_of(UNIQUE_ID(), args)

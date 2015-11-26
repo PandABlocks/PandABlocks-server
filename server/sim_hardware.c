@@ -146,14 +146,14 @@ void hw_write_short_table(
     unsigned int reset_reg, unsigned int fill_reg,
     const uint32_t data[], size_t length)
 {
-    printf("hw_write_short_table %u:%u:%u/%u %p %zu",
+    printf("hw_write_short_table %u:%u:%u/%u %p %zu\n",
         block_base, block_number, reset_reg, fill_reg, data, length);
 
     LOCK();
     handle_error(
         write_command_int(
             'S', block_base, block_number, fill_reg, (uint32_t) length)  ?:
-        write_all(sock, data, length));
+        write_all(sock, data, length * sizeof(uint32_t)));
     UNLOCK();
 }
 

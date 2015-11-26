@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "error.h"
@@ -27,15 +28,16 @@ struct short_table_state {
     unsigned int fill_reg;      // Register for completing block write
     unsigned int field_count;   // Number of fields in fields[]
     char **fields;              // Array of fields
+    unsigned int max_length;    // Maximum block length
 
     /* This part contains the block specific information.  To help the table
      * writing code, the max_length field is repeated for each block! */
     struct short_table_block {
-        size_t max_length; // Maximum block length
-        size_t length;    // Current table length
+        unsigned int number;    // Index of this block
+        size_t length;          // Current table length
         uint32_t *data;         // Data current written to table
-        struct put_table_writer writer;
         bool lock;              // Lock for table write access
+        struct put_table_writer writer;
     } blocks[];
 };
 
@@ -50,7 +52,10 @@ static error__t short_table_put_table_write(
     void *context, const unsigned int data[], size_t length)
 {
     struct short_table_block *block = context;
-    if (length > block->max_length - block->length)
+    struct short_table_state *state =
+        container_of(block, struct short_table_state, blocks[block->number]);
+
+    if (length > state->max_length - block->length)
         return FAIL_("Too much data written to table");
     else
     {
@@ -62,6 +67,17 @@ static error__t short_table_put_table_write(
 
 static void short_table_put_table_close(void *context)
 {
+    struct short_table_block *block = context;
+    struct short_table_state *state =
+        container_of(block, struct short_table_state, blocks[block->number]);
+
+    /* Pad rest of table with zeros and send to hardware. */
+    memset(block->data + block->length, 0,
+        sizeof(uint32_t) * (state->max_length - block->length));
+    hw_write_short_table(
+        state->block_base, block->number, state->init_reg, state->fill_reg,
+        block->data, state->max_length);
+
     ASSERT_OK(short_table_lock_unlock(context, false));
 }
 
@@ -79,6 +95,7 @@ static error__t short_table_init(
     };
     for (unsigned int i = 0; i < block_count; i ++)
         state->blocks[i] = (struct short_table_block) {
+            .number = i,
             .writer = {
                 .context = &state->blocks[i],
                 .write = short_table_put_table_write,
@@ -118,14 +135,10 @@ static error__t short_table_parse_attribute(void *class_data, const char **line)
 }
 
 
-static void allocate_short_table_data(
-    struct short_table_state *state, unsigned int data_length)
+static void allocate_short_table_data(struct short_table_state *state)
 {
     for (unsigned int i = 0; i < state->block_count; i ++)
-    {
-        state->blocks[i].max_length = data_length;
-        state->blocks[i].data = malloc(data_length);
-    }
+        state->blocks[i].data = malloc(state->max_length * sizeof(uint32_t));
 }
 
 static error__t short_table_parse_register(
@@ -133,14 +146,13 @@ static error__t short_table_parse_register(
     const char **line)
 {
     struct short_table_state *state = class_data;
-    unsigned int data_length;
     return
-        parse_uint(line, &data_length)  ?:
+        parse_uint(line, &state->max_length)  ?:
         parse_whitespace(line)  ?:
         parse_uint(line, &state->init_reg)  ?:
         parse_whitespace(line)  ?:
         parse_uint(line, &state->fill_reg)  ?:
-        DO(allocate_short_table_data(state, data_length));
+        DO(allocate_short_table_data(state));
 }
 
 
@@ -232,14 +244,14 @@ static error__t long_table_parse_register(
 }
 
 static error__t long_table_get(
-    void *class_data, unsigned int ix,
+    void *class_data, unsigned int number,
     struct connection_result *result)
 {
     return FAIL_("Not implemented");
 }
 
 static error__t long_table_put_table(
-    void *class_data, unsigned int ix,
+    void *class_data, unsigned int number,
     bool append, struct put_table_writer *writer)
 {
     return FAIL_("block.field< not implemented yet");

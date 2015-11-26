@@ -62,14 +62,6 @@ static inline bool list_is_empty(const struct list_head *list)
 }
 
 
-/* Casts a member of a structure out to the containing structure. */
-#define container_of(ptr, type, member) \
-    ( { \
-        typeof(((type *)0)->member) *__mptr = (ptr); \
-        (type *)((void *) __mptr - offsetof(type, member)); \
-    } )
-
-
 /* Iterates over list head, setting pos to each entry in the list. */
 #define list_for_each(pos, head) \
     for (struct list_head *pos = (head)->next; pos != (head); pos = pos->next)
