@@ -203,6 +203,7 @@ static error__t time_units_put(
         if (strcmp(string, time_units[i]) == 0)
         {
             state->values[number].time_scale = (enum time_scale) i;
+            state->values[number].update_index = get_change_index();
             return ERROR_OK;
         }
     return FAIL_("Invalid time units");
