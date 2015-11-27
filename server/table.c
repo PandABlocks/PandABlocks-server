@@ -18,6 +18,9 @@
 #include "table.h"
 
 
+#define BASE64_LINE_BYTES   57U     // Converts to 76 characters
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Common code. */
 
@@ -60,6 +63,68 @@ static error__t field_set_fields_get_many(
     result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
+
+
+/* Converts binary data to base 64.  The output buffer must be at least
+ * ceiling(4/3*length)+1 bytes long. */
+static void to_base_64(const void *data, size_t length, char out[])
+{
+    const unsigned char *data_in = data;
+    static const char convert[64] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for (; length >= 3; length -= 3)
+    {
+        unsigned char a = *data_in++;
+        unsigned char b = *data_in++;
+        unsigned char c = *data_in++;
+
+        *out++ = convert[a >> 2];
+        *out++ = convert[((a << 4) | (b >> 4)) & 0x3F];
+        *out++ = convert[((b << 2) | (c >> 6)) & 0x3F];
+        *out++ = convert[c & 0x3F];
+    }
+    switch (length)
+    {
+        case 2:
+        {
+            unsigned char a = *data_in++;
+            unsigned char b = *data_in++;
+            *out++ = convert[a >> 2];
+            *out++ = convert[((a << 4) | (b >> 4)) & 0x3F];
+            *out++ = convert[(b << 2) & 0x3F];
+            *out++ = '=';
+            break;
+        }
+        case 1:
+        {
+            unsigned char a = *data_in++;
+            *out++ = convert[a >> 2];
+            *out++ = convert[(a << 4) & 0x3F];
+            *out++ = '=';
+            *out++ = '=';
+            break;
+        }
+    }
+    *out++ = '\0';
+}
+
+
+static error__t write_base_64(
+    const void *data, size_t length, struct connection_result *result)
+{
+    while (length > 0)
+    {
+        size_t to_write = MIN(length, BASE64_LINE_BYTES);
+        char line[MAX_RESULT_LENGTH];
+        to_base_64(data, to_write, line);
+        result->write_many(result->write_context, line);
+        length -= to_write;
+        data += to_write;
+    }
+    result->response = RESPONSE_MANY;
+    return ERROR_OK;
+}
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -245,14 +310,14 @@ static error__t short_table_max_length_format(
 }
 
 
-// static error__t short_table_b_get_many(
-//     void *owner, void *class_data, unsigned int number,
-//     struct connection_result *result)
-// {
-//     struct short_table_state *state = class_data;
-//     (void) state;
-//     return FAIL_("Not implemented");
-// }
+static error__t short_table_b_get_many(
+    void *owner, void *class_data, unsigned int number,
+    struct connection_result *result)
+{
+    struct short_table_state *state = class_data;
+    struct short_table_block *block = &state->blocks[number];
+    return write_base_64(block->data, block->length * sizeof(uint32_t), result);
+}
 
 
 static error__t short_table_fields_get_many(
@@ -406,12 +471,12 @@ const struct class_methods short_table_class_methods = {
     .get = short_table_get,
     .put_table = short_table_put_table,
     .attrs = (struct attr_methods[]) {
-        { "LENGTH", .format = short_table_length_format, },
+        { "LENGTH",     .format = short_table_length_format, },
         { "MAX_LENGTH", .format = short_table_max_length_format, },
-        { "FIELDS", .get_many = short_table_fields_get_many, },
-//         { "B",      .get_many = short_table_b_get_many, },
+        { "FIELDS",     .get_many = short_table_fields_get_many, },
+        { "B",          .get_many = short_table_b_get_many, },
     },
-    .attr_count = 3,
+    .attr_count = 4,
 };
 
 const struct class_methods long_table_class_methods = {
