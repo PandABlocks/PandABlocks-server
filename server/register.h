@@ -1,7 +1,16 @@
 /* Abstract single register API for class and type support. */
 
 struct register_api;
-struct register_methods;
+
+
+// This will move into type creation soon enough! */
+struct register_methods {
+    /* Reads current register value. */
+    uint32_t (*read)(void *reg_data, unsigned int number);
+    /* Writes to register. */
+    void (*write)(void *reg_data, unsigned int number, uint32_t value);
+};
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -15,37 +24,20 @@ uint32_t read_register(struct register_api *reg, unsigned int number);
 void write_register(
     struct register_api *reg, unsigned int number, uint32_t value);
 
-/* Returns change set associated with register. */
-void register_change_set(
-    struct register_api *reg, const uint64_t report_index[], bool changes[]);
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Various register class creation methods. */
 
-/* Creates a simple parameter register: reading returns last read value, writing
- * writes through to hardware and caches value, and we have parameter change
- * support. */
-struct register_api *create_param_register(unsigned int count);
-
-/* Creates direct read-only and write only registers. */
-struct register_api *create_read_register(unsigned int count);
-struct register_api *create_write_register(unsigned int count);
-
-/* Create register interfaces to bit_out and pos_out classes.  These two
- * implementations need the class data. */
-struct register_api *create_bit_out_register(void *class_data);
-struct register_api *create_pos_out_register(void *class_data);
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Register administration. */
-
-/* Alas we don't get the block base address until after we've been created. */
-error__t finalise_register(struct register_api *reg, unsigned int block_base);
+struct register_api *create_register_api(
+    const struct register_methods *methods, void *data);
 
 /* Call during shutdown to release resources. */
 void destroy_register(struct register_api *reg);
 
-/* Used to parse register definition line for register. */
-error__t register_parse_register(const char **line, struct register_api *reg);
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Class definitions for param, read, write classes. */
+
+extern const struct class_methods param_class_methods;
+extern const struct class_methods read_class_methods;
+extern const struct class_methods write_class_methods;

@@ -196,7 +196,7 @@ struct capture_state {
 
 /* The class specific state is just the index array. */
 static error__t capture_init(
-    struct register_api *(*create_reg)(void *class_data), const char *type_name,
+    const struct register_methods *register_methods, const char *type_name,
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
@@ -204,13 +204,35 @@ static error__t capture_init(
         malloc(sizeof(struct capture_state) + count * sizeof(unsigned int));
 
     *state = (struct capture_state) { .count = count, };
-    state->reg = create_reg(state);
+    state->reg = create_register_api(register_methods, state);
     for (unsigned int i = 0; i < count; i ++)
         state->index_array[i] = UNASSIGNED_REGISTER;
     *class_data = state;
 
-    return create_type(&type_name, count, state->reg, attr_map, &state->type);
+    return create_type(
+        &type_name, NULL, count, state->reg, attr_map, &state->type);
 }
+
+
+static uint32_t bit_out_read(void *reg_data, unsigned int number)
+{
+    struct capture_state *state = reg_data;
+    return bit_out_state.bits[state->index_array[number]];
+}
+
+static uint32_t pos_out_read(void *reg_data, unsigned int number)
+{
+    struct capture_state *state = reg_data;
+    return pos_out_state.positions[state->index_array[number]];
+}
+
+static const struct register_methods bit_out_methods = {
+    .read = bit_out_read,
+};
+
+static const struct register_methods pos_out_methods = {
+    .read = pos_out_read,
+};
 
 
 static error__t bit_out_init(
@@ -218,16 +240,15 @@ static error__t bit_out_init(
     struct hash_table *attr_map, void **class_data)
 {
     return capture_init(
-        create_bit_out_register, "bit", line, count, attr_map, class_data);
+        &bit_out_methods, "bit", line, count, attr_map, class_data);
 }
-
 
 static error__t pos_out_init(
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
     return capture_init(
-        create_pos_out_register, "position", line, count, attr_map, class_data);
+        &pos_out_methods, "position", line, count, attr_map, class_data);
 }
 
 
@@ -343,21 +364,6 @@ static error__t capture_get(
     struct capture_state *state = class_data;
     return type_get(state->type, number, result);
 }
-
-uint32_t bit_out_read(
-    void *reg_data, unsigned int block_base, unsigned int number)
-{
-    struct capture_state *state = reg_data;
-    return bit_out_state.bits[state->index_array[number]];
-}
-
-uint32_t pos_out_read(
-    void *reg_data, unsigned int block_base, unsigned int number)
-{
-    struct capture_state *state = reg_data;
-    return pos_out_state.positions[state->index_array[number]];
-}
-
 
 
 /* Computation of change set. */

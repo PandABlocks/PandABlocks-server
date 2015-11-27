@@ -16,7 +16,7 @@ error__t type_put(struct type *type, unsigned int number, const char *string);
 /* Parses type description in name and returns type.  The bound register will be
  * used read and write the underlying value for formatting. */
 error__t create_type(
-    const char **line, unsigned int count,
+    const char **line, const char *default_type, unsigned int count,
     struct register_api *reg, struct hash_table *attr_map, struct type **type);
 
 /* Releases internal resources associated with type. */

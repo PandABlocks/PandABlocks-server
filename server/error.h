@@ -207,14 +207,14 @@ static inline error__t __attribute__((warn_unused_result))
 
 /* These two macros facilitate using the macros above by creating if
  * expressions that are slightly more sensible looking than ?: in context. */
-#define DO(action)                      ({action; ERROR_OK;})
+#define DO(action...)                   ({action; ERROR_OK;})
 #define IF(test, iftrue)                ((test) ? (iftrue) : ERROR_OK)
 #define IF_ELSE(test, iftrue, iffalse)  ((test) ? (iftrue) : (iffalse))
 
 
 /* If action fails perform on_fail as a cleanup action.  Returns status of
  * action. */
-#define _id_TRY_CATCH(error, action, on_fail) \
+#define _id_TRY_CATCH(error, action, on_fail...) \
     _warn_unused_error__t(( { \
         error__t error = (action); \
         if (error) { on_fail; } \

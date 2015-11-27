@@ -368,7 +368,7 @@ static error__t create_and_listen(
     struct sockaddr_in sin = {
         .sin_family = AF_INET,
         .sin_addr.s_addr = INADDR_ANY,
-        .sin_port = htons(port)
+        .sin_port = htons((uint16_t) port)
     };
     const int one = 1;
     return

@@ -575,12 +575,14 @@ static void create_type_attributes(
 }
 
 error__t create_type(
-    const char **string, unsigned int count,
+    const char **string, const char *default_type, unsigned int count,
     struct register_api *reg, struct hash_table *attr_map, struct type **type)
 {
     char type_name[MAX_NAME_LENGTH];
     const struct type_methods *methods = NULL;
     void *type_data = NULL;
+    if (**string == '\0'  &&  default_type)
+        string = &default_type;
     return
         parse_name(string, type_name, sizeof(type_name))  ?:
         lookup_type(type_name, &methods)  ?:
