@@ -11,7 +11,7 @@ struct register_methods {
     /* Writes to register. */
     void (*write)(void *reg_data, unsigned int number, uint32_t value);
     /* Notifies register change. */
-    void (*changed)(void *reg_data);
+    void (*changed)(void *reg_data, unsigned int number);
 };
 
 

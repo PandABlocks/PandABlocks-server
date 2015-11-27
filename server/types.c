@@ -88,6 +88,13 @@ static error__t write_register(
 }
 
 
+static void changed_register(struct type *type, unsigned int number)
+{
+    if (type->reg->changed)
+        type->reg->changed(type->reg_data, number);
+}
+
+
 
 /*****************************************************************************/
 /* Individual type implementations. */
@@ -297,9 +304,13 @@ static error__t position_scale_put(
 {
     struct position_state *state = data;
     state = &state[number];
+    double scale;
     return
-        parse_double(&value, &state->scale)  ?:
-        parse_eos(&value);
+        parse_double(&value, &scale)  ?:
+        parse_eos(&value)  ?:
+        DO(
+            state->scale = scale;
+            changed_register(owner, number));
 }
 
 static error__t position_offset_format(
@@ -316,9 +327,13 @@ static error__t position_offset_put(
 {
     struct position_state *state = data;
     state = &state[number];
+    double offset;
     return
-        parse_double(&value, &state->offset)  ?:
-        parse_eos(&value);
+        parse_double(&value, &offset)  ?:
+        parse_eos(&value)  ?:
+        DO(
+            state->offset = offset;
+            changed_register(owner, number));
 }
 
 

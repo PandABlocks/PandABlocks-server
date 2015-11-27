@@ -128,6 +128,13 @@ static error__t simple_register_put(
 }
 
 
+static void simple_register_changed(void *reg_data, unsigned int number)
+{
+    struct simple_state *state = reg_data;
+    state->values[number].update_index = get_change_index();
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Parameter registers. */
 
@@ -154,6 +161,7 @@ static void param_write(void *reg_data, unsigned int number, uint32_t value)
 static struct register_methods param_methods = {
     .read = param_read,
     .write = param_write,
+    .changed = simple_register_changed,
 };
 
 
@@ -221,6 +229,7 @@ static void read_change_set(
 
 static struct register_methods read_methods = {
     .read = read_read,
+    .changed = simple_register_changed,
 };
 
 
