@@ -189,12 +189,10 @@ error__t pos_mux_parse(
 struct capture_state {
     unsigned int count;
     struct type *type;
-    struct register_api *reg;
     unsigned int index_array[];
 };
 
 
-/* The class specific state is just the index array. */
 static error__t capture_init(
     const struct register_methods *register_methods, const char *type_name,
     const char **line, unsigned int count,
@@ -204,13 +202,13 @@ static error__t capture_init(
         malloc(sizeof(struct capture_state) + count * sizeof(unsigned int));
 
     *state = (struct capture_state) { .count = count, };
-    state->reg = create_register_api(register_methods, state);
     for (unsigned int i = 0; i < count; i ++)
         state->index_array[i] = UNASSIGNED_REGISTER;
     *class_data = state;
 
     return create_type(
-        &type_name, NULL, count, state->reg, attr_map, &state->type);
+        &type_name, NULL, count, register_methods, state,
+        attr_map, &state->type);
 }
 
 
@@ -266,7 +264,6 @@ static error__t capture_finalise(void *class_data, unsigned int block_base)
 static void capture_destroy(void *class_data)
 {
     struct capture_state *state = class_data;
-    destroy_register(state->reg);
     destroy_type(state->type);
 }
 

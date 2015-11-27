@@ -19,7 +19,6 @@
 #include "attributes.h"
 #include "enums.h"
 #include "capture.h"
-#include "register.h"
 
 #include "types.h"
 
@@ -55,7 +54,8 @@ struct type_methods {
 
 struct type {
     const struct type_methods *methods;
-    struct register_api *reg;
+    const struct register_methods *reg;
+    void *reg_data;
     unsigned int count;
     void *type_data;
 };
@@ -70,6 +70,24 @@ static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
 #define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
 
 
+static error__t read_register(
+    struct type *type, unsigned int number, uint32_t *value)
+{
+    return
+        TEST_OK_(type->reg->read, "Register cannot be read")  ?:
+        DO(*value = type->reg->read(type->reg_data, number));
+}
+
+
+static error__t write_register(
+    struct type *type, unsigned int number, uint32_t value)
+{
+    return
+        TEST_OK_(type->reg->write, "Register cannot be written")  ?:
+        DO(type->reg->write(type->reg_data, number, value));
+}
+
+
 
 /*****************************************************************************/
 /* Individual type implementations. */
@@ -82,8 +100,10 @@ static error__t raw_format_int(
     char result[], size_t length)
 {
     struct type *type = owner;
-    uint32_t value = read_register(type->reg, number);
-    return format_string(result, length, "%d", value);
+    uint32_t value;
+    return
+        read_register(type, number, &value)  ?:
+        format_string(result, length, "%d", value);
 }
 
 static error__t raw_format_uint(
@@ -91,8 +111,10 @@ static error__t raw_format_uint(
     char result[], size_t length)
 {
     struct type *type = owner;
-    uint32_t value = read_register(type->reg, number);
-    return format_string(result, length, "%u", value);
+    uint32_t value;
+    return
+        read_register(type, number, &value)  ?:
+        format_string(result, length, "%u", value);
 }
 
 
@@ -104,7 +126,7 @@ static error__t raw_put_uint(
     return
         parse_uint(&string, &value)  ?:
         parse_eos(&string)  ?:
-        DO(write_register(type->reg, number, value));
+        write_register(type, number, value);
 }
 
 static error__t raw_put_int(
@@ -115,7 +137,7 @@ static error__t raw_put_int(
     return
         parse_int(&string, &value)  ?:
         parse_eos(&string)  ?:
-        DO(write_register(type->reg, number, (uint32_t) value));
+        write_register(type, number, (uint32_t) value);
 }
 
 
@@ -420,7 +442,7 @@ error__t type_get(
     return
         TEST_OK_(type->methods->format,
             "Cannot read %s value", type->methods->name)  ?:
-        DO(value = read_register(type->reg, number))  ?:
+        read_register(type, number, &value)  ?:
         type->methods->format(
             type->type_data, number, value, result->string, result->length)  ?:
         DO(result->response = RESPONSE_ONE);
@@ -435,7 +457,7 @@ error__t type_put(struct type *type, unsigned int number, const char *string)
         TEST_OK_(type->methods->parse,
             "Cannot write %s value", type->methods->name)  ?:
         type->methods->parse(type->type_data, number, string, &value)  ?:
-        DO(write_register(type->reg, number, value));
+        write_register(type, number, value);
 }
 
 
@@ -552,13 +574,15 @@ static error__t lookup_type(
 }
 
 static struct type *create_type_block(
-    const struct type_methods *methods, struct register_api *reg,
+    const struct type_methods *methods,
+    const struct register_methods *reg, void *reg_data,
     unsigned int count, void *type_data)
 {
     struct type *type = malloc(sizeof(struct type));
     *type = (struct type) {
         .methods = methods,
         .reg = reg,
+        .reg_data = reg_data,
         .count = count,
         .type_data = type_data,
     };
@@ -576,7 +600,8 @@ static void create_type_attributes(
 
 error__t create_type(
     const char **string, const char *default_type, unsigned int count,
-    struct register_api *reg, struct hash_table *attr_map, struct type **type)
+    const struct register_methods *reg, void *reg_data,
+    struct hash_table *attr_map, struct type **type)
 {
     char type_name[MAX_NAME_LENGTH];
     const struct type_methods *methods = NULL;
@@ -589,6 +614,6 @@ error__t create_type(
         IF(methods->init,
             methods->init(string, count, &type_data))  ?:
         DO(
-            *type = create_type_block(methods, reg, count, type_data);
+            *type = create_type_block(methods, reg, reg_data, count, type_data);
             create_type_attributes(*type, attr_map));
 }

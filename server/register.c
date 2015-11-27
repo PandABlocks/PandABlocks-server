@@ -19,44 +19,6 @@
 #include "register.h"
 
 
-struct register_api {
-    const struct register_methods *methods;
-    void *data;
-};
-
-
-uint32_t read_register(struct register_api *reg, unsigned int number)
-{
-    return reg->methods->read(reg->data, number);
-}
-
-
-void write_register(
-    struct register_api *reg, unsigned int number, uint32_t value)
-{
-    reg->methods->write(reg->data, number, value);
-}
-
-
-struct register_api *create_register_api(
-    const struct register_methods *methods, void *data)
-{
-    struct register_api *reg = malloc(sizeof(struct register_api));
-    *reg = (struct register_api) {
-        .methods = methods,
-        .data = data,
-    };
-    return reg;
-}
-
-
-void destroy_register(struct register_api *reg)
-{
-    free(reg);
-}
-
-
-
 /*****************************************************************************/
 /* Shared implementation for param and read classes: they share the same basic
  * state and quite a bit of implementation is shared. */
@@ -64,7 +26,6 @@ void destroy_register(struct register_api *reg)
 
 /* Parameter and read registers share the same basic state. */
 struct simple_state {
-    struct register_api *reg;
     struct type *type;
     unsigned int block_base;
     unsigned int field_register;
@@ -86,21 +47,20 @@ static error__t simple_register_init(
     struct simple_state *state = malloc(
         sizeof(struct simple_state) + fields_size);
     *state = (struct simple_state) {
-        .reg = create_register_api(methods, state),
         .field_register = UNASSIGNED_REGISTER,
         .count = count,
     };
     memset(state->values, 0, fields_size);
     *class_data = state;
 
-    return create_type(line, "uint", count, state->reg, attr_map, &state->type);
+    return create_type(
+        line, "uint", count, methods, state, attr_map, &state->type);
 }
 
 
 static void simple_register_destroy(void *class_data)
 {
     struct simple_state *state = class_data;
-    destroy_register(state->reg);
     destroy_type(state->type);
 }
 
@@ -286,7 +246,6 @@ const struct class_methods read_class_methods = {
 /* Write only registers. */
 
 struct write_state {
-    struct register_api *reg;
     struct type *type;
     unsigned int block_base;
     unsigned int field_register;
@@ -309,18 +268,16 @@ static error__t  write_init(
     struct hash_table *attr_map, void **class_data)
 {
     struct write_state *state = malloc(sizeof(struct write_state));
-    *state = (struct write_state) {
-        .reg = create_register_api(&write_methods, state),
-    };
+    *state = (struct write_state) { };
     *class_data = state;
 
-    return create_type(line, "uint", count, state->reg, attr_map, &state->type);
+    return create_type(
+        line, "uint", count, &write_methods, state, attr_map, &state->type);
 }
 
 static void write_destroy(void *class_data)
 {
     struct write_state *state = class_data;
-    destroy_register(state->reg);
     destroy_type(state->type);
 }
 
