@@ -208,6 +208,21 @@ static error__t get_positions(
 }
 
 
+/* *VERBOSE=0/1
+ *
+ * Enables or disables detailed command logging. */
+static error__t put_verbose(
+    struct connection_context *connection,
+    const char *command, const char *value)
+{
+    unsigned int verbose;
+    return
+        parse_uint(&value, &verbose)  ?:
+        parse_eos(&value)  ?:
+        DO(set_config_server_verbosity(verbose));
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
 
@@ -231,6 +246,7 @@ static const struct command_table_entry command_table_list[] = {
     { "CAPTURE",    .get = get_capture, .put = put_capture, },
     { "BITS",       .get = get_bits, .allow_arg = true },
     { "POSITIONS",  .get = get_positions, },
+    { "VERBOSE",    .put = put_verbose, },
 };
 
 static struct hash_table *command_table;

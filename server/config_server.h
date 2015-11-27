@@ -139,6 +139,8 @@ struct config_command_set {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+void set_config_server_verbosity(bool verbose);
+
 /* This should be called in a separate thread for each configuration interface
  * socket connection.  This function will run until the given socket closes. */
 error__t process_config_socket(int scon);

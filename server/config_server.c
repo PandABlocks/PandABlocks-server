@@ -29,6 +29,9 @@
 
 
 
+/* This is set to enable logging of each incoming command. */
+static bool verbose = false;
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -394,6 +397,13 @@ static void do_table_command(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Top level command processing. */
 
+
+void set_config_server_verbosity(bool _verbose)
+{
+    verbose = _verbose;
+}
+
+
 /* Processes a general configuration command.  Error reporting to the user is
  * very simple: a fixed error message is returned if the command fails,
  * otherwise the command is responsible for reporting success and any other
@@ -443,6 +453,10 @@ error__t process_config_socket(int sock)
 
     char line[MAX_LINE_LENGTH];
     while (read_line(connection.file, line, sizeof(line), true))
+    {
+        if (verbose)
+            log_message("< %s", line);
         process_config_command(&connection, line);
+    }
     return destroy_buffered_file(connection.file);
 }
