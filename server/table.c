@@ -19,6 +19,50 @@
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Common code. */
+
+/* This is used to implement a list of fields loaded from the config register
+ * and reported to the client on demand. */
+struct field_set {
+    unsigned int field_count;
+    char **fields;
+};
+
+
+static void field_set_destroy(struct field_set *set)
+{
+    for (unsigned int i = 0; i < set->field_count; i ++)
+        free(set->fields[i]);
+    free(set->fields);
+}
+
+
+static error__t field_set_parse_attribute(
+    struct field_set *set, const char **line)
+{
+    /* Alas we don't know how many fields are coming, so just realloc fields as
+     * necessary. */
+    set->field_count += 1;
+    set->fields = realloc(set->fields, set->field_count * sizeof(char *));
+    set->fields[set->field_count - 1] = strdup(*line);
+
+    /* Consume the line we just parsed. */
+    *line += strlen(*line);
+    return ERROR_OK;
+}
+
+
+static error__t field_set_fields_get_many(
+    struct field_set *set, struct connection_result *result)
+{
+    for (unsigned int i = 0; i < set->field_count; i ++)
+        result->write_many(result->write_context, set->fields[i]);
+    result->response = RESPONSE_MANY;
+    return ERROR_OK;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Short table. */
 
 struct short_table_state {
@@ -26,8 +70,7 @@ struct short_table_state {
     unsigned int block_base;    // Block base address
     unsigned int init_reg;      // Register for starting block write
     unsigned int fill_reg;      // Register for completing block write
-    unsigned int field_count;   // Number of fields in fields[]
-    char **fields;              // Array of fields
+    struct field_set field_set; // Set of fields in table
     unsigned int max_length;    // Maximum block length
 
     /* This part contains the block specific information.  To help the table
@@ -111,27 +154,16 @@ static error__t short_table_init(
 static void short_table_destroy(void *class_data)
 {
     struct short_table_state *state = class_data;
-    for (unsigned int i = 0; i < state->field_count; i ++)
-        free(state->fields[i]);
     for (unsigned int i = 0; i < state->block_count; i ++)
         free(state->blocks[i].data);
-    free(state->fields);
+    field_set_destroy(&state->field_set);
 }
 
 
 static error__t short_table_parse_attribute(void *class_data, const char **line)
 {
     struct short_table_state *state = class_data;
-
-    /* Alas we don't know how many fields are coming, so just realloc fields as
-     * necessary. */
-    state->field_count += 1;
-    state->fields = realloc(state->fields, state->field_count * sizeof(char *));
-    state->fields[state->field_count - 1] = strdup(*line);
-
-    /* Consume the line we just parsed. */
-    *line += strlen(*line);
-    return ERROR_OK;
+    return field_set_parse_attribute(&state->field_set, line);
 }
 
 
@@ -204,6 +236,15 @@ static error__t short_table_length_format(
 }
 
 
+static error__t short_table_max_length_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
+{
+    struct short_table_state *state = class_data;
+    return format_string(result, length, "%u", state->max_length);
+}
+
+
 // static error__t short_table_b_get_many(
 //     void *owner, void *class_data, unsigned int number,
 //     struct connection_result *result)
@@ -219,34 +260,97 @@ static error__t short_table_fields_get_many(
     struct connection_result *result)
 {
     struct short_table_state *state = class_data;
-    for (unsigned int i = 0; i < state->field_count; i ++)
-        result->write_many(result->write_context, state->fields[i]);
-    result->response = RESPONSE_MANY;
-    return ERROR_OK;
+    return field_set_fields_get_many(&state->field_set, result);
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Long table. */
 
+struct long_table_state {
+    unsigned int block_count;   // Number of block instances
+    struct field_set field_set; // Set of fields in table
+    struct long_table_block {
+        unsigned int number;    // Index of this block
+        struct put_table_writer writer;
+        bool lock;              // Lock for table write access
+    } blocks[];
+};
+
+
+static error__t long_table_put_table_write(
+    void *context, const unsigned int data[], size_t length)
+{
+    return FAIL_("Not implemented");
+}
+
+static void long_table_put_table_close(void *context)
+{
+}
+
 static error__t long_table_init(
-    const char **line, unsigned int count,
+    const char **line, unsigned int block_count,
     struct hash_table *attr_map, void **class_data)
 {
+    struct long_table_state *state = malloc(
+        sizeof(struct long_table_state) +
+        block_count * sizeof(struct long_table_block));
+    *state = (struct long_table_state) {
+        .block_count = block_count,
+    };
+    for (unsigned int i = 0; i < block_count; i ++)
+        state->blocks[i] = (struct long_table_block) {
+            .number = i,
+            .writer = {
+                .context = &state->blocks[i],
+                .write = long_table_put_table_write,
+                .close = long_table_put_table_close,
+            },
+        };
+
+    *class_data = state;
     return ERROR_OK;
 }
+
+
+static void long_table_destroy(void *class_data)
+{
+    struct long_table_state *state = class_data;
+    field_set_destroy(&state->field_set);
+}
+
+
+static error__t long_table_parse_attribute(void *class_data, const char **line)
+{
+    struct long_table_state *state = class_data;
+    return field_set_parse_attribute(&state->field_set, line);
+}
+
 
 static error__t long_table_parse_register(
     void *class_data, const char *block_name, const char *field_name,
     const char **line)
 {
+    struct long_table_state *state = class_data;
+    (void) state;
     return ERROR_OK;
 }
+
+
+static error__t long_table_finalise(void *class_data, unsigned int block_base)
+{
+    struct long_table_state *state = class_data;
+    (void) state;
+    return ERROR_OK;
+}
+
 
 static error__t long_table_get(
     void *class_data, unsigned int number,
     struct connection_result *result)
 {
+    struct long_table_state *state = class_data;
+    (void) state;
     return FAIL_("Not implemented");
 }
 
@@ -254,7 +358,38 @@ static error__t long_table_put_table(
     void *class_data, unsigned int number,
     bool append, struct put_table_writer *writer)
 {
+    struct long_table_state *state = class_data;
+    (void) state;
     return FAIL_("block.field< not implemented yet");
+}
+
+
+static error__t long_table_length_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
+{
+    struct long_table_state *state = class_data;
+    (void) state;
+    return FAIL_("Not implemented");
+}
+
+
+static error__t long_table_max_length_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
+{
+    struct long_table_state *state = class_data;
+    (void) state;
+    return FAIL_("Not implemented");
+}
+
+
+static error__t long_table_fields_get_many(
+    void *owner, void *class_data, unsigned int number,
+    struct connection_result *result)
+{
+    struct long_table_state *state = class_data;
+    return field_set_fields_get_many(&state->field_set, result);
 }
 
 
@@ -272,23 +407,27 @@ const struct class_methods short_table_class_methods = {
     .put_table = short_table_put_table,
     .attrs = (struct attr_methods[]) {
         { "LENGTH", .format = short_table_length_format, },
+        { "MAX_LENGTH", .format = short_table_max_length_format, },
         { "FIELDS", .get_many = short_table_fields_get_many, },
 //         { "B",      .get_many = short_table_b_get_many, },
     },
-    .attr_count = 2,
+    .attr_count = 3,
 };
 
 const struct class_methods long_table_class_methods = {
     "table",
     .init = long_table_init,
+    .parse_attribute = long_table_parse_attribute,
     .parse_register = long_table_parse_register,
+    .finalise = long_table_finalise,
+    .destroy = long_table_destroy,
     .get = long_table_get,
     .put_table = long_table_put_table,
     .attrs = (struct attr_methods[]) {
-        { "LENGTH", },
-        { "B", },
-        { "FIELDS", },
+        { "LENGTH", .format = long_table_length_format, },
+        { "MAX_LENGTH", .format = long_table_max_length_format, },
+        { "FIELDS", .get_many = long_table_fields_get_many, },
+//         { "B",      .get_many = long_table_b_get_many, },
     },
     .attr_count = 3,
 };
-
