@@ -373,19 +373,17 @@ static void bit_pos_change_set(
 }
 
 static void bit_out_change_set(
-    void *class_data, const uint64_t report_index[], bool changes[])
+    void *class_data, const uint64_t report_index, bool changes[])
 {
     bit_pos_change_set(
-        class_data, bit_out_state.change_index,
-        report_index[CHANGE_IX_BITS], changes);
+        class_data, bit_out_state.change_index, report_index, changes);
 }
 
 static void pos_out_change_set(
-    void *class_data, const uint64_t report_index[], bool changes[])
+    void *class_data, const uint64_t report_index, bool changes[])
 {
     bit_pos_change_set(
-        class_data, pos_out_state.change_index,
-        report_index[CHANGE_IX_POSITION], changes);
+        class_data, pos_out_state.change_index, report_index, changes);
 }
 
 
@@ -599,6 +597,7 @@ const struct class_methods bit_out_class_methods = {
     .destroy = capture_destroy,
     .get = capture_get, .refresh = bit_out_refresh,
     .change_set = bit_out_change_set,
+    .change_set_index = CHANGE_IX_BITS,
     .attrs = (struct attr_methods[]) {
         { "CAPTURE", true,
             .format = bit_out_capture_format,
@@ -619,6 +618,7 @@ const struct class_methods pos_out_class_methods = {
     .destroy = capture_destroy,
     .get = capture_get, .refresh = pos_out_refresh,
     .change_set = pos_out_change_set,
+    .change_set_index = CHANGE_IX_POSITION,
     .attrs = (struct attr_methods[]) {
         { "CAPTURE", true,
             .format = pos_out_capture_format,

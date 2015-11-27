@@ -286,7 +286,8 @@ void generate_change_sets(
         FOR_EACH_FIELD(block->fields, field)
         {
             bool changes[block->count];
-            get_class_change_set(field->class, report_index, changes);
+            get_class_change_set(
+                field->class, change_set, report_index, changes);
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
                     report_changed_value(field, i, result);

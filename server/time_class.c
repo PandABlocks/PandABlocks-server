@@ -146,12 +146,11 @@ static error__t time_put(
 
 
 static void time_change_set(
-    void *class_data, const uint64_t report_index[], bool changes[])
+    void *class_data, const uint64_t report_index, bool changes[])
 {
     struct time_state *state = class_data;
-    uint64_t report = report_index[CHANGE_IX_CONFIG];
     for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index >= report;
+        changes[i] = state->values[i].update_index >= report_index;
 }
 
 
@@ -220,6 +219,7 @@ const struct class_methods time_class_methods = {
     .get = time_get,
     .put = time_put,
     .change_set = time_change_set,
+    .change_set_index = CHANGE_IX_CONFIG,
     .attrs = (struct attr_methods[]) {
         { "RAW",
             .format = time_raw_format,

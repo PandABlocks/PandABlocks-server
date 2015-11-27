@@ -182,12 +182,11 @@ static error__t param_init(
 
 
 static void param_change_set(
-    void *class_data, const uint64_t report_index[], bool changes[])
+    void *class_data, const uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
-    uint64_t report = report_index[CHANGE_IX_CONFIG];
     for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index >= report;
+        changes[i] = state->values[i].update_index >= report_index;
 }
 
 
@@ -198,6 +197,7 @@ const struct class_methods param_class_methods = {
     .get = base_get,
     .put = base_put,
     .change_set = param_change_set,
+    .change_set_index = CHANGE_IX_CONFIG,
 };
 
 
@@ -222,14 +222,13 @@ static uint32_t read_read(void *reg_data, unsigned int number)
 
 
 static void read_change_set(
-    void *class_data, const uint64_t report_index[], bool changes[])
+    void *class_data, const uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
-    uint64_t report = report_index[CHANGE_IX_READ];
     for (unsigned int i = 0; i < state->count; i ++)
     {
         read_read(state, i);
-        changes[i] = state->values[i].update_index >= report;
+        changes[i] = state->values[i].update_index >= report_index;
     }
 }
 
@@ -255,6 +254,7 @@ const struct class_methods read_class_methods = {
     .init = read_init,
     .get = base_get,
     .change_set = read_change_set,
+    .change_set_index = CHANGE_IX_READ,
 };
 
 

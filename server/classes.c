@@ -79,10 +79,13 @@ void refresh_class_changes(enum change_set change_set)
 
 
 void get_class_change_set(
-    struct class *class, const uint64_t report_index[], bool changes[])
+    struct class *class, enum change_set change_set,
+    const uint64_t report_index[], bool changes[])
 {
-    if (class->methods->change_set)
-        class->methods->change_set(class->class_data, report_index, changes);
+    unsigned int index = class->methods->change_set_index;
+    if (class->methods->change_set  &&  (change_set & (1U << index)))
+        class->methods->change_set(
+            class->class_data, report_index[index], changes);
     else
         memset(changes, 0, sizeof(bool) * class->count);
 }

@@ -36,12 +36,13 @@ struct class_methods {
 
     /* Implements  block.field? */
     error__t (*get)(
-        void *class_data, unsigned int ix, struct connection_result *result);
+        void *class_data, unsigned int number,
+        struct connection_result *result);
     /* Implements  block.field=value */
-    error__t (*put)(void *class_data, unsigned int ix, const char *value);
+    error__t (*put)(void *class_data, unsigned int number, const char *value);
     /* Implements  block.field<  */
     error__t (*put_table)(
-        void *class_data, unsigned int ix,
+        void *class_data, unsigned int number,
         bool append, struct put_table_writer *writer);
 
     /* For the _out classes the data provided by .read() needs to be loaded as a
@@ -51,7 +52,10 @@ struct class_methods {
     /* Computes change set for this class.  The class looks up its own change
      * index in report_index[] and updates changes[] accordingly. */
     void (*change_set)(
-        void *class_data, const uint64_t report_index[], bool changes[]);
+        void *class_data, const uint64_t report_index, bool changes[]);
+    /* If .change_set is non NULL then this must be set to the change set index
+     * which will be reported. */
+    unsigned int change_set_index;
 
     /* Optionally returns class description. */
     const char *(*describe)(void *class_data);
@@ -60,7 +64,6 @@ struct class_methods {
     const struct attr_methods *attrs;
     unsigned int attr_count;
 };
-
 
 
 
@@ -89,7 +92,8 @@ void refresh_class_changes(enum change_set change_set);
 
 /* Retrieves change set for the given class. */
 void get_class_change_set(
-    struct class *class, const uint64_t report_index[], bool changes[]);
+    struct class *class, enum change_set change_set,
+    const uint64_t report_index[], bool changes[]);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
