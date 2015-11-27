@@ -145,50 +145,8 @@ struct short_table_state {
         size_t length;          // Current table length
         uint32_t *data;         // Data current written to table
         bool lock;              // Lock for table write access
-        struct put_table_writer writer;
     } blocks[];
 };
-
-
-static bool short_table_lock_unlock(struct short_table_block *block, bool lock)
-{
-    return __sync_bool_compare_and_swap(&block->lock, !lock, lock);
-}
-
-/* Methods for writing data into the block. */
-static error__t short_table_put_table_write(
-    void *context, const unsigned int data[], size_t length)
-{
-    struct short_table_block *block = context;
-    struct short_table_state *state =
-        container_of(block, struct short_table_state, blocks[block->number]);
-
-    if (length > state->max_length - block->length)
-        return FAIL_("Too much data written to table");
-    else
-    {
-        memcpy(block->data + block->length, data, length * sizeof(uint32_t));
-        block->length += length;
-        return ERROR_OK;
-    }
-}
-
-static void short_table_put_table_close(void *context)
-{
-    struct short_table_block *block = context;
-    struct short_table_state *state =
-        container_of(block, struct short_table_state, blocks[block->number]);
-
-    /* Pad rest of table with zeros and send to hardware. */
-    memset(block->data + block->length, 0,
-        sizeof(uint32_t) * (state->max_length - block->length));
-    hw_write_short_table(
-        state->block_base, block->number, state->init_reg, state->fill_reg,
-        block->data, state->max_length);
-
-    ASSERT_OK(short_table_lock_unlock(context, false));
-}
-
 
 
 static error__t short_table_init(
@@ -204,11 +162,6 @@ static error__t short_table_init(
     for (unsigned int i = 0; i < block_count; i ++)
         state->blocks[i] = (struct short_table_block) {
             .number = i,
-            .writer = {
-                .context = &state->blocks[i],
-                .write = short_table_put_table_write,
-                .close = short_table_put_table_close,
-            },
         };
 
     *class_data = state;
@@ -278,16 +231,61 @@ static error__t short_table_get(
 }
 
 
+static bool short_table_lock_unlock(struct short_table_block *block, bool lock)
+{
+    return __sync_bool_compare_and_swap(&block->lock, !lock, lock);
+}
+
+/* Methods for writing data into the block. */
+static error__t short_table_put_table_write(
+    void *context, const unsigned int data[], size_t length)
+{
+    struct short_table_block *block = context;
+    struct short_table_state *state =
+        container_of(block, struct short_table_state, blocks[block->number]);
+
+    if (length > state->max_length - block->length)
+        return FAIL_("Too much data written to table");
+    else
+    {
+        memcpy(block->data + block->length, data, length * sizeof(uint32_t));
+        block->length += length;
+        return ERROR_OK;
+    }
+}
+
+static void short_table_put_table_close(void *context)
+{
+    struct short_table_block *block = context;
+    struct short_table_state *state =
+        container_of(block, struct short_table_state, blocks[block->number]);
+
+    /* Pad rest of table with zeros and send to hardware. */
+    memset(block->data + block->length, 0,
+        sizeof(uint32_t) * (state->max_length - block->length));
+    hw_write_short_table(
+        state->block_base, block->number, state->init_reg, state->fill_reg,
+        block->data, state->max_length);
+
+    ASSERT_OK(short_table_lock_unlock(context, false));
+}
+
+
 static error__t short_table_put_table(
     void *class_data, unsigned int number,
     bool append, struct put_table_writer *writer)
 {
     struct short_table_state *state = class_data;
     struct short_table_block *block = &state->blocks[number];
+    *writer = (struct put_table_writer) {
+        .context = block,
+        .write = short_table_put_table_write,
+        .close = short_table_put_table_close,
+    };
+
     return
         TEST_OK_(short_table_lock_unlock(block, true),
             "Write to table in progress")  ?:
-        DO(*writer = block->writer)  ?:
         IF(!append, DO(block->length = 0));
 }
 
@@ -337,21 +335,10 @@ struct long_table_state {
     struct field_set field_set; // Set of fields in table
     struct long_table_block {
         unsigned int number;    // Index of this block
-        struct put_table_writer writer;
         bool lock;              // Lock for table write access
     } blocks[];
 };
 
-
-static error__t long_table_put_table_write(
-    void *context, const unsigned int data[], size_t length)
-{
-    return FAIL_("Not implemented");
-}
-
-static void long_table_put_table_close(void *context)
-{
-}
 
 static error__t long_table_init(
     const char **line, unsigned int block_count,
@@ -366,11 +353,6 @@ static error__t long_table_init(
     for (unsigned int i = 0; i < block_count; i ++)
         state->blocks[i] = (struct long_table_block) {
             .number = i,
-            .writer = {
-                .context = &state->blocks[i],
-                .write = long_table_put_table_write,
-                .close = long_table_put_table_close,
-            },
         };
 
     *class_data = state;
@@ -419,12 +401,27 @@ static error__t long_table_get(
     return FAIL_("Not implemented");
 }
 
+static error__t long_table_put_table_write(
+    void *context, const unsigned int data[], size_t length)
+{
+    return FAIL_("Not implemented");
+}
+
+static void long_table_put_table_close(void *context)
+{
+}
+
 static error__t long_table_put_table(
     void *class_data, unsigned int number,
     bool append, struct put_table_writer *writer)
 {
     struct long_table_state *state = class_data;
-    (void) state;
+    struct long_table_block *block = &state->blocks[number];
+    *writer = (struct put_table_writer) {
+        .context = block,
+        .write = long_table_put_table_write,
+        .close = long_table_put_table_close,
+    };
     return FAIL_("block.field< not implemented yet");
 }
 

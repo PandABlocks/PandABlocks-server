@@ -329,7 +329,7 @@ static void complete_table_command(
     const char *command, bool append, bool binary, unsigned int count,
     const struct config_command_set *command_set)
 {
-    struct put_table_writer writer = dummy_table_writer;
+    struct put_table_writer writer;
     /* Call .put_table to start the transaction, which must then be
      * completed with calls to writer. */
     error__t error = command_set->put_table(command, append, &writer);
@@ -338,6 +338,8 @@ static void complete_table_command(
     bool reported = error != ERROR_OK;
     if (error)
     {
+        /* .put_table failed, so use the dummy writer instead. */
+        writer = dummy_table_writer;
         report_error(connection, error);
         if (!binary)
             flush_out_buf(connection->file);
