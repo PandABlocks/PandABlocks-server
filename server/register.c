@@ -19,17 +19,93 @@
 #include "register.h"
 
 
-/*****************************************************************************/
-/* Shared implementation for param and read classes: they share the same basic
- * state and quite a bit of implementation is shared. */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Base state, common to all three class implementations here. */
 
-
-/* Parameter and read registers share the same basic state. */
-struct simple_state {
+struct base_state {
     struct type *type;
     unsigned int block_base;
     unsigned int field_register;
+};
 
+
+static void base_destroy(void *class_data)
+{
+    struct base_state *state = class_data;
+    destroy_type(state->type);
+}
+
+
+static error__t base_parse_attribute(void *class_data, const char **line)
+{
+    struct base_state *state = class_data;
+    return type_parse_attribute(state->type, line);
+}
+
+
+static error__t base_parse_register(
+    void *class_data, const char *block_name, const char *field_name,
+    const char **line)
+{
+    struct base_state *state = class_data;
+    return
+        TEST_OK_(state->field_register == UNASSIGNED_REGISTER,
+            "Register already assigned")  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->field_register);
+}
+
+
+static error__t base_finalise(void *class_data, unsigned int block_base)
+{
+    struct base_state *state = class_data;
+    state->block_base = block_base;
+    return ERROR_OK;
+}
+
+
+static const char *base_describe(void *class_data)
+{
+    struct base_state *state = class_data;
+    return get_type_name(state->type);
+}
+
+
+/* The following methods defined above are shared among all three classes. */
+#define BASE_METHODS \
+    .destroy = base_destroy, \
+    .parse_attribute = base_parse_attribute, \
+    .parse_register = base_parse_register, \
+    .finalise = base_finalise, \
+    .describe = base_describe
+
+
+static error__t base_get(
+    void *class_data, unsigned int number, struct connection_result *result)
+{
+    struct base_state *state = class_data;
+    return type_get(state->type, number, result);
+}
+
+
+static error__t base_put(
+    void *class_data, unsigned int number, const char *string)
+{
+    struct base_state *state = class_data;
+    return type_put(state->type, number, string);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Shared implementation for param and read classes, in particular param and
+ * read classes share the same state. */
+
+struct simple_state {
+    struct base_state base;
+
+    /* For both parameter and read registers we keep track of the last
+     * read/written value and an update index, but we manage these fields
+     * differently. */
     unsigned int count;
     struct simple_field {
         uint32_t value;
@@ -47,84 +123,14 @@ static error__t simple_register_init(
     struct simple_state *state = malloc(
         sizeof(struct simple_state) + fields_size);
     *state = (struct simple_state) {
-        .field_register = UNASSIGNED_REGISTER,
+        .base = { .field_register = UNASSIGNED_REGISTER, },
         .count = count,
     };
     memset(state->values, 0, fields_size);
     *class_data = state;
 
     return create_type(
-        line, "uint", count, methods, state, attr_map, &state->type);
-}
-
-
-static void simple_register_destroy(void *class_data)
-{
-    struct simple_state *state = class_data;
-    destroy_type(state->type);
-}
-
-
-static error__t simple_register_parse_attribute(
-    void *class_data, const char **line)
-{
-    struct simple_state *state = class_data;
-    return type_parse_attribute(state->type, line);
-}
-
-
-static error__t simple_register_parse_register(
-    void *class_data, const char *block_name, const char *field_name,
-    const char **line)
-{
-    struct simple_state *state = class_data;
-    return
-        TEST_OK_(state->field_register == UNASSIGNED_REGISTER,
-            "Register already assigned")  ?:
-        parse_whitespace(line)  ?:
-        parse_uint(line, &state->field_register);
-}
-
-
-static error__t simple_register_finalise(
-    void *class_data, unsigned int block_base)
-{
-    struct simple_state *state = class_data;
-    state->block_base = block_base;
-    return ERROR_OK;
-}
-
-
-static const char *simple_register_describe(void *class_data)
-{
-    struct simple_state *state = class_data;
-    return get_type_name(state->type);
-}
-
-
-/* The following methods defined above are shared between param and read
- * classes. */
-#define TYPED_REGISTER_METHODS \
-    .destroy = simple_register_destroy, \
-    .parse_attribute = simple_register_parse_attribute, \
-    .parse_register = simple_register_parse_register, \
-    .finalise = simple_register_finalise, \
-    .describe = simple_register_describe
-
-
-static error__t simple_register_get(
-    void *class_data, unsigned int number, struct connection_result *result)
-{
-    struct simple_state *state = class_data;
-    return type_get(state->type, number, result);
-}
-
-
-static error__t simple_register_put(
-    void *class_data, unsigned int number, const char *string)
-{
-    struct simple_state *state = class_data;
-    return type_put(state->type, number, string);
+        line, "uint", count, methods, state, attr_map, &state->base.type);
 }
 
 
@@ -154,7 +160,8 @@ static void param_write(void *reg_data, unsigned int number, uint32_t value)
     struct simple_state *state = reg_data;
     state->values[number].value = value;
     state->values[number].update_index = get_change_index();
-    hw_write_register(state->block_base, number, state->field_register, value);
+    hw_write_register(
+        state->base.block_base, number, state->base.field_register, value);
 }
 
 
@@ -186,10 +193,10 @@ static void param_change_set(
 
 const struct class_methods param_class_methods = {
     "param",
-    TYPED_REGISTER_METHODS,
+    BASE_METHODS,
     .init = param_init,
-    .get = simple_register_get,
-    .put = simple_register_put,
+    .get = base_get,
+    .put = base_put,
     .change_set = param_change_set,
 };
 
@@ -203,8 +210,8 @@ const struct class_methods param_class_methods = {
 static uint32_t read_read(void *reg_data, unsigned int number)
 {
     struct simple_state *state = reg_data;
-    uint32_t result =
-        hw_read_register(state->block_base, number, state->field_register);
+    uint32_t result = hw_read_register(
+        state->base.block_base, number, state->base.field_register);
     if (result != state->values[number].value)
     {
         state->values[number].value = result;
@@ -244,26 +251,21 @@ static error__t read_init(
 
 const struct class_methods read_class_methods = {
     "read",
-    TYPED_REGISTER_METHODS,
+    BASE_METHODS,
     .init = read_init,
-    .get = simple_register_get,
+    .get = base_get,
     .change_set = read_change_set,
 };
 
 
-/*****************************************************************************/
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Write only registers. */
 
-struct write_state {
-    struct type *type;
-    unsigned int block_base;
-    unsigned int field_register;
-};
-
+/* For this the base state is sufficient. */
 
 static void write_write(void *reg_data, unsigned int number, uint32_t value)
 {
-    struct write_state *state = reg_data;
+    struct base_state *state = reg_data;
     hw_write_register(state->block_base, number, state->field_register, value);
 }
 
@@ -272,66 +274,24 @@ static struct register_methods write_methods = {
 };
 
 
-static error__t  write_init(
+static error__t write_init(
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
-    struct write_state *state = malloc(sizeof(struct write_state));
-    *state = (struct write_state) { };
+    struct base_state *state = malloc(sizeof(struct base_state));
+    *state = (struct base_state) {
+        .field_register = UNASSIGNED_REGISTER,
+    };
     *class_data = state;
 
     return create_type(
         line, "uint", count, &write_methods, state, attr_map, &state->type);
 }
 
-static void write_destroy(void *class_data)
-{
-    struct write_state *state = class_data;
-    destroy_type(state->type);
-}
-
-static error__t write_parse_attribute(void *class_data, const char **line)
-{
-    struct write_state *state = class_data;
-    return type_parse_attribute(state->type, line);
-}
-
-static error__t write_parse_register(
-    void *class_data, const char *block_name, const char *field_name,
-    const char **line)
-{
-    struct write_state *state = class_data;
-    return parse_uint(line, &state->field_register);
-}
-
-static error__t write_finalise(void *class_data, unsigned int block_base)
-{
-    struct write_state *state = class_data;
-    state->block_base = block_base;
-    return ERROR_OK;
-}
-
-static const char *write_describe(void *class_data)
-{
-    struct write_state *state = class_data;
-    return get_type_name(state->type);
-}
-
-static error__t write_put(
-    void *class_data, unsigned int number, const char *string)
-{
-    struct write_state *state = class_data;
-    return type_put(state->type, number, string);
-}
-
 
 const struct class_methods write_class_methods = {
     "write",
-    .destroy = write_destroy,
-    .parse_attribute = write_parse_attribute,
-    .parse_register = write_parse_register,
-    .finalise = write_finalise,
-    .describe = write_describe,
+    BASE_METHODS,
     .init = write_init,
-    .put = write_put,
+    .put = base_put,
 };
