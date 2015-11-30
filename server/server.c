@@ -16,6 +16,7 @@
 #include "system_command.h"
 #include "fields.h"
 #include "capture.h"
+#include "base64.h"
 
 
 static unsigned int config_port = 8888;
@@ -112,6 +113,8 @@ static error__t initialise_signals(void)
 
 int main(int argc, char *const argv[])
 {
+    initialise_base64();
+
     error__t error =
         process_options(argc, argv)  ?:
 

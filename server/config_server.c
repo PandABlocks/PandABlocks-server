@@ -15,6 +15,7 @@
 #include "config_command.h"
 #include "system_command.h"
 #include "classes.h"
+#include "base64.h"
 
 #include "config_server.h"
 
@@ -214,63 +215,33 @@ static void do_write_command(
 
 
 /* Two different sources of table data: ASCII encoded (printable numbers) or
- * binary, with two different implementations. */
-typedef error__t fill_buffer_t(
-    struct config_connection *connection,
-    unsigned int data_buffer[], unsigned int to_read,
-    unsigned int *seen, bool *eos);
+ * encoded base64, with two different implementations. */
+typedef error__t convert_line_t(
+    const char *line, void *data, size_t *converted);
 
 
 /* Fills buffer from a binary stream by reading exactly the requested number of
  * values as bytes. */
-static error__t fill_binary_buffer(
-    struct config_connection *connection,
-    unsigned int data_buffer[], unsigned int to_read,
-    unsigned int *seen, bool *eos)
+static error__t convert_base64_line(
+    const char *line, void *data, size_t *converted)
 {
-    return TEST_OK_(
-        read_block(connection->file,
-            (char *) data_buffer, sizeof(unsigned int) * to_read),
-        "Error on table input");
+    enum base64_status status =
+        base64_decode(line, data, MAX_LINE_LENGTH, converted);
+    return TEST_OK_(status == BASE64_STATUS_OK,
+        "%s", base64_error_string(status));
 }
 
-
-/* Fills buffer from a text stream by reading formatted numbers until an error
- * or a blank line is encountered. */
-static error__t fill_ascii_buffer(
-    struct config_connection *connection,
-    unsigned int data_buffer[], unsigned int to_read,
-    unsigned int *seen, bool *eos)
+static error__t convert_ascii_line(
+    const char *line, void *data, size_t *converted)
 {
-    char line[MAX_LINE_LENGTH];
-    /* Reduce the target count by a headroom factor so that we can process each
-     * full line read. */
-    unsigned int headroom = sizeof(line) / 2;   // At worst 1 number for 2 chars
-    ASSERT_OK(to_read > headroom);
-    to_read -= headroom;
-
-    /* Loop until end of input stream (blank line), a parsing error, fgets
-     * fails, or we fill the target buffer (subject to headroom). */
-    *seen = 0;
-    *eos = false;
-    error__t error = ERROR_OK;
-    while (!error  &&  !*eos  &&  *seen < to_read)
-    {
-        const char *data_in = NULL;
+    uint32_t *data_out = data;
+    size_t count = 0;
+    error__t error = parse_uint(&line, (unsigned int *) &data_out[count++]);
+    while (!error  &&  *line != '\0')
         error =
-            TEST_OK_(
-               read_line(connection->file, line, sizeof(line), false),
-               "Unexpected EOF")  ?:
-            DO(data_in = skip_whitespace(line));
-
-        if (!error  &&  *data_in == '\0')
-            *eos = true;
-        else
-            while (!error  &&  *data_in != '\0')
-                error =
-                    parse_uint(&data_in, &data_buffer[(*seen)++])  ?:
-                    DO(data_in = skip_whitespace(data_in));
-    }
+            parse_whitespace(&line)  ?:
+            parse_uint(&line, (unsigned int *) &data_out[count++]);
+    *converted = sizeof(uint32_t) * count;
     return error;
 }
 
@@ -279,29 +250,41 @@ static error__t fill_ascii_buffer(
 static error__t do_put_table(
     struct config_connection *connection, const char *command,
     const struct put_table_writer *writer,
-    fill_buffer_t *fill_buffer, bool binary, unsigned int count)
+    convert_line_t *convert_line)
 {
+    uint32_t data_buffer[MAX_LINE_LENGTH / sizeof(uint32_t)];
+    size_t residue = 0;
+
     error__t error = ERROR_OK;
     bool eos = false;
     while (!error  &&  !eos)
     {
-        unsigned int to_read =
-            binary ? MIN(count, TABLE_BUFFER_SIZE) : TABLE_BUFFER_SIZE;
-
-        unsigned int data_buffer[TABLE_BUFFER_SIZE];
-        unsigned int seen = to_read;
+        /* Read one line, convert to binary, write to table. */
+        char *convert_buffer = (char *) data_buffer + residue;
+        char line[MAX_LINE_LENGTH];
+        size_t data_length;
         error =
-            fill_buffer(connection, data_buffer, to_read, &seen, &eos)  ?:
-            writer->write(writer->context, data_buffer, seen);
-
-        if (!error  &&  binary)
-        {
-            eos = count <= seen;    // Better not be less than!
-            count -= seen;
-        }
+            TEST_OK_(read_line(connection->file, line, sizeof(line), false),
+                "Unexpected EOF")  ?:
+            IF_ELSE(*line == '\0',
+                DO(eos = true),
+            //else
+                convert_line(line, convert_buffer, &data_length)  ?:
+                DO(data_length += residue)  ?:
+                writer->write(
+                    writer->context, data_buffer,
+                    data_length / sizeof(uint32_t))  ?:
+                /* Binary conversion can leave us with fragments of words which
+                 * we need to carry over to the next line read and converted. */
+                DO( residue = data_length % sizeof(uint32_t);
+                    data_buffer[0] =
+                        data_buffer[data_length / sizeof(uint32_t)]));
     }
     writer->close(writer->context);
-    return error;
+
+    return
+        error  ?:
+        TEST_OK_(residue == 0, "Invalid data length");
 }
 
 
@@ -329,7 +312,7 @@ static const struct put_table_writer dummy_table_writer = {
  * command. */
 static void complete_table_command(
     struct config_connection *connection,
-    const char *command, bool append, bool binary, unsigned int count,
+    const char *command, bool append, bool binary,
     const struct config_command_set *command_set)
 {
     struct put_table_writer writer;
@@ -344,14 +327,13 @@ static void complete_table_command(
         /* .put_table failed, so use the dummy writer instead. */
         writer = dummy_table_writer;
         report_error(connection, error);
-        if (!binary)
-            flush_out_buf(connection->file);
+        flush_out_buf(connection->file);
     }
 
     /* Handle the rest of the input. */
     error = do_put_table(
         connection, command, &writer,
-        binary ? fill_binary_buffer : fill_ascii_buffer, binary, count);
+        binary ? convert_base64_line : convert_ascii_line);
     if (reported)
     {
         if (error)
@@ -372,25 +354,18 @@ static void do_table_command(
     const char *command, const char *format,
     const struct config_command_set *command_set)
 {
-    /* Process the format: this is of the form "<" ["<"] ["B" count] .*/
+    /* Process the format: this is of the form "<" ["<"] ["B"] .*/
     bool append = read_char(&format, '<');  // Table append operation
     bool binary = read_char(&format, 'B');  // Table data is in binary format
 
-    unsigned int count = 0;
-    error__t error =
-        /* Binary flag must be followed by a non-zero count. */
-        IF(binary,
-            parse_uint(&format, &count)  ?:
-            TEST_OK_(count > 0, "Zero count invalid"))  ?:
-        parse_eos(&format);
-
-    /* If the above failed then the request was completely malformed, so ignore
-     * it.  Otherwise we'll do our best to accept what was meant. */
+    /* If the request is malformed we'll ignore it, otherwise we'll do our best
+     * to accept what was meant. */
+    error__t error = parse_eos(&format);
     if (error)
         report_error(connection, error);
     else
         complete_table_command(
-            connection, command, append, binary, count, command_set);
+            connection, command, append, binary, command_set);
 }
 
 

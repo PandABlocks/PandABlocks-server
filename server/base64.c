@@ -56,7 +56,7 @@ void base64_encode(const void *data, size_t length, char out[])
 /* Converts a base64 string into binary, or returns an error code if the string
  * is malformed or the output buffer is overrun. */
 enum base64_status base64_decode(
-    const char *string, void *data, size_t length, size_t *converted)
+    const char *string, void *data, size_t max_length, size_t *converted)
 {
     /* The format optionally allows the data to be padded to a multiple of 4
      * characters with up to two trailing = signs, so trim these if present. */
@@ -71,7 +71,7 @@ enum base64_status base64_decode(
     *converted = 3 * (in_length / 4);
     if ((in_length % 4) > 0)
         *converted += in_length % 4 - 1;
-    if (*converted > length)
+    if (*converted > max_length)
         return BASE64_STATUS_OVERRUN;
 
     /* First convert the blocks of 4 characters. */
