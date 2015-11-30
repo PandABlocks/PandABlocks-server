@@ -94,6 +94,7 @@ SRCS += capture.c
 SRCS += time_class.c
 SRCS += table.c
 SRCS += register.c
+SRCS += base64.c
 
 ifdef SIMSERVER
 CFLAGS += -DSIMSERVER

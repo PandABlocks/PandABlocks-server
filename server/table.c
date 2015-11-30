@@ -14,6 +14,7 @@
 #include "classes.h"
 #include "attributes.h"
 #include "config_server.h"
+#include "base64.h"
 
 #include "table.h"
 
@@ -65,50 +66,6 @@ static error__t field_set_fields_get_many(
 }
 
 
-/* Converts binary data to base 64.  The output buffer must be at least
- * ceiling(4/3*length)+1 bytes long. */
-static void to_base_64(const void *data, size_t length, char out[])
-{
-    const unsigned char *data_in = data;
-    static const char convert[64] =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    for (; length >= 3; length -= 3)
-    {
-        unsigned char a = *data_in++;
-        unsigned char b = *data_in++;
-        unsigned char c = *data_in++;
-
-        *out++ = convert[a >> 2];
-        *out++ = convert[((a << 4) | (b >> 4)) & 0x3F];
-        *out++ = convert[((b << 2) | (c >> 6)) & 0x3F];
-        *out++ = convert[c & 0x3F];
-    }
-    switch (length)
-    {
-        case 2:
-        {
-            unsigned char a = *data_in++;
-            unsigned char b = *data_in++;
-            *out++ = convert[a >> 2];
-            *out++ = convert[((a << 4) | (b >> 4)) & 0x3F];
-            *out++ = convert[(b << 2) & 0x3F];
-            *out++ = '=';
-            break;
-        }
-        case 1:
-        {
-            unsigned char a = *data_in++;
-            *out++ = convert[a >> 2];
-            *out++ = convert[(a << 4) & 0x3F];
-            *out++ = '=';
-            *out++ = '=';
-            break;
-        }
-    }
-    *out++ = '\0';
-}
-
-
 static error__t write_base_64(
     const void *data, size_t length, struct connection_result *result)
 {
@@ -116,7 +73,7 @@ static error__t write_base_64(
     {
         size_t to_write = MIN(length, BASE64_LINE_BYTES);
         char line[MAX_RESULT_LENGTH];
-        to_base_64(data, to_write, line);
+        base64_encode(data, to_write, line);
         result->write_many(result->write_context, line);
         length -= to_write;
         data += to_write;

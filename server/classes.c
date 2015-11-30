@@ -82,10 +82,10 @@ void get_class_change_set(
     struct class *class, enum change_set change_set,
     const uint64_t report_index[], bool changes[])
 {
-    unsigned int index = class->methods->change_set_index;
-    if (class->methods->change_set  &&  (change_set & (1U << index)))
+    unsigned int ix = class->methods->change_set_index;
+    if (class->methods->change_set  &&  (change_set & (1U << ix)))
         class->methods->change_set(
-            class->class_data, report_index[index], changes);
+            class->class_data, report_index[ix], changes);
     else
         memset(changes, 0, sizeof(bool) * class->count);
 }
