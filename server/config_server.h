@@ -111,7 +111,7 @@ struct put_table_writer {
     void *context;
     /* Call this repeatedly with blocks of data (length counts number of data
      * items, not bytes). */
-    error__t (*write)(void *context, const unsigned int data[], size_t length);
+    error__t (*write)(void *context, const uint32_t data[], size_t length);
     /* This must be called when this writer is finished with. */
     void (*close)(void *context);
 };

@@ -66,6 +66,20 @@ static error__t field_set_fields_get_many(
 }
 
 
+static error__t write_ascii(
+    const uint32_t *data, size_t length, struct connection_result *result)
+{
+    for (unsigned int i = 0; i < length; i ++)
+    {
+        char string[MAX_RESULT_LENGTH];
+        snprintf(string, sizeof(string), "%u", data[i]);
+        result->write_many(result->write_context, string);
+    }
+    result->response = RESPONSE_MANY;
+    return ERROR_OK;
+}
+
+
 static error__t write_base_64(
     const void *data, size_t length, struct connection_result *result)
 {
@@ -82,6 +96,34 @@ static error__t write_base_64(
     return ERROR_OK;
 }
 
+
+static error__t table_put_table(
+    const uint32_t write_data[], size_t write_length,
+    uint32_t target_data[], size_t max_length, size_t *current_length)
+{
+    if (write_length > max_length - *current_length)
+        return FAIL_("Too much data written to table");
+    else
+    {
+        memcpy(
+            target_data + *current_length, write_data,
+            write_length * sizeof(uint32_t));
+        *current_length += write_length;
+        return ERROR_OK;
+    }
+}
+
+
+static error__t lock_table(bool *lock)
+{
+    return TEST_OK_(__sync_bool_compare_and_swap(lock, false, true),
+        "Write to table in progress");
+}
+
+static void unlock_table(bool *lock)
+{
+    ASSERT_OK(__sync_bool_compare_and_swap(lock, true, false));
+}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -176,39 +218,21 @@ static error__t short_table_get(
     struct connection_result *result)
 {
     struct short_table_state *state = class_data;
-    uint32_t *data = state->blocks[number].data;
-    for (unsigned int i = 0; i < state->blocks[number].length; i ++)
-    {
-        char string[MAX_RESULT_LENGTH];
-        snprintf(string, sizeof(string), "%u", data[i]);
-        result->write_many(result->write_context, string);
-    }
-    result->response = RESPONSE_MANY;
-    return ERROR_OK;
+    return write_ascii(
+        state->blocks[number].data, state->blocks[number].length, result);
 }
 
-
-static bool short_table_lock_unlock(struct short_table_block *block, bool lock)
-{
-    return __sync_bool_compare_and_swap(&block->lock, !lock, lock);
-}
 
 /* Methods for writing data into the block. */
 static error__t short_table_put_table_write(
-    void *context, const unsigned int data[], size_t length)
+    void *context, const uint32_t data[], size_t length)
 {
     struct short_table_block *block = context;
     struct short_table_state *state =
         container_of(block, struct short_table_state, blocks[block->number]);
 
-    if (length > state->max_length - block->length)
-        return FAIL_("Too much data written to table");
-    else
-    {
-        memcpy(block->data + block->length, data, length * sizeof(uint32_t));
-        block->length += length;
-        return ERROR_OK;
-    }
+    return table_put_table(
+        data, length, block->data, state->max_length, &block->length);
 }
 
 static void short_table_put_table_close(void *context)
@@ -224,7 +248,7 @@ static void short_table_put_table_close(void *context)
         state->block_base, block->number, state->init_reg, state->fill_reg,
         block->data, state->max_length);
 
-    ASSERT_OK(short_table_lock_unlock(context, false));
+    unlock_table(&block->lock);
 }
 
 
@@ -241,8 +265,7 @@ static error__t short_table_put_table(
     };
 
     return
-        TEST_OK_(short_table_lock_unlock(block, true),
-            "Write to table in progress")  ?:
+        lock_table(&block->lock)  ?:
         IF(!append, DO(block->length = 0));
 }
 
@@ -289,9 +312,14 @@ static error__t short_table_fields_get_many(
 
 struct long_table_state {
     unsigned int block_count;   // Number of block instances
+    unsigned int table_order;   // Configured size as a power of 2
+    size_t max_length;          // Maximum table length (in words)
     struct field_set field_set; // Set of fields in table
     struct long_table_block {
+        struct hw_long_table *table;
         unsigned int number;    // Index of this block
+        size_t length;
+        uint32_t *data;
         bool lock;              // Lock for table write access
     } blocks[];
 };
@@ -321,6 +349,8 @@ static void long_table_destroy(void *class_data)
 {
     struct long_table_state *state = class_data;
     field_set_destroy(&state->field_set);
+    for (unsigned int i = 0; i < state->block_count; i ++)
+        hw_close_long_table(state->blocks[i].table);
 }
 
 
@@ -336,16 +366,20 @@ static error__t long_table_parse_register(
     const char **line)
 {
     struct long_table_state *state = class_data;
-    (void) state;
-    return ERROR_OK;
+    return parse_uint(line, &state->table_order);
 }
 
 
 static error__t long_table_finalise(void *class_data, unsigned int block_base)
 {
     struct long_table_state *state = class_data;
-    (void) state;
-    return ERROR_OK;
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < state->block_count; i ++)
+        error = hw_open_long_table(
+            block_base, i, state->table_order,
+            &state->blocks[i].table, &state->blocks[i].data,
+            &state->max_length);        // umm.
+    return error;
 }
 
 
@@ -354,18 +388,26 @@ static error__t long_table_get(
     struct connection_result *result)
 {
     struct long_table_state *state = class_data;
-    (void) state;
-    return FAIL_("Not implemented");
+    return write_ascii(
+        state->blocks[number].data, state->blocks[number].length, result);
 }
 
+
 static error__t long_table_put_table_write(
-    void *context, const unsigned int data[], size_t length)
+    void *context, const uint32_t data[], size_t length)
 {
-    return FAIL_("Not implemented");
+    struct long_table_block *block = context;
+    struct long_table_state *state =
+        container_of(block, struct long_table_state, blocks[block->number]);
+    return table_put_table(
+        data, length, block->data, state->max_length, &block->length);
 }
 
 static void long_table_put_table_close(void *context)
 {
+    struct long_table_block *block = context;
+    hw_write_long_table_length(block->table, block->length);
+    unlock_table(&block->lock);
 }
 
 static error__t long_table_put_table(
@@ -379,7 +421,9 @@ static error__t long_table_put_table(
         .write = long_table_put_table_write,
         .close = long_table_put_table_close,
     };
-    return FAIL_("block.field< not implemented yet");
+    return
+        lock_table(&block->lock)  ?:
+        IF(!append, DO(block->length = 0));
 }
 
 
@@ -388,8 +432,7 @@ static error__t long_table_length_format(
     char result[], size_t length)
 {
     struct long_table_state *state = class_data;
-    (void) state;
-    return FAIL_("Not implemented");
+    return format_string(result, length, "%zu", state->blocks[number].length);
 }
 
 
@@ -398,8 +441,17 @@ static error__t long_table_max_length_format(
     char result[], size_t length)
 {
     struct long_table_state *state = class_data;
-    (void) state;
-    return FAIL_("Not implemented");
+    return format_string(result, length, "%zu", state->max_length);
+}
+
+
+static error__t long_table_b_get_many(
+    void *owner, void *class_data, unsigned int number,
+    struct connection_result *result)
+{
+    struct long_table_state *state = class_data;
+    struct long_table_block *block = &state->blocks[number];
+    return write_base_64(block->data, block->length * sizeof(uint32_t), result);
 }
 
 
@@ -446,7 +498,7 @@ const struct class_methods long_table_class_methods = {
         { "LENGTH", .format = long_table_length_format, },
         { "MAX_LENGTH", .format = long_table_max_length_format, },
         { "FIELDS", .get_many = long_table_fields_get_many, },
-//         { "B",      .get_many = long_table_b_get_many, },
+        { "B",      .get_many = long_table_b_get_many, },
     },
-    .attr_count = 3,
+    .attr_count = 4,
 };

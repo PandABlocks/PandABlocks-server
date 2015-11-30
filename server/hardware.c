@@ -118,6 +118,37 @@ void hw_write_position_capture(uint32_t capture_mask)
 }
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+struct hw_long_table {
+};
+
+
+error__t hw_open_long_table(
+    unsigned int block_base, unsigned int number, unsigned int order,
+    struct hw_long_table **table, uint32_t **data, size_t *length)
+{
+    return FAIL_("Not implemented");
+}
+
+
+void hw_write_long_table_length(
+    struct hw_long_table *table, size_t length)
+{
+    ASSERT_FAIL();
+}
+
+
+void hw_close_long_table(struct hw_long_table *table)
+{
+    ASSERT_FAIL();
+}
+
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
 static int map;
 
 error__t initialise_hardware(void)

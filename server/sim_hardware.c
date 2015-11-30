@@ -36,13 +36,13 @@ static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
 #define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
 
 
-static error__t write_all(int file, const void *data, size_t length)
+static error__t write_all(const void *data, size_t length)
 {
     error__t error = ERROR_OK;
     ssize_t written;
     while (!error  &&  length > 0)
         error =
-            TEST_IO(written = write(file, data, length))  ?:
+            TEST_IO(written = write(sock, data, length))  ?:
             DO(
                 data   += (size_t) written;
                 length -= (size_t) written;
@@ -51,13 +51,13 @@ static error__t write_all(int file, const void *data, size_t length)
 }
 
 
-static error__t read_all(int file, void *data, size_t length)
+static error__t read_all(void *data, size_t length)
 {
     error__t error = ERROR_OK;
     ssize_t received;
     while (!error  &&  length > 0)
         error =
-            TEST_IO(received = read(file, data, length))  ?:
+            TEST_IO(received = read(sock, data, length))  ?:
             DO(
                 data   += (size_t) received;
                 length -= (size_t) received;
@@ -76,7 +76,7 @@ static error__t write_command(
         (unsigned char) block_number,
         (unsigned char) reg
     };
-    return write_all(sock, string, sizeof(string));
+    return write_all(string, sizeof(string));
 }
 
 
@@ -92,7 +92,7 @@ static error__t write_command_int(
         (unsigned char) reg
     };
     *CAST_FROM_TO(unsigned char *, uint32_t *, &string[4]) = (uint32_t) arg;
-    return write_all(sock, string, sizeof(string));
+    return write_all(string, sizeof(string));
 }
 
 
@@ -128,7 +128,7 @@ uint32_t hw_read_register(
     uint32_t result = 0;
     handle_error(
         write_command('R', block_base, block_number, reg)  ?:
-        read_all(sock, &result, 4));
+        read_all(&result, 4));
     UNLOCK();
 
     return result;
@@ -144,7 +144,7 @@ void hw_write_short_table(
     handle_error(
         write_command_int(
             'S', block_base, block_number, fill_reg, (uint32_t) length)  ?:
-        write_all(sock, data, length * sizeof(uint32_t)));
+        write_all(data, length * sizeof(uint32_t)));
     UNLOCK();
 }
 
@@ -154,8 +154,8 @@ void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
     LOCK();
     handle_error(
         write_command('C', 0, 0, 0)  ?:
-        read_all(sock, bits, BIT_BUS_COUNT)  ?:
-        read_all(sock, changes, BIT_BUS_COUNT));
+        read_all(bits, BIT_BUS_COUNT)  ?:
+        read_all(changes, BIT_BUS_COUNT));
     UNLOCK();
 }
 
@@ -166,8 +166,8 @@ void hw_read_positions(
     LOCK();
     handle_error(
         write_command('P', 0, 0, 0)  ?:
-        read_all(sock, positions, sizeof(uint32_t) * POS_BUS_COUNT)  ?:
-        read_all(sock, changes, POS_BUS_COUNT));
+        read_all(positions, sizeof(uint32_t) * POS_BUS_COUNT)  ?:
+        read_all(changes, POS_BUS_COUNT));
     UNLOCK();
 }
 
@@ -186,6 +186,56 @@ void hw_write_position_capture(uint32_t capture_mask)
     UNLOCK();
 }
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Long table support. */
+
+struct hw_long_table {
+    unsigned int block_base;
+    unsigned int number;
+    size_t length;
+    void *data;
+};
+
+
+error__t hw_open_long_table(
+    unsigned int block_base, unsigned int number, unsigned int order,
+    struct hw_long_table **table, uint32_t **data, size_t *length)
+{
+    *table = malloc(sizeof(struct hw_long_table));
+    *length = 1U << order;
+    *data = malloc(sizeof(uint32_t) * *length);
+    **table = (struct hw_long_table) {
+        .block_base = block_base,
+        .number = number,
+        .length = *length,
+        .data = *data,
+    };
+    return ERROR_OK;
+}
+
+
+void hw_write_long_table_length(
+    struct hw_long_table *table, size_t length)
+{
+    ASSERT_OK(length <= table->length);
+
+    /* Push updated table to simulation server. */
+    LOCK();
+    write_command_int(
+        'L', table->block_base, table->number, 0, (uint32_t) length);
+    write_all(table->data, length * sizeof(uint32_t));
+    UNLOCK();
+}
+
+
+void hw_close_long_table(struct hw_long_table *table)
+{
+    free(table->data);
+    free(table);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 error__t initialise_hardware(void)
 {

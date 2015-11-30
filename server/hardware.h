@@ -25,12 +25,6 @@ void hw_write_register(
 uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg);
 
-/* Write table data. */
-void hw_write_short_table(
-    unsigned int block_base, unsigned int block_number,
-    unsigned int reset_reg, unsigned int fill_reg,
-    const uint32_t data[], size_t length);
-
 /* Read bit values and changes. */
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT]);
 
@@ -41,3 +35,31 @@ void hw_read_positions(
 /* Set bit and position capture masks. */
 void hw_write_bit_capture(uint32_t capture_mask);
 void hw_write_position_capture(uint32_t capture_mask);
+
+/* Write short table data.  For short tables the entire data block is written
+ * directly to hardware. */
+void hw_write_short_table(
+    unsigned int block_base, unsigned int block_number,
+    unsigned int reset_reg, unsigned int fill_reg,
+    const uint32_t data[], size_t length);
+
+
+/* Long table management.  For long tables we have a memory mapped area.  After
+ * writing into the area we need to release it so that the area can be flushed
+ * to RAM and the hardware informed. */
+
+struct hw_long_table;
+
+/* This method is called during startup to prepare the long table structure and
+ * open any device resources.  The data area and its length are returned
+ * together with an allocated table structure. */
+error__t hw_open_long_table(
+    unsigned int block_base, unsigned int number, unsigned int order,
+    struct hw_long_table **table, uint32_t **data, size_t *length);
+
+/* Updates range of valid data for table. */
+void hw_write_long_table_length(
+    struct hw_long_table *table, size_t length);
+
+/* Call this during shutdown to release table and device resources. */
+void hw_close_long_table(struct hw_long_table *table);
