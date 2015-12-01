@@ -322,6 +322,42 @@ void generate_change_sets(
 }
 
 
+/* This is a cut down version of generate_change_sets without reporting. */
+bool check_change_set(
+    struct change_set_context *change_set_context, enum change_set change_set)
+{
+    uint64_t report_index[CHANGE_SET_SIZE];
+    update_change_index(change_set_context, change_set, report_index);
+    refresh_class_changes(change_set);
+
+    FOR_EACH_BLOCK(block)
+    {
+        FOR_EACH_FIELD(block->fields, field)
+        {
+            bool changes[block->count];
+            get_class_change_set(
+                field->class, change_set, report_index, changes);
+            for (unsigned int i = 0; i < block->count; i ++)
+                if (changes[i])
+                    return true;
+
+            if (change_set & CHANGES_ATTR)
+            {
+                FOR_EACH_TYPE(struct attr *, true, field->attrs, attr)
+                {
+                    get_attr_change_set(
+                        attr, report_index[CHANGE_IX_ATTR], changes);
+                    for (unsigned int i = 0; i < block->count; i ++)
+                        if (changes[i])
+                            return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Initialisation and shutdown. */
 

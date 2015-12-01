@@ -5,6 +5,7 @@
 
 struct attr;
 struct connection_result;
+struct hash_table;
 
 
 struct attr_methods {

@@ -7,9 +7,11 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <signal.h>
+#include <ctype.h>
 
 #include "error.h"
 #include "hardware.h"
+#include "parse.h"
 #include "config_server.h"
 #include "socket_server.h"
 #include "database.h"
@@ -17,6 +19,7 @@
 #include "fields.h"
 #include "capture.h"
 #include "base64.h"
+#include "persistence.h"
 
 
 static unsigned int config_port = 8888;
@@ -27,6 +30,30 @@ static bool reuse_addr = false;
 static const char *config_db;
 static const char *register_db;
 static const char *description_db;
+
+/* Persistence state. */
+static const char *persistence_file;
+static int persistence_poll = 2;
+static int persistence_holdoff = 10;
+static int persistence_backoff = 60;
+
+
+/* Parses a persistence time specification in the form
+ *
+ *  [poll] [":" [holdoff] [":" backoff]]
+ *
+ * Note that all parts are optional, in which case the default values are used.
+ * No validation of values is done. */
+static error__t parse_persistence_times(const char *arg)
+{
+    return
+        IF(isdigit(*arg), parse_int(&arg, &persistence_poll))  ?:
+        IF(read_char(&arg, ':'),
+            IF(isdigit(*arg), parse_int(&arg, &persistence_holdoff))  ?:
+            IF(read_char(&arg, ':'),
+                IF(isdigit(*arg), parse_int(&arg, &persistence_backoff))))  ?:
+        parse_eos(&arg);
+}
 
 
 static void usage(const char *argv0)
@@ -43,6 +70,8 @@ static void usage(const char *argv0)
 "   -c: Specify configuration database\n"
 "   -r: Specify register database\n"
 "   -D: Specify description database\n"
+"   -f: Specify persistence file\n"
+"   -t: Specify persistence timeouts.  Format is poll:holdoff:backoff\n"
         , argv0, config_port, data_port);
 }
 
@@ -53,7 +82,7 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:Rc:r:D:"))
+        switch (getopt(argc, argv, "+hp:d:Rc:r:D:f:t:"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   config_port = (unsigned int) atoi(optarg);      break;
@@ -62,8 +91,10 @@ static error__t process_options(int argc, char *const argv[])
             case 'c':   config_db = optarg;                             break;
             case 'r':   register_db = optarg;                           break;
             case 'D':   description_db = optarg;                        break;
+            case 'f':   persistence_file = optarg;                      break;
+            case 't':   error = parse_persistence_times(optarg);        break;
             default:
-                return FAIL_("Try `%s -h` for usage\n", argv0);
+                return FAIL_("Try `%s -h` for usage", argv0);
             case -1:
                 argc -= optind;
                 argv += optind;
@@ -124,6 +155,10 @@ int main(int argc, char *const argv[])
 
         initialise_hardware()  ?:
         initialise_system_command()  ?:
+        IF(persistence_file,
+            initialise_persistence(
+                persistence_file,
+                persistence_poll, persistence_holdoff, persistence_backoff))  ?:
         initialise_socket_server(config_port, data_port, reuse_addr)  ?:
 
         maybe_daemonise()  ?:
@@ -147,6 +182,8 @@ int main(int argc, char *const argv[])
      * shutdown.  Everything is done in reverse order, and each component needs
      * to cope with being called even if it was never initialised. */
     terminate_socket_server();
+    terminate_persistence();
+
     terminate_system_command();
     terminate_hardware();
     terminate_databases();

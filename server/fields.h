@@ -38,6 +38,10 @@ const char *get_field_description(struct field *field);
 void generate_change_sets(
     struct connection_result *result, enum change_set changes);
 
+/* Returns true if a change is detected in the given change set. */
+bool check_change_set(
+    struct change_set_context *change_set_context, enum change_set change_set);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Field access methods. */

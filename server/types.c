@@ -435,7 +435,7 @@ static error__t lut_format(
 
     LOCK();
     error__t error =
-        IF_ELSE(value == state->value,
+        IF_ELSE(value == state->value  &&  state->string,
             format_string(string, length, "%s", state->string),
         //else
             format_string(string, length, "0x%08X", value));

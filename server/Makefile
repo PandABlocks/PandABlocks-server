@@ -74,6 +74,7 @@ CFLAGS += $(CFLAGS_$(CC_NAME))
 
 
 SRCS += server.c                # Entry point to server, command line parsing
+SRCS += persistence.c           # Support for persistence state over restarts
 SRCS += error.c                 # Common error handling framework
 SRCS += socket_server.c         # Common socket server handling
 SRCS += config_server.c         # Configuration command server

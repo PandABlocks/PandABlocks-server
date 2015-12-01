@@ -19,11 +19,6 @@
 #include "config_server.h"
 
 
-/* This should be long enough for any reasonable command. */
-#define MAX_LINE_LENGTH     1024
-
-#define TABLE_BUFFER_SIZE   4096U
-
 #define IN_BUF_SIZE         16384
 #define OUT_BUF_SIZE        16384
 
@@ -55,7 +50,7 @@ error__t __attribute__((format(printf, 3, 4))) format_string(
  * see. */
 error__t format_double(char result[], size_t length, double value)
 {
-    ASSERT_OK((size_t) snprintf(result, length, "%12g", value) < length);
+    ASSERT_OK((size_t) snprintf(result, length, "%.10g", value) < length);
     const char *skip = skip_whitespace(result);
     if (skip > result)
         memmove(result, skip, strlen(skip) + 1);

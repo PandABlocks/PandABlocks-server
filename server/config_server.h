@@ -4,6 +4,10 @@
 #define MAX_NAME_LENGTH     32
 #define MAX_RESULT_LENGTH   256
 
+/* This should be far too long for any reasonable command. */
+#define MAX_LINE_LENGTH     1024
+
+
 
 /* Opaque type used to represent a single connection to the configuration
  * server, supports the connection_result methods when performing a get. */

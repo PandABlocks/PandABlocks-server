@@ -225,6 +225,16 @@ static inline error__t __attribute__((warn_unused_result))
 #define TRY_CATCH(args...) _id_TRY_CATCH(UNIQUE_ID(), args)
 
 
+/* Returns result of action, but first unconditionally performs cleanup. */
+#define _id_DO_FINALLY(error, action, finally...) \
+    ({ \
+        error__t error = (action); \
+        { finally; } \
+        error; \
+    })
+#define DO_FINALLY(args...) _id_DO_FINALLY(UNIQUE_ID(), args)
+
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* The following miscellaneous macros are extra to the error mechanism. */
