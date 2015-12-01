@@ -51,15 +51,20 @@ void hw_write_short_table(
 struct hw_long_table;
 
 /* This method is called during startup to prepare the long table structure and
- * open any device resources.  The data area and its length are returned
+ * open any device resources.  The data area length for each table is returned
  * together with an allocated table structure. */
 error__t hw_open_long_table(
-    unsigned int block_base, unsigned int number, unsigned int order,
-    struct hw_long_table **table, uint32_t **data, size_t *length);
+    unsigned int block_base, unsigned int count, unsigned int order,
+    struct hw_long_table **table, size_t *length);
+
+/* This retrieves the long table data area for the specified block.  The lengt
+ * has already been returned by hw_open_long_table(). */
+void hw_read_long_table_area(
+    struct hw_long_table *table, unsigned int number, uint32_t **data);
 
 /* Updates range of valid data for table. */
 void hw_write_long_table_length(
-    struct hw_long_table *table, size_t length);
+    struct hw_long_table *table, unsigned int number, size_t length);
 
 /* Call this during shutdown to release table and device resources. */
 void hw_close_long_table(struct hw_long_table *table);

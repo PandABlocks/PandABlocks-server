@@ -125,15 +125,21 @@ struct hw_long_table {
 
 
 error__t hw_open_long_table(
-    unsigned int block_base, unsigned int number, unsigned int order,
-    struct hw_long_table **table, uint32_t **data, size_t *length)
+    unsigned int block_base, unsigned int count, unsigned int order,
+    struct hw_long_table **table, size_t *length)
 {
     return FAIL_("Not implemented");
 }
 
 
+void hw_read_long_table_area(
+    struct hw_long_table *table, unsigned int number, uint32_t **data)
+{
+}
+
+
 void hw_write_long_table_length(
-    struct hw_long_table *table, size_t length)
+    struct hw_long_table *table, unsigned int number, size_t length)
 {
     ASSERT_FAIL();
 }
