@@ -72,6 +72,7 @@ static error__t get_who(const char *command, struct connection_result *result)
  * *CHANGES.BITS?
  * *CHANGES.POSN?
  * *CHANGES.READ?
+ * *CHANGES.TABLE?
  *
  * Returns list of changed fields and their value. */
 
@@ -83,6 +84,7 @@ static error__t lookup_change_set(
     else if (strcmp(action, "POSN"  ) == 0)   *change_set = CHANGES_POSITION;
     else if (strcmp(action, "READ"  ) == 0)   *change_set = CHANGES_READ;
     else if (strcmp(action, "ATTR"  ) == 0)   *change_set = CHANGES_ATTR;
+    else if (strcmp(action, "TABLE" ) == 0)   *change_set = CHANGES_TABLE;
     else
         return FAIL_("Unknown changes selection");
     return ERROR_OK;

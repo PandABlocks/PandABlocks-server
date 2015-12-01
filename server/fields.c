@@ -254,6 +254,17 @@ static void report_changed_attr(
 }
 
 
+static void report_changed_table(
+    struct field *field, unsigned int number,
+    struct connection_result *result)
+{
+    char string[MAX_RESULT_LENGTH];
+    snprintf(string, sizeof(string), "%s%d.%s<",
+        field->block->name, number + 1, field->name);
+    result->write_many(result->write_context, string);
+}
+
+
 static void generate_attr_change_sets(
     struct connection_result *result, struct field *field,
     uint64_t report_index)
@@ -287,10 +298,20 @@ void generate_change_sets(
         {
             bool changes[block->count];
             get_class_change_set(
-                field->class, change_set, report_index, changes);
+                field->class, change_set & (enum change_set) ~CHANGES_TABLE,
+                report_index, changes);
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
                     report_changed_value(field, i, result);
+
+            /* We need to report table changes separately, totally different
+             * reporting syntax! */
+            get_class_change_set(
+                field->class, change_set & CHANGES_TABLE,
+                report_index, changes);
+            for (unsigned int i = 0; i < block->count; i ++)
+                if (changes[i])
+                    report_changed_table(field, i, result);
 
             if (change_set & CHANGES_ATTR)
                 generate_attr_change_sets(

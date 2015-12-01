@@ -19,7 +19,10 @@
 #include "table.h"
 
 
-#define BASE64_LINE_BYTES   57U     // Converts to 76 characters
+/* To interoperate nicely with persistence, this needs to be a multiple of 12 so
+ * that the persistence layer can read lines back a line at a time -- which
+ * needs each line to be a multiple of 4 bytes. */
+#define BASE64_LINE_BYTES   48U     // Converts to 64 characters
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -140,6 +143,7 @@ struct short_table_state {
     /* This part contains the block specific information.  To help the table
      * writing code, the max_length field is repeated for each block! */
     struct short_table_block {
+        uint64_t update_index;  // Timestamp of last change
         unsigned int number;    // Index of this block
         size_t length;          // Current table length
         uint32_t *data;         // Data current written to table
@@ -248,6 +252,7 @@ static void short_table_put_table_close(void *context)
         state->block_base, block->number, state->init_reg, state->fill_reg,
         block->data, state->max_length);
 
+    block->update_index = get_change_index();
     unlock_table(&block->lock);
 }
 
@@ -307,6 +312,15 @@ static error__t short_table_fields_get_many(
 }
 
 
+static void short_table_change_set(
+    void *class_data, const uint64_t report_index, bool changes[])
+{
+    struct short_table_state *state = class_data;
+    for (unsigned int i = 0; i < state->block_count; i ++)
+        changes[i] = state->blocks[i].update_index >= report_index;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Long table. */
 
@@ -316,6 +330,7 @@ struct long_table_state {
     size_t max_length;          // Maximum table length (in words)
     struct field_set field_set; // Set of fields in table
     struct long_table_block {
+        uint64_t update_index;  // Timestamp of last change
         struct hw_long_table *table;
         unsigned int number;    // Index of this block
         size_t length;
@@ -407,6 +422,7 @@ static void long_table_put_table_close(void *context)
 {
     struct long_table_block *block = context;
     hw_write_long_table_length(block->table, block->length);
+    block->update_index = get_change_index();
     unlock_table(&block->lock);
 }
 
@@ -464,6 +480,15 @@ static error__t long_table_fields_get_many(
 }
 
 
+static void long_table_change_set(
+    void *class_data, const uint64_t report_index, bool changes[])
+{
+    struct long_table_state *state = class_data;
+    for (unsigned int i = 0; i < state->block_count; i ++)
+        changes[i] = state->blocks[i].update_index >= report_index;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Classes. */
 
@@ -476,6 +501,8 @@ const struct class_methods short_table_class_methods = {
     .destroy = short_table_destroy,
     .get = short_table_get,
     .put_table = short_table_put_table,
+    .change_set = short_table_change_set,
+    .change_set_index = CHANGE_IX_TABLE,
     .attrs = (struct attr_methods[]) {
         { "LENGTH",     .format = short_table_length_format, },
         { "MAX_LENGTH", .format = short_table_max_length_format, },
@@ -494,6 +521,8 @@ const struct class_methods long_table_class_methods = {
     .destroy = long_table_destroy,
     .get = long_table_get,
     .put_table = long_table_put_table,
+    .change_set = long_table_change_set,
+    .change_set_index = CHANGE_IX_TABLE,
     .attrs = (struct attr_methods[]) {
         { "LENGTH", .format = long_table_length_format, },
         { "MAX_LENGTH", .format = long_table_max_length_format, },

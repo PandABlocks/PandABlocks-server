@@ -289,7 +289,7 @@ static error__t do_put_table(
 
 
 static error__t dummy_table_write(
-    void *context, const unsigned int data[], size_t length)
+    void *context, const uint32_t data[], size_t length)
 {
     return ERROR_OK;
 }
