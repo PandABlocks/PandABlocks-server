@@ -37,19 +37,19 @@ static error__t config_parse_header_line(
 
 
 /* Parses a field definition of the form:
- *      <class>     <name>      [<type>]
+ *      <name>      <class>     [<type>]
  * The type description is optional. */
 static error__t config_parse_field_line(
     void *context, const char *line, void **indent_context)
 {
     struct block *block = context;
 
-    char class_name[MAX_NAME_LENGTH];
     char field_name[MAX_NAME_LENGTH];
+    char class_name[MAX_NAME_LENGTH];
     return
-        parse_name(&line, class_name, sizeof(class_name))  ?:
-        parse_whitespace(&line)  ?:
         parse_name(&line, field_name, sizeof(field_name))  ?:
+        parse_whitespace(&line)  ?:
+        parse_name(&line, class_name, sizeof(class_name))  ?:
         DO(line = skip_whitespace(line))  ?:
         create_field(
             (struct field **) indent_context,
