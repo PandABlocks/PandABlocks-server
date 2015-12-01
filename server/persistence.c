@@ -133,7 +133,7 @@ static error__t load_one_line(FILE *in_file, int *line_no, char *line)
 }
 
 
-static error__t load_persistent_state(void)
+static void load_persistent_state(void)
 {
     printf("load_persistent_state\n");
 
@@ -161,15 +161,14 @@ static error__t load_persistent_state(void)
                     "Error on line %d of persistent state", line_no);
         }
         fclose(in_file);
-    }
 
-    /* Reset change set context to the state we've just loaded.  We can do this
-     * safely because the state is loaded before the socket server is allowed to
-     * start. */
-    uint64_t change_index = get_change_index();
-    for (unsigned int i = 0; i < CHANGE_SET_SIZE; i ++)
-        change_set_context.change_index[i] = change_index;
-    return ERROR_OK;
+        /* Reset change set context to the state we've just loaded.  We can do
+         * this safely because the state is loaded before the socket server is
+         * allowed to start. */
+        uint64_t change_index = get_change_index();
+        for (unsigned int i = 0; i < CHANGE_SET_SIZE; i ++)
+            change_set_context.change_index[i] = change_index;
+    }
 }
 
 
@@ -340,7 +339,7 @@ error__t initialise_persistence(
     asprintf(&backup_file_name, "%s.backup", file_name);
     thread_running = true;
     return
-        load_persistent_state()  ?:
+        DO(load_persistent_state())  ?:
         TRY_CATCH(
             TEST_PTHREAD(pthread_create(
                 &persistence_thread_id, NULL, persistence_thread, NULL)),
