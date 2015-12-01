@@ -116,6 +116,8 @@ error__t _error_create(char *extra, const char *format, ...)
 
 /* Mechanism for reporting extra error information from errno. */
 char *_error_extra_io(void);
+/* Same mechanism, but taking specific error code. */
+char *_error_extra_io_errno(int error);
 
 
 /* Routines to write informative message or error to stderr or syslog. */
@@ -190,7 +192,7 @@ static inline error__t __attribute__((warn_unused_result))
 /* Tests the return from a pthread_ call: a non zero return is the error
  * code!  We just assign this to errno. */
 #define _COND_PTHREAD(expr)         ((expr) == 0)
-#define _MSG_PTHREAD(expr)          ({ errno = (expr); _error_extra_io(); })
+#define _MSG_PTHREAD(expr)          (_error_extra_io_errno(expr))
 #define TEST_PTHREAD_(expr, message...) \
     _TEST(_COND_PTHREAD, _MSG_PTHREAD, expr, message)
 #define TEST_PTHREAD(expr)          TEST_PTHREAD_(expr, ERROR_MESSAGE)

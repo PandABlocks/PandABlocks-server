@@ -9,7 +9,6 @@
 #include <limits.h>
 #include <math.h>
 #include <pthread.h>
-#include <errno.h>
 
 #include "error.h"
 #include "hashtable.h"

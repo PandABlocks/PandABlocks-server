@@ -168,7 +168,7 @@ void log_error(const char *message, ...)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /* Two mechanisms for reporting extra error information. */
-char *_error_extra_io(void)
+char *_error_extra_io_errno(int error)
 {
     /* This is very annoying: strerror() is not not necessarily thread safe ...
      * but not for any compelling reason, see:
@@ -183,12 +183,16 @@ char *_error_extra_io(void)
      * Ah well.  We go with the GNU definition, so here is a buffer to maybe use
      * for the message. */
     char str_error[256];
-    int error = errno;
-    const char *error_string =
-        strerror_r(error, str_error, sizeof(str_error));
+    const char *error_string = strerror_r(error, str_error, sizeof(str_error));
     char *result;
     asprintf(&result, "(%d) %s", error, error_string);
     return result;
+}
+
+
+char *_error_extra_io(void)
+{
+    return _error_extra_io_errno(errno);
 }
 
 

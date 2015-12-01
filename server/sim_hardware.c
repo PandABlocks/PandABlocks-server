@@ -13,7 +13,6 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 #include <pthread.h>
-#include <errno.h>
 
 #include "error.h"
 #include "socket_server.h"
