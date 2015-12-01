@@ -37,9 +37,9 @@ static unsigned int make_offset(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     return
-        ((block_base & 0x1f) << 8) |
-        ((block_number & 0xf) << 4) |
-        (reg & 0xf);
+        ((block_base << 10) & 0x1f) |
+        ((block_number << 6) & 0xf) |
+        (reg & 0x3f);
 }
 
 void hw_write_register(
