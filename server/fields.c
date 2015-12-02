@@ -501,7 +501,7 @@ error__t field_set_description(struct field *field, const char *description)
 
 
 /* Ensure that every block and field has valid register assignments. */
-error__t validate_database(void)
+error__t validate_fields(void)
 {
     error__t error = ERROR_OK;
     FOR_EACH_BLOCK_WHILE(!error, block)

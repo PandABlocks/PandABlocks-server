@@ -364,7 +364,8 @@ static void long_table_destroy(void *class_data)
 {
     struct long_table_state *state = class_data;
     field_set_destroy(&state->field_set);
-    hw_close_long_table(state->table);
+    if (state->table)
+        hw_close_long_table(state->table);
 }
 
 

@@ -22,15 +22,68 @@ static uint32_t register_map_size;
 
 #define CONTROL_BASE            0x1000
 
-#define BIT_READ_RESET          (CONTROL_BASE + 0)
-#define BIT_READ_VALUE          (CONTROL_BASE + 1)
 
-#define POS_READ_RESET          (CONTROL_BASE + 2)
-#define POS_READ_VALUE          (CONTROL_BASE + 3)
-#define POS_READ_CHANGES        (CONTROL_BASE + 4)
 
-#define BIT_CAPTURE_MASK        (CONTROL_BASE + 5)
-#define POS_CAPTURE_MASK        (CONTROL_BASE + 6)
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Named register support. */
+
+/* Named registers. */
+
+#define BIT_READ_RESET          0
+#define BIT_READ_VALUE          1
+#define POS_READ_RESET          2
+#define POS_READ_VALUE          3
+#define POS_READ_CHANGES        4
+#define BIT_CAPTURE_MASK        5
+#define POS_CAPTURE_MASK        6
+
+struct named_register {
+    const char *name;
+    unsigned int offset;
+};
+
+#define NAMED_REGISTER(name) \
+    [name] = { #name, UNASSIGNED_REGISTER }
+
+static struct named_register named_registers[] = {
+    NAMED_REGISTER(BIT_READ_RESET),
+    NAMED_REGISTER(BIT_READ_VALUE),
+    NAMED_REGISTER(POS_READ_RESET),
+    NAMED_REGISTER(POS_READ_VALUE),
+    NAMED_REGISTER(POS_READ_CHANGES),
+    NAMED_REGISTER(BIT_CAPTURE_MASK),
+    NAMED_REGISTER(POS_CAPTURE_MASK),
+};
+
+static unsigned int reg_block_base = UNASSIGNED_REGISTER;
+
+
+void hw_set_block_base(unsigned int reg)
+{
+    reg_block_base = reg;
+}
+
+
+error__t hw_set_named_register(const char *name, unsigned int reg)
+{
+    for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
+    {
+        if (strcmp(named_registers[i].name, name) == 0)
+            return
+                TEST_OK_(named_registers[i].offset == UNASSIGNED_REGISTER,
+                    "Register already assigned")  ?:
+                DO(named_registers[i].offset = reg);
+    }
+    return FAIL_("Invalid register name");
+}
+
+error__t hw_validate(void)
+{
+    for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
+        if (named_registers[i].offset == UNASSIGNED_REGISTER)
+            return FAIL_("Register %s unassigned", named_registers[i].name);
+    return ERROR_OK;
+}
 
 
 static unsigned int make_offset(
@@ -41,6 +94,17 @@ static unsigned int make_offset(
         ((block_number << 6) & 0xf) |
         (reg & 0x3f);
 }
+
+
+static volatile uint32_t *named_register(unsigned char name)
+{
+    return &register_map[
+        make_offset(reg_block_base, 0, named_registers[name].offset)];
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 
 void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
@@ -79,10 +143,10 @@ void hw_write_short_table(
  * bottom 16-bits whether the value has changed. */
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
 {
-    register_map[BIT_READ_RESET] = 1;
+    *named_register(BIT_READ_RESET) = 1;
     for (unsigned int i = 0; i < BIT_BUS_COUNT / 16; i ++)
     {
-        uint32_t word = register_map[BIT_READ_VALUE];
+        uint32_t word = *named_register(BIT_READ_VALUE);
         for (unsigned int j = 0; j < 16; j ++)
         {
             bits[16*i + j] = (word >> (16 + j)) & 1;
@@ -98,10 +162,10 @@ void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
 void hw_read_positions(
     uint32_t positions[POS_BUS_COUNT], bool changes[POS_BUS_COUNT])
 {
-    register_map[POS_READ_RESET] = 1;
+    *named_register(POS_READ_RESET) = 1;
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-        positions[i] = register_map[POS_READ_VALUE];
-    uint32_t word = register_map[POS_READ_CHANGES];
+        positions[i] = *named_register(POS_READ_VALUE);
+    uint32_t word = *named_register(POS_READ_CHANGES);
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
         changes[i] = (word >> i) & 1;
 }
@@ -109,12 +173,12 @@ void hw_read_positions(
 
 void hw_write_bit_capture(uint32_t capture_mask)
 {
-    register_map[BIT_CAPTURE_MASK] = capture_mask;
+    *named_register(BIT_CAPTURE_MASK) = capture_mask;
 }
 
 void hw_write_position_capture(uint32_t capture_mask)
 {
-    register_map[POS_CAPTURE_MASK] = capture_mask;
+    *named_register(POS_CAPTURE_MASK) = capture_mask;
 }
 
 

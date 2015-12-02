@@ -105,7 +105,7 @@ error__t field_set_description(struct field *field, const char *description);
 
 /* Must be called after loading configuration and register database to check
  * that everything is configured correctly and consistently. */
-error__t validate_database(void);
+error__t validate_fields(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
