@@ -457,15 +457,16 @@ static struct field *create_field_block(
 }
 
 error__t create_field(
-    struct field **field, const struct block *block,
-    const char *field_name, const char *class_name, const char **line)
+    const char **line, struct field **field, const struct block *block)
 {
-    *field = create_field_block(block, field_name);
+    char field_name[MAX_NAME_LENGTH];
     return
+        parse_name(line, field_name, sizeof(field_name))  ?:
+        parse_whitespace(line)  ?:
+        DO(*field = create_field_block(block, field_name))  ?:
         TRY_CATCH(
             create_class(
-                class_name, line, block->count,
-                (*field)->attrs, &(*field)->class)  ?:
+                line, block->count, (*field)->attrs, &(*field)->class)  ?:
             /* Insert the field into the blocks map of fields. */
             TEST_OK_(
                 hash_table_insert(

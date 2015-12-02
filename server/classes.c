@@ -149,12 +149,14 @@ static void create_class_attributes(
 }
 
 error__t create_class(
-    const char *class_name, const char **line, unsigned int count,
+    const char **line, unsigned int count,
     struct hash_table *attr_map, struct class **class)
 {
+    char class_name[MAX_NAME_LENGTH];
     const struct class_methods *methods = NULL;
     void *class_data = NULL;
     return
+        parse_name(line, class_name, sizeof(class_name))  ?:
         lookup_class(class_name, &methods)  ?:
         methods->init(line, count, attr_map, &class_data)  ?:
         DO(

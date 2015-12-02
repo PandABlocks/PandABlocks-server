@@ -43,17 +43,8 @@ static error__t config_parse_field_line(
     void *context, const char *line, void **indent_context)
 {
     struct block *block = context;
-
-    char field_name[MAX_NAME_LENGTH];
-    char class_name[MAX_NAME_LENGTH];
     return
-        parse_name(&line, field_name, sizeof(field_name))  ?:
-        parse_whitespace(&line)  ?:
-        parse_name(&line, class_name, sizeof(class_name))  ?:
-        DO(line = skip_whitespace(line))  ?:
-        create_field(
-            (struct field **) indent_context,
-            block, field_name, class_name, &line)  ?:
+        create_field(&line, (struct field **) indent_context, block)  ?:
         parse_eos(&line);
 }
 
