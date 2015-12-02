@@ -44,7 +44,7 @@ void get_attr_change_set(
     struct attr *attr, uint64_t report_index, bool change_set[]);
 
 /* Name of attribute. */
-const char *get_attr_name(struct attr *attr);
+const char *get_attr_name(const struct attr *attr);
 
 
 /* This function creates an attribute with the given ownder and data pointers

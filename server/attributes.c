@@ -64,7 +64,7 @@ void get_attr_change_set(
 }
 
 
-const char *get_attr_name(struct attr *attr)
+const char *get_attr_name(const struct attr *attr)
 {
     return attr->methods->name;
 }

@@ -7,6 +7,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <pthread.h>
 
 #include "error.h"
@@ -42,8 +43,11 @@ static error__t parse_field_name(
     return
         parse_name(&name, block_name, sizeof(block_name))  ?:
         lookup_block(block_name, &block, &block_count)  ?:
-        parse_uint(&name, number)  ?:
-        DO(*number -= 1)  ?:
+        IF_ELSE(isdigit(*name),
+            parse_uint(&name, number)  ?:
+            DO(*number -= 1),
+        //else
+            DO(*number = 0))  ?:
         TEST_OK_(*number < block_count, "Invalid block number")  ?:
         parse_char(&name, '.')  ?:
         parse_name(&name, field_name, sizeof(field_name))  ?:
@@ -139,9 +143,10 @@ static void load_persistent_state(void)
 
     FILE *in_file;
     error__t error =
-        TEST_OK_IO(in_file = fopen(file_name, "r"));
+        TEST_OK_IO_(in_file = fopen(file_name, "r"),
+            "Unable to open persistent state");
     if (error)
-        ERROR_REPORT(error, "Unable to load persistent state");
+        error_report(error);
     else
     {
         int line_no = 0;

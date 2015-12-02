@@ -199,9 +199,31 @@ static void handle_error_report(
         prefix -= 1;
         string[prefix] = '\0';
         ERROR_REPORT(error, "Error reporting *CHANGES for %s", string);
-
         snprintf(string + prefix, length - prefix, " (error)");
     }
+}
+
+
+static size_t format_name(
+    char *string, size_t length,
+    const struct field *field, const struct attr *attr,
+    unsigned int number, char suffix)
+{
+    size_t result;
+    if (field->block->count == 1)
+        result = (size_t) snprintf(string, length, "%s.%s",
+            field->block->name, field->name);
+    else
+        result = (size_t) snprintf(string, length, "%s%d.%s",
+            field->block->name, number + 1, field->name);
+    ASSERT_OK(result < length);
+    if (attr)
+        result += (size_t) snprintf(string + result, length - result,
+            ".%s", get_attr_name(attr));
+    ASSERT_OK(result < length + 1);
+    string[result++] = suffix;
+    string[result] = '\0';
+    return result;
 }
 
 
@@ -214,9 +236,8 @@ static void report_changed_value(
     struct connection_result *result)
 {
     char string[MAX_RESULT_LENGTH];
-    size_t prefix = (size_t) snprintf(
-        string, sizeof(string), "%s%d.%s=",
-        field->block->name, number + 1, field->name);
+    size_t prefix =
+        format_name(string, sizeof(string), field, NULL, number, '=');
 
     /* Use the class's own formatting method to format into the result string
      * via our own connection result.  If a multiple string result is returned
@@ -238,9 +259,8 @@ static void report_changed_attr(
     struct connection_result *result)
 {
     char string[MAX_RESULT_LENGTH];
-    size_t prefix = (size_t) snprintf(
-        string, sizeof(string), "%s%d.%s.%s=",
-        field->block->name, number + 1, field->name, get_attr_name(attr));
+    size_t prefix =
+        format_name(string, sizeof(string), field, attr, number, '=');
 
     struct connection_result format_result = {
         .string = string + prefix,
@@ -259,8 +279,7 @@ static void report_changed_table(
     struct connection_result *result)
 {
     char string[MAX_RESULT_LENGTH];
-    snprintf(string, sizeof(string), "%s%d.%s<",
-        field->block->name, number + 1, field->name);
+    format_name(string, sizeof(string), field, NULL, number, '<');
     result->write_many(result->write_context, string);
 }
 
