@@ -205,8 +205,9 @@ static error__t capture_init(
         state->index_array[i] = UNASSIGNED_REGISTER;
     *class_data = state;
 
+    const char *empty_line = "";
     return create_type(
-        &type_name, NULL, count, register_methods, state,
+        &empty_line, type_name, count, register_methods, state,
         attr_map, &state->type);
 }
 

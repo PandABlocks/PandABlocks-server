@@ -91,8 +91,7 @@ error__t block_set_description(struct block *block, const char *description);
 
 /* Call this to create each field. */
 error__t create_field(
-    struct field **field, const struct block *parent,
-    const char *field_name, const char *class_name, const char **line);
+    const char **line, struct field **field, const struct block *block);
 
 /* Called to add attribute lines while parsing config file. */
 error__t field_parse_attribute(struct field *field, const char **line);
@@ -106,7 +105,7 @@ error__t field_set_description(struct field *field, const char *description);
 
 /* Must be called after loading configuration and register database to check
  * that everything is configured correctly and consistently. */
-error__t validate_database(void);
+error__t validate_fields(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

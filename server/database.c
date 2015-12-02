@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "hardware.h"
 #include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
@@ -37,23 +38,14 @@ static error__t config_parse_header_line(
 
 
 /* Parses a field definition of the form:
- *      <class>     <name>      [<type>]
+ *      <name>      <class>     [<type>]
  * The type description is optional. */
 static error__t config_parse_field_line(
     void *context, const char *line, void **indent_context)
 {
     struct block *block = context;
-
-    char class_name[MAX_NAME_LENGTH];
-    char field_name[MAX_NAME_LENGTH];
     return
-        parse_name(&line, class_name, sizeof(class_name))  ?:
-        parse_whitespace(&line)  ?:
-        parse_name(&line, field_name, sizeof(field_name))  ?:
-        DO(line = skip_whitespace(line))  ?:
-        create_field(
-            (struct field **) indent_context,
-            block, field_name, class_name, &line)  ?:
+        create_field(&line, (struct field **) indent_context, block)  ?:
         parse_eos(&line);
 }
 
@@ -105,9 +97,36 @@ static error__t load_config_database(const char *db_name)
 /* Register database loading. */
 
 
+static error__t register_parse_special_header(const char *line)
+{
+    char block_name[MAX_NAME_LENGTH];
+    unsigned int base;
+    return
+        parse_char(&line, '*')  ?:
+        parse_name(&line, block_name, sizeof(block_name))  ?:
+        TEST_OK_(strcmp(block_name, "REG") == 0, "Invalid special block")  ?:
+        parse_whitespace(&line)  ?:
+        parse_uint(&line, &base)  ?:
+        parse_eos(&line)  ?:
+        DO(hw_set_block_base(base));
+}
+
+static error__t register_parse_special_field(const char *line)
+{
+    char reg_name[MAX_NAME_LENGTH];
+    unsigned int reg;
+    return
+        parse_name(&line, reg_name, sizeof(reg_name))  ?:
+        parse_whitespace(&line)  ?:
+        parse_uint(&line, &reg)  ?:
+        parse_eos(&line)  ?:
+        hw_set_named_register(reg_name, reg);
+}
+
+
 /* A block line just specifies block name and base address. */
-static error__t register_parse_header_line(
-    void *context, const char *line, void **indent_context)
+static error__t register_parse_normal_header(
+    const char *line, void **indent_context)
 {
     char block_name[MAX_NAME_LENGTH];
     unsigned int base;
@@ -126,8 +145,7 @@ static error__t register_parse_header_line(
 
 /* We push most of the register line parsing down to the field implementation,
  * all we do here is look up the field name and skip whitespace. */
-static error__t register_parse_field_line(
-    void *context, const char *line, void **indent_context)
+static error__t register_parse_normal_field(void *context, const char *line)
 {
     struct block *block = context;
     char field_name[MAX_NAME_LENGTH];
@@ -146,9 +164,15 @@ static error__t register_parse_line(
     switch (indent)
     {
         case 0:
-            return register_parse_header_line(context, line, indent_context);
+            if (*line == '*')
+                return register_parse_special_header(line);
+            else
+                return register_parse_normal_header(line, indent_context);
         case 1:
-            return register_parse_field_line(context, line, indent_context);
+            if (context)
+                return register_parse_normal_field(context, line);
+            else
+                return register_parse_special_field(line);
         default:
             /* Should not happen, we've set maximum indent in call to
              * parse_indented_file below. */
@@ -237,7 +261,8 @@ error__t load_config_databases(
         load_config_database(config_db)  ?:
         load_register_database(register_db)  ?:
         load_description_database(description_db)  ?:
-        validate_database();
+        validate_fields()  ?:
+        hw_validate();
 }
 
 

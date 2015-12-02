@@ -101,7 +101,7 @@ void get_class_change_set(
 
 /* Performs class initialisation and creates any associated type. */
 error__t create_class(
-    const char *class_name, const char **line, unsigned int count,
+    const char **line, unsigned int count,
     struct hash_table *attr_map, struct class **class);
 
 /* Parses field attribute in configuration file. */

@@ -16,6 +16,20 @@ error__t initialise_hardware(void);
 
 void terminate_hardware(void);
 
+
+/* Hardware setup. */
+
+/* Sets block base address used for special named registers. */
+void hw_set_block_base(unsigned int reg);
+
+/* Sets register offset for given named register. */
+error__t hw_set_named_register(const char *name, unsigned int reg);
+
+/* Checks that all register offsets have been set. */
+error__t hw_validate(void);
+
+
+
 /* Read and write function block configuration registers.  Each function block
  * is identified by its function number or "block base", the block number within
  * that function, and finally the register within the block. */

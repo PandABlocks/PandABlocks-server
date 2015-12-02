@@ -25,6 +25,25 @@
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Named register support. */
+
+/* For simulation we have dummy implementations for the named registers. */
+
+void hw_set_block_base(unsigned int reg) { }
+
+error__t hw_set_named_register(const char *name, unsigned int reg)
+{
+    return ERROR_OK;
+}
+
+error__t hw_validate(void)
+{
+    return ERROR_OK;
+}
+
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Support functions. */
 
 static int sock = -1;

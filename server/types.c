@@ -613,20 +613,23 @@ static void create_type_attributes(
 }
 
 error__t create_type(
-    const char **string, const char *default_type, unsigned int count,
+    const char **line, const char *default_type, unsigned int count,
     const struct register_methods *reg, void *reg_data,
     struct hash_table *attr_map, struct type **type)
 {
     char type_name[MAX_NAME_LENGTH];
     const struct type_methods *methods = NULL;
     void *type_data = NULL;
-    if (**string == '\0'  &&  default_type)
-        string = &default_type;
     return
-        parse_name(string, type_name, sizeof(type_name))  ?:
+        /* If the line is empty fall back to the default type, if given. */
+        IF_ELSE(**line == '\0'  &&  default_type,
+            DO(line = &default_type),
+        //else
+            parse_whitespace(line))  ?:
+        parse_name(line, type_name, sizeof(type_name))  ?:
         lookup_type(type_name, &methods)  ?:
         IF(methods->init,
-            methods->init(string, count, &type_data))  ?:
+            methods->init(line, count, &type_data))  ?:
         DO(
             *type = create_type_block(methods, reg, reg_data, count, type_data);
             create_type_attributes(*type, attr_map));
