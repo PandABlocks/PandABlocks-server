@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "error.h"
 #include "config_server.h"
@@ -15,6 +16,7 @@
 #include "types.h"
 #include "attributes.h"
 #include "classes.h"
+#include "locking.h"
 
 #include "register.h"
 
@@ -109,6 +111,7 @@ struct simple_state {
     struct simple_field {
         uint32_t value;
         uint64_t update_index;
+        pthread_mutex_t mutex;
     } values[];
 };
 
@@ -125,7 +128,10 @@ static error__t simple_register_init(
         .base = { .field_register = UNASSIGNED_REGISTER, },
         .count = count,
     };
-    memset(state->values, 0, fields_size);
+    for (unsigned int i = 0; i < count; i ++)
+        state->values[i] = (struct simple_field) {
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+        };
     *class_data = state;
 
     return create_type(
@@ -157,10 +163,13 @@ static uint32_t param_read(void *reg_data, unsigned int number)
 static void param_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct simple_state *state = reg_data;
+
+    LOCK(state->values[number].mutex);
     state->values[number].value = value;
     state->values[number].update_index = get_change_index();
     hw_write_register(
         state->base.block_base, number, state->base.field_register, value);
+    UNLOCK(state->values[number].mutex);
 }
 
 
@@ -209,6 +218,8 @@ const struct class_methods param_class_methods = {
 static uint32_t read_read(void *reg_data, unsigned int number)
 {
     struct simple_state *state = reg_data;
+
+    LOCK(state->values[number].mutex);
     uint32_t result = hw_read_register(
         state->base.block_base, number, state->base.field_register);
     if (result != state->values[number].value)
@@ -216,6 +227,7 @@ static uint32_t read_read(void *reg_data, unsigned int number)
         state->values[number].value = result;
         state->values[number].update_index = get_change_index();
     }
+    UNLOCK(state->values[number].mutex);
     return result;
 }
 
