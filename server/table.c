@@ -380,7 +380,10 @@ static error__t long_table_parse_register(
     const char **line)
 {
     struct long_table_state *state = class_data;
-    return parse_uint(line, &state->table_order);
+    return
+        parse_whitespace(line)  ?:
+        parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
+        parse_uint(line, &state->table_order);
 }
 
 
