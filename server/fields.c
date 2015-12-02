@@ -204,7 +204,7 @@ static void handle_error_report(
 }
 
 
-static size_t format_name(
+size_t format_field_name(
     char *string, size_t length,
     const struct field *field, const struct attr *attr,
     unsigned int number, char suffix)
@@ -237,7 +237,7 @@ static void report_changed_value(
 {
     char string[MAX_RESULT_LENGTH];
     size_t prefix =
-        format_name(string, sizeof(string), field, NULL, number, '=');
+        format_field_name(string, sizeof(string), field, NULL, number, '=');
 
     /* Use the class's own formatting method to format into the result string
      * via our own connection result.  If a multiple string result is returned
@@ -260,7 +260,7 @@ static void report_changed_attr(
 {
     char string[MAX_RESULT_LENGTH];
     size_t prefix =
-        format_name(string, sizeof(string), field, attr, number, '=');
+        format_field_name(string, sizeof(string), field, attr, number, '=');
 
     struct connection_result format_result = {
         .string = string + prefix,
@@ -279,7 +279,7 @@ static void report_changed_table(
     struct connection_result *result)
 {
     char string[MAX_RESULT_LENGTH];
-    format_name(string, sizeof(string), field, NULL, number, '<');
+    format_field_name(string, sizeof(string), field, NULL, number, '<');
     result->write_many(result->write_context, string);
 }
 
@@ -506,8 +506,7 @@ error__t field_parse_attribute(struct field *field, const char **line)
 
 error__t field_parse_register(struct field *field, const char **line)
 {
-    return class_parse_register(
-        field->class, field->block->name, field->name, line);
+    return class_parse_register(field->class, field, line);
 }
 
 

@@ -175,13 +175,11 @@ error__t class_parse_attribute(struct class *class, const char **line)
 
 
 error__t class_parse_register(
-    struct class *class, const char *block_name, const char *field_name,
-    const char **line)
+    struct class *class, struct field *field, const char **line)
 {
     return
         TEST_OK(class->methods->parse_register)  ?:
-        class->methods->parse_register(
-            class->class_data, block_name, field_name, line)  ?:
+        class->methods->parse_register(class->class_data, field, line)  ?:
         DO(class->initialised = true);
 }
 

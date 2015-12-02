@@ -44,8 +44,7 @@ static error__t base_parse_attribute(void *class_data, const char **line)
 
 
 static error__t base_parse_register(
-    void *class_data, const char *block_name, const char *field_name,
-    const char **line)
+    void *class_data, struct field *field, const char **line)
 {
     struct base_state *state = class_data;
     return

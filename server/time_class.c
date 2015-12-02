@@ -70,8 +70,7 @@ static error__t time_init(
 
 /* Expects a pair of registers: low bits then high bits. */
 static error__t time_parse_register(
-    void *class_data, const char *block_name, const char *field_name,
-    const char **line)
+    void *class_data, struct field *field, const char **line)
 {
     struct time_state *state = class_data;
     return

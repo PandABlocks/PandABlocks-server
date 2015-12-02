@@ -5,6 +5,7 @@ struct put_table_writer;
 struct connection_result;
 struct hash_table;
 
+struct field;
 struct class;
 struct type;
 
@@ -27,8 +28,7 @@ struct class_methods {
     error__t (*parse_attribute)(void *class_data, const char **line);
     /* Parses the register definition line for this field. */
     error__t (*parse_register)(
-        void *class_data, const char *block_name, const char *field_name,
-        const char **line);
+        void *class_data, struct field *field, const char **line);
     /* Called at end of startup to finalise and validate setup. */
     error__t (*finalise)(void *class_data, unsigned int block_base);
     /* Called during shutdown to release all class resources. */
@@ -109,8 +109,7 @@ error__t class_parse_attribute(struct class *class, const char **line);
 
 /* Parse register definition line. */
 error__t class_parse_register(
-    struct class *class, const char *block_name, const char *field_name,
-    const char **line);
+    struct class *class, struct field *field, const char **line);
 
 /* To be called after database loading is complete to ensure that all classes
  * have their required register assignments.  Also at this point we assign the

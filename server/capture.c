@@ -11,6 +11,7 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
+#include "fields.h"
 #include "classes.h"
 #include "attributes.h"
 #include "types.h"
@@ -107,8 +108,7 @@ static error__t mux_lookup_insert(
 
 /* During register definition parsing add index<->name conversions. */
 static error__t add_mux_indices(
-    struct mux_lookup *lookup,
-    const char *block_name, const char *field_name, unsigned int count,
+    struct mux_lookup *lookup, struct field *field, unsigned int count,
     unsigned int indices[])
 {
     /* Add mux entries for our instances. */
@@ -116,11 +116,7 @@ static error__t add_mux_indices(
     for (unsigned int i = 0; !error  &&  i < count; i ++)
     {
         char name[MAX_NAME_LENGTH];
-        if (count == 1)
-            snprintf(name, sizeof(name), "%s.%s", block_name, field_name);
-        else
-            snprintf(name, sizeof(name), "%s%d.%s",
-                block_name, i + 1, field_name);
+        format_field_name(name, sizeof(name), field, NULL, i, '\0');
         error = mux_lookup_insert(lookup, indices[i], name);
     }
     return error;
@@ -297,29 +293,26 @@ static error__t parse_out_registers(
 
 static error__t capture_parse_register(
     struct mux_lookup *lookup, struct capture_state *state,
-    const char *block_name, const char *field_name, const char **line)
+    struct field *field, const char **line)
 {
     return
         check_out_unassigned(state)  ?:
         parse_out_registers(state, line, lookup->length) ?:
-        add_mux_indices(
-            lookup, block_name, field_name, state->count, state->index_array);
+        add_mux_indices(lookup, field, state->count, state->index_array);
 }
 
 static error__t bit_out_parse_register(
-    void *class_data, const char *block_name, const char *field_name,
-    const char **line)
+    void *class_data, struct field *field, const char **line)
 {
     return capture_parse_register(
-        &bit_out_state.lookup, class_data, block_name, field_name, line);
+        &bit_out_state.lookup, class_data, field, line);
 }
 
 static error__t pos_out_parse_register(
-    void *class_data, const char *block_name, const char *field_name,
-    const char **line)
+    void *class_data, struct field *field, const char **line)
 {
     return capture_parse_register(
-        &pos_out_state.lookup, class_data, block_name, field_name, line);
+        &pos_out_state.lookup, class_data, field, line);
 }
 
 
