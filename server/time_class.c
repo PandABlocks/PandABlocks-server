@@ -29,11 +29,11 @@ struct time_state {
     unsigned int low_register;
     unsigned int high_register;
     unsigned int count;
+    pthread_mutex_t mutex;
     struct time_field {
         enum time_scale time_scale;
         uint64_t value;
         uint64_t update_index;
-        pthread_mutex_t mutex;
     } values[];
 };
 
@@ -63,11 +63,11 @@ static error__t time_init(
         .low_register = UNASSIGNED_REGISTER,
         .high_register = UNASSIGNED_REGISTER,
         .count = count,
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
     };
     for (unsigned int i = 0; i < count; i ++)
         state->values[i] = (struct time_field) {
             .time_scale = TIME_SECS,
-            .mutex = PTHREAD_MUTEX_INITIALIZER,
         };
     *class_data = state;
     return ERROR_OK;
@@ -107,11 +107,11 @@ static error__t time_get(
     struct time_state *state = class_data;
     struct time_field *field = &state->values[number];
 
-    LOCK(field->mutex);
+    LOCK(state->mutex);
     uint64_t value = field->value;
-    UNLOCK(field->mutex);
+    UNLOCK(state->mutex);
 
-    double conversion = time_conversion[state->values[number].time_scale];
+    double conversion = time_conversion[field->time_scale];
     return
         format_double(
             result->string, result->length, (double) value / conversion)  ?:
@@ -125,7 +125,7 @@ static void write_time_value(
     struct time_state *state = class_data;
     struct time_field *field = &state->values[number];
 
-    LOCK(field->mutex);
+    LOCK(state->mutex);
     hw_write_register(
         state->block_base, number, state->low_register,
         (uint32_t) value);
@@ -135,7 +135,7 @@ static void write_time_value(
 
     field->value = value;
     field->update_index = get_change_index();
-    UNLOCK(field->mutex);
+    UNLOCK(state->mutex);
 }
 
 
@@ -161,8 +161,10 @@ static void time_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct time_state *state = class_data;
+    LOCK(state->mutex);
     for (unsigned int i = 0; i < state->count; i ++)
         changes[i] = state->values[i].update_index >= report_index;
+    UNLOCK(state->mutex);
 }
 
 
@@ -178,9 +180,9 @@ static error__t time_raw_format(
     struct time_state *state = class_data;
     struct time_field *field = &state->values[number];
 
-    LOCK(field->mutex);
+    LOCK(state->mutex);
     uint64_t value = field->value;
-    UNLOCK(field->mutex);
+    UNLOCK(state->mutex);
 
     return format_string(result, length, "%"PRIu64, value);
 }
@@ -218,8 +220,10 @@ static error__t time_units_put(
     for (unsigned int i = 0; i < ARRAY_SIZE(time_units); i ++)
         if (strcmp(string, time_units[i]) == 0)
         {
+            LOCK(state->mutex);
             state->values[number].time_scale = (enum time_scale) i;
             state->values[number].update_index = get_change_index();
+            UNLOCK(state->mutex);
             return ERROR_OK;
         }
     return FAIL_("Invalid time units");

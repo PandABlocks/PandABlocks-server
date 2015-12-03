@@ -4,11 +4,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <pthread.h>
 
 #include "error.h"
 #include "hashtable.h"
 #include "config_server.h"
 #include "classes.h"
+#include "locking.h"
 
 #include "attributes.h"
 
@@ -18,6 +20,7 @@ struct attr {
     void *owner;                // Attribute ownder
     void *data;                 // Any data associated with this attribute
     unsigned int count;         // Number of field instances
+    pthread_mutex_t mutex;      // Protects change_index entries
     uint64_t *change_index;     // History management for reported attributes
 };
 
@@ -47,20 +50,29 @@ error__t attr_get(
 
 error__t attr_put(struct attr *attr, unsigned int number, const char *value)
 {
-    return
+    error__t error =
         TEST_OK_(attr->methods->put, "Attribute not writeable")  ?:
-        attr->methods->put(attr->owner, attr->data, number, value)  ?:
-        DO(attr->change_index[number] = get_change_index());
+        attr->methods->put(attr->owner, attr->data, number, value);
+
+    if (!error)
+    {
+        LOCK(attr->mutex);
+        attr->change_index[number] = get_change_index();
+        UNLOCK(attr->mutex);
+    }
+    return error;
 }
 
 
 void get_attr_change_set(
     struct attr *attr, uint64_t report_index, bool change_set[])
 {
+    LOCK(attr->mutex);
     for (unsigned int i = 0; i < attr->count; i ++)
         change_set[i] =
             attr->methods->in_change_set  &&
             attr->change_index[i] >= report_index;
+    UNLOCK(attr->mutex);
 }
 
 
@@ -81,6 +93,7 @@ void create_attribute(
         .owner = owner,
         .data = data,
         .count = count,
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
         .change_index = calloc(count, sizeof(uint64_t)),
     };
     hash_table_insert(attr_map, methods->name, attr);

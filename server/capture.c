@@ -215,15 +215,19 @@ static error__t capture_init(
 static uint32_t bit_out_read(void *reg_data, unsigned int number)
 {
     struct capture_state *state = reg_data;
-    return WITH_LOCK(bit_mutex,
-        bit_out_state.bits[state->index_array[number]]);
+    LOCK(bit_mutex);
+    uint32_t result = bit_out_state.bits[state->index_array[number]];
+    UNLOCK(bit_mutex);
+    return result;
 }
 
 static uint32_t pos_out_read(void *reg_data, unsigned int number)
 {
     struct capture_state *state = reg_data;
-    return WITH_LOCK(pos_mutex,
-        pos_out_state.positions[state->index_array[number]]);
+    LOCK(pos_mutex);
+    uint32_t result = pos_out_state.positions[state->index_array[number]];
+    UNLOCK(pos_mutex);
+    return result;
 }
 
 static const struct register_methods bit_out_methods = {
@@ -374,15 +378,19 @@ static void bit_pos_change_set(
 static void bit_out_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
+    LOCK(bit_mutex);
     bit_pos_change_set(
         class_data, bit_out_state.change_index, report_index, changes);
+    UNLOCK(bit_mutex);
 }
 
 static void pos_out_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
+    LOCK(pos_mutex);
     bit_pos_change_set(
         class_data, pos_out_state.change_index, report_index, changes);
+    UNLOCK(pos_mutex);
 }
 
 
