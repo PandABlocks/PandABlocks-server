@@ -197,7 +197,8 @@ static error__t parse_one_line(
                 /* Close any indentations until flush with current line. */
                 close_indents(parser, indent_stack, sp, indent))  ?:
 
-            /* Process the line. */
+            /* Process the line with a fresh new_context. */
+            DO(*new_context = NULL)  ?:
             parser->parse_line(
                 *sp, indent_stack[*sp].context, parse_line, new_context);
     else
