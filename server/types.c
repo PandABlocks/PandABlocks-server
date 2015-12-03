@@ -18,6 +18,7 @@
 #include "attributes.h"
 #include "enums.h"
 #include "capture.h"
+#include "locking.h"
 
 #include "types.h"
 
@@ -62,11 +63,6 @@ struct type {
 
 /*****************************************************************************/
 /* Some support functions. */
-
-/* Some type operations need to be done under a lock, alas. */
-static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
-#define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&session_lock))
-#define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
 
 
 static error__t read_register(
@@ -235,18 +231,27 @@ static error__t action_parse(
 /* Position and Scaled Time. */
 
 struct position_state {
-    double scale;
-    double offset;
-    char *units;
+    pthread_mutex_t mutex;
+    struct position_field {
+        double scale;
+        double offset;
+        char *units;
+    } values[];
 };
 
 
 static error__t position_init(
     const char **string, unsigned int count, void **type_data)
 {
-    struct position_state *state = calloc(count, sizeof(struct position_state));
+    struct position_state *state = malloc(
+        sizeof(struct position_state) + count * sizeof(struct position_field));
+    *state = (struct position_state) {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+    };
     for (unsigned int i = 0; i < count; i ++)
-        state[i].scale = 1.0;
+        state->values[i] = (struct position_field) {
+            .scale = 1.0,
+        };
     *type_data = state;
     return ERROR_OK;
 }
@@ -255,7 +260,7 @@ static void position_destroy(void *type_data, unsigned int count)
 {
     struct position_state *state = type_data;
     for (unsigned int i = 0; i < count; i ++)
-        free(state[i].units);
+        free(state->values[i].units);
 }
 
 
@@ -264,14 +269,19 @@ static error__t position_parse(
     const char *string, unsigned int *value)
 {
     struct position_state *state = type_data;
-    state = &state[number];
+    struct position_field *field = &state->values[number];
+
+    LOCK(state->mutex);
+    double scale = field->scale;
+    double offset = field->offset;
+    UNLOCK(state->mutex);
 
     double position;
     double converted;
     return
         parse_double(&string, &position)  ?:
         parse_eos(&string)  ?:
-        DO(converted = (position - state->offset) / state->scale)  ?:
+        DO(converted = (position - offset) / scale)  ?:
         TEST_OK_(INT_MIN <= converted  &&  converted <= INT_MAX,
             "Position out of range")  ?:
         DO(*value = (unsigned int) lround(converted));
@@ -283,9 +293,14 @@ static error__t position_format(
     unsigned int value, char result[], size_t length)
 {
     struct position_state *state = type_data;
-    state = &state[number];
-    return format_double(
-        result, length, (int) value * state->scale + state->offset);
+    struct position_field *field = &state->values[number];
+
+    LOCK(state->mutex);
+    double scale = field->scale;
+    double offset = field->offset;
+    UNLOCK(state->mutex);
+
+    return format_double(result, length, (int) value * scale + offset);
 }
 
 
@@ -294,22 +309,33 @@ static error__t position_scale_format(
     char result[], size_t length)
 {
     struct position_state *state = data;
-    state = &state[number];
-    return format_double(result, length, state->scale);
+    struct position_field *field = &state->values[number];
+
+    LOCK(state->mutex);
+    double scale = field->scale;
+    UNLOCK(state->mutex);
+
+    return format_double(result, length, scale);
 }
 
 static error__t position_scale_put(
     void *owner, void *data, unsigned int number, const char *value)
 {
     struct position_state *state = data;
-    state = &state[number];
+    struct position_field *field = &state->values[number];
+
     double scale;
-    return
-        parse_double(&value, &scale)  ?:
-        parse_eos(&value)  ?:
-        DO(
-            state->scale = scale;
-            changed_register(owner, number));
+    error__t error = parse_double(&value, &scale)  ?:  parse_eos(&value);
+
+    if (!error)
+    {
+        LOCK(state->mutex);
+        field->scale = scale;
+        UNLOCK(state->mutex);
+
+        changed_register(owner, number);
+    }
+    return error;
 }
 
 static error__t position_offset_format(
@@ -317,22 +343,32 @@ static error__t position_offset_format(
     char result[], size_t length)
 {
     struct position_state *state = data;
-    state = &state[number];
-    return format_double(result, length, state->offset);
+    struct position_field *field = &state->values[number];
+
+    LOCK(state->mutex);
+    double offset = field->offset;
+    UNLOCK(state->mutex);
+
+    return format_double(result, length, offset);
 }
 
 static error__t position_offset_put(
     void *owner, void *data, unsigned int number, const char *value)
 {
     struct position_state *state = data;
-    state = &state[number];
+    struct position_field *field = &state->values[number];
+
     double offset;
-    return
-        parse_double(&value, &offset)  ?:
-        parse_eos(&value)  ?:
-        DO(
-            state->offset = offset;
-            changed_register(owner, number));
+    error__t error = parse_double(&value, &offset)  ?: parse_eos(&value);
+    if (!error)
+    {
+        LOCK(state->mutex);
+        field->offset = offset;
+        UNLOCK(state->mutex);
+
+        changed_register(owner, number);
+    }
+    return error;
 }
 
 
@@ -341,10 +377,12 @@ static error__t position_units_format(
     char result[], size_t length)
 {
     struct position_state *state = data;
-    state = &state[number];
-    LOCK();
-    error__t error = format_string(result, length, "%s", state->units ?: "");
-    UNLOCK();
+    struct position_field *field = &state->values[number];
+
+    LOCK(state->mutex);
+    error__t error = format_string(result, length, "%s", field->units ?: "");
+    UNLOCK(state->mutex);
+
     return error;
 }
 
@@ -352,12 +390,12 @@ static error__t position_units_put(
     void *owner, void *data, unsigned int number, const char *value)
 {
     struct position_state *state = data;
-    state = &state[number];
+    struct position_field *field = &state->values[number];
 
-    LOCK();
-    free(state->units);
-    state->units = strdup(value);
-    UNLOCK();
+    LOCK(state->mutex);
+    free(field->units);
+    field->units = strdup(value);
+    UNLOCK(state->mutex);
 
     return ERROR_OK;
 }
@@ -367,15 +405,24 @@ static error__t position_units_put(
 /* Lookup table type. */
 
 struct lut_state {
-    unsigned int value;
-    char *string;
+    pthread_mutex_t mutex;
+    struct lut_field {
+        unsigned int value;
+        char *string;
+    } values[];
 };
 
 
 static error__t lut_init(
     const char **string, unsigned int count, void **type_data)
 {
-    struct lut_state *state = calloc(count, sizeof(struct lut_state));
+    struct lut_state *state = malloc(
+        sizeof(struct lut_state) + count * sizeof(struct lut_field));
+    *state = (struct lut_state) {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+    };
+    for (unsigned int i = 0; i < count; i ++)
+        state->values[i] = (struct lut_field) { };
     *type_data = state;
     return ERROR_OK;
 }
@@ -384,7 +431,7 @@ static void lut_destroy(void *type_data, unsigned int count)
 {
     struct lut_state *state = type_data;
     for (unsigned int i = 0; i < count; i ++)
-        free(state[i].string);
+        free(state->values[i].string);
 }
 
 
@@ -411,16 +458,16 @@ static error__t lut_parse(
     const char *string, unsigned int *value)
 {
     struct lut_state *state = type_data;
-    state += number;
+    struct lut_field *field = &state->values[number];
 
     error__t error = do_parse_lut(string, value);
     if (!error)
     {
-        LOCK();
-        state->value = *value;
-        free(state->string);
-        state->string = strdup(string);
-        UNLOCK();
+        LOCK(state->mutex);
+        field->value = *value;
+        free(field->string);
+        field->string = strdup(string);
+        UNLOCK(state->mutex);
     }
     return error;
 }
@@ -431,15 +478,18 @@ static error__t lut_format(
     unsigned int value, char string[], size_t length)
 {
     struct lut_state *state = type_data;
-    state += number;
+    struct lut_field *field = &state->values[number];
 
-    LOCK();
-    error__t error =
-        IF_ELSE(value == state->value  &&  state->string,
-            format_string(string, length, "%s", state->string),
-        //else
-            format_string(string, length, "0x%08X", value));
-    UNLOCK();
+    error__t error;
+    LOCK(state->mutex);
+    if (value == field->value  &&  field->string)
+        error = format_string(string, length, "%s", field->string);
+    else
+        /* If no string has been formatted yet, or if our stored value doesn't
+         * match the value we're being asked to format just return the raw hex
+         * value.  This second case is rather unlikely. */
+        error = format_string(string, length, "0x%08X", value);
+    UNLOCK(state->mutex);
     return error;
 }
 

@@ -17,6 +17,7 @@
 #include "fields.h"
 #include "attributes.h"
 #include "base64.h"
+#include "locking.h"
 
 #include "persistence.h"
 
@@ -274,9 +275,6 @@ static bool thread_running;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t psignal = PTHREAD_COND_INITIALIZER;
 
-#define LOCK()      pthread_mutex_lock(&mutex)
-#define UNLOCK()    pthread_mutex_unlock(&mutex)
-
 
 /* Interruptible timeout wait: returns false if thread interrupt requested. */
 static bool pwait_timeout(int delay)
@@ -285,11 +283,11 @@ static bool pwait_timeout(int delay)
     ASSERT_IO(clock_gettime(CLOCK_REALTIME, &timeout));
     timeout.tv_sec += delay;
 
-    LOCK();
+    LOCK(mutex);
     if (thread_running)
         pthread_cond_timedwait(&psignal, &mutex, &timeout);
     bool running = thread_running;
-    UNLOCK();
+    UNLOCK(mutex);
 
     return running;
 }
@@ -297,10 +295,10 @@ static bool pwait_timeout(int delay)
 
 static void stop_thread(void)
 {
-    LOCK();
+    LOCK(mutex);
     thread_running = false;
     pthread_cond_signal(&psignal);
-    UNLOCK();
+    UNLOCK(mutex);
 }
 
 

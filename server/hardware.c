@@ -90,8 +90,8 @@ static unsigned int make_offset(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     return
-        ((block_base << 10) & 0x1f) |
-        ((block_number << 6) & 0xf) |
+        ((block_base & 0x1f) << 10) |
+        ((block_number & 0xf) << 6) |
         (reg & 0x3f);
 }
 
@@ -192,7 +192,7 @@ error__t hw_open_long_table(
     unsigned int block_base, unsigned int count, unsigned int order,
     struct hw_long_table **table, size_t *length)
 {
-    return FAIL_("Not implemented");
+    return ERROR_OK;
 }
 
 
@@ -211,7 +211,6 @@ void hw_write_long_table_length(
 
 void hw_close_long_table(struct hw_long_table *table)
 {
-    ASSERT_FAIL();
 }
 
 

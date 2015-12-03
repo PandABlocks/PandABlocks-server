@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "error.h"
 #include "config_server.h"
@@ -15,6 +16,7 @@
 #include "types.h"
 #include "attributes.h"
 #include "classes.h"
+#include "locking.h"
 
 #include "register.h"
 
@@ -101,6 +103,7 @@ static error__t base_put(
 
 struct simple_state {
     struct base_state base;
+    pthread_mutex_t mutex;
 
     /* For both parameter and read registers we keep track of the last
      * read/written value and an update index, but we manage these fields
@@ -123,9 +126,11 @@ static error__t simple_register_init(
         sizeof(struct simple_state) + fields_size);
     *state = (struct simple_state) {
         .base = { .field_register = UNASSIGNED_REGISTER, },
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
         .count = count,
     };
-    memset(state->values, 0, fields_size);
+    for (unsigned int i = 0; i < count; i ++)
+        state->values[i] = (struct simple_field) { };
     *class_data = state;
 
     return create_type(
@@ -136,7 +141,9 @@ static error__t simple_register_init(
 static void simple_register_changed(void *reg_data, unsigned int number)
 {
     struct simple_state *state = reg_data;
+    LOCK(state->mutex);
     state->values[number].update_index = get_change_index();
+    UNLOCK(state->mutex);
 }
 
 
@@ -157,10 +164,13 @@ static uint32_t param_read(void *reg_data, unsigned int number)
 static void param_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct simple_state *state = reg_data;
+
+    LOCK(state->mutex);
     state->values[number].value = value;
     state->values[number].update_index = get_change_index();
     hw_write_register(
         state->base.block_base, number, state->base.field_register, value);
+    UNLOCK(state->mutex);
 }
 
 
@@ -184,8 +194,10 @@ static void param_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
+    LOCK(state->mutex);
     for (unsigned int i = 0; i < state->count; i ++)
         changes[i] = state->values[i].update_index >= report_index;
+    UNLOCK(state->mutex);
 }
 
 
@@ -206,9 +218,10 @@ const struct class_methods param_class_methods = {
 /* These are very similar to parameter registers, but reading and change_set
  * control are somewhat different. */
 
-static uint32_t read_read(void *reg_data, unsigned int number)
+/* This must be called under a lock. */
+static uint32_t unlocked_read_read(
+    struct simple_state *state, unsigned int number)
 {
-    struct simple_state *state = reg_data;
     uint32_t result = hw_read_register(
         state->base.block_base, number, state->base.field_register);
     if (result != state->values[number].value)
@@ -219,16 +232,28 @@ static uint32_t read_read(void *reg_data, unsigned int number)
     return result;
 }
 
+static uint32_t read_read(void *reg_data, unsigned int number)
+{
+    struct simple_state *state = reg_data;
+
+    LOCK(state->mutex);
+    uint32_t result = unlocked_read_read(state, number);
+    UNLOCK(state->mutex);
+    return result;
+}
+
 
 static void read_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
+    LOCK(state->mutex);
     for (unsigned int i = 0; i < state->count; i ++)
     {
-        read_read(state, i);
+        unlocked_read_read(state, i);
         changes[i] = state->values[i].update_index >= report_index;
     }
+    UNLOCK(state->mutex);
 }
 
 
