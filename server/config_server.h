@@ -144,7 +144,23 @@ struct config_command_set {
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Interface for calling command processing. */
 
+
+struct table_read_line {
+    void *context;
+    bool (*read_line)(void *context, char *line, size_t length);
+};
+
+error__t process_put_table_command(
+    const struct config_command_set *command_set,
+    const struct table_read_line *table_read_line,
+    const char *name, const char *extra);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* This can be called to enable logging of all commands. */
 void set_config_server_verbosity(bool verbose);
 
 /* This should be called in a separate thread for each configuration interface

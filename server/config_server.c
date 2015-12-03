@@ -242,7 +242,7 @@ static error__t convert_ascii_line(
 
 /* Reads blocks of data from input stream and send to put_table. */
 static error__t do_put_table(
-    struct config_connection *connection, const char *command,
+    const struct table_read_line *table_read_line, const char *command,
     const struct put_table_writer *writer,
     convert_line_t *convert_line)
 {
@@ -258,7 +258,9 @@ static error__t do_put_table(
         char line[MAX_LINE_LENGTH];
         size_t data_length;
         error =
-            TEST_OK_(read_line(connection->file, line, sizeof(line), false),
+            TEST_OK_(
+                table_read_line->read_line(
+                    table_read_line->context, line, sizeof(line)),
                 "Unexpected EOF")  ?:
             IF_ELSE(*line == '\0',
                 DO(eos = true),
@@ -304,10 +306,10 @@ static const struct put_table_writer dummy_table_writer = {
  * This means that once we've managed to parse a valid top level syntax we need
  * to accept the rest of the data stream even if the target has rejected the
  * command. */
-static void complete_table_command(
-    struct config_connection *connection,
-    const char *command, bool append, bool binary,
-    const struct config_command_set *command_set)
+static error__t complete_table_command(
+    const struct config_command_set *command_set,
+    const struct table_read_line *table_read_line,
+    const char *command, bool append, bool binary)
 {
     struct put_table_writer writer;
     /* Call .put_table to start the transaction, which must then be
@@ -315,38 +317,28 @@ static void complete_table_command(
     error__t error = command_set->put_table(command, append, &writer);
     /* If we failed here then at least give the client a chance to discover
      * early.  If we're in ASCII mode the force the message out. */
-    bool reported = error != ERROR_OK;
     if (error)
-    {
         /* .put_table failed, so use the dummy writer instead. */
         writer = dummy_table_writer;
-        report_error(connection, error);
-        flush_out_buf(connection->file);
-    }
 
     /* Handle the rest of the input. */
-    error = do_put_table(
-        connection, command, &writer,
+    error__t put_error = do_put_table(
+        table_read_line, command, &writer,
         binary ? convert_base64_line : convert_ascii_line);
-    if (reported)
-    {
-        if (error)
-            ERROR_REPORT(error, "Extra error while handling do_put_table");
-    }
-    else
-        report_status(connection, error);
+
+    /* Now we may have multiple errors.  Return the first one and log the
+     * second, if necessary. */
+    if (error  &&  put_error)
+        ERROR_REPORT(put_error, "Extra error while handling do_put_table");
+    return error  ?:  put_error;
 }
 
 
-/* Processes command of the form [*]name<format
- * This has the special condition that the input stream will be read for further
- * data, and so the put_table function can return one of two different error
- * codes: if a communication error is reported then we need to drop the
- * connection. */
-static void do_table_command(
-    struct config_connection *connection,
-    const char *command, const char *format,
-    const struct config_command_set *command_set)
+/* Processes command of the form [*]name<format */
+error__t process_put_table_command(
+    const struct config_command_set *command_set,
+    const struct table_read_line *table_read_line,
+    const char *name, const char *format)
 {
     /* Process the format: this is of the form "<" ["<"] ["B"] .*/
     bool append = read_char(&format, '<');  // Table append operation
@@ -354,12 +346,31 @@ static void do_table_command(
 
     /* If the request is malformed we'll ignore it, otherwise we'll do our best
      * to accept what was meant. */
-    error__t error = parse_eos(&format);
-    if (error)
-        report_error(connection, error);
-    else
+    return
+        parse_eos(&format)  ?:
         complete_table_command(
-            connection, command, append, binary, command_set);
+            command_set, table_read_line, name, append, binary);
+}
+
+
+static bool wrap_read_line(void *context, char *line, size_t length)
+{
+    return read_line(context, line, length, false);
+}
+
+static void do_table_command(
+    struct config_connection *connection,
+    const char *command, const char *format,
+    const struct config_command_set *command_set)
+{
+    struct table_read_line table_read_line = {
+        .context = connection->file,
+        .read_line = wrap_read_line,
+    };
+
+    report_status(connection,
+        process_put_table_command(
+            command_set, &table_read_line, command, format));
 }
 
 
