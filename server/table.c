@@ -74,8 +74,6 @@ static error__t field_set_fields_get_many(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table blocks. */
 
-/* The table block implementation is shared between short and long tables. */
-
 
 struct table_block {
     uint64_t update_index;  // Timestamp of last change
@@ -142,22 +140,6 @@ static error__t write_base_64(
 }
 
 
-static error__t write_to_table_block(
-    struct table_block *block, size_t max_length,
-    const uint32_t data[], size_t length)
-{
-    if (block->write_length + length > max_length)
-        return FAIL_("Too much data written to table");
-    else
-    {
-        memcpy(block->write_data + block->write_length, data,
-            length * sizeof(uint32_t));
-        block->write_length += length;
-        return ERROR_OK;
-    }
-}
-
-
 static void lock_table_read(struct table_block *block)
 {
     ASSERT_PTHREAD(pthread_rwlock_rdlock(&block->read_lock));
@@ -168,8 +150,9 @@ static void unlock_table_read(struct table_block *block)
     ASSERT_PTHREAD(pthread_rwlock_unlock(&block->read_lock));
 }
 
-/* Writing can be rejected if there is another write to the same table in
- * progress simultaneously. */
+
+/* Writing is rejected if there is another write to the same table in progress
+ * simultaneously. */
 static error__t start_table_write(struct table_block *block, bool append)
 {
     int result = pthread_mutex_trylock(&block->write_lock);
@@ -183,6 +166,10 @@ static error__t start_table_write(struct table_block *block, bool append)
     }
 }
 
+
+/* When a write is complete we copy the write data over to the live data.  This
+ * is done under a write lock on the read/write lock.  Before releasing the
+ * locks, we also do any required hardware finalisation. */
 static void complete_table_write(
     struct table_block *block, void (*finalise)(struct table_block *block))
 {
@@ -220,6 +207,8 @@ struct table_state {
     struct field_set field_set; // Set of fields in table
     size_t max_length;          // Maximum block length
 
+    /* We support two types of table, with somewhat different hardware
+     * interfaces.  Implement this as a tagged union. */
     enum table_type { SHORT_TABLE, LONG_TABLE } table_type;
     union {
         struct short_table_state {
@@ -227,24 +216,40 @@ struct table_state {
             unsigned int init_reg;      // Register for starting block write
             unsigned int fill_reg;      // Register for completing block write
         } short_state;
+
         struct long_table_state {
             unsigned int table_order;   // Configured size as a power of 2
-            struct hw_long_table *table;
+            struct hw_long_table *table;    // Interface to hardware
         } long_state;
     };
 
-    /* This part contains the block specific information.  To help the table
-     * writing code, the max_length field is repeated for each block! */
-    struct table_block blocks[];
+    struct table_block blocks[];        // Individual table blocks
 };
+
+
+static void create_table(
+    enum table_type table_type, unsigned int block_count, void **class_data)
+{
+    struct table_state *state = malloc(
+        sizeof(struct table_state) +
+        block_count * sizeof(struct table_block));
+    *state = (struct table_state) {
+        .block_count = block_count,
+        .table_type = table_type,
+    };
+    initialise_table_blocks(state->blocks, block_count);
+
+    *class_data = state;
+}
 
 
 static error__t table_init(
     const char **line, unsigned int block_count,
     struct hash_table *attr_map, void **class_data)
 {
+    /* Class name must be followed by table size, either short or long. */
     enum table_type table_type;
-    error__t error =
+    return
         parse_whitespace(line)  ?:
         IF_ELSE(read_string(line, "short"),
             DO(table_type = SHORT_TABLE),
@@ -252,22 +257,8 @@ static error__t table_init(
         IF_ELSE(read_string(line, "long"),
             DO(table_type = LONG_TABLE),
         //else
-            FAIL_("Table type not recognised")));
-
-    if (!error)
-    {
-        struct table_state *state = malloc(
-            sizeof(struct table_state) +
-            block_count * sizeof(struct table_block));
-        *state = (struct table_state) {
-            .block_count = block_count,
-            .table_type = table_type,
-        };
-        initialise_table_blocks(state->blocks, block_count);
-
-        *class_data = state;
-    }
-    return error;
+            FAIL_("Table type not recognised")))  ?:
+        DO(create_table(table_type, block_count, class_data));
 }
 
 
@@ -418,14 +409,23 @@ static void table_change_set(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table writing. */
 
-/* Methods for writing data into the block. */
+/* During table write we just fill the write buffer. */
 static error__t table_put_table_write(
     void *context, const uint32_t data[], size_t length)
 {
     struct table_block *block = context;
     struct table_state *state =
         container_of(block, struct table_state, blocks[block->number]);
-    return write_to_table_block(block, state->max_length, data, length);
+
+    if (block->write_length + length > state->max_length)
+        return FAIL_("Too much data written to table");
+    else
+    {
+        memcpy(block->write_data + block->write_length, data,
+            length * sizeof(uint32_t));
+        block->write_length += length;
+        return ERROR_OK;
+    }
 }
 
 
@@ -470,23 +470,18 @@ static error__t table_put_table(
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
+
+    void (*close_writer)(void *) = NULL;
     switch (state->table_type)
     {
-        case SHORT_TABLE:
-            *writer = (struct put_table_writer) {
-                .context = block,
-                .write = table_put_table_write,
-                .close = short_table_put_table_close,
-            };
-            break;
-        case LONG_TABLE:
-            *writer = (struct put_table_writer) {
-                .context = block,
-                .write = table_put_table_write,
-                .close = long_table_put_table_close,
-            };
-            break;
+        case SHORT_TABLE: close_writer = short_table_put_table_close; break;
+        case LONG_TABLE:  close_writer = long_table_put_table_close;  break;
     }
+    *writer = (struct put_table_writer) {
+        .context = block,
+        .write = table_put_table_write,
+        .close = close_writer,
+    };
     return start_table_write(block, append);
 }
 
