@@ -107,8 +107,7 @@ static const struct class_methods *classes_table[] = {
     &bit_out_class_methods,         // bit_out
     &pos_out_class_methods,         // pos_out
 
-    &short_table_class_methods,     // short_table
-    &long_table_class_methods,      // long_table
+    &table_class_methods,           // table
 };
 
 

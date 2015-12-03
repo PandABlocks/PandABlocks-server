@@ -73,6 +73,19 @@ bool read_char(const char **string, char ch)
 }
 
 
+bool read_string(const char **string, const char *expected)
+{
+    size_t length = strlen(expected);
+    if (strncmp(*string, expected, length) == 0)
+    {
+        *string += length;
+        return true;
+    }
+    else
+        return false;
+}
+
+
 error__t parse_char(const char **string, char ch)
 {
     return TEST_OK_(read_char(string, ch), "Character '%c' expected", ch);
