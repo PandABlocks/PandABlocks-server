@@ -196,6 +196,11 @@ static void write_changed_state(void)
             .write_many = write_one_value,
         };
 
+        /* Start by resetting the change context so that we're up to date before
+         * we start writing. */
+        reset_change_context(
+            &change_set_context, CHANGES_CONFIG | CHANGES_ATTR | CHANGES_TABLE);
+
         /* First generate the single value settings.  Generate attribute values
          * first as they can affect the interpretation of the config values. */
         generate_change_sets(&result, CHANGES_ATTR);
