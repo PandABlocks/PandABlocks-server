@@ -192,6 +192,7 @@ error__t hw_open_long_table(
     unsigned int block_base, unsigned int count, unsigned int order,
     struct hw_long_table **table, size_t *length)
 {
+    *length = 0;
     return ERROR_OK;
 }
 
@@ -205,7 +206,6 @@ void hw_read_long_table_area(
 void hw_write_long_table_length(
     struct hw_long_table *table, unsigned int number, size_t length)
 {
-    ASSERT_FAIL();
 }
 
 
