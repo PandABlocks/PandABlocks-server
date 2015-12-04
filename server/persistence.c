@@ -33,105 +33,70 @@ static char *backup_file_name;
 static struct change_set_context change_set_context;
 
 
-/* Parses  <block><n>.<field>  and returns field and number. */
-static error__t parse_field_name(
-    const char *name, struct field **field, unsigned int *number)
-{
-    char block_name[MAX_NAME_LENGTH];
-    struct block *block;
-    unsigned int block_count;
-    char field_name[MAX_NAME_LENGTH];
-    return
-        parse_name(&name, block_name, sizeof(block_name))  ?:
-        lookup_block(block_name, &block, &block_count)  ?:
-        IF_ELSE(isdigit(*name),
-            parse_uint(&name, number)  ?:
-            DO(*number -= 1),
-        //else
-            DO(*number = 0))  ?:
-        TEST_OK_(*number < block_count, "Invalid block number")  ?:
-        parse_char(&name, '.')  ?:
-        parse_name(&name, field_name, sizeof(field_name))  ?:
-        lookup_field(block, field_name, field)  ?:
-        parse_char(&name, '<')  ?:
-        parse_eos(&name);
-}
+/* Structure for line reading: this will be passed through to
+ * process_put_table_command() when loading table data from the persistence
+ * file. */
+struct read_line_context {
+    int line_no;
+    FILE *file;
+};
 
-
-/* Alas, this code is horribly similar to do_put_table in config_server.c, some
- * unification is in order. */
-static error__t write_table_lines(
-    FILE *in_file, int *line_no, struct put_table_writer *writer)
+static bool do_read_line(void *context, char *line, size_t max_length)
 {
-    error__t error = ERROR_OK;
-    while (!error)
+    struct read_line_context *read_context = context;
+    if (fgets(line, (int) max_length, read_context->file))
     {
-        char line[MAX_LINE_LENGTH];
-        size_t length;
-        error =
-            TEST_OK_(fgets(line, sizeof(line), in_file),
-                "Unexpected end of file")  ?:
-            DO(*line_no += 1; length = strlen(line))  ?:
-            TEST_OK_(length > 0, "Unexpected blank line")  ?:
-            TEST_OK_(line[length - 1] == '\n', "Overlong line");
-        if (!error)
+        read_context->line_no += 1;
+        size_t length = strlen(line);
+        error__t error =
+            TEST_OK_(length > 0, "Unexpected empty line")  ?:
+            TEST_OK_(line[length - 1] == '\n', "Line too long");
+        if (error)
+        {
+            ERROR_REPORT(error,
+                "Error reading line %d of persistent state",
+                read_context->line_no);
+            return false;
+        }
+        else
         {
             line[length - 1] = '\0';
-            if (*line == '\0')
-                break;
-            else
-            {
-                uint32_t data[MAX_LINE_LENGTH / sizeof(uint32_t)];
-                size_t converted;
-                enum base64_status status =
-                    base64_decode(line, data, MAX_LINE_LENGTH, &converted);
-                error =
-                    TEST_OK_(status == BASE64_STATUS_OK,
-                        "%s", base64_error_string(status))  ?:
-                    TEST_OK(converted % sizeof(uint32_t) == 0)  ?:
-                    writer->write(
-                        writer->context, data, converted / sizeof(uint32_t));
-            }
+            return true;
         }
     }
-    return error;
+    else
+        return false;
 }
 
 
-static error__t load_table_lines(FILE *in_file, int *line_no, char *name)
-{
-    struct field *field;
-    unsigned int number;
-
-    struct put_table_writer writer;
-    return
-        parse_field_name(name, &field, &number)  ?:
-        field_put_table(field, number, false, &writer)  ?:
-        DO_FINALLY(
-            write_table_lines(in_file, line_no, &writer),
-        //finally
-            writer.close(writer.context));
-}
-
-
-static error__t load_one_line(FILE *in_file, int *line_no, char *line)
+/* Handles one value definition read from the file.  Each line should either be
+ * an assignment or a table entry, we invoke the appropriate handler.  The table
+ * handler needs a bit of help. */
+static error__t load_one_value(struct read_line_context *read_line, char *line)
 {
     size_t name_length = strcspn(line, "=<");
+    char action = line[name_length];
+    line[name_length] = '\0';
+    char *value = &line[name_length + 1];
 
-    struct connection_context context = {
-        .change_set_context = &change_set_context,
-    };
-
-    switch (line[name_length])
+    switch (action)
     {
         case '=':
-            line[name_length] = '\0';
-            return entity_commands.put(&context, line, &line[name_length + 1]);
+        {
+            struct connection_context context = {
+                .change_set_context = &change_set_context,
+            };
+            return entity_commands.put(&context, line, value);
+        }
         case '<':
-            return
-                TEST_OK_(line[name_length + 1] == '\0',
-                    "Unexpected extra characters on line")  ?:
-                load_table_lines(in_file, line_no, line);
+        {
+            struct table_read_line table_read_line = {
+                .context = read_line,
+                .read_line = do_read_line,
+            };
+            return process_put_table_command(
+                &entity_commands, &table_read_line, line, value);
+        }
         default:
             return FAIL_("Malformed line");
     }
@@ -150,21 +115,14 @@ static void load_persistent_state(void)
         error_report(error);
     else
     {
-        int line_no = 0;
+        struct read_line_context read_line = { .file = in_file, };
         char line[MAX_LINE_LENGTH];
-        while (fgets(line, sizeof(line), in_file))
+        while (do_read_line(&read_line, line, sizeof(line)))
         {
-            line_no += 1;
-            size_t line_length = strlen(line);
-
-            error =
-                TEST_OK_(line_length > 1, "Unexpected blank line")  ?:
-                TEST_OK_(line[line_length - 1] == '\n', "Overlong line")  ?:
-                DO(line[line_length - 1] = '\0')  ?:
-                load_one_line(in_file, &line_no, line);
+            error = load_one_value(&read_line, line);
             if (error)
                 ERROR_REPORT(error,
-                    "Error on line %d of persistent state", line_no);
+                    "Error on line %d of persistent state", read_line.line_no);
         }
         fclose(in_file);
 
@@ -199,24 +157,20 @@ static void write_one_value(void *context, const char *string)
 static void write_table_value(void *context, const char *string)
 {
     FILE *out_file = context;
-    fprintf(out_file, "%s\n", string);
+    fprintf(out_file, "%sB\n", string);
 
     struct connection_result result = {
         .write_context = context,
         .write_many = write_one_value,
     };
-//     char table_b[MAX_RESULT_LENGTH];
-//     snprintf(table_b, sizeof(table_b),
-//         "%.*s.B", (int) (strlen(string) - 1), string);
-    struct field *field;
-    unsigned int number;
-    struct attr *attr;
-    error__t error =
-        parse_field_name(string, &field, &number)  ?:
-        lookup_attr(field, "B", &attr)  ?:
-        attr_get(attr, number, &result);
 
-//     error__t error = entity_commands.get(table_b, &result);
+    /* A bit of a hack here.  We know that string is block.field< and we want to
+     * generate block.field.B. */
+    char table_b[2*MAX_NAME_LENGTH];
+    snprintf(table_b, sizeof(table_b),
+        "%.*s.B", (int) (strlen(string) - 1), string);
+
+    error__t error = entity_commands.get(table_b, &result);
     if (error)
         ERROR_REPORT(error, "Unexpected error writing %s", string);
     fprintf(out_file, "\n");

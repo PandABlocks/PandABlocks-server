@@ -41,10 +41,11 @@ static int panda_map_mmap(struct file *file, struct vm_area_struct *vma)
     }
 
     /* Good advice and examples on using this function here:
-     *  http://www.makelinux.net/ldd3/chp-15-sect-2 */
+     *  http://www.makelinux.net/ldd3/chp-15-sect-2
+     * Also see drivers/char/mem.c in kernel sources for guidelines. */
     return io_remap_pfn_range(
         vma, vma->vm_start, PANDA_BASE_PAGE + vma->vm_pgoff, size,
-        vma->vm_page_prot);
+        pgprot_noncached(vma->vm_page_prot));
 }
 
 

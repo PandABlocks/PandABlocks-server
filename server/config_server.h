@@ -118,8 +118,9 @@ struct put_table_writer {
     /* Call this repeatedly with blocks of data (length counts number of data
      * items, not bytes). */
     error__t (*write)(void *context, const uint32_t data[], size_t length);
-    /* This must be called when this writer is finished with. */
-    void (*close)(void *context);
+    /* This must be called when this writer is finished with.  If write_ok is
+     * not true then the entire write is discarded. */
+    void (*close)(void *context, bool write_ok);
 };
 
 
@@ -144,7 +145,23 @@ struct config_command_set {
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Interface for calling command processing. */
 
+
+struct table_read_line {
+    void *context;
+    bool (*read_line)(void *context, char *line, size_t length);
+};
+
+error__t process_put_table_command(
+    const struct config_command_set *command_set,
+    const struct table_read_line *table_read_line,
+    const char *name, const char *extra);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* This can be called to enable logging of all commands. */
 void set_config_server_verbosity(bool verbose);
 
 /* This should be called in a separate thread for each configuration interface

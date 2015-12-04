@@ -7,6 +7,8 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <string.h>
+#include <pthread.h>
+#include <errno.h>
 
 #include "error.h"
 #include "parse.h"
@@ -70,18 +72,68 @@ static error__t field_set_fields_get_many(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Table blocks. */
-
-/* The table block implementation is shared between short and long tables. */
+/* Table structures. */
 
 
 struct table_block {
     uint64_t update_index;  // Timestamp of last change
     unsigned int number;    // Index of this block
-    size_t length;
-    uint32_t *data;
-    bool lock;              // Lock for table write access
+
+    uint32_t *data;         // Data area for block
+    size_t length;          // Current length of block
+
+    /* Writes to the table are double buffered.  We allocate a dedicated write
+     * buffer for use during write, this is protected by write_lock.  When
+     * updating the block we need to take the read_lock as well for writing. */
+    uint32_t *write_data;   // Transient data area while writing
+    size_t write_length;    // Length written so far
+
+    pthread_mutex_t write_lock; // Locks access to write_data area
+    pthread_rwlock_t read_lock; // Write access taken when updating length&data
 };
+
+
+struct table_state {
+    unsigned int block_count;   // Number of block instances
+    struct field_set field_set; // Set of fields in table
+    size_t max_length;          // Maximum block length
+
+    /* We support two types of table, with somewhat different hardware
+     * interfaces.  Implement this as a tagged union. */
+    enum table_type { SHORT_TABLE, LONG_TABLE } table_type;
+    union {
+        struct short_table_state {
+            unsigned int block_base;    // Block base address
+            unsigned int init_reg;      // Register for starting block write
+            unsigned int fill_reg;      // Register for completing block write
+        } short_state;
+
+        struct long_table_state {
+            unsigned int table_order;   // Configured size as a power of 2
+            struct hw_long_table *table;    // Interface to hardware
+        } long_state;
+    };
+
+    struct table_block blocks[];        // Individual table blocks
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Table block methods. */
+
+
+static void initialise_table_blocks(
+    struct table_block blocks[], unsigned int block_count)
+{
+    for (unsigned int i = 0; i < block_count; i ++)
+    {
+        blocks[i] = (struct table_block) {
+            .number = i,
+            .write_lock = PTHREAD_MUTEX_INITIALIZER,
+            .read_lock = PTHREAD_RWLOCK_INITIALIZER,
+        };
+    }
+}
 
 
 static error__t write_ascii(
@@ -117,416 +169,389 @@ static error__t write_base_64(
 }
 
 
-static error__t table_put_table(
-    struct table_block *block, size_t max_length,
-    const uint32_t data[], size_t length)
+static void lock_table_read(struct table_block *block)
 {
-    if (block->length + length > max_length)
+    ASSERT_PTHREAD(pthread_rwlock_rdlock(&block->read_lock));
+}
+
+static void unlock_table_read(struct table_block *block)
+{
+    ASSERT_PTHREAD(pthread_rwlock_unlock(&block->read_lock));
+}
+
+
+/* Writing is rejected if there is another write to the same table in progress
+ * simultaneously. */
+static error__t start_table_write(struct table_block *block, bool append)
+{
+    int result = pthread_mutex_trylock(&block->write_lock);
+    if (result == EBUSY)
+        return FAIL_("Table currently being written");
+    else
+    {
+        if (!append)
+            block->write_length = 0;
+        return TEST_PTHREAD(result);
+    }
+}
+
+
+/* When a write is complete we copy the write data over to the live data.  This
+ * is done under a write lock on the read/write lock.  Before releasing the
+ * locks, we also do any required hardware finalisation. */
+static void complete_table_write(
+    struct table_block *block,
+    void (*finalise)(struct table_state *state, struct table_block *block),
+    bool write_ok)
+{
+    struct table_state *state =
+        container_of(block, struct table_state, blocks[block->number]);
+
+    if (write_ok)
+    {
+        ASSERT_PTHREAD(pthread_rwlock_wrlock(&block->read_lock));
+
+        /* Transfer the so far provisional data into the active area. */
+        block->length = block->write_length;
+        memcpy(block->data, block->write_data,
+            sizeof(uint32_t) * block->length);
+        memset(block->data + block->length, 0,
+            sizeof(uint32_t) * (state->max_length - block->length));
+
+        /* Finally write the updated data to hardware. */
+        finalise(state, block);
+        block->update_index = get_change_index();
+
+        ASSERT_PTHREAD(pthread_rwlock_unlock(&block->read_lock));
+    }
+
+    ASSERT_PTHREAD(pthread_mutex_unlock(&block->write_lock));
+}
+
+
+/* A helper macro for locked reads. */
+#define _id_LOCKED_READ(error, block, result) \
+    ( { \
+        lock_table_read(block); \
+        error__t error = (result); \
+        unlock_table_read(block); \
+        error; \
+    } )
+#define LOCKED_READ(args...) _id_LOCKED_READ(UNIQUE_ID(), args)
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Table methods. */
+
+static void create_table(
+    enum table_type table_type, unsigned int block_count, void **class_data)
+{
+    struct table_state *state = malloc(
+        sizeof(struct table_state) +
+        block_count * sizeof(struct table_block));
+    *state = (struct table_state) {
+        .block_count = block_count,
+        .table_type = table_type,
+    };
+    initialise_table_blocks(state->blocks, block_count);
+
+    *class_data = state;
+}
+
+
+static error__t table_init(
+    const char **line, unsigned int block_count,
+    struct hash_table *attr_map, void **class_data)
+{
+    /* Class name must be followed by table size, either short or long. */
+    enum table_type table_type;
+    return
+        parse_whitespace(line)  ?:
+        IF_ELSE(read_string(line, "short"),
+            DO(table_type = SHORT_TABLE),
+        //else
+        IF_ELSE(read_string(line, "long"),
+            DO(table_type = LONG_TABLE),
+        //else
+            FAIL_("Table type not recognised")))  ?:
+        DO(create_table(table_type, block_count, class_data));
+}
+
+
+static void table_destroy(void *class_data)
+{
+    struct table_state *state = class_data;
+
+    field_set_destroy(&state->field_set);
+    for (unsigned int i = 0; i < state->block_count; i ++)
+        free(state->blocks[i].write_data);
+
+    switch (state->table_type)
+    {
+        case SHORT_TABLE:
+            for (unsigned int i = 0; i < state->block_count; i ++)
+                free(state->blocks[i].data);
+            break;
+        case LONG_TABLE:
+            if (state->long_state.table)
+                hw_close_long_table(state->long_state.table);
+            break;
+    }
+}
+
+
+static error__t table_parse_attribute(void *class_data, const char **line)
+{
+    struct table_state *state = class_data;
+    return field_set_parse_attribute(&state->field_set, line);
+}
+
+
+static error__t short_table_parse_register(
+    struct table_state *state, const char **line)
+{
+    unsigned int max_length;
+    return
+        parse_uint(line, &max_length)  ?:
+        DO(state->max_length = (size_t) max_length)  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->short_state.init_reg)  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->short_state.fill_reg);
+}
+
+
+static error__t long_table_parse_register(
+    struct table_state *state, const char **line)
+{
+    return
+        parse_whitespace(line)  ?:
+        parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
+        parse_uint(line, &state->long_state.table_order);
+}
+
+
+static error__t table_parse_register(
+    void *class_data, struct field *field, const char **line)
+{
+    struct table_state *state = class_data;
+    switch (state->table_type)
+    {
+        case SHORT_TABLE:   return short_table_parse_register(state, line);
+        case LONG_TABLE:    return long_table_parse_register(state, line);
+        default:            ASSERT_FAIL();
+    }
+}
+
+
+static error__t short_table_finalise(
+    struct table_state *state, unsigned int block_base)
+{
+    state->short_state.block_base = block_base;
+
+    size_t block_size = state->max_length * sizeof(uint32_t);
+    for (unsigned int i = 0; i < state->block_count; i ++)
+    {
+        state->blocks[i].data = malloc(block_size);
+        state->blocks[i].write_data = malloc(block_size);
+    }
+    return ERROR_OK;
+}
+
+
+static error__t long_table_finalise(
+    struct table_state *state, unsigned int block_base)
+{
+    error__t error = hw_open_long_table(
+        block_base, state->block_count, state->long_state.table_order,
+        &state->long_state.table, &state->max_length);
+
+    if (!error)
+    {
+        size_t block_size = state->max_length * sizeof(uint32_t);
+        for (unsigned int i = 0; i < state->block_count; i ++)
+        {
+            hw_read_long_table_area(
+                state->long_state.table, i, &state->blocks[i].data);
+            state->blocks[i].write_data = malloc(block_size);
+        }
+    }
+    return error;
+}
+
+
+static error__t table_finalise(void *class_data, unsigned int block_base)
+{
+    struct table_state *state = class_data;
+    switch (state->table_type)
+    {
+        case SHORT_TABLE:   return short_table_finalise(state, block_base);
+        case LONG_TABLE:    return long_table_finalise(state, block_base);
+        default:            ASSERT_FAIL();
+    }
+}
+
+
+static error__t table_get(
+    void *class_data, unsigned int number,
+    struct connection_result *result)
+{
+    struct table_state *state = class_data;
+    struct table_block *block = &state->blocks[number];
+    return LOCKED_READ(block, write_ascii(block, result));
+}
+
+
+static void table_change_set(
+    void *class_data, const uint64_t report_index, bool changes[])
+{
+    struct table_state *state = class_data;
+    for (unsigned int i = 0; i < state->block_count; i ++)
+    {
+        struct table_block *block = &state->blocks[i];
+        lock_table_read(block);
+        changes[i] = block->update_index >= report_index;
+        unlock_table_read(block);
+    }
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Table writing. */
+
+/* During table write we just fill the write buffer. */
+static error__t table_put_table_write(
+    void *context, const uint32_t data[], size_t length)
+{
+    struct table_block *block = context;
+    struct table_state *state =
+        container_of(block, struct table_state, blocks[block->number]);
+
+    if (block->write_length + length > state->max_length)
         return FAIL_("Too much data written to table");
     else
     {
-        memcpy(block->data + block->length, data, length * sizeof(uint32_t));
-        block->length += length;
+        memcpy(block->write_data + block->write_length, data,
+            length * sizeof(uint32_t));
+        block->write_length += length;
         return ERROR_OK;
     }
 }
 
 
-static error__t lock_table_block(struct table_block *block)
+static void short_table_put_finalise(
+    struct table_state *state, struct table_block *block)
 {
-    return TEST_OK_(__sync_bool_compare_and_swap(&block->lock, false, true),
-        "Write to table in progress");
-}
-
-static void unlock_table_block(struct table_block *block)
-{
-    ASSERT_OK(__sync_bool_compare_and_swap(&block->lock, true, false));
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Short table. */
-
-struct short_table_state {
-    unsigned int block_count;   // Number of block instances
-    unsigned int block_base;    // Block base address
-    unsigned int init_reg;      // Register for starting block write
-    unsigned int fill_reg;      // Register for completing block write
-    struct field_set field_set; // Set of fields in table
-    unsigned int max_length;    // Maximum block length
-
-    /* This part contains the block specific information.  To help the table
-     * writing code, the max_length field is repeated for each block! */
-    struct table_block blocks[];
-};
-
-
-static error__t short_table_init(
-    const char **line, unsigned int block_count,
-    struct hash_table *attr_map, void **class_data)
-{
-    struct short_table_state *state = malloc(
-        sizeof(struct short_table_state) +
-        block_count * sizeof(struct table_block));
-    *state = (struct short_table_state) {
-        .block_count = block_count,
-    };
-    for (unsigned int i = 0; i < block_count; i ++)
-        state->blocks[i] = (struct table_block) {
-            .number = i,
-        };
-
-    *class_data = state;
-    return ERROR_OK;
-}
-
-
-static void short_table_destroy(void *class_data)
-{
-    struct short_table_state *state = class_data;
-    for (unsigned int i = 0; i < state->block_count; i ++)
-        free(state->blocks[i].data);
-    field_set_destroy(&state->field_set);
-}
-
-
-static error__t short_table_parse_attribute(void *class_data, const char **line)
-{
-    struct short_table_state *state = class_data;
-    return field_set_parse_attribute(&state->field_set, line);
-}
-
-
-static void allocate_short_table_data(struct short_table_state *state)
-{
-    for (unsigned int i = 0; i < state->block_count; i ++)
-        state->blocks[i].data = malloc(state->max_length * sizeof(uint32_t));
-}
-
-static error__t short_table_parse_register(
-    void *class_data, struct field *field, const char **line)
-{
-    struct short_table_state *state = class_data;
-    return
-        parse_uint(line, &state->max_length)  ?:
-        parse_whitespace(line)  ?:
-        parse_uint(line, &state->init_reg)  ?:
-        parse_whitespace(line)  ?:
-        parse_uint(line, &state->fill_reg)  ?:
-        DO(allocate_short_table_data(state));
-}
-
-
-static error__t short_table_finalise(void *class_data, unsigned int block_base)
-{
-    struct short_table_state *state = class_data;
-    state->block_base = block_base;
-    return ERROR_OK;
-}
-
-
-static error__t short_table_get(
-    void *class_data, unsigned int number,
-    struct connection_result *result)
-{
-    struct short_table_state *state = class_data;
-    return write_ascii(&state->blocks[number], result);
-}
-
-
-/* Methods for writing data into the block. */
-static error__t short_table_put_table_write(
-    void *context, const uint32_t data[], size_t length)
-{
-    struct table_block *block = context;
-    struct short_table_state *state =
-        container_of(block, struct short_table_state, blocks[block->number]);
-    return table_put_table(block, state->max_length, data, length);
-}
-
-static void short_table_put_table_close(void *context)
-{
-    struct table_block *block = context;
-    struct short_table_state *state =
-        container_of(block, struct short_table_state, blocks[block->number]);
-
-    /* Pad rest of table with zeros and send to hardware. */
-    memset(block->data + block->length, 0,
-        sizeof(uint32_t) * (state->max_length - block->length));
     hw_write_short_table(
-        state->block_base, block->number, state->init_reg, state->fill_reg,
+        state->short_state.block_base, block->number,
+        state->short_state.init_reg, state->short_state.fill_reg,
         block->data, state->max_length);
+}
 
-    block->update_index = get_change_index();
-    unlock_table_block(block);
+static void short_table_put_table_close(void *context, bool write_ok)
+{
+    complete_table_write(context, short_table_put_finalise, write_ok);
 }
 
 
-static error__t short_table_put_table(
+/* This is called under both locks to bring the hardware (which is observing the
+ * read area) up to date. */
+static void long_table_put_finalise(
+    struct table_state *state, struct table_block *block)
+{
+    hw_write_long_table_length(
+        state->long_state.table, block->number, block->length);
+}
+
+static void long_table_put_table_close(void *context, bool write_ok)
+{
+    complete_table_write(context, long_table_put_finalise, write_ok);
+}
+
+
+static error__t table_put_table(
     void *class_data, unsigned int number,
     bool append, struct put_table_writer *writer)
 {
-    struct short_table_state *state = class_data;
+    struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
+
+    void (*close_writer)(void *, bool) = NULL;
+    switch (state->table_type)
+    {
+        case SHORT_TABLE: close_writer = short_table_put_table_close; break;
+        case LONG_TABLE:  close_writer = long_table_put_table_close;  break;
+    }
     *writer = (struct put_table_writer) {
         .context = block,
-        .write = short_table_put_table_write,
-        .close = short_table_put_table_close,
+        .write = table_put_table_write,
+        .close = close_writer,
     };
-
-    return
-        lock_table_block(block)  ?:
-        IF(!append, DO(block->length = 0));
-}
-
-
-static error__t short_table_length_format(
-    void *owner, void *class_data, unsigned int number,
-    char result[], size_t length)
-{
-    struct short_table_state *state = class_data;
-    return format_string(result, length, "%zu", state->blocks[number].length);
-}
-
-
-static error__t short_table_max_length_format(
-    void *owner, void *class_data, unsigned int number,
-    char result[], size_t length)
-{
-    struct short_table_state *state = class_data;
-    return format_string(result, length, "%u", state->max_length);
-}
-
-
-static error__t short_table_b_get_many(
-    void *owner, void *class_data, unsigned int number,
-    struct connection_result *result)
-{
-    struct short_table_state *state = class_data;
-    return write_base_64(&state->blocks[number], result);
-}
-
-
-static error__t short_table_fields_get_many(
-    void *owner, void *class_data, unsigned int number,
-    struct connection_result *result)
-{
-    struct short_table_state *state = class_data;
-    return field_set_fields_get_many(&state->field_set, result);
-}
-
-
-static void short_table_change_set(
-    void *class_data, const uint64_t report_index, bool changes[])
-{
-    struct short_table_state *state = class_data;
-    for (unsigned int i = 0; i < state->block_count; i ++)
-        changes[i] = state->blocks[i].update_index >= report_index;
+    return start_table_write(block, append);
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Long table. */
+/* Attributes. */
 
-struct long_table_state {
-    unsigned int block_count;   // Number of block instances
-    unsigned int table_order;   // Configured size as a power of 2
-    size_t max_length;          // Maximum table length (in words)
-    struct field_set field_set; // Set of fields in table
-    struct hw_long_table *table;
-
-    struct table_block blocks[];
-};
-
-
-static error__t long_table_init(
-    const char **line, unsigned int block_count,
-    struct hash_table *attr_map, void **class_data)
+static error__t table_length_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
 {
-    struct long_table_state *state = malloc(
-        sizeof(struct long_table_state) +
-        block_count * sizeof(struct table_block));
-    *state = (struct long_table_state) {
-        .block_count = block_count,
-    };
-    for (unsigned int i = 0; i < block_count; i ++)
-        state->blocks[i] = (struct table_block) {
-            .number = i,
-        };
-
-    *class_data = state;
-    return ERROR_OK;
-}
-
-
-static void long_table_destroy(void *class_data)
-{
-    struct long_table_state *state = class_data;
-    field_set_destroy(&state->field_set);
-    if (state->table)
-        hw_close_long_table(state->table);
-}
-
-
-static error__t long_table_parse_attribute(void *class_data, const char **line)
-{
-    struct long_table_state *state = class_data;
-    return field_set_parse_attribute(&state->field_set, line);
-}
-
-
-static error__t long_table_parse_register(
-    void *class_data, struct field *field, const char **line)
-{
-    struct long_table_state *state = class_data;
-    return
-        parse_whitespace(line)  ?:
-        parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
-        parse_uint(line, &state->table_order);
-}
-
-
-static error__t long_table_finalise(void *class_data, unsigned int block_base)
-{
-    struct long_table_state *state = class_data;
-    return
-        hw_open_long_table(
-            block_base, state->block_count, state->table_order,
-            &state->table, &state->max_length)  ?:
-        DO(for (unsigned int i = 0; i < state->block_count; i ++)
-            hw_read_long_table_area(state->table, i, &state->blocks[i].data));
-}
-
-
-static error__t long_table_get(
-    void *class_data, unsigned int number,
-    struct connection_result *result)
-{
-    struct long_table_state *state = class_data;
-    return write_ascii(&state->blocks[number], result);
-}
-
-
-static error__t long_table_put_table_write(
-    void *context, const uint32_t data[], size_t length)
-{
-    struct table_block *block = context;
-    struct long_table_state *state =
-        container_of(block, struct long_table_state, blocks[block->number]);
-    return table_put_table(block, state->max_length, data, length);
-}
-
-static void long_table_put_table_close(void *context)
-{
-    struct table_block *block = context;
-    struct long_table_state *state =
-        container_of(block, struct long_table_state, blocks[block->number]);
-    hw_write_long_table_length(state->table, block->number, block->length);
-    block->update_index = get_change_index();
-    unlock_table_block(block);
-}
-
-static error__t long_table_put_table(
-    void *class_data, unsigned int number,
-    bool append, struct put_table_writer *writer)
-{
-    struct long_table_state *state = class_data;
+    struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    *writer = (struct put_table_writer) {
-        .context = block,
-        .write = long_table_put_table_write,
-        .close = long_table_put_table_close,
-    };
-    return
-        lock_table_block(block)  ?:
-        IF(!append, DO(block->length = 0));
+    return LOCKED_READ(block,
+        format_string(result, length, "%zu", block->length));
 }
 
 
-static error__t long_table_length_format(
+static error__t table_max_length_format(
     void *owner, void *class_data, unsigned int number,
     char result[], size_t length)
 {
-    struct long_table_state *state = class_data;
-    return format_string(result, length, "%zu", state->blocks[number].length);
-}
-
-
-static error__t long_table_max_length_format(
-    void *owner, void *class_data, unsigned int number,
-    char result[], size_t length)
-{
-    struct long_table_state *state = class_data;
+    struct table_state *state = class_data;
     return format_string(result, length, "%zu", state->max_length);
 }
 
 
-static error__t long_table_b_get_many(
+static error__t table_b_get_many(
     void *owner, void *class_data, unsigned int number,
     struct connection_result *result)
 {
-    struct long_table_state *state = class_data;
-    return write_base_64(&state->blocks[number], result);
+    struct table_state *state = class_data;
+    struct table_block *block = &state->blocks[number];
+    return LOCKED_READ(block, write_base_64(block, result));
 }
 
 
-static error__t long_table_fields_get_many(
+static error__t table_fields_get_many(
     void *owner, void *class_data, unsigned int number,
     struct connection_result *result)
 {
-    struct long_table_state *state = class_data;
+    struct table_state *state = class_data;
     return field_set_fields_get_many(&state->field_set, result);
 }
 
 
-static void long_table_change_set(
-    void *class_data, const uint64_t report_index, bool changes[])
-{
-    struct long_table_state *state = class_data;
-    for (unsigned int i = 0; i < state->block_count; i ++)
-        changes[i] = state->blocks[i].update_index >= report_index;
-}
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Classes. */
+/* Published interface. */
 
-const struct class_methods short_table_class_methods = {
-    "short_table",
-    .init = short_table_init,
-    .parse_attribute = short_table_parse_attribute,
-    .parse_register = short_table_parse_register,
-    .finalise = short_table_finalise,
-    .destroy = short_table_destroy,
-    .get = short_table_get,
-    .put_table = short_table_put_table,
-    .change_set = short_table_change_set,
-    .change_set_index = CHANGE_IX_TABLE,
-    .attrs = (struct attr_methods[]) {
-        { "LENGTH",     .format = short_table_length_format, },
-        { "MAX_LENGTH", .format = short_table_max_length_format, },
-        { "FIELDS",     .get_many = short_table_fields_get_many, },
-        { "B",          .get_many = short_table_b_get_many, },
-    },
-    .attr_count = 4,
-};
-
-const struct class_methods long_table_class_methods = {
+const struct class_methods table_class_methods = {
     "table",
-    .init = long_table_init,
-    .parse_attribute = long_table_parse_attribute,
-    .parse_register = long_table_parse_register,
-    .finalise = long_table_finalise,
-    .destroy = long_table_destroy,
-    .get = long_table_get,
-    .put_table = long_table_put_table,
-    .change_set = long_table_change_set,
+    .init = table_init,
+    .parse_attribute = table_parse_attribute,
+    .parse_register = table_parse_register,
+    .finalise = table_finalise,
+    .destroy = table_destroy,
+    .get = table_get,
+    .put_table = table_put_table,
+    .change_set = table_change_set,
     .change_set_index = CHANGE_IX_TABLE,
     .attrs = (struct attr_methods[]) {
-        { "LENGTH", .format = long_table_length_format, },
-        { "MAX_LENGTH", .format = long_table_max_length_format, },
-        { "FIELDS", .get_many = long_table_fields_get_many, },
-        { "B",      .get_many = long_table_b_get_many, },
+        { "LENGTH", .format = table_length_format, },
+        { "MAX_LENGTH", .format = table_max_length_format, },
+        { "FIELDS", .get_many = table_fields_get_many, },
+        { "B",      .get_many = table_b_get_many, },
     },
     .attr_count = 4,
 };

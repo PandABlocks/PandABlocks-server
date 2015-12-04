@@ -16,6 +16,10 @@ error__t parse_name(const char **string, char result[], size_t max_length);
  * returns true, otherwise returns false. */
 bool read_char(const char **string, char ch);
 
+/* Tests whether input string matches given comparison string, if so consumes it
+ * and returns true, otherwise returns false. */
+bool read_string(const char **string, const char *expected);
+
 /* Expects next character to be ch, fails if not. */
 error__t parse_char(const char **string, char ch);
 
