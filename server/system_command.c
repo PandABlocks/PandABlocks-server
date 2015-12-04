@@ -72,6 +72,7 @@ static error__t get_who(const char *command, struct connection_result *result)
  * *CHANGES.BITS?
  * *CHANGES.POSN?
  * *CHANGES.READ?
+ * *CHANGES.ATTR?
  * *CHANGES.TABLE?
  *
  * Returns list of changed fields and their value. */
@@ -117,6 +118,8 @@ static error__t get_changes(
  * *CHANGES.BITS=
  * *CHANGES.POSN=
  * *CHANGES.READ=
+ * *CHANGES.ATTR=
+ * *CHANGES.TABLE=
  *
  * Resets change reporting for selected change set. */
 static error__t put_changes(
@@ -164,7 +167,7 @@ static error__t get_desc(const char *command, struct connection_result *result)
 
 /* *CAPTURE?
  *
- * Returns list of captured field in capture order. */
+ * Returns list of captured fields in capture order. */
 static error__t get_capture(
     const char *command, struct connection_result *result)
 {
@@ -199,7 +202,7 @@ static error__t get_bits(const char *command, struct connection_result *result)
 }
 
 
-/* *POSITIONSn?
+/* *POSITIONS?
  *
  * Returns list of bit field names for each bit capture block. */
 static error__t get_positions(
