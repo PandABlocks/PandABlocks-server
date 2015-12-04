@@ -72,7 +72,7 @@ static error__t field_set_fields_get_many(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Table blocks. */
+/* Table structures. */
 
 
 struct table_block {
@@ -91,6 +91,35 @@ struct table_block {
     pthread_mutex_t write_lock; // Locks access to write_data area
     pthread_rwlock_t read_lock; // Write access taken when updating length&data
 };
+
+
+struct table_state {
+    unsigned int block_count;   // Number of block instances
+    struct field_set field_set; // Set of fields in table
+    size_t max_length;          // Maximum block length
+
+    /* We support two types of table, with somewhat different hardware
+     * interfaces.  Implement this as a tagged union. */
+    enum table_type { SHORT_TABLE, LONG_TABLE } table_type;
+    union {
+        struct short_table_state {
+            unsigned int block_base;    // Block base address
+            unsigned int init_reg;      // Register for starting block write
+            unsigned int fill_reg;      // Register for completing block write
+        } short_state;
+
+        struct long_table_state {
+            unsigned int table_order;   // Configured size as a power of 2
+            struct hw_long_table *table;    // Interface to hardware
+        } long_state;
+    };
+
+    struct table_block blocks[];        // Individual table blocks
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Table block methods. */
 
 
 static void initialise_table_blocks(
@@ -171,19 +200,31 @@ static error__t start_table_write(struct table_block *block, bool append)
  * is done under a write lock on the read/write lock.  Before releasing the
  * locks, we also do any required hardware finalisation. */
 static void complete_table_write(
-    struct table_block *block, void (*finalise)(struct table_block *block))
+    struct table_block *block,
+    void (*finalise)(struct table_state *state, struct table_block *block),
+    bool write_ok)
 {
-    ASSERT_PTHREAD(pthread_rwlock_wrlock(&block->read_lock));
+    struct table_state *state =
+        container_of(block, struct table_state, blocks[block->number]);
 
-    memcpy(block->data, block->write_data,
-        sizeof(uint32_t) * block->write_length);
-    block->length = block->write_length;
-    block->update_index = get_change_index();
+    if (write_ok)
+    {
+        ASSERT_PTHREAD(pthread_rwlock_wrlock(&block->read_lock));
 
-    if (finalise)
-        finalise(block);
+        /* Transfer the so far provisional data into the active area. */
+        block->length = block->write_length;
+        memcpy(block->data, block->write_data,
+            sizeof(uint32_t) * block->length);
+        memset(block->data + block->length, 0,
+            sizeof(uint32_t) * (state->max_length - block->length));
 
-    ASSERT_PTHREAD(pthread_rwlock_unlock(&block->read_lock));
+        /* Finally write the updated data to hardware. */
+        finalise(state, block);
+        block->update_index = get_change_index();
+
+        ASSERT_PTHREAD(pthread_rwlock_unlock(&block->read_lock));
+    }
+
     ASSERT_PTHREAD(pthread_mutex_unlock(&block->write_lock));
 }
 
@@ -201,31 +242,6 @@ static void complete_table_write(
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table methods. */
-
-struct table_state {
-    unsigned int block_count;   // Number of block instances
-    struct field_set field_set; // Set of fields in table
-    size_t max_length;          // Maximum block length
-
-    /* We support two types of table, with somewhat different hardware
-     * interfaces.  Implement this as a tagged union. */
-    enum table_type { SHORT_TABLE, LONG_TABLE } table_type;
-    union {
-        struct short_table_state {
-            unsigned int block_base;    // Block base address
-            unsigned int init_reg;      // Register for starting block write
-            unsigned int fill_reg;      // Register for completing block write
-        } short_state;
-
-        struct long_table_state {
-            unsigned int table_order;   // Configured size as a power of 2
-            struct hw_long_table *table;    // Interface to hardware
-        } long_state;
-    };
-
-    struct table_block blocks[];        // Individual table blocks
-};
-
 
 static void create_table(
     enum table_type table_type, unsigned int block_count, void **class_data)
@@ -321,12 +337,9 @@ static error__t table_parse_register(
     struct table_state *state = class_data;
     switch (state->table_type)
     {
-        case SHORT_TABLE:
-            return short_table_parse_register(state, line);
-        case LONG_TABLE:
-            return long_table_parse_register(state, line);
-        default:
-            ASSERT_FAIL();
+        case SHORT_TABLE:   return short_table_parse_register(state, line);
+        case LONG_TABLE:    return long_table_parse_register(state, line);
+        default:            ASSERT_FAIL();
     }
 }
 
@@ -372,12 +385,9 @@ static error__t table_finalise(void *class_data, unsigned int block_base)
     struct table_state *state = class_data;
     switch (state->table_type)
     {
-        case SHORT_TABLE:
-            return short_table_finalise(state, block_base);
-        case LONG_TABLE:
-            return long_table_finalise(state, block_base);
-        default:
-            ASSERT_FAIL();
+        case SHORT_TABLE:   return short_table_finalise(state, block_base);
+        case LONG_TABLE:    return long_table_finalise(state, block_base);
+        default:            ASSERT_FAIL();
     }
 }
 
@@ -429,38 +439,33 @@ static error__t table_put_table_write(
 }
 
 
-static void short_table_put_table_close(void *context)
+static void short_table_put_finalise(
+    struct table_state *state, struct table_block *block)
 {
-    struct table_block *block = context;
-    struct table_state *state =
-        container_of(block, struct table_state, blocks[block->number]);
-
-    /* Pad rest of table with zeros and send to hardware. */
-    memset(block->write_data + block->write_length, 0,
-        sizeof(uint32_t) * (state->max_length - block->write_length));
     hw_write_short_table(
         state->short_state.block_base, block->number,
         state->short_state.init_reg, state->short_state.fill_reg,
-        block->write_data, state->max_length);
+        block->data, state->max_length);
+}
 
-    complete_table_write(block, NULL);
+static void short_table_put_table_close(void *context, bool write_ok)
+{
+    complete_table_write(context, short_table_put_finalise, write_ok);
 }
 
 
 /* This is called under both locks to bring the hardware (which is observing the
  * read area) up to date. */
-static void long_table_put_finalise(struct table_block *block)
+static void long_table_put_finalise(
+    struct table_state *state, struct table_block *block)
 {
-    struct table_state *state =
-        container_of(block, struct table_state, blocks[block->number]);
     hw_write_long_table_length(
         state->long_state.table, block->number, block->length);
 }
 
-static void long_table_put_table_close(void *context)
+static void long_table_put_table_close(void *context, bool write_ok)
 {
-    struct table_block *block = context;
-    complete_table_write(block, long_table_put_finalise);
+    complete_table_write(context, long_table_put_finalise, write_ok);
 }
 
 
@@ -471,7 +476,7 @@ static error__t table_put_table(
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
 
-    void (*close_writer)(void *) = NULL;
+    void (*close_writer)(void *, bool) = NULL;
     switch (state->table_type)
     {
         case SHORT_TABLE: close_writer = short_table_put_table_close; break;

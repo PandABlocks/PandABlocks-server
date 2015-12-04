@@ -289,7 +289,6 @@ static error__t do_put_table(
                 put_one_line_to_table(
                     writer, convert_line, line, data_buffer, &residue));
     }
-    writer->close(writer->context);
 
     return
         error  ?:
@@ -303,7 +302,7 @@ static error__t dummy_table_write(
     return ERROR_OK;
 }
 
-static void dummy_table_close(void *context)
+static void dummy_table_close(void *context, bool write_ok)
 {
 }
 
@@ -338,6 +337,7 @@ static error__t complete_table_command(
     error__t put_error = do_put_table(
         table_read_line, command, &writer,
         binary ? convert_base64_line : convert_ascii_line);
+    writer.close(writer.context, !put_error);
 
     /* Now we may have multiple errors.  Return the first one and log the
      * second, if necessary. */
