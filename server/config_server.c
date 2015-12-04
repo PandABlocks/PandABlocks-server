@@ -240,6 +240,29 @@ static error__t convert_ascii_line(
 }
 
 
+/* Writes a single line to the table after conversion.  The conversion is
+ * complicated by the the fact that binary conversion may deliver incomplete
+ * words, so we need to keep track of the partial residue: this will be in the
+ * range 0..3. */
+static error__t put_one_line_to_table(
+    const struct put_table_writer *writer,
+    convert_line_t *convert_line, const char *line,
+    uint32_t data_buffer[], size_t *residue)
+{
+    char *convert_buffer = (char *) data_buffer + *residue;
+    size_t data_length;
+    return
+        convert_line(line, convert_buffer, &data_length)  ?:
+        DO(data_length += *residue)  ?:
+        writer->write(
+            writer->context, data_buffer, data_length / sizeof(uint32_t))  ?:
+        /* Binary conversion can leave us with fragments of words which
+         * we need to carry over to the next line read and conversion. */
+        DO( *residue = data_length % sizeof(uint32_t);
+            data_buffer[0] = data_buffer[data_length / sizeof(uint32_t)]);
+}
+
+
 /* Reads blocks of data from input stream and send to put_table. */
 static error__t do_put_table(
     const struct table_read_line *table_read_line, const char *command,
@@ -254,9 +277,7 @@ static error__t do_put_table(
     while (!error  &&  !eos)
     {
         /* Read one line, convert to binary, write to table. */
-        char *convert_buffer = (char *) data_buffer + residue;
         char line[MAX_LINE_LENGTH];
-        size_t data_length;
         error =
             TEST_OK_(
                 table_read_line->read_line(
@@ -265,16 +286,8 @@ static error__t do_put_table(
             IF_ELSE(*line == '\0',
                 DO(eos = true),
             //else
-                convert_line(line, convert_buffer, &data_length)  ?:
-                DO(data_length += residue)  ?:
-                writer->write(
-                    writer->context, data_buffer,
-                    data_length / sizeof(uint32_t))  ?:
-                /* Binary conversion can leave us with fragments of words which
-                 * we need to carry over to the next line read and converted. */
-                DO( residue = data_length % sizeof(uint32_t);
-                    data_buffer[0] =
-                        data_buffer[data_length / sizeof(uint32_t)]));
+                put_one_line_to_table(
+                    writer, convert_line, line, data_buffer, &residue));
     }
     writer->close(writer->context);
 
@@ -340,7 +353,8 @@ error__t process_put_table_command(
     const struct table_read_line *table_read_line,
     const char *name, const char *format)
 {
-    /* Process the format: this is of the form "<" ["<"] ["B"] .*/
+    /* Process the format: this is of the form "<" ["<"] ["B"] , except the
+     * first "<" has already been consumed. */
     bool append = read_char(&format, '<');  // Table append operation
     bool binary = read_char(&format, 'B');  // Table data is in binary format
 
