@@ -161,7 +161,7 @@ void hw_write_short_table(
     LOCK();
     handle_error(
         write_command_int(
-            'S', block_base, block_number, fill_reg, (uint32_t) length)  ?:
+            'T', block_base, block_number, fill_reg, (uint32_t) length)  ?:
         write_all(data, length * sizeof(uint32_t)));
     UNLOCK();
 }
@@ -247,9 +247,10 @@ void hw_write_long_table_length(
 
     /* Push updated table to simulation server. */
     LOCK();
-    write_command_int(
-        'L', table->block_base, number, 0, (uint32_t) length);
-    write_all(table->data[number], length * sizeof(uint32_t));
+    handle_error(
+        write_command_int(
+            'T', table->block_base, number, 0, (uint32_t) table->length)  ?:
+        write_all(table->data[number], table->length * sizeof(uint32_t)));
     UNLOCK();
 }
 
