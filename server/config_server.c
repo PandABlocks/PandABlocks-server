@@ -272,13 +272,13 @@ static error__t do_put_table(
     uint32_t data_buffer[MAX_LINE_LENGTH / sizeof(uint32_t)];
     size_t residue = 0;
 
-    error__t error = ERROR_OK;
+    error__t first_error = ERROR_OK;
     bool eos = false;
-    while (!error  &&  !eos)
+    while (!eos)
     {
         /* Read one line, convert to binary, write to table. */
         char line[MAX_LINE_LENGTH];
-        error =
+        error__t error =
             TEST_OK_(
                 table_read_line->read_line(
                     table_read_line->context, line, sizeof(line)),
@@ -288,10 +288,16 @@ static error__t do_put_table(
             //else
                 put_one_line_to_table(
                     writer, convert_line, line, data_buffer, &residue));
+
+        /* Quietly discard all errors after the first error seen. */
+        if (first_error)
+            error_discard(error);
+        else
+            first_error = error;
     }
 
     return
-        error  ?:
+        first_error  ?:
         TEST_OK_(residue == 0, "Invalid data length");
 }
 
