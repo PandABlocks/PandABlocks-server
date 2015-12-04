@@ -225,6 +225,7 @@ static error__t convert_base64_line(
         "%s", base64_error_string(status));
 }
 
+/* In ASCII mode we accept a sequence of numbers on each line. */
 static error__t convert_ascii_line(
     const char *line, void *data, size_t *converted)
 {
@@ -265,9 +266,8 @@ static error__t put_one_line_to_table(
 
 /* Reads blocks of data from input stream and send to put_table. */
 static error__t do_put_table(
-    const struct table_read_line *table_read_line, const char *command,
-    const struct put_table_writer *writer,
-    convert_line_t *convert_line)
+    const struct table_read_line *table_read_line,
+    const struct put_table_writer *writer, convert_line_t *convert_line)
 {
     uint32_t data_buffer[MAX_LINE_LENGTH / sizeof(uint32_t)];
     size_t residue = 0;
@@ -319,29 +319,52 @@ static const struct put_table_writer dummy_table_writer = {
 };
 
 
-/* Processing a table command is a little bit tricky: once the client has
- * managed to send a valid command, they're comitted to sending the table data.
- * This means that once we've managed to parse a valid top level syntax we need
- * to accept the rest of the data stream even if the target has rejected the
- * command. */
-static error__t complete_table_command(
+/* Parsing the table command is a little bit odd: despite the fact that the
+ * command parsing may have failed, we still need to complete the command.  This
+ * is so that the client can carry on sending: we carry on accepting table data
+ * until a blank line is seen.
+ *    This is handled in part by returning a dummy writer to receive the table
+ * data if parsing failed. */
+static error__t parse_table_command(
+    const struct config_command_set *command_set,
+    const char *command, const char *format,
+    bool *binary, struct put_table_writer *writer)
+{
+    /* Process the format: this is of the form "<" ["<"] ["B"] , except the
+     * first "<" has already been consumed. */
+    bool append = read_char(&format, '<');  // Table append operation
+    *binary = read_char(&format, 'B');      // Table data is in binary format
+
+    /* If the request is malformed we'll ignore it, otherwise we'll do our best
+     * to accept what was meant. */
+    error__t error =
+        parse_eos(&format)  ?:
+        command_set->put_table(command, append, writer);
+    if (error)
+        /* If any part of the parse failed use a dummy writer so that we can at
+         * least complete the write. */
+        *writer = dummy_table_writer;
+    return error;
+}
+
+
+/* Processes command of the form [*]name<format
+ *
+ * We end up having to handle up to two errors, depending on whether the parse
+ * fails or writing fails later on. */
+error__t process_put_table_command(
     const struct config_command_set *command_set,
     const struct table_read_line *table_read_line,
-    const char *command, bool append, bool binary)
+    const char *name, const char *format)
 {
     struct put_table_writer writer;
-    /* Call .put_table to start the transaction, which must then be
-     * completed with calls to writer. */
-    error__t error = command_set->put_table(command, append, &writer);
-    /* If we failed here then at least give the client a chance to discover
-     * early.  If we're in ASCII mode the force the message out. */
-    if (error)
-        /* .put_table failed, so use the dummy writer instead. */
-        writer = dummy_table_writer;
+    bool binary;
+    error__t error = parse_table_command(
+        command_set, name, format, &binary, &writer);
 
     /* Handle the rest of the input. */
     error__t put_error = do_put_table(
-        table_read_line, command, &writer,
+        table_read_line, &writer,
         binary ? convert_base64_line : convert_ascii_line);
     writer.close(writer.context, !put_error);
 
@@ -350,26 +373,6 @@ static error__t complete_table_command(
     if (error  &&  put_error)
         ERROR_REPORT(put_error, "Extra error while handling do_put_table");
     return error  ?:  put_error;
-}
-
-
-/* Processes command of the form [*]name<format */
-error__t process_put_table_command(
-    const struct config_command_set *command_set,
-    const struct table_read_line *table_read_line,
-    const char *name, const char *format)
-{
-    /* Process the format: this is of the form "<" ["<"] ["B"] , except the
-     * first "<" has already been consumed. */
-    bool append = read_char(&format, '<');  // Table append operation
-    bool binary = read_char(&format, 'B');  // Table data is in binary format
-
-    /* If the request is malformed we'll ignore it, otherwise we'll do our best
-     * to accept what was meant. */
-    return
-        parse_eos(&format)  ?:
-        complete_table_command(
-            command_set, table_read_line, name, append, binary);
 }
 
 
