@@ -272,32 +272,29 @@ static error__t do_put_table(
     uint32_t data_buffer[MAX_LINE_LENGTH / sizeof(uint32_t)];
     size_t residue = 0;
 
-    error__t first_error = ERROR_OK;
-    bool eos = false;
-    while (!eos)
+    /* The logic of this loop is a little tricky.  The goal is to read
+     * everything we can from the input, until either end of input or a blank
+     * line, but we stop processing as soon as an error is encountered. */
+    error__t error = ERROR_OK;
+    while (true)
     {
-        /* Read one line, convert to binary, write to table. */
         char line[MAX_LINE_LENGTH];
-        error__t error =
-            TEST_OK_(
-                table_read_line->read_line(
-                    table_read_line->context, line, sizeof(line)),
-                "Unexpected EOF")  ?:
-            IF_ELSE(*line == '\0',
-                DO(eos = true),
-            //else
-                put_one_line_to_table(
-                    writer, convert_line, line, data_buffer, &residue));
+        bool read_ok = table_read_line->read_line(
+            table_read_line->context, line, sizeof(line));
+        /* If EOF is the first error, (try to) report it. */
+        error = error ?: TEST_OK_(read_ok, "Unexpected EOF");
 
-        /* Quietly discard all errors after the first error seen. */
-        if (first_error)
-            error_discard(error);
-        else
-            first_error = error;
+        /* We loop until the end of the input stream, either end of file
+         * (abnormal end) or blank line (normal end). */
+        if (!read_ok  ||  *line == '\0')
+            break;
+
+        error = error ?: put_one_line_to_table(
+            writer, convert_line, line, data_buffer, &residue);
     }
 
     return
-        first_error  ?:
+        error  ?:
         TEST_OK_(residue == 0, "Invalid data length");
 }
 
