@@ -177,13 +177,6 @@ static error__t check_block_number(
 }
 
 
-/* For meta-data queries we don't allow the number to be present. */
-static error__t check_no_number(bool number_present)
-{
-    return TEST_OK_(!number_present, "Block number not allowed");
-}
-
-
 /* This parses the  field  part of the entity name and does the final number
  * checking. */
 static error__t parse_field_name(
@@ -234,7 +227,6 @@ static error__t compute_entity_handler(
 
         IF_ELSE(read_char(&input, '*'),
             /*  block.*  */
-            check_no_number(number_present)  ?:
             DO(*actions = &field_list_actions),
 
         //else
@@ -244,7 +236,6 @@ static error__t compute_entity_handler(
                 /* There's a further * or an attribute. */
                 IF_ELSE(read_char(&input, '*'),
                     /*  block.field.*  */
-                    check_no_number(number_present)  ?:
                     DO(*actions = &attr_list_actions),
                 //else
                     /*  block.field.attr  */
