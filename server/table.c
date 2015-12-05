@@ -86,7 +86,7 @@ struct table_block {
      * buffer for use during write, this is protected by write_lock.  When
      * updating the block we need to take the read_lock as well for writing. */
     uint32_t *write_data;   // Transient data area while writing
-    size_t write_length;    // Length written so far
+    size_t write_offset;        // Offset data will start at when completed
 
     pthread_mutex_t write_lock; // Locks access to write_data area
     pthread_rwlock_t read_lock; // Write access taken when updating length&data
@@ -189,8 +189,7 @@ static error__t start_table_write(struct table_block *block, bool append)
         return FAIL_("Table currently being written");
     else
     {
-        if (!append)
-            block->write_length = 0;
+        block->write_offset = append ? block->length : 0;
         return TEST_PTHREAD(result);
     }
 }
@@ -202,7 +201,7 @@ static error__t start_table_write(struct table_block *block, bool append)
 static void complete_table_write(
     struct table_block *block,
     void (*finalise)(struct table_state *state, struct table_block *block),
-    bool write_ok)
+    bool write_ok, size_t length)
 {
     struct table_state *state =
         container_of(block, struct table_state, blocks[block->number]);
@@ -212,9 +211,9 @@ static void complete_table_write(
         ASSERT_PTHREAD(pthread_rwlock_wrlock(&block->read_lock));
 
         /* Transfer the so far provisional data into the active area. */
-        block->length = block->write_length;
-        memcpy(block->data, block->write_data,
-            sizeof(uint32_t) * block->length);
+        block->length = length + block->write_offset;
+        memcpy(block->data + block->write_offset, block->write_data,
+            sizeof(uint32_t) * length);
         memset(block->data + block->length, 0,
             sizeof(uint32_t) * (state->max_length - block->length));
 
@@ -419,25 +418,6 @@ static void table_change_set(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table writing. */
 
-/* During table write we just fill the write buffer. */
-static error__t table_put_table_write(
-    void *context, const uint32_t data[], size_t length)
-{
-    struct table_block *block = context;
-    struct table_state *state =
-        container_of(block, struct table_state, blocks[block->number]);
-
-    if (block->write_length + length > state->max_length)
-        return FAIL_("Too much data written to table");
-    else
-    {
-        memcpy(block->write_data + block->write_length, data,
-            length * sizeof(uint32_t));
-        block->write_length += length;
-        return ERROR_OK;
-    }
-}
-
 
 static void short_table_put_finalise(
     struct table_state *state, struct table_block *block)
@@ -448,9 +428,10 @@ static void short_table_put_finalise(
         block->data, state->max_length);
 }
 
-static void short_table_put_table_close(void *context, bool write_ok)
+static void short_table_put_table_close(
+    void *context, bool write_ok, size_t length)
 {
-    complete_table_write(context, short_table_put_finalise, write_ok);
+    complete_table_write(context, short_table_put_finalise, write_ok, length);
 }
 
 
@@ -463,9 +444,10 @@ static void long_table_put_finalise(
         state->long_state.table, block->number, block->length);
 }
 
-static void long_table_put_table_close(void *context, bool write_ok)
+static void long_table_put_table_close(
+    void *context, bool write_ok, size_t length)
 {
-    complete_table_write(context, long_table_put_finalise, write_ok);
+    complete_table_write(context, long_table_put_finalise, write_ok, length);
 }
 
 
@@ -476,15 +458,19 @@ static error__t table_put_table(
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
 
-    void (*close_writer)(void *, bool) = NULL;
+    void (*close_writer)(void *, bool, size_t) = NULL;
     switch (state->table_type)
     {
         case SHORT_TABLE: close_writer = short_table_put_table_close; break;
         case LONG_TABLE:  close_writer = long_table_put_table_close;  break;
     }
+
+    /* If appending is requested adjust the data area length accordingly. */
+    size_t offset = append ? block->length : 0;
     *writer = (struct put_table_writer) {
+        .data = block->write_data,
+        .max_length = state->max_length - offset,
         .context = block,
-        .write = table_put_table_write,
         .close = close_writer,
     };
     return start_table_write(block, append);
