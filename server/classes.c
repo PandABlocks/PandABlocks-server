@@ -91,6 +91,24 @@ void get_class_change_set(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Global class attributes. */
+
+
+static error__t info_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    describe_class(owner, result, length);
+    return ERROR_OK;
+}
+
+
+static struct attr_methods info_attribute = {
+    "INFO", .format = info_format,
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Class inititialisation. */
 
 
@@ -145,6 +163,9 @@ static void create_class_attributes(
         create_attribute(
             &class->methods->attrs[i], class, class->class_data,
             class->count, attr_map);
+
+    create_attribute(
+        &info_attribute, class, class->class_data, class->count, attr_map);
 }
 
 error__t create_class(
