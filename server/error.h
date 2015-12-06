@@ -128,15 +128,6 @@ void log_error(const char *message, ...)
 void vlog_message(int priority, const char *format, va_list args);
 
 
-/* This is used to wrap returned error__t results to try and help ensure that
- * error codes are not discarded. */
-static inline error__t __attribute__((warn_unused_result))
-    _warn_unused_error__t(error__t error)
-{
-    return error;
-}
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* The core error handling macros. */
 
@@ -151,12 +142,12 @@ static inline error__t __attribute__((warn_unused_result))
  * macro), and generates the given error message if the boolean is false.  If
  * expr is successful then ERROR_OK is returned. */
 #define _id_TEST(result, COND, EXTRA, expr, message...) \
-    _warn_unused_error__t(( { \
+    ( { \
         typeof(expr) result = (expr); \
         unlikely(!COND(result)) ? \
             _error_create(EXTRA(result), message) : \
             ERROR_OK; \
-    } ))
+    } )
 #define _TEST(args...)  _id_TEST(UNIQUE_ID(), args)
 
 /* An assert for tests that really really should not fail!  The program will
@@ -203,8 +194,7 @@ static inline error__t __attribute__((warn_unused_result))
 
 /* For failing immediately.  Same as TEST_OK_(false, message...) */
 #define FAIL()                      TEST_OK(false)
-#define FAIL_(message...) \
-    _warn_unused_error__t(_error_create(NULL, message))
+#define FAIL_(message...)           _error_create(NULL, message)
 
 
 /* These two macros facilitate using the macros above by creating if
@@ -217,11 +207,11 @@ static inline error__t __attribute__((warn_unused_result))
 /* If action fails perform on_fail as a cleanup action.  Returns status of
  * action. */
 #define _id_TRY_CATCH(error, action, on_fail...) \
-    _warn_unused_error__t(( { \
+    ( { \
         error__t error = (action); \
         if (error) { on_fail; } \
         error; \
-    } ))
+    } )
 #define TRY_CATCH(args...) _id_TRY_CATCH(UNIQUE_ID(), args)
 
 
