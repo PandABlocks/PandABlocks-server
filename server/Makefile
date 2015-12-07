@@ -38,9 +38,6 @@ CFLAGS += -Wsign-compare
 
 CFLAGS += -Wstrict-overflow=5
 
-CFLAGS_clang += -Wmost
-CFLAGS_clang += -Weverything
-
 CFLAGS += -Wno-switch-enum
 CFLAGS += -Wno-variadic-macros
 CFLAGS += -Wno-padded
@@ -48,6 +45,11 @@ CFLAGS += -Wno-format-nonliteral
 CFLAGS += -Wno-vla
 CFLAGS += -Wno-c++-compat
 CFLAGS += -Wno-pointer-arith
+CFLAGS += -Wno-unused-parameter
+CFLAGS += -Wno-missing-field-initializers
+
+CFLAGS_clang += -Wmost
+CFLAGS_clang += -Weverything
 
 CFLAGS_clang += -Wno-language-extension-token
 CFLAGS_clang += -Wno-disabled-macro-expansion
@@ -57,10 +59,11 @@ CFLAGS_clang += -Wno-gnu-empty-struct
 CFLAGS_clang += -Wno-gnu-zero-variadic-macro-arguments
 CFLAGS_clang += -Wno-gnu-empty-initializer
 
-CFLAGS += -Wno-unused-parameter
-CFLAGS += -Wno-missing-field-initializers
-CFLAGS_cc    += -Wno-override-init
 CFLAGS_clang += -Wno-initializer-overrides
+CFLAGS_clang += -Wno-pedantic
+CFLAGS_clang += -Wno-assign-enum
+CFLAGS_clang += -Wno-conditional-uninitialized
+CFLAGS_clang += -Wno-covered-switch-default
 
 
 # Pick up kernel driver header file
