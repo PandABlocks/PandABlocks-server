@@ -112,7 +112,7 @@ error__t enum_labels_get(
         if (state->strings[i])
         {
             char string[MAX_RESULT_LENGTH];
-            snprintf(string, sizeof(string), "%d %s", i, state->strings[i]);
+            snprintf(string, sizeof(string), "%s", state->strings[i]);
             result->write_many(result->write_context, string);
         }
     result->response = RESPONSE_MANY;

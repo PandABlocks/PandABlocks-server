@@ -120,17 +120,6 @@ static error__t raw_format_uint(
 }
 
 
-static error__t raw_put_uint(
-    void *owner, void *data, unsigned int number, const char *string)
-{
-    struct type *type = owner;
-    unsigned int value;
-    return
-        parse_uint(&string, &value)  ?:
-        parse_eos(&string)  ?:
-        write_register(type, number, value);
-}
-
 static error__t raw_put_int(
     void *owner, void *data, unsigned int number, const char *string)
 {
@@ -601,7 +590,7 @@ static const struct type_methods types_table[] = {
         .init = lut_init, .destroy = lut_destroy,
         .parse = lut_parse, .format = lut_format,
         .attrs = (struct attr_methods[]) {
-            { "RAW", .format = raw_format_uint, .put = raw_put_uint, }, },
+            { "RAW", .format = raw_format_uint, }, },
         .attr_count = 1,
     },
 
@@ -611,10 +600,9 @@ static const struct type_methods types_table[] = {
         .add_attribute_line = enum_add_label,
         .parse = enum_parse, .format = enum_format,
         .attrs = (struct attr_methods[]) {
-            { "RAW", .format = raw_format_uint, .put = raw_put_uint, },
             { "LABELS", .get_many = enum_labels_get, },
         },
-        .attr_count = 2,
+        .attr_count = 1,
     },
 };
 
