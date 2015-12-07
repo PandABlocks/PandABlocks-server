@@ -117,7 +117,7 @@ error__t class_parse_register(
 error__t finalise_class(struct class *class, unsigned int block_base);
 
 /* Returns description of class including any type. */
-void describe_class(struct class *class, char *string, size_t length);
+error__t describe_class(struct class *class, char *string, size_t length);
 
 /* This should be called during shutdown for each created class. */
 void destroy_class(struct class *class);

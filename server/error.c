@@ -84,6 +84,9 @@ void error_discard(error__t error)
 
 const char *error_format(error__t error)
 {
+    if (!error)
+        return "OK";
+
     /* We'll simply format the stack of messages with the most recent message
      * first.  Count up the length needed. */
     size_t length = 0;

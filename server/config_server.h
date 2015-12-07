@@ -114,13 +114,15 @@ struct connection_result {
 
 /* This is filled in by a successful call to put_table. */
 struct put_table_writer {
-    void *context;
-    /* Call this repeatedly with blocks of data (length counts number of data
-     * items, not bytes). */
-    error__t (*write)(void *context, const uint32_t data[], size_t length);
+    /* Write table data to this area then call .close() when finished. */
+    uint32_t *data;
+    size_t max_length;
+
     /* This must be called when this writer is finished with.  If write_ok is
-     * not true then the entire write is discarded. */
-    void (*close)(void *context, bool write_ok);
+     * not true then the entire write is discarded, otherwise length should be
+     * set to the number of words written to the data area. */
+    void *context;
+    void (*close)(void *context, bool write_ok, size_t length);
 };
 
 

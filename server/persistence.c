@@ -166,9 +166,10 @@ static void write_table_value(void *context, const char *string)
 
     /* A bit of a hack here.  We know that string is block.field< and we want to
      * generate block.field.B. */
-    char table_b[2*MAX_NAME_LENGTH];
+    size_t name_length = strlen(string);
+    char table_b[name_length + 4];
     snprintf(table_b, sizeof(table_b),
-        "%.*s.B", (int) (strlen(string) - 1), string);
+        "%.*s.B", (int) (name_length - 1), string);
 
     error__t error = entity_commands.get(table_b, &result);
     if (error)
@@ -232,14 +233,14 @@ static int backoff_interval;
 static pthread_t persistence_thread_id;
 static bool thread_running;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t psignal = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t psignal;
 
 
 /* Interruptible timeout wait: returns false if thread interrupt requested. */
 static bool pwait_timeout(int delay)
 {
     struct timespec timeout;
-    ASSERT_IO(clock_gettime(CLOCK_REALTIME, &timeout));
+    ASSERT_IO(clock_gettime(CLOCK_MONOTONIC, &timeout));
     timeout.tv_sec += delay;
 
     LOCK(mutex);
@@ -300,7 +301,16 @@ error__t initialise_persistence(
 
     asprintf(&backup_file_name, "%s.backup", file_name);
     thread_running = true;
+
+    pthread_condattr_t attr;
     return
+        /* Need to initialise the shutdown/wakeup signal we're using to use the
+         * CLOCK_MONOTONIC clock. */
+        TEST_PTHREAD(pthread_condattr_init(&attr))  ?:
+        TEST_PTHREAD(pthread_condattr_setclock(&attr, CLOCK_MONOTONIC))  ?:
+        TEST_PTHREAD(pthread_cond_init(&psignal, &attr))  ?:
+
+        /* Load state and start the monitor thread. */
         DO(load_persistent_state())  ?:
         TRY_CATCH(
             TEST_PTHREAD(pthread_create(

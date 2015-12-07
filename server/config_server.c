@@ -50,11 +50,14 @@ error__t __attribute__((format(printf, 3, 4))) format_string(
  * see. */
 error__t format_double(char result[], size_t length, double value)
 {
-    ASSERT_OK((size_t) snprintf(result, length, "%.10g", value) < length);
-    const char *skip = skip_whitespace(result);
-    if (skip > result)
-        memmove(result, skip, strlen(skip) + 1);
-    return ERROR_OK;
+    error__t error = format_string(result, length, "%.10g", value);
+    if (!error)
+    {
+        const char *skip = skip_whitespace(result);
+        if (skip > result)
+            memmove(result, skip, strlen(skip) + 1);
+    }
+    return error;
 }
 
 
@@ -211,110 +214,86 @@ static void do_write_command(
 /* Two different sources of table data: ASCII encoded (printable numbers) or
  * encoded base64, with two different implementations. */
 typedef error__t convert_line_t(
-    const char *line, void *data, size_t *converted);
+    const char *line, void *data, size_t length, size_t *converted);
 
 
 /* Fills buffer from a binary stream by reading exactly the requested number of
  * values as bytes. */
 static error__t convert_base64_line(
-    const char *line, void *data, size_t *converted)
+    const char *line, void *data, size_t length, size_t *converted)
 {
-    enum base64_status status =
-        base64_decode(line, data, MAX_LINE_LENGTH, converted);
+    enum base64_status status = base64_decode(line, data, length, converted);
     return TEST_OK_(status == BASE64_STATUS_OK,
         "%s", base64_error_string(status));
 }
 
 /* In ASCII mode we accept a sequence of numbers on each line. */
 static error__t convert_ascii_line(
-    const char *line, void *data, size_t *converted)
+    const char *line, void *data, size_t length, size_t *converted)
 {
     uint32_t *data_out = data;
+    size_t length_out = length / sizeof(uint32_t);
     size_t count = 0;
-    error__t error = parse_uint(&line, (unsigned int *) &data_out[count++]);
+
+    error__t error = ERROR_OK;
     while (!error  &&  *line != '\0')
         error =
-            parse_whitespace(&line)  ?:
+            TEST_OK_(count < length_out, "Too many points for table")  ?:
             parse_uint(&line, (unsigned int *) &data_out[count++]);
     *converted = sizeof(uint32_t) * count;
     return error;
 }
 
 
-/* Writes a single line to the table after conversion.  The conversion is
- * complicated by the the fact that binary conversion may deliver incomplete
- * words, so we need to keep track of the partial residue: this will be in the
- * range 0..3. */
-static error__t put_one_line_to_table(
-    const struct put_table_writer *writer,
-    convert_line_t *convert_line, const char *line,
-    uint32_t data_buffer[], size_t *residue)
-{
-    char *convert_buffer = (char *) data_buffer + *residue;
-    size_t data_length;
-    return
-        convert_line(line, convert_buffer, &data_length)  ?:
-        DO(data_length += *residue)  ?:
-        writer->write(
-            writer->context, data_buffer, data_length / sizeof(uint32_t))  ?:
-        /* Binary conversion can leave us with fragments of words which
-         * we need to carry over to the next line read and conversion. */
-        DO( *residue = data_length % sizeof(uint32_t);
-            data_buffer[0] = data_buffer[data_length / sizeof(uint32_t)]);
-}
-
-
 /* Reads blocks of data from input stream and send to put_table. */
 static error__t do_put_table(
     const struct table_read_line *table_read_line,
-    const struct put_table_writer *writer, convert_line_t *convert_line)
+    const struct put_table_writer *writer, convert_line_t *convert_line,
+    size_t *written)
 {
-    uint32_t data_buffer[MAX_LINE_LENGTH / sizeof(uint32_t)];
-    size_t residue = 0;
+    /* All the conversion here happens in bytes, and then we'll convert the
+     * count back to words on completion. */
+    char *data = (char *) writer->data;
+    size_t length = sizeof(uint32_t) * writer->max_length;
 
-    error__t first_error = ERROR_OK;
-    bool eos = false;
-    while (!eos)
+    /* The logic of this loop is a little tricky.  The goal is to read
+     * everything we can from the input, until either end of input or a blank
+     * line, but we stop processing as soon as an error is encountered. */
+    error__t error = ERROR_OK;
+    while (true)
     {
-        /* Read one line, convert to binary, write to table. */
         char line[MAX_LINE_LENGTH];
-        error__t error =
-            TEST_OK_(
-                table_read_line->read_line(
-                    table_read_line->context, line, sizeof(line)),
-                "Unexpected EOF")  ?:
-            IF_ELSE(*line == '\0',
-                DO(eos = true),
-            //else
-                put_one_line_to_table(
-                    writer, convert_line, line, data_buffer, &residue));
+        bool read_ok = table_read_line->read_line(
+            table_read_line->context, line, sizeof(line));
+        /* If EOF is the first error, (try to) report it. */
+        error = error ?: TEST_OK_(read_ok, "Unexpected EOF");
 
-        /* Quietly discard all errors after the first error seen. */
-        if (first_error)
-            error_discard(error);
-        else
-            first_error = error;
+        /* We loop until the end of the input stream, either end of file
+         * (abnormal end) or blank line (normal end). */
+        if (!read_ok  ||  *line == '\0')
+            break;
+
+        /* If we're processing, convert the line and update data and length. */
+        size_t converted;
+        error = error ?:
+            convert_line(line, data, length, &converted)  ?:
+            DO( data += converted; length -= converted);
     }
 
+    size_t converted = (size_t) (data - (char *) writer->data);
+    *written = converted / sizeof(uint32_t);
     return
-        first_error  ?:
-        TEST_OK_(residue == 0, "Invalid data length");
+        error  ?:
+        TEST_OK_(converted % sizeof(uint32_t) == 0, "Invalid data length");
 }
 
 
-static error__t dummy_table_write(
-    void *context, const uint32_t data[], size_t length)
-{
-    return ERROR_OK;
-}
-
-static void dummy_table_close(void *context, bool write_ok)
+static void dummy_table_close(void *context, bool write_ok, size_t length)
 {
 }
 
 /* Dummy table writer used to accept table data stream if .put_table fails. */
 static const struct put_table_writer dummy_table_writer = {
-    .write = dummy_table_write,
     .close = dummy_table_close,
 };
 
@@ -363,15 +342,16 @@ error__t process_put_table_command(
         command_set, name, format, &binary, &writer);
 
     /* Handle the rest of the input. */
+    size_t written;
     error__t put_error = do_put_table(
         table_read_line, &writer,
-        binary ? convert_base64_line : convert_ascii_line);
-    writer.close(writer.context, !put_error);
+        binary ? convert_base64_line : convert_ascii_line, &written);
+    writer.close(writer.context, !put_error, written);
 
-    /* Now we may have multiple errors.  Return the first one and log the
+    /* Now we may have multiple errors.  Return the first one and discard the
      * second, if necessary. */
     if (error  &&  put_error)
-        ERROR_REPORT(put_error, "Extra error while handling do_put_table");
+        error_discard(put_error);
     return error  ?:  put_error;
 }
 

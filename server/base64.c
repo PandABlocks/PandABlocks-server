@@ -134,7 +134,7 @@ const char *base64_error_string(enum base64_status status)
 {
     const char *error_messages[] = {
         "OK",
-        "Malformed input string",
+        "Malformed base64 string",
         "Input string too long for output buffer",
     };
     unsigned int count = sizeof(error_messages) / sizeof(error_messages[0]);
