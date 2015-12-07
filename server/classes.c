@@ -98,8 +98,7 @@ static error__t info_format(
     void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
-    describe_class(owner, result, length);
-    return ERROR_OK;
+    return describe_class(owner, result, length);
 }
 
 
@@ -213,13 +212,13 @@ error__t finalise_class(struct class *class, unsigned int block_base)
             class->methods->finalise(class->class_data, block_base));
 }
 
-void describe_class(struct class *class, char *string, size_t length)
+error__t describe_class(struct class *class, char *string, size_t length)
 {
-    size_t written =
-        (size_t) snprintf(string, length, "%s", class->methods->name);
     if (class->methods->describe)
-        snprintf(string + written, length - written, " %s",
-            class->methods->describe(class->class_data));
+        return format_string(string, length, "%s %s",
+            class->methods->name, class->methods->describe(class->class_data));
+    else
+        return format_string(string, length, "%s", class->methods->name);
 }
 
 void destroy_class(struct class *class)

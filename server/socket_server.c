@@ -175,7 +175,7 @@ static void format_session_item(
     struct connection_result *result, struct session *session)
 {
     struct tm tm;
-    char message[128];
+    char message[MAX_RESULT_LENGTH];
     gmtime_r(&session->ts.tv_sec, &tm);
     snprintf(message, sizeof(message),
         "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ %s %s ",

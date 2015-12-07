@@ -50,11 +50,14 @@ error__t __attribute__((format(printf, 3, 4))) format_string(
  * see. */
 error__t format_double(char result[], size_t length, double value)
 {
-    ASSERT_OK((size_t) snprintf(result, length, "%.10g", value) < length);
-    const char *skip = skip_whitespace(result);
-    if (skip > result)
-        memmove(result, skip, strlen(skip) + 1);
-    return ERROR_OK;
+    error__t error = format_string(result, length, "%.10g", value);
+    if (!error)
+    {
+        const char *skip = skip_whitespace(result);
+        if (skip > result)
+            memmove(result, skip, strlen(skip) + 1);
+    }
+    return error;
 }
 
 

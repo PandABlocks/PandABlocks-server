@@ -166,9 +166,10 @@ static void write_table_value(void *context, const char *string)
 
     /* A bit of a hack here.  We know that string is block.field< and we want to
      * generate block.field.B. */
-    char table_b[2*MAX_NAME_LENGTH];
+    size_t name_length = strlen(string);
+    char table_b[name_length + 4];
     snprintf(table_b, sizeof(table_b),
-        "%.*s.B", (int) (strlen(string) - 1), string);
+        "%.*s.B", (int) (name_length - 1), string);
 
     error__t error = entity_commands.get(table_b, &result);
     if (error)

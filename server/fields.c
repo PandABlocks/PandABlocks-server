@@ -141,7 +141,9 @@ error__t field_list_get(
         char string[MAX_RESULT_LENGTH];
         size_t length = (size_t) snprintf(string, sizeof(string), "%s %u ",
             field->name, field->sequence);
-        describe_class(field->class, string + length, sizeof(string) - length);
+        error__t error = describe_class(
+            field->class, string + length, sizeof(string) - length);
+        ASSERT_OK(!error);
 
         result->write_many(result->write_context, string);
     }
