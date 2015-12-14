@@ -70,7 +70,7 @@ static error__t read_register(
 {
     return
         TEST_OK_(type->reg->read, "Register cannot be read")  ?:
-        DO(*value = type->reg->read(type->reg_data, number));
+        type->reg->read(type->reg_data, number, value);
 }
 
 
@@ -79,7 +79,7 @@ static error__t write_register(
 {
     return
         TEST_OK_(type->reg->write, "Register cannot be written")  ?:
-        DO(type->reg->write(type->reg_data, number, value));
+        type->reg->write(type->reg_data, number, value);
 }
 
 

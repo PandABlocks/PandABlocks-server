@@ -7,9 +7,9 @@ struct type;
  * this structure are optional. */
 struct register_methods {
     /* Reads current register value. */
-    uint32_t (*read)(void *reg_data, unsigned int number);
+    error__t (*read)(void *reg_data, unsigned int number, uint32_t *value);
     /* Writes to register. */
-    void (*write)(void *reg_data, unsigned int number, uint32_t value);
+    error__t (*write)(void *reg_data, unsigned int number, uint32_t value);
     /* Notifies register change. */
     void (*changed)(void *reg_data, unsigned int number);
 };

@@ -154,14 +154,15 @@ static void simple_register_changed(void *reg_data, unsigned int number)
  * written to a register, the written value is cached for readback, and we keep
  * track of the report index. */
 
-static uint32_t param_read(void *reg_data, unsigned int number)
+static error__t param_read(void *reg_data, unsigned int number, uint32_t *value)
 {
     struct simple_state *state = reg_data;
-    return state->values[number].value;
+    *value = state->values[number].value;
+    return ERROR_OK;
 }
 
 
-static void param_write(void *reg_data, unsigned int number, uint32_t value)
+static error__t param_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct simple_state *state = reg_data;
 
@@ -171,6 +172,7 @@ static void param_write(void *reg_data, unsigned int number, uint32_t value)
     hw_write_register(
         state->base.block_base, number, state->base.field_register, value);
     UNLOCK(state->mutex);
+    return ERROR_OK;
 }
 
 
@@ -232,14 +234,14 @@ static uint32_t unlocked_read_read(
     return result;
 }
 
-static uint32_t read_read(void *reg_data, unsigned int number)
+static error__t read_read(void *reg_data, unsigned int number, uint32_t *value)
 {
     struct simple_state *state = reg_data;
 
     LOCK(state->mutex);
-    uint32_t result = unlocked_read_read(state, number);
+    *value = unlocked_read_read(state, number);
     UNLOCK(state->mutex);
-    return result;
+    return ERROR_OK;
 }
 
 
@@ -287,10 +289,11 @@ const struct class_methods read_class_methods = {
 
 /* For this the base state is sufficient. */
 
-static void write_write(void *reg_data, unsigned int number, uint32_t value)
+static error__t write_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct base_state *state = reg_data;
     hw_write_register(state->block_base, number, state->field_register, value);
+    return ERROR_OK;
 }
 
 static struct register_methods write_methods = {

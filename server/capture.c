@@ -212,22 +212,24 @@ static error__t capture_init(
 }
 
 
-static uint32_t bit_out_read(void *reg_data, unsigned int number)
+static error__t bit_out_read(
+    void *reg_data, unsigned int number, uint32_t *result)
 {
     struct capture_state *state = reg_data;
     LOCK(bit_mutex);
-    uint32_t result = bit_out_state.bits[state->index_array[number]];
+    *result = bit_out_state.bits[state->index_array[number]];
     UNLOCK(bit_mutex);
-    return result;
+    return ERROR_OK;
 }
 
-static uint32_t pos_out_read(void *reg_data, unsigned int number)
+static error__t pos_out_read(
+    void *reg_data, unsigned int number, uint32_t *result)
 {
     struct capture_state *state = reg_data;
     LOCK(pos_mutex);
-    uint32_t result = pos_out_state.positions[state->index_array[number]];
+    *result = pos_out_state.positions[state->index_array[number]];
     UNLOCK(pos_mutex);
-    return result;
+    return ERROR_OK;
 }
 
 static const struct register_methods bit_out_methods = {
