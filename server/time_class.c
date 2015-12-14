@@ -252,6 +252,18 @@ static error__t time_units_put(
 }
 
 
+static error__t time_min_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
+{
+    struct time_state *state = class_data;
+    struct time_field *field = &state->values[number];
+    double conversion = time_conversion[field->time_scale];
+    return format_double(
+        result, length, (double) (state->min_value + 1) / conversion);
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 const struct class_methods time_class_methods = {
@@ -272,6 +284,9 @@ const struct class_methods time_class_methods = {
             .format = time_units_format,
             .put = time_units_put,
         },
+        { "MIN",
+            .format = time_min_format,
+        },
     },
-    .attr_count = 2,
+    .attr_count = 3,
 };
