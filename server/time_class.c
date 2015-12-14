@@ -25,15 +25,20 @@
 enum time_scale { TIME_MINS, TIME_SECS, TIME_MSECS, TIME_USECS, };
 
 struct time_state {
-    unsigned int block_base;
-    unsigned int low_register;
-    unsigned int high_register;
-    unsigned int count;
-    pthread_mutex_t mutex;
+    unsigned int block_base;            // Base address for block
+    unsigned int low_register;          // low 32-bits of value
+    unsigned int high_register;         // high 16-bits of value
+    unsigned int count;                 // Number of instances of this block
+    pthread_mutex_t mutex;              // Interlock for block access
+
+    /* If min_value is set then the range of values [1..min_value] will be
+     * forbidden.  This is used to assist the hardware. */
+    uint64_t min_value;                 // Minimum valid value less 1
+
     struct time_field {
-        enum time_scale time_scale;
-        uint64_t value;
-        uint64_t update_index;
+        enum time_scale time_scale;         // Scaling factor selection
+        uint64_t value;                     // Current value
+        uint64_t update_index;              // Timestamp of last update
     } values[];
 };
 
@@ -85,7 +90,11 @@ static error__t time_parse_register(
         parse_whitespace(line)  ?:
         parse_uint(line, &state->low_register)  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &state->high_register);
+        parse_uint(line, &state->high_register)  ?:
+        IF(**line != '\0',
+            parse_whitespace(line)  ?:
+            parse_char(line, '>')  ?:
+            parse_uint64(line, &state->min_value));
 }
 
 
@@ -119,23 +128,29 @@ static error__t time_get(
 }
 
 
-static void write_time_value(
+static error__t write_time_value(
     void *class_data, unsigned int number, uint64_t value)
 {
     struct time_state *state = class_data;
     struct time_field *field = &state->values[number];
 
-    LOCK(state->mutex);
-    hw_write_register(
-        state->block_base, number, state->low_register,
-        (uint32_t) value);
-    hw_write_register(
-        state->block_base, number, state->high_register,
-        (uint32_t) (value >> 32));
+    error__t error =
+        TEST_OK_(value == 0  ||  value > state->min_value, "Value too small");
+    if (!error)
+    {
+        LOCK(state->mutex);
+        hw_write_register(
+            state->block_base, number, state->low_register,
+            (uint32_t) value);
+        hw_write_register(
+            state->block_base, number, state->high_register,
+            (uint32_t) (value >> 32));
 
-    field->value = value;
-    field->update_index = get_change_index();
-    UNLOCK(state->mutex);
+        field->value = value;
+        field->update_index = get_change_index();
+        UNLOCK(state->mutex);
+    }
+    return error;
 }
 
 
@@ -150,10 +165,14 @@ static error__t time_put(
     return
         parse_double(&string, &scaled_value)  ?:
         parse_eos(&string)  ?:
+        /* The obvious thing to do here is simply to call llround() on the
+         * result of the calculation below and detect range overflow ... good
+         * luck with that, seems that whether overflow is actually reported is
+         * target dependent, and doesn't work for us.  Ho hum. */
         DO(value = scaled_value * conversion)  ?:
         TEST_OK_(0 <= value  &&  value <= MAX_CLOCK_VALUE,
             "Time setting out of range")  ?:
-        DO(write_time_value(state, number, (uint64_t) llround(value)));
+        write_time_value(state, number, (uint64_t) llround(value));
 }
 
 
@@ -197,7 +216,7 @@ static error__t time_raw_put(
     return
         parse_uint64(&string, &value)  ?:
         parse_eos(&string)  ?:
-        DO(write_time_value(state, number, value));
+        write_time_value(state, number, value);
 }
 
 
