@@ -322,7 +322,7 @@ static void param_change_set(
     struct simple_state *state = class_data;
     LOCK(state->mutex);
     for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index >= report_index;
+        changes[i] = state->values[i].update_index > report_index;
     UNLOCK(state->mutex);
 }
 
@@ -377,7 +377,7 @@ static void read_change_set(
     for (unsigned int i = 0; i < state->count; i ++)
     {
         unlocked_read_read(state, i);
-        changes[i] = state->values[i].update_index >= report_index;
+        changes[i] = state->values[i].update_index > report_index;
     }
     UNLOCK(state->mutex);
 }

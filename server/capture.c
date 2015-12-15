@@ -374,7 +374,7 @@ static void bit_pos_change_set(
     const uint64_t report_index, bool changes[])
 {
     for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = change_index[state->index_array[i]] >= report_index;
+        changes[i] = change_index[state->index_array[i]] > report_index;
 }
 
 static void bit_out_change_set(

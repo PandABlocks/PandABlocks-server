@@ -71,7 +71,7 @@ void get_attr_change_set(
     for (unsigned int i = 0; i < attr->count; i ++)
         change_set[i] =
             attr->methods->in_change_set  &&
-            attr->change_index[i] >= report_index;
+            attr->change_index[i] > report_index;
     UNLOCK(attr->mutex);
 }
 

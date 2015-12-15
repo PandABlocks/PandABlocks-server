@@ -409,7 +409,7 @@ static void table_change_set(
     {
         struct table_block *block = &state->blocks[i];
         lock_table_read(block);
-        changes[i] = block->update_index >= report_index;
+        changes[i] = block->update_index > report_index;
         unlock_table_read(block);
     }
 }
