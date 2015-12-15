@@ -41,6 +41,8 @@ error__t class_get(
     struct class *class, unsigned int number, bool refresh,
     struct connection_result *result)
 {
+    if (refresh  &&  class->methods->refresh)
+        class->methods->refresh(class->class_data, number);
     return
         TEST_OK_(class->methods->get, "Field not readable")  ?:
         class->methods->get(class->class_data, number, result);
