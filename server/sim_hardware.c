@@ -76,6 +76,7 @@ static error__t read_all(void *data, size_t length)
     while (!error  &&  length > 0)
         error =
             TEST_IO(received = read(sock, data, length))  ?:
+            TEST_OK_(received, "Unexpected EOF")  ?:
             DO(
                 data   += (size_t) received;
                 length -= (size_t) received;
@@ -116,10 +117,20 @@ static error__t write_command_int(
 
 static void handle_error(error__t error)
 {
+    /* This flag will be reset on the first error, which will cause all
+     * subsequent access attempts to silently fail. */
+    static bool running = true;
     if (error)
     {
-        ERROR_REPORT(error, "Error in simulation connection");
-        kill_socket_server();
+        if (running)
+        {
+            ERROR_REPORT(error, "Error in simulation connection");
+            kill_socket_server();
+            running = false;    // Suppress subsequent error messages
+        }
+        else
+            /* Quietly discard subsequent error messages. */
+            error_discard(error);
     }
 }
 
