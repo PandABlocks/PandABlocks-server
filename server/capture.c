@@ -330,10 +330,9 @@ static error__t pos_out_parse_register(
 /* The refresh method is called when we need a fresh value.  We retrieve values
  * and changed bits from the hardware and update settings accordingly. */
 
-static void bit_out_refresh(void *class_data, unsigned int number)
+void do_bit_out_refresh(uint64_t change_index)
 {
     LOCK(bit_mutex);
-    uint64_t change_index = get_change_index();
     bool changes[BIT_BUS_COUNT];
     hw_read_bits(bit_out_state.bits, changes);
     for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
@@ -342,10 +341,9 @@ static void bit_out_refresh(void *class_data, unsigned int number)
     UNLOCK(bit_mutex);
 }
 
-static void pos_out_refresh(void *class_data, unsigned int number)
+void do_pos_out_refresh(uint64_t change_index)
 {
     LOCK(pos_mutex);
-    uint64_t change_index = get_change_index();
     bool changes[POS_BUS_COUNT];
     hw_read_positions(pos_out_state.positions, changes);
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
@@ -354,8 +352,16 @@ static void pos_out_refresh(void *class_data, unsigned int number)
     UNLOCK(pos_mutex);
 }
 
-void do_bit_out_refresh(void) { bit_out_refresh(NULL, 0); }
-void do_pos_out_refresh(void) { pos_out_refresh(NULL, 0); }
+
+static void bit_out_refresh(void *class_data, unsigned int number)
+{
+    do_bit_out_refresh(get_change_index());
+}
+
+static void pos_out_refresh(void *class_data, unsigned int number)
+{
+    do_pos_out_refresh(get_change_index());
+}
 
 
 /* When reading just return the current value from our static state. */

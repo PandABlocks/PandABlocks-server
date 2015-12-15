@@ -33,8 +33,8 @@ error__t pos_mux_parse(
 /* Refresh methods used to bring cached _out values up to date with values read
  * from hardware. */
 
-void do_bit_out_refresh(void);
-void do_pos_out_refresh(void);
+void do_bit_out_refresh(uint64_t change_index);
+void do_pos_out_refresh(uint64_t change_index);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

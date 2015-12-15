@@ -70,12 +70,12 @@ error__t class_put_table(
 
 /* Change support. */
 
-void refresh_class_changes(enum change_set change_set)
+void refresh_class_changes(enum change_set change_set, uint64_t change_index)
 {
     if (change_set & CHANGES_BITS)
-        do_bit_out_refresh();
+        do_bit_out_refresh(change_index);
     if (change_set & CHANGES_POSITION)
-        do_pos_out_refresh();
+        do_pos_out_refresh(change_index);
 }
 
 

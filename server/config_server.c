@@ -77,7 +77,7 @@ uint64_t get_change_index(void)
 }
 
 
-void update_change_index(
+uint64_t update_change_index(
     struct change_set_context *context,
     enum change_set change_set, uint64_t reported[CHANGE_SET_SIZE])
 {
@@ -92,6 +92,7 @@ void update_change_index(
             /* If this change isn't to be reported, push the report index out to
              * the indefinite future. */
             reported[i] = (uint64_t) (int64_t) -1;
+    return change_index;
 }
 
 

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "error.h"
 #include "hardware.h"
@@ -14,6 +15,7 @@
 #include "types.h"
 #include "classes.h"
 #include "attributes.h"
+#include "locking.h"
 
 #include "fields.h"
 
@@ -190,6 +192,9 @@ error__t field_put_table(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Change set management. */
 
+static pthread_mutex_t change_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
 /* Alas it is possible for an error to be detected during formatting when
  * generating a change report.  If this occurs we back up over the value being
  * written and write an error mark instead. */
@@ -302,6 +307,18 @@ static void generate_attr_change_sets(
 }
 
 
+static void refresh_change_index(
+    struct change_set_context *change_set_context,
+    enum change_set change_set, uint64_t report_index[])
+{
+    LOCK(change_mutex);
+    uint64_t change_index = update_change_index(
+        change_set_context, change_set, report_index);
+    refresh_class_changes(change_set, change_index);
+    UNLOCK(change_mutex);
+}
+
+
 /* Walks all fields and generates a change event for all changed fields. */
 void generate_change_sets(
     struct connection_result *result, enum change_set change_set)
@@ -309,8 +326,7 @@ void generate_change_sets(
     /* Get the change index for this connection and update it so the next
      * changes request will be up to date.  Use a fresh index for this. */
     uint64_t report_index[CHANGE_SET_SIZE];
-    update_change_index(result->change_set_context, change_set, report_index);
-    refresh_class_changes(change_set);
+    refresh_change_index(result->change_set_context, change_set, report_index);
 
     /* Work through all fields in all blocks. */
     FOR_EACH_BLOCK(block)
@@ -348,8 +364,7 @@ bool check_change_set(
     struct change_set_context *change_set_context, enum change_set change_set)
 {
     uint64_t report_index[CHANGE_SET_SIZE];
-    update_change_index(change_set_context, change_set, report_index);
-    refresh_class_changes(change_set);
+    refresh_change_index(change_set_context, change_set, report_index);
 
     FOR_EACH_BLOCK(block)
     {

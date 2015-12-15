@@ -58,7 +58,7 @@ uint64_t get_change_index(void);
  * recent change index seen for each change set.  This call updates the change
  * index for each selected change set and returns the previous change index for
  * all change sets. */
-void update_change_index(
+uint64_t update_change_index(
     struct change_set_context *context,
     enum change_set change_set, uint64_t reported[]);
 

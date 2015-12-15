@@ -88,7 +88,7 @@ error__t class_put_table(
 
 
 /* Global refresh of changes for those classes which need a global refresh. */
-void refresh_class_changes(enum change_set change_set);
+void refresh_class_changes(enum change_set change_set, uint64_t change_index);
 
 /* Retrieves change set for the given class. */
 void get_class_change_set(
