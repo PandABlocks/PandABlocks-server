@@ -48,6 +48,10 @@ void generate_change_sets(
 bool check_change_set(
     struct change_set_context *change_set_context, enum change_set change_set);
 
+/* Ensures specified change set will not report any changes up to this point. */
+void reset_change_set(
+    struct change_set_context *context, enum change_set change_set);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Field access methods. */

@@ -130,7 +130,7 @@ static error__t put_changes(
     return
         parse_change_set(&command, &change_set)  ?:
         parse_eos(&value)  ?:
-        DO(reset_change_context(connection->change_set_context, change_set));
+        DO(reset_change_set(connection->change_set_context, change_set));
 }
 
 

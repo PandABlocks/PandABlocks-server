@@ -62,12 +62,6 @@ uint64_t update_change_index(
     struct change_set_context *context,
     enum change_set change_set, uint64_t reported[]);
 
-/* Resets change counters.  Same as calling update_change_index and discarding
- * the reported array. */
-void reset_change_context(
-    struct change_set_context *context, enum change_set change_set);
-
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* A couple of helper routines for output formatting. */

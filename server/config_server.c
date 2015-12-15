@@ -96,16 +96,6 @@ uint64_t update_change_index(
 }
 
 
-void reset_change_context(
-    struct change_set_context *context, enum change_set change_set)
-{
-    uint64_t change_index = get_change_index();
-    for (unsigned int i = 0; i < CHANGE_SET_SIZE; i ++)
-        if (change_set & (1U << i))
-            context->change_index[i] = change_index;
-}
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /* This structure holds the local state for a config socket connection. */

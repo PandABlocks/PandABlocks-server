@@ -199,8 +199,10 @@ static void write_changed_state(void)
 
         /* Start by resetting the change context so that we're up to date before
          * we start writing. */
-        reset_change_context(
-            &change_set_context, CHANGES_CONFIG | CHANGES_ATTR | CHANGES_TABLE);
+        uint64_t report_index[CHANGE_SET_SIZE];       // This will be discarded
+        update_change_index(
+            &change_set_context, CHANGES_CONFIG | CHANGES_ATTR | CHANGES_TABLE,
+            report_index);
 
         /* First generate the single value settings.  Generate attribute values
          * first as they can affect the interpretation of the config values. */
