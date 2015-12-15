@@ -336,7 +336,7 @@ void do_bit_out_refresh(uint64_t change_index)
     bool changes[BIT_BUS_COUNT];
     hw_read_bits(bit_out_state.bits, changes);
     for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
-        if (changes[i])
+        if (changes[i]  &&  change_index > bit_out_state.change_index[i])
             bit_out_state.change_index[i] = change_index;
     UNLOCK(bit_mutex);
 }
@@ -347,7 +347,7 @@ void do_pos_out_refresh(uint64_t change_index)
     bool changes[POS_BUS_COUNT];
     hw_read_positions(pos_out_state.positions, changes);
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-        if (changes[i])
+        if (changes[i]  &&  change_index > pos_out_state.change_index[i])
             pos_out_state.change_index[i] = change_index;
     UNLOCK(pos_mutex);
 }
