@@ -22,8 +22,6 @@
 
 
 
-enum time_scale { TIME_MINS, TIME_SECS, TIME_MSECS, TIME_USECS, };
-
 struct time_state {
     unsigned int block_base;            // Base address for block
     unsigned int low_register;          // low 32-bits of value
@@ -110,6 +108,14 @@ static error__t time_finalise(void *class_data, unsigned int block_base)
 /* Value access. */
 
 
+error__t time_class_format(
+    uint64_t value, enum time_scale scale, char result[], size_t length)
+{
+    double conversion = time_conversion[scale];
+    return format_double(result, length, (double) value / conversion);
+}
+
+
 static error__t time_get(
     void *class_data, unsigned int number, struct connection_result *result)
 {
@@ -119,11 +125,9 @@ static error__t time_get(
     LOCK(state->mutex);
     uint64_t value = field->value;
     UNLOCK(state->mutex);
-
-    double conversion = time_conversion[field->time_scale];
     return
-        format_double(
-            result->string, result->length, (double) value / conversion)  ?:
+        time_class_format(
+            value, field->time_scale, result->string, result->length)  ?:
         DO(result->response = RESPONSE_ONE);
 }
 
@@ -157,12 +161,10 @@ static error__t write_time_value(
 }
 
 
-static error__t time_put(
-    void *class_data, unsigned int number, const char *string)
+error__t time_class_parse(
+    const char *string, enum time_scale scale, uint64_t *result)
 {
-    struct time_state *state = class_data;
-
-    double conversion = time_conversion[state->values[number].time_scale];
+    double conversion = time_conversion[scale];
     double scaled_value;
     double value;
     return
@@ -175,7 +177,19 @@ static error__t time_put(
         DO(value = scaled_value * conversion)  ?:
         TEST_OK_(0 <= value  &&  value <= MAX_CLOCK_VALUE,
             "Time setting out of range")  ?:
-        write_time_value(state, number, (uint64_t) llround(value));
+        DO(*result = (uint64_t) llround(value));
+}
+
+
+static error__t time_put(
+    void *class_data, unsigned int number, const char *string)
+{
+    struct time_state *state = class_data;
+    uint64_t result;
+    return
+        time_class_parse(
+            string, state->values[number].time_scale, &result)  ?:
+        write_time_value(state, number, result);
 }
 
 
@@ -224,31 +238,48 @@ static error__t time_raw_put(
 
 
 /* block.time.UNITS? */
+error__t time_class_units_format(
+    enum time_scale scale, char result[], size_t length)
+{
+    return format_string(result, length, "%s", time_units[scale]);
+}
+
 static error__t time_units_format(
     void *owner, void *class_data, unsigned int number,
     char result[], size_t length)
 {
     struct time_state *state = class_data;
-    return format_string(
-        result, length, "%s", time_units[state->values[number].time_scale]);
+    return time_class_units_format(
+        state->values[number].time_scale, result, length);
 }
 
 
 /* block.time.UNITS=string */
-static error__t time_units_put(
-    void *owner, void *class_data, unsigned int number, const char *string)
+error__t time_class_units_parse(const char *string, enum time_scale *scale)
 {
-    struct time_state *state = class_data;
     for (unsigned int i = 0; i < ARRAY_SIZE(time_units); i ++)
         if (strcmp(string, time_units[i]) == 0)
         {
-            LOCK(state->mutex);
-            state->values[number].time_scale = (enum time_scale) i;
-            state->values[number].update_index = get_change_index();
-            UNLOCK(state->mutex);
+            *scale = (enum time_scale) i;
             return ERROR_OK;
         }
     return FAIL_("Invalid time units");
+}
+
+static error__t time_units_put(
+    void *owner, void *class_data, unsigned int number, const char *string)
+{
+    enum time_scale scale = 0;
+    error__t error = time_class_units_parse(string, &scale);
+    if (!error)
+    {
+        struct time_state *state = class_data;
+        LOCK(state->mutex);
+        state->values[number].time_scale = scale;
+        state->values[number].update_index = get_change_index();
+        UNLOCK(state->mutex);
+    }
+    return error;
 }
 
 

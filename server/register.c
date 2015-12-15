@@ -247,8 +247,14 @@ static error__t simple_register_init(
         state->values[i] = (struct simple_field) { };
     *class_data = state;
 
-    return create_type(
-        line, "uint", count, methods, state, attr_map, &state->base.type);
+    return
+        TRY_CATCH(
+            create_type(
+                line, "uint", count, methods, state, attr_map,
+                &state->base.type),
+        //catch
+            /* If type creation failed then class creation failed. */
+            free(state));
 }
 
 

@@ -19,6 +19,7 @@
 #include "enums.h"
 #include "capture.h"
 #include "locking.h"
+#include "time_class.h"
 
 #include "types.h"
 
@@ -143,7 +144,7 @@ static error__t uint_init(
     const char **string, unsigned int count, void **type_data)
 {
     unsigned int *max_value = malloc(sizeof(unsigned int));
-    *max_value = UINT_MAX;
+    *max_value = UINT32_MAX;
     *type_data = max_value;
     return
         IF(read_char(string, ' '),
@@ -217,7 +218,7 @@ static error__t action_parse(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Position and Scaled Time. */
+/* Position. */
 
 struct position_state {
     pthread_mutex_t mutex;
@@ -271,7 +272,7 @@ static error__t position_parse(
         parse_double(&string, &position)  ?:
         parse_eos(&string)  ?:
         DO(converted = (position - offset) / scale)  ?:
-        TEST_OK_(INT_MIN <= converted  &&  converted <= INT_MAX,
+        TEST_OK_(INT32_MIN <= converted  &&  converted <= INT32_MAX,
             "Position out of range")  ?:
         DO(*value = (unsigned int) lround(converted));
 }
@@ -387,6 +388,76 @@ static error__t position_units_put(
     UNLOCK(state->mutex);
 
     return ERROR_OK;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Time. */
+
+/* The semantics of this code is very similar to that of time_class, but here
+ * we're working at the type level with 32-bit values. */
+
+struct time_state {
+    enum time_scale scale[0];
+};
+
+
+static error__t time_init(
+    const char **string, unsigned int count, void **type_data)
+{
+    struct time_state *state = malloc(
+        sizeof(struct time_state) + count * sizeof(enum time_scale));
+    *state = (struct time_state) { };
+    for (unsigned int i = 0; i < count; i ++)
+        state->scale[i] = TIME_SECS;
+    *type_data = state;
+    return ERROR_OK;
+}
+
+
+static error__t time_parse(
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
+{
+    struct time_state *state = type_data;
+    uint64_t result;
+    return
+        time_class_parse(string, state->scale[number], &result)  ?:
+        TEST_OK_(result <= UINT32_MAX, "Setting too large")  ?:
+        DO(*value = (unsigned int) result);
+}
+
+
+static error__t time_format(
+    void *type_data, unsigned int number,
+    unsigned int value, char result[], size_t length)
+{
+    struct time_state *state = type_data;
+    return time_class_format(value, state->scale[number], result, length);
+}
+
+
+static error__t time_units_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct time_state *state = data;
+    return time_class_units_format(state->scale[number], result, length);
+}
+
+
+static error__t time_units_put(
+    void *owner, void *data, unsigned int number, const char *string)
+{
+    enum time_scale scale;
+    error__t error = time_class_units_parse(string, &scale);
+    if (!error)
+    {
+        struct time_state *state = data;
+        state->scale[number] = scale;
+        changed_register(owner, number);
+    }
+    return error;
 }
 
 
@@ -559,8 +630,8 @@ static const struct type_methods types_table[] = {
     /* Bits are simple: 0 or 1. */
     { "bit", .parse = bit_parse, .format = bit_format },
 
-    /* Scaled time and position are very similar, both convert between a
-     * floating point representation and a digital hardware value. */
+    /* Scaled time and position are similar, both convert between a floating
+     * point representation and a digital hardware value. */
     { "position",
         .init = position_init, .destroy = position_destroy,
         .parse = position_parse, .format = position_format,
@@ -575,6 +646,22 @@ static const struct type_methods types_table[] = {
                 .format = position_units_format, .put = position_units_put, },
         },
         .attr_count = 4,
+    },
+
+    { "time",
+        .init = time_init,
+        .parse = time_parse, .format = time_format,
+        .attrs = (struct attr_methods[]) {
+            { "RAW",
+                .format = raw_format_int,
+                .put = raw_put_int,
+            },
+            { "UNITS", true,
+                .format = time_units_format,
+                .put = time_units_put,
+            },
+        },
+        .attr_count = 2,
     },
 
     /* The mux types are only valid for bit_in and pos_in classes. */
