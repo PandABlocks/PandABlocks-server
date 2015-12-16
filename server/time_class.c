@@ -140,17 +140,13 @@ static error__t write_time_value(
         TEST_OK_(value == 0  ||  value > state->min_value, "Value too small");
     if (!error)
     {
-        /* A non-zero value is offset by min_value before being written to the
-         * registers, but we store the raw uncompensated value for readback. */
-        uint64_t write_value = value == 0 ? 0 : value - state->min_value;
-
         LOCK(state->mutex);
         hw_write_register(
             state->block_base, number, state->low_register,
-            (uint32_t) write_value);
+            (uint32_t) value);
         hw_write_register(
             state->block_base, number, state->high_register,
-            (uint32_t) (write_value >> 32));
+            (uint32_t) (value >> 32));
 
         struct time_field *field = &state->values[number];
         field->value = value;
