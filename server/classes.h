@@ -7,7 +7,6 @@ struct hash_table;
 
 struct field;
 struct class;
-struct type;
 
 enum change_set;
 

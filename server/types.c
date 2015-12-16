@@ -422,8 +422,7 @@ static error__t time_parse(
     struct time_state *state = type_data;
     uint64_t result;
     return
-        time_class_parse(string, state->scale[number], &result)  ?:
-        TEST_OK_(result <= UINT32_MAX, "Setting too large")  ?:
+        time_class_parse(string, state->scale[number], UINT32_MAX, &result)  ?:
         DO(*value = (unsigned int) result);
 }
 

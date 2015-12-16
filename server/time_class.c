@@ -111,8 +111,8 @@ static error__t time_finalise(void *class_data, unsigned int block_base)
 error__t time_class_format(
     uint64_t value, enum time_scale scale, char result[], size_t length)
 {
-    double conversion = time_conversion[scale];
-    return format_double(result, length, (double) value / conversion);
+    return format_double(
+        result, length, (double) value / time_conversion[scale]);
 }
 
 
@@ -158,9 +158,9 @@ static error__t write_time_value(
 
 
 error__t time_class_parse(
-    const char *string, enum time_scale scale, uint64_t *result)
+    const char *string, enum time_scale scale,
+    uint64_t max_value, uint64_t *result)
 {
-    double conversion = time_conversion[scale];
     double scaled_value;
     double value;
     return
@@ -170,8 +170,8 @@ error__t time_class_parse(
          * result of the calculation below and detect range overflow ... good
          * luck with that, seems that whether overflow is actually reported is
          * target dependent, and doesn't work for us.  Ho hum. */
-        DO(value = scaled_value * conversion)  ?:
-        TEST_OK_(0 <= value  &&  value <= MAX_CLOCK_VALUE,
+        DO(value = scaled_value * time_conversion[scale])  ?:
+        TEST_OK_(0 <= value  &&  value <= max_value,
             "Time setting out of range")  ?:
         DO(*result = (uint64_t) llround(value));
 }
@@ -184,7 +184,8 @@ static error__t time_put(
     uint64_t result;
     return
         time_class_parse(
-            string, state->values[number].time_scale, &result)  ?:
+            string, state->values[number].time_scale,
+            MAX_CLOCK_VALUE, &result)  ?:
         write_time_value(state, number, result);
 }
 
@@ -285,9 +286,9 @@ static error__t time_min_format(
 {
     struct time_state *state = class_data;
     struct time_field *field = &state->values[number];
-    double conversion = time_conversion[field->time_scale];
     return format_double(
-        result, length, (double) (state->min_value + 1) / conversion);
+        result, length,
+        (double) (state->min_value + 1) / time_conversion[field->time_scale]);
 }
 
 
