@@ -730,10 +730,9 @@ static struct type *create_type_block(
 static void create_type_attributes(
     struct type *type, struct hash_table *attr_map)
 {
-    for (unsigned int i = 0; i < type->methods->attr_count; i ++)
-        create_attribute(
-            &type->methods->attrs[i], type, type->type_data, type->count,
-            attr_map);
+    create_attributes(
+        type->methods->attrs, type->methods->attr_count,
+        type, type->type_data, type->count, attr_map);
 }
 
 error__t create_type(

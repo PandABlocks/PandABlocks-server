@@ -82,21 +82,24 @@ const char *get_attr_name(const struct attr *attr)
 }
 
 
-void create_attribute(
-    const struct attr_methods *methods,
+void create_attributes(
+    const struct attr_methods methods[], unsigned int attr_count,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map)
 {
-    struct attr *attr = malloc(sizeof(struct attr));
-    *attr = (struct attr) {
-        .methods = methods,
-        .owner = owner,
-        .data = data,
-        .count = count,
-        .mutex = PTHREAD_MUTEX_INITIALIZER,
-        .change_index = calloc(count, sizeof(uint64_t)),
-    };
-    hash_table_insert(attr_map, methods->name, attr);
+    for (unsigned int i = 0; i < attr_count; i ++)
+    {
+        struct attr *attr = malloc(sizeof(struct attr));
+        *attr = (struct attr) {
+            .methods = &methods[i],
+            .owner = owner,
+            .data = data,
+            .count = count,
+            .mutex = PTHREAD_MUTEX_INITIALIZER,
+            .change_index = calloc(count, sizeof(uint64_t)),
+        };
+        hash_table_insert(attr_map, methods[i].name, attr);
+    }
 }
 
 

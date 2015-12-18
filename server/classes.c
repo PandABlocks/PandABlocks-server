@@ -160,13 +160,12 @@ static struct class *create_class_block(
 static void create_class_attributes(
     struct class *class, struct hash_table *attr_map)
 {
-    for (unsigned int i = 0; i < class->methods->attr_count; i ++)
-        create_attribute(
-            &class->methods->attrs[i], class, class->class_data,
-            class->count, attr_map);
+    create_attributes(
+        class->methods->attrs, class->methods->attr_count,
+        class, class->class_data, class->count, attr_map);
 
-    create_attribute(
-        &info_attribute, class, class->class_data, class->count, attr_map);
+    create_attributes(
+        &info_attribute, 1, class, class->class_data, class->count, attr_map);
 }
 
 error__t create_class(

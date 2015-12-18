@@ -50,8 +50,8 @@ const char *get_attr_name(const struct attr *attr);
 /* This function creates an attribute with the given ownder and data pointers
  * and inserts it into the given attr_map.  If an attribute with the same name
  * is already present it is silently replaced. */
-void create_attribute(
-    const struct attr_methods *methods,
+void create_attributes(
+    const struct attr_methods methods[], unsigned int attr_count,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map);
 
