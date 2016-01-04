@@ -121,15 +121,15 @@ static error__t raw_format_uint(
 }
 
 
-static error__t raw_put_int(
+static error__t raw_put_uint(
     void *owner, void *data, unsigned int number, const char *string)
 {
     struct type *type = owner;
-    int value;
+    unsigned int value;
     return
-        parse_int(&string, &value)  ?:
+        parse_uint(&string, &value)  ?:
         parse_eos(&string)  ?:
-        write_register(type, number, (uint32_t) value);
+        write_register(type, number, value);
 }
 
 
@@ -636,7 +636,7 @@ static const struct type_methods types_table[] = {
         .parse = position_parse, .format = position_format,
         .attrs = (struct attr_methods[]) {
             { "RAW",
-                .format = raw_format_int, .put = raw_put_int, },
+                .format = raw_format_uint, .put = raw_put_uint, },
             { "SCALE", true,
                 .format = position_scale_format, .put = position_scale_put, },
             { "OFFSET", true,
@@ -653,7 +653,7 @@ static const struct type_methods types_table[] = {
         .attrs = (struct attr_methods[]) {
             { "RAW",
                 .format = raw_format_int,
-                .put = raw_put_int,
+                .put = raw_put_uint,
             },
             { "UNITS", true,
                 .format = time_units_format,
