@@ -90,7 +90,7 @@ bool error_report(error__t error);
         error__t error = (expr); \
         if (error) \
             error_extend(error, format); \
-      error_report(error); \
+        error_report(error); \
     } )
 #define ERROR_REPORT(args...)  _id_ERROR_REPORT(UNIQUE_ID(), args)
 
