@@ -49,7 +49,7 @@ struct mux_lookup {
 static struct {
     struct mux_lookup lookup;       // Map between mux index and names
     bool bits[BIT_BUS_COUNT];       // Current value of each bit
-    uint64_t change_index[BIT_BUS_COUNT];   // Change flag for each bit
+    uint64_t update_index[BIT_BUS_COUNT];   // Change flag for each bit
     uint32_t capture[BIT_BUS_COUNT / 32];   // Capture request for each bit
     int capture_index[BIT_BUS_COUNT / 32];  // Capture index for each bit
 } bit_out_state = { };
@@ -57,7 +57,7 @@ static struct {
 static struct {
     struct mux_lookup lookup;       // Map between mux index and names
     uint32_t positions[POS_BUS_COUNT];      // Current array of positions
-    uint64_t change_index[POS_BUS_COUNT];   // Change flag for each position
+    uint64_t update_index[POS_BUS_COUNT];   // Change flag for each position
     uint32_t capture;                   // Capture request for each position
     int capture_index[POS_BUS_COUNT];   // Capture index for each position
 } pos_out_state = { };
@@ -336,8 +336,8 @@ void do_bit_out_refresh(uint64_t change_index)
     bool changes[BIT_BUS_COUNT];
     hw_read_bits(bit_out_state.bits, changes);
     for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
-        if (changes[i]  &&  change_index > bit_out_state.change_index[i])
-            bit_out_state.change_index[i] = change_index;
+        if (changes[i]  &&  change_index > bit_out_state.update_index[i])
+            bit_out_state.update_index[i] = change_index;
     UNLOCK(bit_mutex);
 }
 
@@ -347,8 +347,8 @@ void do_pos_out_refresh(uint64_t change_index)
     bool changes[POS_BUS_COUNT];
     hw_read_positions(pos_out_state.positions, changes);
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-        if (changes[i]  &&  change_index > pos_out_state.change_index[i])
-            pos_out_state.change_index[i] = change_index;
+        if (changes[i]  &&  change_index > pos_out_state.update_index[i])
+            pos_out_state.update_index[i] = change_index;
     UNLOCK(pos_mutex);
 }
 
@@ -376,11 +376,11 @@ static error__t capture_get(
 
 /* Computation of change set. */
 static void bit_pos_change_set(
-    struct capture_state *state, const uint64_t change_index[],
+    struct capture_state *state, const uint64_t update_index[],
     const uint64_t report_index, bool changes[])
 {
     for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = change_index[state->index_array[i]] > report_index;
+        changes[i] = update_index[state->index_array[i]] > report_index;
 }
 
 static void bit_out_change_set(
@@ -388,7 +388,7 @@ static void bit_out_change_set(
 {
     LOCK(bit_mutex);
     bit_pos_change_set(
-        class_data, bit_out_state.change_index, report_index, changes);
+        class_data, bit_out_state.update_index, report_index, changes);
     UNLOCK(bit_mutex);
 }
 
@@ -397,7 +397,7 @@ static void pos_out_change_set(
 {
     LOCK(pos_mutex);
     bit_pos_change_set(
-        class_data, pos_out_state.change_index, report_index, changes);
+        class_data, pos_out_state.update_index, report_index, changes);
     UNLOCK(pos_mutex);
 }
 
