@@ -176,7 +176,8 @@ void hw_write_bit_capture(uint32_t capture_mask)
     *named_register(BIT_CAPTURE_MASK) = capture_mask;
 }
 
-void hw_write_position_capture(uint32_t capture_mask)
+void hw_write_position_capture_masks(
+    uint32_t capture_mask, uint32_t framed_mask, uint32_t extended_mask)
 {
     *named_register(POS_CAPTURE_MASK) = capture_mask;
 }

@@ -105,8 +105,6 @@ static error__t load_one_value(struct read_line_context *read_line, char *line)
 
 static void load_persistent_state(void)
 {
-    printf("load_persistent_state\n");
-
     FILE *in_file;
     error__t error =
         TEST_OK_IO_(in_file = fopen(file_name, "r"),
@@ -180,8 +178,6 @@ static void write_table_value(void *context, const char *string)
 
 static void write_changed_state(void)
 {
-    printf("write_changed_state\n");
-
     FILE *out_file;
     error__t error =
         TEST_OK_IO(out_file = fopen(backup_file_name, "w"));

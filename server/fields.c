@@ -553,12 +553,17 @@ error__t validate_fields(void)
     {
         error = TEST_OK_(block->base != UNASSIGNED_REGISTER,
             "No base address for block %s", block->name);
+        if (block->description == NULL)
+            log_message("No description for block %s", block->name);
         FOR_EACH_FIELD_WHILE(!error, block->fields, field)
         {
             error = finalise_class(field->class, block->base);
             if (error)
                 error_extend(error,
                     "Checking field %s.%s", block->name, field->name);
+            if (field->description == NULL)
+                log_message("No description for field %s.%s",
+                    block->name, field->name);
         }
     }
     return error;

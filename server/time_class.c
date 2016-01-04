@@ -71,6 +71,7 @@ static error__t time_init(
     for (unsigned int i = 0; i < count; i ++)
         state->values[i] = (struct time_field) {
             .time_scale = TIME_SECS,
+            .update_index = 1,
         };
     *class_data = state;
     return ERROR_OK;
