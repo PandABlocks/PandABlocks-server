@@ -537,7 +537,7 @@ static error__t pos_out_capture_put(
     if (!error)
     {
         update_bit(&pos_out_state.capture, ix, capture);
-        hw_write_position_capture(pos_out_state.capture);
+        hw_write_position_capture_masks(pos_out_state.capture, 0, 0);
         update_capture_index();
     }
     return error;

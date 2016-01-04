@@ -208,10 +208,14 @@ void hw_write_bit_capture(uint32_t capture_mask)
     UNLOCK();
 }
 
-void hw_write_position_capture(uint32_t capture_mask)
+void hw_write_position_capture_masks(
+    uint32_t capture_mask, uint32_t framed_mask, uint32_t extended_mask)
 {
+    uint32_t masks[3] = { capture_mask, framed_mask, extended_mask };
     LOCK();
-    handle_error(write_command_int('M', 0, 0, 0, capture_mask));
+    handle_error(
+        write_command('M', 0, 0, 0)  ?:
+        write_all(masks, sizeof(masks)));
     UNLOCK();
 }
 
