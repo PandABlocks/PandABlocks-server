@@ -185,8 +185,18 @@ error__t pos_mux_parse(
 /*****************************************************************************/
 /* Class initialisation. */
 
+/* This records which kind of capture is being processed. */
+enum capture_type {
+    CAPTURE_BIT,        // Single bit
+    CAPTURE_POSN,       // Ordinary position
+    CAPTURE_ADC,        // ADC => may have extended values
+    CAPTURE_CONST,      // Constant value, cannot be captured
+    CAPTURE_ENCODER,    // Encoders may have extended values
+};
+
 struct capture_state {
     unsigned int count;
+    enum capture_type capture_type;
     struct type *type;
     unsigned int index_array[];
 };
@@ -194,13 +204,16 @@ struct capture_state {
 
 static error__t capture_init(
     const struct register_methods *register_methods, const char *type_name,
-    const char **line, unsigned int count,
+    enum capture_type capture_type, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
     struct capture_state *state =
         malloc(sizeof(struct capture_state) + count * sizeof(unsigned int));
 
-    *state = (struct capture_state) { .count = count, };
+    *state = (struct capture_state) {
+        .count = count,
+        .capture_type = capture_type,
+    };
     for (unsigned int i = 0; i < count; i ++)
         state->index_array[i] = UNASSIGNED_REGISTER;
     *class_data = state;
@@ -209,6 +222,32 @@ static error__t capture_init(
     return create_type(
         &empty_line, type_name, count, register_methods, state,
         attr_map, &state->type);
+}
+
+
+static error__t parse_capture_type(
+    const char **line, enum capture_type *capture_type)
+{
+    if (**line == '\0')
+        *capture_type = CAPTURE_POSN;
+    else
+    {
+        char type_name[MAX_NAME_LENGTH];
+        error__t error =
+            parse_whitespace(line)  ?:
+            parse_name(line, type_name, sizeof(type_name));
+        if (error)
+            return error;
+        else if (strcmp(type_name, "adc") == 0)
+            *capture_type = CAPTURE_ADC;
+        else if (strcmp(type_name, "const") == 0)
+            *capture_type = CAPTURE_CONST;
+        else if (strcmp(type_name, "encoder") == 0)
+            *capture_type = CAPTURE_ENCODER;
+        else
+            return FAIL_("Unknown pos_out type");
+    }
+    return ERROR_OK;
 }
 
 
@@ -246,15 +285,19 @@ static error__t bit_out_init(
     struct hash_table *attr_map, void **class_data)
 {
     return capture_init(
-        &bit_out_methods, "bit", line, count, attr_map, class_data);
+        &bit_out_methods, "bit", CAPTURE_BIT, count, attr_map, class_data);
 }
 
 static error__t pos_out_init(
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
-    return capture_init(
-        &pos_out_methods, "position", line, count, attr_map, class_data);
+    enum capture_type capture_type = 0;
+    return
+        parse_capture_type(line, &capture_type)  ?:
+        capture_init(
+            &pos_out_methods, "position", capture_type, count,
+            attr_map, class_data);
 }
 
 
