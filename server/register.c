@@ -244,7 +244,9 @@ static error__t simple_register_init(
         .count = count,
     };
     for (unsigned int i = 0; i < count; i ++)
-        state->values[i] = (struct simple_field) { };
+        state->values[i] = (struct simple_field) {
+            .update_index = 1,
+        };
     *class_data = state;
 
     return

@@ -76,8 +76,8 @@ static error__t field_set_fields_get_many(
 
 
 struct table_block {
-    uint64_t update_index;  // Timestamp of last change
     unsigned int number;    // Index of this block
+    uint64_t update_index;  // Timestamp of last change
 
     uint32_t *data;         // Data area for block
     size_t length;          // Current length of block
@@ -129,6 +129,7 @@ static void initialise_table_blocks(
     {
         blocks[i] = (struct table_block) {
             .number = i,
+            .update_index = 1,
             .write_lock = PTHREAD_MUTEX_INITIALIZER,
             .read_lock = PTHREAD_RWLOCK_INITIALIZER,
         };
