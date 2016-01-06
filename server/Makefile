@@ -100,17 +100,16 @@ SRCS += table.c                 # table classes support
 SRCS += register.c              # param, read, write class support
 SRCS += base64.c                # base64 conversion support
 
-ifdef SIMSERVER
-CFLAGS += -DSIMSERVER
-SRCS += sim_hardware.c
-else
-SRCS += hardware.c
-endif
+HW_SRCS  += hardware.c          # Hardware interface
+SIM_SRCS += sim_hardware.c      # Simulated hardware interface
 
 
-default: server
+default: server sim_server
 
-server: $(SRCS:.c=.o)
+server: $(SRCS:.c=.o) $(HW_SRCS:.c=.o)
+
+sim_server: $(SRCS:.c=.o) $(SIM_SRCS:.c=.o)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 %.d: %.c
 	set -o pipefail && $(CC) -M $(CPPFLAGS) $(CFLAGS) $< | \
