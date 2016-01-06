@@ -30,7 +30,7 @@
  * flush the entire output buffer, but the input buffer is read and filled
  * piecemeal. */
 struct buffered_file {
-    int file;                   // File handle to read
+    int sock;                   // Socket handle to read
     bool eof;                   // Set once end of input encountered
     error__t error;             // Any error blocks all further IO processing
     size_t in_length;           // Length of data currently in in_buf
@@ -53,7 +53,7 @@ void flush_out_buf(struct buffered_file *file)
         ssize_t written;
         file->error =
             TEST_IO_(written = write(
-                    file->file, file->out_buf + out_start,
+                    file->sock, file->out_buf + out_start,
                     file->out_length - out_start),
                 "Error writing to socket");
             DO(out_start += (size_t) written);
@@ -69,7 +69,7 @@ static void fill_in_buf(struct buffered_file *file)
     {
         ssize_t seen;
         file->error = TEST_IO_(
-            seen = read(file->file, file->in_buf, file->in_buf_size),
+            seen = read(file->sock, file->in_buf, file->in_buf_size),
             "Error reading from socket");
         file->eof = seen == 0;
         file->read_ptr = 0;
@@ -186,7 +186,7 @@ struct buffered_file *create_buffered_file(
 {
     struct buffered_file *file = malloc(sizeof(struct buffered_file));
     *file = (struct buffered_file) {
-        .file = sock,
+        .sock = sock,
         .in_buf_size = in_buf_size,
         .out_buf_size = out_buf_size,
         .in_buf = malloc(in_buf_size),
