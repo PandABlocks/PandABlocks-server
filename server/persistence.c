@@ -222,9 +222,9 @@ static void write_changed_state(void)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Persistence thread state control. */
 
-static int poll_interval;
-static int holdoff_interval;
-static int backoff_interval;
+static unsigned int poll_interval;
+static unsigned int holdoff_interval;
+static unsigned int backoff_interval;
 
 
 /* Thread state control. */
@@ -235,11 +235,11 @@ static pthread_cond_t psignal;
 
 
 /* Interruptible timeout wait: returns false if thread interrupt requested. */
-static bool pwait_timeout(int delay)
+static bool pwait_timeout(unsigned int delay)
 {
     struct timespec timeout;
     ASSERT_IO(clock_gettime(CLOCK_MONOTONIC, &timeout));
-    timeout.tv_sec += delay;
+    timeout.tv_sec += (time_t) delay;
 
     LOCK(mutex);
     if (thread_running)
@@ -288,13 +288,14 @@ static void *persistence_thread(void *context)
 
 error__t initialise_persistence(
     const char *_file_name,
-    int _poll_interval, int _holdoff_interval, int _backoff_interval)
+    unsigned int _poll_interval, unsigned int _holdoff_interval,
+    unsigned int _backoff_interval)
 {
     file_name = _file_name;
     poll_interval = _poll_interval;
     holdoff_interval = _holdoff_interval;
     backoff_interval = _backoff_interval;
-    log_message("Persistence: \"%s\" %d %d %d",
+    log_message("Persistence: \"%s\" %u %u %u",
         file_name, poll_interval, holdoff_interval, backoff_interval);
 
     asprintf(&backup_file_name, "%s.backup", file_name);

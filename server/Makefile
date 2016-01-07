@@ -48,6 +48,9 @@ CFLAGS += -Wno-pointer-arith
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-missing-field-initializers
 
+
+# Compiling the server with clang has flagged up some points of interest, but
+# alas most of its messages need to be disabled.
 CFLAGS_clang += -Wmost
 CFLAGS_clang += -Weverything
 

@@ -33,9 +33,9 @@ static const char *description_db;
 
 /* Persistence state. */
 static const char *persistence_file;
-static int persistence_poll = 2;
-static int persistence_holdoff = 10;
-static int persistence_backoff = 60;
+static unsigned int persistence_poll = 2;
+static unsigned int persistence_holdoff = 10;
+static unsigned int persistence_backoff = 60;
 
 
 /* Parses a persistence time specification in the form
@@ -47,11 +47,11 @@ static int persistence_backoff = 60;
 static error__t parse_persistence_times(const char *arg)
 {
     return
-        IF(isdigit(*arg), parse_int(&arg, &persistence_poll))  ?:
+        IF(isdigit(*arg), parse_uint(&arg, &persistence_poll))  ?:
         IF(read_char(&arg, ':'),
-            IF(isdigit(*arg), parse_int(&arg, &persistence_holdoff))  ?:
+            IF(isdigit(*arg), parse_uint(&arg, &persistence_holdoff))  ?:
             IF(read_char(&arg, ':'),
-                IF(isdigit(*arg), parse_int(&arg, &persistence_backoff))))  ?:
+                IF(isdigit(*arg), parse_uint(&arg, &persistence_backoff))))  ?:
         parse_eos(&arg);
 }
 

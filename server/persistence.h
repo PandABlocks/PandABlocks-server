@@ -9,7 +9,8 @@
  * try to avoid writing changes too frequently. */
 error__t initialise_persistence(
     const char *file_name,
-    int poll_interval, int holdoff_interval, int backoff_interval);
+    unsigned int poll_interval, unsigned int holdoff_interval,
+    unsigned int backoff_interval);
 
 /* This will ensure that the persistence state is updated, so should be called
  * after all active threads have been closed. */
