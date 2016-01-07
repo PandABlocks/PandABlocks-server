@@ -100,7 +100,7 @@ struct table_state {
 
     /* We support two types of table, with somewhat different hardware
      * interfaces.  Implement this as a tagged union. */
-    enum table_type { SHORT_TABLE, LONG_TABLE } table_type;
+    enum table_type { UNKNOWN_TABLE, SHORT_TABLE, LONG_TABLE } table_type;
     union {
         struct short_table_state {
             unsigned int block_base;    // Block base address
@@ -243,38 +243,22 @@ static void complete_table_write(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table methods. */
 
-static void create_table(
-    enum table_type table_type, unsigned int block_count, void **class_data)
+
+static error__t table_init(
+    const char **line, unsigned int block_count,
+    struct hash_table *attr_map, void **class_data)
 {
     struct table_state *state = malloc(
         sizeof(struct table_state) +
         block_count * sizeof(struct table_block));
     *state = (struct table_state) {
         .block_count = block_count,
-        .table_type = table_type,
+        .table_type = UNKNOWN_TABLE,
     };
     initialise_table_blocks(state->blocks, block_count);
 
     *class_data = state;
-}
-
-
-static error__t table_init(
-    const char **line, unsigned int block_count,
-    struct hash_table *attr_map, void **class_data)
-{
-    /* Class name must be followed by table size, either short or long. */
-    enum table_type table_type;
-    return
-        parse_whitespace(line)  ?:
-        IF_ELSE(read_string(line, "short"),
-            DO(table_type = SHORT_TABLE),
-        //else
-        IF_ELSE(read_string(line, "long"),
-            DO(table_type = LONG_TABLE),
-        //else
-            FAIL_("Table type not recognised")))  ?:
-        DO(create_table(table_type, block_count, class_data));
+    return ERROR_OK;
 }
 
 
@@ -288,6 +272,8 @@ static void table_destroy(void *class_data)
 
     switch (state->table_type)
     {
+        case UNKNOWN_TABLE:
+            break;
         case SHORT_TABLE:
             for (unsigned int i = 0; i < state->block_count; i ++)
                 free(state->blocks[i].data);
@@ -310,6 +296,7 @@ static error__t table_parse_attribute(void *class_data, const char **line)
 static error__t short_table_parse_register(
     struct table_state *state, const char **line)
 {
+    state->table_type = SHORT_TABLE;
     unsigned int max_length;
     return
         parse_uint(line, &max_length)  ?:
@@ -324,6 +311,7 @@ static error__t short_table_parse_register(
 static error__t long_table_parse_register(
     struct table_state *state, const char **line)
 {
+    state->table_type = LONG_TABLE;
     return
         parse_whitespace(line)  ?:
         parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
@@ -335,12 +323,15 @@ static error__t table_parse_register(
     void *class_data, struct field *field, const char **line)
 {
     struct table_state *state = class_data;
-    switch (state->table_type)
-    {
-        case SHORT_TABLE:   return short_table_parse_register(state, line);
-        case LONG_TABLE:    return long_table_parse_register(state, line);
-        default:            ASSERT_FAIL();
-    }
+    return
+        parse_whitespace(line)  ?:
+        IF_ELSE(read_string(line, "short"),
+            short_table_parse_register(state, line),
+        //else
+        IF_ELSE(read_string(line, "long"),
+            long_table_parse_register(state, line),
+        //else
+            FAIL_("Table type not recognised")));
 }
 
 
@@ -462,8 +453,9 @@ static error__t table_put_table(
     void (*close_writer)(void *, bool, size_t) = NULL;
     switch (state->table_type)
     {
-        case SHORT_TABLE: close_writer = short_table_put_table_close; break;
-        case LONG_TABLE:  close_writer = long_table_put_table_close;  break;
+        case SHORT_TABLE:   close_writer = short_table_put_table_close; break;
+        case LONG_TABLE:    close_writer = long_table_put_table_close;  break;
+        default:            ASSERT_FAIL();
     }
 
     /* If appending is requested adjust the data area length accordingly. */
