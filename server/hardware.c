@@ -36,6 +36,8 @@ static uint32_t register_map_size;
 #define POS_READ_CHANGES        4
 #define BIT_CAPTURE_MASK        5
 #define POS_CAPTURE_MASK        6
+#define FRAMED_MASK             7
+#define EXTENDED_MASK           8
 
 struct named_register {
     const char *name;
@@ -53,6 +55,8 @@ static struct named_register named_registers[] = {
     NAMED_REGISTER(POS_READ_CHANGES),
     NAMED_REGISTER(BIT_CAPTURE_MASK),
     NAMED_REGISTER(POS_CAPTURE_MASK),
+    NAMED_REGISTER(FRAMED_MASK),
+    NAMED_REGISTER(EXTENDED_MASK),
 };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
@@ -154,15 +158,14 @@ void hw_read_positions(
 }
 
 
-void hw_write_bit_capture(uint32_t capture_mask)
+void hw_write_capture_masks(
+    uint32_t bit_capture, uint32_t pos_capture,
+    uint32_t framed_mask, uint32_t extended_mask)
 {
-    *named_register(BIT_CAPTURE_MASK) = capture_mask;
-}
-
-void hw_write_position_capture_masks(
-    uint32_t capture_mask, uint32_t framed_mask, uint32_t extended_mask)
-{
-    *named_register(POS_CAPTURE_MASK) = capture_mask;
+    *named_register(BIT_CAPTURE_MASK) = bit_capture;
+    *named_register(POS_CAPTURE_MASK) = pos_capture;
+    *named_register(FRAMED_MASK)      = framed_mask;
+    *named_register(EXTENDED_MASK)    = extended_mask;
 }
 
 

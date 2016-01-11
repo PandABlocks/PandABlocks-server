@@ -187,17 +187,12 @@ void hw_read_positions(
 }
 
 
-void hw_write_bit_capture(uint32_t capture_mask)
+void hw_write_capture_masks(
+    uint32_t bit_capture, uint32_t pos_capture,
+    uint32_t framed_mask, uint32_t extended_mask)
 {
-    LOCK();
-    handle_error(write_command_int('K', 0, 0, 0, capture_mask));
-    UNLOCK();
-}
-
-void hw_write_position_capture_masks(
-    uint32_t capture_mask, uint32_t framed_mask, uint32_t extended_mask)
-{
-    uint32_t masks[3] = { capture_mask, framed_mask, extended_mask };
+    uint32_t masks[4] = {
+        bit_capture, pos_capture, framed_mask, extended_mask };
     LOCK();
     handle_error(
         write_command('M', 0, 0, 0)  ?:

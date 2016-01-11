@@ -509,7 +509,7 @@ static error__t bit_out_capture_put(
         uint32_t capture_mask = 0;
         for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
             capture_mask |= (uint32_t) (bool) bit_out_state.capture[i] << i;
-        hw_write_bit_capture(capture_mask);
+//         hw_write_bit_capture(capture_mask);
         update_capture_index();
     }
     return error;
@@ -529,7 +529,7 @@ static error__t pos_out_capture_put(
     if (!error)
     {
         update_bit(&pos_out_state.capture, ix, capture);
-        hw_write_position_capture_masks(pos_out_state.capture, 0, 0);
+//         hw_write_position_capture_masks(pos_out_state.capture, 0, 0);
         update_capture_index();
     }
     return error;

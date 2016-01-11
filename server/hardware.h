@@ -110,12 +110,10 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end);
  * *data_end==true the data capture engine should be treated as locked. */
 void hw_write_arm(bool enable);
 
-/* Set bit and position capture masks.  These functions cannot be called while
- * the data capture engine is locked. */
-void hw_write_bit_capture(uint32_t capture_mask);
-
-/* Writes capture, frame mode and extended capture masks for the 32 position
- * capture bits.  Note that writing non zero values into reserved fields of the
- * extended_mask has an undefined effect. */
-void hw_write_position_capture_masks(
-    uint32_t capture_mask, uint32_t framed_mask, uint32_t extended_mask);
+/* Writes bit capture mask (only four bits), position capture mask, framing
+ * mask, and extension mask (only valid for ADC and encoders).  Must not be
+ * called while capture in progress, ie between calling hw_write_arm(true) and
+ * receiving a *data_end set return from hw_read_streamed_data. */
+void hw_write_capture_masks(
+    uint32_t bit_capture, uint32_t pos_capture,
+    uint32_t framed_mask, uint32_t extended_mask);
