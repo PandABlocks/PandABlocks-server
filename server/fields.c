@@ -533,7 +533,7 @@ error__t field_parse_attribute(struct field *field, const char **line)
 
 error__t field_parse_register(struct field *field, const char **line)
 {
-    return class_parse_register(field->class, field, line);
+    return class_parse_register(field->class, field, field->block->base, line);
 }
 
 
@@ -557,7 +557,7 @@ error__t validate_fields(void)
             log_message("No description for block %s", block->name);
         FOR_EACH_FIELD_WHILE(!error, block->fields, field)
         {
-            error = finalise_class(field->class, block->base);
+            error = finalise_class(field->class);
             if (error)
                 error_extend(error,
                     "Checking field %s.%s", block->name, field->name);

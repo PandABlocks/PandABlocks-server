@@ -27,9 +27,10 @@ struct class_methods {
     error__t (*parse_attribute)(void *class_data, const char **line);
     /* Parses the register definition line for this field. */
     error__t (*parse_register)(
-        void *class_data, struct field *field, const char **line);
+        void *class_data, struct field *field, unsigned int block_base,
+        const char **line);
     /* Called at end of startup to finalise and validate setup. */
-    error__t (*finalise)(void *class_data, unsigned int block_base);
+    error__t (*finalise)(void *class_data);
     /* Called during shutdown to release all class resources. */
     void (*destroy)(void *class_data);
 
@@ -108,12 +109,13 @@ error__t class_parse_attribute(struct class *class, const char **line);
 
 /* Parse register definition line. */
 error__t class_parse_register(
-    struct class *class, struct field *field, const char **line);
+    struct class *class, struct field *field, unsigned int block_base,
+    const char **line);
 
 /* To be called after database loading is complete to ensure that all classes
  * have their required register assignments.  Also at this point we assign the
  * block base address. */
-error__t finalise_class(struct class *class, unsigned int block_base);
+error__t finalise_class(struct class *class);
 
 /* Returns description of class including any type. */
 error__t describe_class(struct class *class, char *string, size_t length);

@@ -159,23 +159,15 @@ static error__t base_parse_attribute(void *class_data, const char **line)
 
 
 static error__t base_parse_register(
-    void *class_data, struct field *field, const char **line)
-{
-    struct base_state *state = class_data;
-    return
-        TEST_OK_(state->field_register == UNASSIGNED_REGISTER,
-            "Register already assigned")  ?:
-        parse_whitespace(line)  ?:
-        parse_uint(line, &state->field_register)  ?:
-        create_filter(line, state);
-}
-
-
-static error__t base_finalise(void *class_data, unsigned int block_base)
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
 {
     struct base_state *state = class_data;
     state->block_base = block_base;
-    return ERROR_OK;
+    return
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->field_register)  ?:
+        create_filter(line, state);
 }
 
 
@@ -191,7 +183,6 @@ static const char *base_describe(void *class_data)
     .destroy = base_destroy, \
     .parse_attribute = base_parse_attribute, \
     .parse_register = base_parse_register, \
-    .finalise = base_finalise, \
     .describe = base_describe
 
 

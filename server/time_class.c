@@ -80,12 +80,12 @@ static error__t time_init(
 
 /* Expects a pair of registers: low bits then high bits. */
 static error__t time_parse_register(
-    void *class_data, struct field *field, const char **line)
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
 {
     struct time_state *state = class_data;
+    state->block_base = block_base;
     return
-        TEST_OK_(state->low_register == UNASSIGNED_REGISTER,
-            "Register already assigned")  ?:
         parse_whitespace(line)  ?:
         parse_uint(line, &state->low_register)  ?:
         parse_whitespace(line)  ?:
@@ -94,14 +94,6 @@ static error__t time_parse_register(
             parse_whitespace(line)  ?:
             parse_char(line, '>')  ?:
             parse_uint64(line, &state->min_value));
-}
-
-
-static error__t time_finalise(void *class_data, unsigned int block_base)
-{
-    struct time_state *state = class_data;
-    state->block_base = block_base;
-    return ERROR_OK;
 }
 
 
@@ -299,7 +291,6 @@ const struct class_methods time_class_methods = {
     "time",
     .init = time_init,
     .parse_register = time_parse_register,
-    .finalise = time_finalise,
     .get = time_get,
     .put = time_put,
     .change_set = time_change_set,

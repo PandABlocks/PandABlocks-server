@@ -195,22 +195,25 @@ error__t class_parse_attribute(struct class *class, const char **line)
 
 
 error__t class_parse_register(
-    struct class *class, struct field *field, const char **line)
+    struct class *class, struct field *field, unsigned int block_base,
+    const char **line)
 {
     return
+        TEST_OK_(!class->initialised, "Register already assigned")  ?:
         TEST_OK(class->methods->parse_register)  ?:
-        class->methods->parse_register(class->class_data, field, line)  ?:
+        class->methods->parse_register(
+            class->class_data, field, block_base, line)  ?:
         DO(class->initialised = true);
 }
 
 
-error__t finalise_class(struct class *class, unsigned int block_base)
+error__t finalise_class(struct class *class)
 {
     return
         /* Alas at this point we don't have a name or location to report. */
         TEST_OK_(class->initialised, "No register assigned for class")  ?:
         IF(class->methods->finalise,
-            class->methods->finalise(class->class_data, block_base));
+            class->methods->finalise(class->class_data));
 }
 
 error__t describe_class(struct class *class, char *string, size_t length)

@@ -302,7 +302,7 @@ static error__t pos_out_init(
 
 
 /* For validation ensure that an index has been assigned to each field. */
-static error__t capture_finalise(void *class_data, unsigned int block_base)
+static error__t capture_finalise(void *class_data)
 {
     struct capture_state *state = class_data;
     for (unsigned int i = 0; i < state->count; i ++)
@@ -343,14 +343,16 @@ static error__t capture_parse_register(
 }
 
 static error__t bit_out_parse_register(
-    void *class_data, struct field *field, const char **line)
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
 {
     return capture_parse_register(
         &bit_out_state.lookup, class_data, field, line);
 }
 
 static error__t pos_out_parse_register(
-    void *class_data, struct field *field, const char **line)
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
 {
     return capture_parse_register(
         &pos_out_state.lookup, class_data, field, line);

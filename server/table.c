@@ -320,22 +320,6 @@ static error__t long_table_parse_register(
 }
 
 
-static error__t table_parse_register(
-    void *class_data, struct field *field, const char **line)
-{
-    struct table_state *state = class_data;
-    return
-        parse_whitespace(line)  ?:
-        IF_ELSE(read_string(line, "short"),
-            short_table_parse_register(state, line),
-        //else
-        IF_ELSE(read_string(line, "long"),
-            long_table_parse_register(state, line),
-        //else
-            FAIL_("Table type not recognised")));
-}
-
-
 static error__t short_table_finalise(
     struct table_state *state, unsigned int block_base)
 {
@@ -372,15 +356,22 @@ static error__t long_table_finalise(
 }
 
 
-static error__t table_finalise(void *class_data, unsigned int block_base)
+static error__t table_parse_register(
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
 {
     struct table_state *state = class_data;
-    switch (state->table_type)
-    {
-        case SHORT_TABLE:   return short_table_finalise(state, block_base);
-        case LONG_TABLE:    return long_table_finalise(state, block_base);
-        default:            ASSERT_FAIL();
-    }
+    return
+        parse_whitespace(line)  ?:
+        IF_ELSE(read_string(line, "short"),
+            short_table_parse_register(state, line)  ?:
+            short_table_finalise(state, block_base),
+        //else
+        IF_ELSE(read_string(line, "long"),
+            long_table_parse_register(state, line)  ?:
+            long_table_finalise(state, block_base),
+        //else
+            FAIL_("Table type not recognised")));
 }
 
 
@@ -522,7 +513,6 @@ const struct class_methods table_class_methods = {
     .init = table_init,
     .parse_attribute = table_parse_attribute,
     .parse_register = table_parse_register,
-    .finalise = table_finalise,
     .destroy = table_destroy,
     .get = table_get,
     .put_table = table_put_table,
