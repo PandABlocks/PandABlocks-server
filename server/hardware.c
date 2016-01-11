@@ -169,87 +169,17 @@ void hw_write_position_capture_masks(
 /******************************************************************************/
 /* Table API. */
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Short table support */
 
 struct short_table {
-    unsigned int block_base;
     unsigned int reset_reg;
     unsigned int fill_reg;
     unsigned int length_reg;
 };
 
 
-static void create_short_table(
-    struct short_table *table, uint32_t *data[], size_t length,
-    unsigned int block_base, unsigned int block_count,
-    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg)
-{
-    *table = (struct short_table) {
-        .block_base = block_base,
-        .reset_reg = reset_reg,
-        .fill_reg = fill_reg,
-        .length_reg = length_reg,
-    };
-    for (unsigned int i = 0; i < block_count; i ++)
-        data[i] = malloc(length * sizeof(uint32_t));
-}
-
-
-static void destroy_short_table(unsigned int count, uint32_t *data[])
-{
-    for (unsigned int i = 0; i < count; i ++)
-        free(data[i]);
-}
-
-
-/* Short tables are written as a burst: first write to the reset register to
- * start the write, then to the fill register. */
-static void write_short_table(
-    struct short_table *table, unsigned int number,
-    const uint32_t data[], size_t length)
-{
-    unsigned int reset_reg =
-        make_offset(table->block_base, number, table->reset_reg);
-    unsigned int fill_reg =
-        make_offset(table->block_base, number, table->fill_reg);
-    unsigned int length_reg =
-        make_offset(table->block_base, number, table->length_reg);
-
-    register_map[reset_reg] = 1;
-    for (size_t i = 0; i < length; i ++)
-        register_map[fill_reg] = data[i];
-    register_map[length_reg] = (uint32_t) length;
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Long table support */
-
 struct long_table {
 };
 
-
-static error__t create_long_table(void)
-{
-    return ERROR_OK;
-}
-
-
-static void destroy_long_table(void)
-{
-}
-
-
-static void write_long_table(
-    struct long_table *table, unsigned int block_count,
-    const uint32_t data[], size_t length)
-{
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Common */
 
 struct hw_table {
     uint32_t **data;
@@ -263,6 +193,83 @@ struct hw_table {
         struct long_table long_table;
     };
 };
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Short table support */
+
+
+static void create_short_table(
+    struct hw_table *table, size_t max_length,
+    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg)
+{
+    table->short_table = (struct short_table) {
+        .reset_reg = reset_reg,
+        .fill_reg = fill_reg,
+        .length_reg = length_reg,
+    };
+    for (unsigned int i = 0; i < table->count; i ++)
+        table->data[i] = malloc(max_length * sizeof(uint32_t));
+}
+
+
+static void destroy_short_table(struct hw_table *table)
+{
+    for (unsigned int i = 0; i < table->count; i ++)
+        free(table->data[i]);
+}
+
+
+/* Short tables are written as a burst: first write to the reset register to
+ * start the write, then to the fill register. */
+static void write_short_table(
+    struct hw_table *table, unsigned int number, size_t length)
+{
+    struct short_table *short_table = &table->short_table;
+    unsigned int reset_reg =
+        make_offset(table->block_base, number, short_table->reset_reg);
+    unsigned int fill_reg =
+        make_offset(table->block_base, number, short_table->fill_reg);
+    unsigned int length_reg =
+        make_offset(table->block_base, number, short_table->length_reg);
+
+    const uint32_t *data = table->data[number];
+    register_map[reset_reg] = 1;
+    for (size_t i = 0; i < length; i ++)
+        register_map[fill_reg] = data[i];
+    register_map[length_reg] = (uint32_t) length;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Long table support */
+
+
+static error__t create_long_table(struct hw_table *table)
+{
+    return ERROR_OK;
+}
+
+
+static void destroy_long_table(struct hw_table *table)
+{
+}
+
+
+static void start_long_table_write(struct hw_table *table, unsigned int number)
+{
+    // Write to start write register to invalidate data area
+}
+
+static void complete_long_table_write(
+    struct hw_table *table, unsigned int number, size_t length)
+{
+    // Write length written to length register.
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Common */
 
 
 static struct hw_table *create_hw_table(
@@ -282,12 +289,10 @@ static struct hw_table *create_hw_table(
 error__t hw_open_short_table(
     unsigned int block_base, unsigned int block_count,
     unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg,
-    size_t length, struct hw_table **table)
+    size_t max_length, struct hw_table **table)
 {
     *table = create_hw_table(block_base, block_count, SHORT_TABLE);
-    create_short_table(
-        &(*table)->short_table, (*table)->data, length,
-        block_base, block_count, reset_reg, fill_reg, length_reg);
+    create_short_table(*table, max_length, reset_reg, fill_reg, length_reg);
     return ERROR_OK;
 }
 
@@ -298,7 +303,7 @@ error__t hw_open_long_table(
 {
     *length = 1U << order;
     *table = create_hw_table(block_base, block_count, LONG_TABLE);
-    return create_long_table();
+    return create_long_table(*table);
 }
 
 
@@ -312,22 +317,19 @@ void hw_write_table(
     struct hw_table *table, unsigned int number,
     size_t offset, const uint32_t data[], size_t length)
 {
-    uint32_t *write_data = table->data[number];
+    if (table->table_type == LONG_TABLE)
+        start_long_table_write(table, number);
 
-    /* Start by updating the write buffer to take account of data appending. */
-    if (offset)
-        memcpy(write_data + offset, data, length * sizeof(uint32_t));
+    memcpy(table->data[number] + offset, data, length * sizeof(uint32_t));
 
     /* Now inform the hardware as appropriate. */
     switch (table->table_type)
     {
         case SHORT_TABLE:
-            write_short_table(
-                &table->short_table, number, write_data, offset + length);
+            write_short_table(table, number, offset + length);
             break;
         case LONG_TABLE:
-            write_long_table(
-                &table->long_table, number, write_data, offset + length);
+            complete_long_table_write(table, number, offset + length);
             break;
     }
 }
@@ -337,13 +339,8 @@ void hw_close_table(struct hw_table *table)
 {
     switch (table->table_type)
     {
-        case SHORT_TABLE:
-            destroy_short_table(table->count, table->data);
-            break;
-        case LONG_TABLE:
-            /* Free driver resource. */
-            destroy_long_table();
-            break;
+        case SHORT_TABLE:   destroy_short_table(table);     break;
+        case LONG_TABLE:    destroy_long_table(table);      break;
     }
 
     free(table->data);
