@@ -110,8 +110,6 @@ void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value)
 {
-    printf("hw_write_register %u:%u:%u <= %u\n",
-        block_base, block_number, reg, value);
     register_map[make_offset(block_base, block_number, reg)] = value;
 }
 
@@ -119,8 +117,6 @@ uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     uint32_t result = register_map[make_offset(block_base, block_number, reg)];
-    printf("hw_read_register %u:%u:%u => %u\n",
-        block_base, block_number, reg, result);
     return result;
 }
 
@@ -129,12 +125,14 @@ uint32_t hw_read_register(
  * start the write, then to the fill register. */
 void hw_write_short_table(
     unsigned int block_base, unsigned int block_number,
-    unsigned int reset_reg, unsigned int fill_reg,
+    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg,
     const uint32_t data[], size_t length)
 {
     register_map[make_offset(block_base, block_number, reset_reg)] = 1;
     for (size_t i = 0; i < length; i ++)
         register_map[make_offset(block_base, block_number, fill_reg)] = data[i];
+    register_map[make_offset(block_base, block_number, length_reg)] =
+        (uint32_t) length;
 }
 
 
@@ -184,6 +182,7 @@ void hw_write_position_capture_masks(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Long table support */
 
 struct hw_long_table {
 };

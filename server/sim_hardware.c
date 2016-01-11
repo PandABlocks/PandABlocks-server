@@ -166,7 +166,7 @@ uint32_t hw_read_register(
 
 void hw_write_short_table(
     unsigned int block_base, unsigned int block_number,
-    unsigned int reset_reg, unsigned int fill_reg,
+    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg,
     const uint32_t data[], size_t length)
 {
     LOCK();
@@ -264,8 +264,8 @@ void hw_write_long_table_length(
     LOCK();
     handle_error(
         write_command_int(
-            'T', table->block_base, number, 0, (uint32_t) table->length)  ?:
-        write_all(table->data[number], table->length * sizeof(uint32_t)));
+            'T', table->block_base, number, 0, (uint32_t) length)  ?:
+        write_all(table->data[number], length * sizeof(uint32_t)));
     UNLOCK();
 }
 

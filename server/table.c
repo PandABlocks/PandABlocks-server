@@ -106,6 +106,7 @@ struct table_state {
             unsigned int block_base;    // Block base address
             unsigned int init_reg;      // Register for starting block write
             unsigned int fill_reg;      // Register for completing block write
+            unsigned int length_reg;    // Register to set final table length
         } short_state;
 
         struct long_table_state {
@@ -215,8 +216,6 @@ static void complete_table_write(
         block->length = length + block->write_offset;
         memcpy(block->data + block->write_offset, block->write_data,
             sizeof(uint32_t) * length);
-        memset(block->data + block->length, 0,
-            sizeof(uint32_t) * (state->max_length - block->length));
 
         /* Finally write the updated data to hardware. */
         finalise(state, block);
@@ -304,7 +303,9 @@ static error__t short_table_parse_register(
         parse_whitespace(line)  ?:
         parse_uint(line, &state->short_state.init_reg)  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &state->short_state.fill_reg);
+        parse_uint(line, &state->short_state.fill_reg)  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->short_state.length_reg);
 }
 
 
@@ -417,7 +418,8 @@ static void short_table_put_finalise(
     hw_write_short_table(
         state->short_state.block_base, block->number,
         state->short_state.init_reg, state->short_state.fill_reg,
-        block->data, state->max_length);
+        state->short_state.length_reg,
+        block->data, block->length);
 }
 
 static void short_table_put_table_close(

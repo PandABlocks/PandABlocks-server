@@ -53,7 +53,7 @@ void hw_read_positions(
  * directly to hardware. */
 void hw_write_short_table(
     unsigned int block_base, unsigned int block_number,
-    unsigned int reset_reg, unsigned int fill_reg,
+    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg,
     const uint32_t data[], size_t length);
 
 
