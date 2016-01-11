@@ -10,26 +10,6 @@ void terminate_capture(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Type definitions. */
-
-/* Converts hardware index into a printable string. */
-error__t bit_mux_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length);
-error__t pos_mux_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length);
-
-/* Converts _out field name into hardware multiplexer index. */
-error__t bit_mux_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value);
-error__t pos_mux_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value);
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Refresh methods used to bring cached _out values up to date with values read
  * from hardware. */
 

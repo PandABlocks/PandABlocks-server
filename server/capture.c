@@ -8,15 +8,14 @@
 
 #include "error.h"
 #include "hardware.h"
-#include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
 #include "fields.h"
 #include "classes.h"
 #include "attributes.h"
 #include "types.h"
-#include "register.h"
 #include "locking.h"
+#include "mux_lookup.h"
 
 #include "capture.h"
 
@@ -26,28 +25,12 @@ static pthread_mutex_t pos_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 
-
-/* These manage the conversion between bit and position multiplexer register
- * settings and sensible user readable names.
- *
- * For multiplexer selections we convert the register value to and from a
- * multiplexer name and read and write the corresponding register.  The main
- * complication is that we need to map multiplexers to indexes. */
-
-struct mux_lookup {
-    size_t length;                  // Number of mux entries
-    struct hash_table *numbers;     // Lookup converting name to index
-    char **names;                   // Array of mux entry names
-};
-
-
 /* For bit and pos out classes we read all the values together and record the
  * corresponding change indexes.  This means we need a global state structure to
  * record the last reading, together with index information for each class index
  * to identify the corresponding fields per class. */
 
 static struct {
-    struct mux_lookup lookup;       // Map between mux index and names
     bool bits[BIT_BUS_COUNT];       // Current value of each bit
     uint64_t update_index[BIT_BUS_COUNT];   // Change flag for each bit
     uint32_t capture[BIT_BUS_COUNT / 32];   // Capture request for each bit
@@ -55,130 +38,11 @@ static struct {
 } bit_out_state = { };
 
 static struct {
-    struct mux_lookup lookup;       // Map between mux index and names
     uint32_t positions[POS_BUS_COUNT];      // Current array of positions
     uint64_t update_index[POS_BUS_COUNT];   // Change flag for each position
     uint32_t capture;                   // Capture request for each position
     int capture_index[POS_BUS_COUNT];   // Capture index for each position
 } pos_out_state = { };
-
-
-
-/*****************************************************************************/
-/* Multiplexer name lookup. */
-
-
-/* Creates Mux lookup to support the given number of valid indexes. */
-static void mux_lookup_initialise(struct mux_lookup *lookup, size_t length)
-{
-    *lookup = (struct mux_lookup) {
-        .length = length,
-        .numbers = hash_table_create(false),
-        .names = calloc(length, sizeof(char *)),
-    };
-}
-
-
-static void mux_lookup_destroy(struct mux_lookup *lookup)
-{
-    if (lookup->numbers)
-        hash_table_destroy(lookup->numbers);
-    if (lookup->names)
-    {
-        for (unsigned int i = 0; i < lookup->length; i ++)
-            free(lookup->names[i]);
-        free(lookup->names);
-    }
-}
-
-
-/* Add name<->index mapping, called during configuration file parsing. */
-static error__t mux_lookup_insert(
-    struct mux_lookup *lookup, unsigned int ix, const char *name)
-{
-    return
-        TEST_OK_(ix < lookup->length, "Index %u out of range", ix)  ?:
-        TEST_OK_(!lookup->names[ix], "Index %u already assigned", ix)  ?:
-        DO(lookup->names[ix] = strdup(name))  ?:
-        TEST_OK_(!hash_table_insert(
-            lookup->numbers, lookup->names[ix], (void *) (uintptr_t) ix),
-            "Duplicate mux name %s", name);
-}
-
-
-/* During register definition parsing add index<->name conversions. */
-static error__t add_mux_indices(
-    struct mux_lookup *lookup, struct field *field, unsigned int count,
-    unsigned int indices[])
-{
-    /* Add mux entries for our instances. */
-    error__t error = ERROR_OK;
-    for (unsigned int i = 0; !error  &&  i < count; i ++)
-    {
-        char name[MAX_NAME_LENGTH];
-        format_field_name(name, sizeof(name), field, NULL, i, '\0');
-        error = mux_lookup_insert(lookup, indices[i], name);
-    }
-    return error;
-}
-
-
-/* Converts field name to corresponding index. */
-static error__t mux_lookup_name(
-    struct mux_lookup *lookup, const char *name, unsigned int *ix)
-{
-    void *value;
-    return
-        TEST_OK_(hash_table_lookup_bool(lookup->numbers, name, &value),
-            "Mux selector not known")  ?:
-        DO(*ix = (unsigned int) (uintptr_t) value);
-}
-
-
-/* Converts register index to multiplexer name, or returns error if an invalid
- * value is read. */
-static error__t mux_lookup_index(
-    struct mux_lookup *lookup, unsigned int ix, char result[], size_t length)
-{
-    return
-        TEST_OK_(ix < lookup->length, "Index out of range")  ?:
-        TEST_OK_(lookup->names[ix], "Mux name unassigned")  ?:
-        TEST_OK(strlen(lookup->names[ix]) < length)  ?:
-        DO(strcpy(result, lookup->names[ix]));
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* bit_mux and pos_mux type methods. */
-
-error__t bit_mux_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length)
-{
-    return mux_lookup_index(&bit_out_state.lookup, value, result, length);
-}
-
-error__t pos_mux_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length)
-{
-    return mux_lookup_index(&pos_out_state.lookup, value, result, length);
-}
-
-
-error__t bit_mux_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
-{
-    return mux_lookup_name(&bit_out_state.lookup, string, value);
-}
-
-error__t pos_mux_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
-{
-    return mux_lookup_name(&pos_out_state.lookup, string, value);
-}
 
 
 
@@ -334,11 +198,11 @@ static error__t parse_out_registers(
 }
 
 static error__t capture_parse_register(
-    struct mux_lookup *lookup, struct capture_state *state,
+    struct mux_lookup *lookup, size_t length, struct capture_state *state,
     struct field *field, const char **line)
 {
     return
-        parse_out_registers(state, line, lookup->length) ?:
+        parse_out_registers(state, line, length) ?:
         add_mux_indices(lookup, field, state->count, state->index_array);
 }
 
@@ -347,7 +211,7 @@ static error__t bit_out_parse_register(
     const char **line)
 {
     return capture_parse_register(
-        &bit_out_state.lookup, class_data, field, line);
+        &bit_mux_lookup, BIT_BUS_COUNT, class_data, field, line);
 }
 
 static error__t pos_out_parse_register(
@@ -355,7 +219,7 @@ static error__t pos_out_parse_register(
     const char **line)
 {
     return capture_parse_register(
-        &pos_out_state.lookup, class_data, field, line);
+        &pos_mux_lookup, POS_BUS_COUNT, class_data, field, line);
 }
 
 
@@ -575,7 +439,8 @@ void report_capture_list(struct connection_result *result)
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
         if (pos_out_state.capture & (1U << i))
             result->write_many(
-                result->write_context, pos_out_state.lookup.names[i]);
+                result->write_context,
+                mux_lookup_get_name(&pos_mux_lookup, i));
 
     /* Bit capture. */
     for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
@@ -594,7 +459,7 @@ void report_capture_bits(struct connection_result *result, unsigned int group)
 {
     for (unsigned int i = 0; i < 32; i ++)
         result->write_many(result->write_context,
-            bit_out_state.lookup.names[32*group + i] ?: "");
+            mux_lookup_get_name(&bit_mux_lookup, 32*group + i) ?: "");
     result->response = RESPONSE_MANY;
 }
 
@@ -603,7 +468,7 @@ void report_capture_positions(struct connection_result *result)
 {
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
         result->write_many(result->write_context,
-            pos_out_state.lookup.names[i] ?: "");
+            mux_lookup_get_name(&pos_mux_lookup, i) ?: "");
     result->response = RESPONSE_MANY;
 }
 
@@ -623,10 +488,7 @@ void reset_capture_list(void)
 
 error__t initialise_capture(void)
 {
-    /* Block input multiplexer maps.  These are initialised by each
-     * {bit,pos}_out field as it is loaded. */
-    mux_lookup_initialise(&bit_out_state.lookup, BIT_BUS_COUNT);
-    mux_lookup_initialise(&pos_out_state.lookup, POS_BUS_COUNT);
+    initialise_mux_lookup();
     update_capture_index();
     return ERROR_OK;
 }
@@ -634,8 +496,7 @@ error__t initialise_capture(void)
 
 void terminate_capture(void)
 {
-    mux_lookup_destroy(&bit_out_state.lookup);
-    mux_lookup_destroy(&pos_out_state.lookup);
+    terminate_mux_lookup();
 }
 
 
