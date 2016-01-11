@@ -321,15 +321,6 @@ static void capture_destroy(void *class_data)
 
 /* We fill in the index array and create name lookups at the same time. */
 
-static error__t check_out_unassigned(struct capture_state *state)
-{
-    /* Check that we're starting with an unassigned field set. */
-    for (unsigned int i = 0; i < state->count; i ++)
-        if (state->index_array[i] != UNASSIGNED_REGISTER)
-            return FAIL_("Output selection already assigned");
-    return ERROR_OK;
-}
-
 static error__t parse_out_registers(
     struct capture_state *state, const char **line, size_t limit)
 {
@@ -347,7 +338,6 @@ static error__t capture_parse_register(
     struct field *field, const char **line)
 {
     return
-        check_out_unassigned(state)  ?:
         parse_out_registers(state, line, lookup->length) ?:
         add_mux_indices(lookup, field, state->count, state->index_array);
 }
