@@ -49,41 +49,40 @@ void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT]);
 void hw_read_positions(
     uint32_t positions[POS_BUS_COUNT], bool changes[POS_BUS_COUNT]);
 
-/* Write short table data.  For short tables the entire data block is written
- * directly to hardware. */
-void hw_write_short_table(
-    unsigned int block_base, unsigned int block_number,
-    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg,
-    const uint32_t data[], size_t length);
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Long tables. */
+/* Table API. */
 
-/* For long tables we have a memory mapped area.  After writing into the area we
- * need to release it so that the area can be flushed to RAM and the hardware
- * informed. */
+/* The API for short and long tables is pretty similar: open the table, then
+ * write blocks. */
 
-struct hw_long_table;
+struct hw_table;    // Common interface to long and short tables
 
-/* This method is called during startup to prepare the long table structure and
- * open any device resources.  The data area length for each table is returned
- * together with an allocated table structure. */
+
+/* Creates short tables with given control registers.  All the tables for the
+ * selected block are opened together with this call. */
+error__t hw_open_short_table(
+    unsigned int block_base, unsigned int block_number,
+    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg,
+    size_t max_length, struct hw_table **table);
+
+/* Creates long table.  The size is specified as a power of 2 and the actual
+ * maximum length in words is returned. */
 error__t hw_open_long_table(
-    unsigned int block_base, unsigned int count, unsigned int order,
-    struct hw_long_table **table, size_t *length);
+    unsigned int block_base, unsigned int block_count, unsigned int order,
+    struct hw_table **table, size_t *length);
 
-/* This retrieves the long table data area for the specified block.  The lengt
- * has already been returned by hw_open_long_table(). */
-void hw_read_long_table_area(
-    struct hw_long_table *table, unsigned int number, uint32_t **data);
+/* When called during initialisation returns data area of block for readback. */
+const uint32_t *hw_read_table_data(struct hw_table *table, unsigned int number);
 
-/* Updates range of valid data for table. */
-void hw_write_long_table_length(
-    struct hw_long_table *table, unsigned int number, size_t length);
 
-/* Call this during shutdown to release table and device resources. */
-void hw_close_long_table(struct hw_long_table *table);
+/* Writes given block of data to table. */
+void hw_write_table(
+    struct hw_table *table, unsigned int number,
+    size_t offset, const uint32_t data[], size_t length);
+
+/* Releases table resources during server shutdown. */
+void hw_close_table(struct hw_table *table);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

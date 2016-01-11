@@ -164,20 +164,6 @@ uint32_t hw_read_register(
 }
 
 
-void hw_write_short_table(
-    unsigned int block_base, unsigned int block_number,
-    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg,
-    const uint32_t data[], size_t length)
-{
-    LOCK();
-    handle_error(
-        write_command_int(
-            'T', block_base, block_number, fill_reg, (uint32_t) length)  ?:
-        write_all(data, length * sizeof(uint32_t)));
-    UNLOCK();
-}
-
-
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
 {
     LOCK();
@@ -220,64 +206,91 @@ void hw_write_position_capture_masks(
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Long table support. */
+/******************************************************************************/
+/* Table API. */
 
-struct hw_long_table {
-    unsigned int block_base;
+/* The difference between short and long tables is managed here. */
+
+struct hw_table {
+    uint32_t **data;
     unsigned int count;
-    size_t length;
-    uint32_t *data[];
+    unsigned int block_base;
 };
 
 
-error__t hw_open_long_table(
-    unsigned int block_base, unsigned int count, unsigned int order,
-    struct hw_long_table **table, size_t *length)
+static uint32_t **create_table_data(unsigned int count, size_t length)
 {
-    *table = malloc(sizeof(struct hw_long_table) + count * sizeof(uint32_t *));
-    *length = 1U << order;
-    **table = (struct hw_long_table) {
-        .block_base = block_base,
-        .count = count,
-        .length = *length,
-    };
+    uint32_t **data = malloc(count * sizeof(uint32_t *));
     for (unsigned int i = 0; i < count; i ++)
-        (*table)->data[i] = malloc(sizeof(uint32_t) * *length);
+        data[i] = malloc(length * sizeof(uint32_t));
+    return data;
+}
+
+
+static struct hw_table *create_hw_table(
+    unsigned int block_base, unsigned int count, size_t max_length)
+{
+    struct hw_table *table = malloc(sizeof(struct hw_table));
+    *table = (struct hw_table) {
+        .data = create_table_data(count, max_length),
+        .count = count,
+        .block_base = block_base,
+    };
+    return table;
+}
+
+
+error__t hw_open_short_table(
+    unsigned int block_base, unsigned int block_count,
+    unsigned int reset_reg, unsigned int fill_reg, unsigned int length_reg,
+    size_t max_length, struct hw_table **table)
+{
+    *table = create_hw_table(block_base, block_count, max_length);
     return ERROR_OK;
 }
 
 
-void hw_read_long_table_area(
-    struct hw_long_table *table, unsigned int number, uint32_t **data)
+error__t hw_open_long_table(
+    unsigned int block_base, unsigned int block_count, unsigned int order,
+    struct hw_table **table, size_t *length)
 {
-    *data = table->data[number];
+    *length = 1U << order;
+    *table = create_hw_table(block_base, block_count, *length);
+    return ERROR_OK;
 }
 
 
-void hw_write_long_table_length(
-    struct hw_long_table *table, unsigned int number, size_t length)
+const uint32_t *hw_read_table_data(struct hw_table *table, unsigned int number)
 {
-    ASSERT_OK(length <= table->length);
+    return table->data[number];
+}
 
-    /* Push updated table to simulation server. */
+
+void hw_write_table(
+    struct hw_table *table, unsigned int number,
+    size_t offset, const uint32_t data[], size_t length)
+{
+    size_t bytes = length * sizeof(uint32_t);
     LOCK();
+    memcpy(table->data[number] + offset, data, bytes);
     handle_error(
         write_command_int(
-            'T', table->block_base, number, 0, (uint32_t) length)  ?:
-        write_all(table->data[number], length * sizeof(uint32_t)));
+            'T', table->block_base, number, 0, (uint32_t) (length + offset))  ?:
+        write_all(table->data[number], (length + offset) * sizeof(uint32_t)));
     UNLOCK();
 }
 
 
-void hw_close_long_table(struct hw_long_table *table)
+void hw_close_table(struct hw_table *table)
 {
     for (unsigned int i = 0; i < table->count; i ++)
         free(table->data[i]);
+    free(table->data);
     free(table);
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/******************************************************************************/
 
 error__t initialise_hardware(void)
 {
