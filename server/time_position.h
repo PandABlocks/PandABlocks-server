@@ -1,4 +1,4 @@
-/* Time class. */
+/* Time and position support. */
 
 /* We have both a time class and a time type because a type can only be used for
  * 32 bit data, whereas we need a class for some instances of 48 bit times. */

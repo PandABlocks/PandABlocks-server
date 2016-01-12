@@ -17,7 +17,7 @@
 #include "hardware.h"
 #include "output.h"
 #include "register.h"
-#include "time_class.h"
+#include "time_position.h"
 #include "table.h"
 
 #include "classes.h"

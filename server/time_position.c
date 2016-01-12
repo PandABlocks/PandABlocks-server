@@ -18,7 +18,7 @@
 #include "types.h"
 #include "locking.h"
 
-#include "time_class.h"
+#include "time_position.h"
 
 
 enum time_scale { TIME_MINS, TIME_SECS, TIME_MSECS, TIME_USECS, };

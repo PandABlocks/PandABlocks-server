@@ -20,7 +20,7 @@
 #include "fields.h"
 #include "mux_lookup.h"
 #include "locking.h"
-#include "time_class.h"
+#include "time_position.h"
 
 #include "types.h"
 
