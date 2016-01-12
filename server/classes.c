@@ -229,6 +229,7 @@ void destroy_class(struct class *class)
 {
     if (class->methods->destroy)
         class->methods->destroy(class->class_data);
-    free(class->class_data);
+    else
+        free(class->class_data);
     free(class);
 }

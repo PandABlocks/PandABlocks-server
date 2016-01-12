@@ -148,6 +148,7 @@ static void base_destroy(void *class_data)
     struct base_state *state = class_data;
     destroy_type(state->type);
     free(state->filter_data);
+    free(state);
 }
 
 

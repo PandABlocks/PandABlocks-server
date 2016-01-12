@@ -248,6 +248,7 @@ static void table_destroy(void *class_data)
 
     if (state->table)
         hw_close_table(state->table);
+    free(state);
 }
 
 

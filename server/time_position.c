@@ -322,6 +322,7 @@ static void position_destroy(void *type_data, unsigned int count)
     struct position_state *state = type_data;
     for (unsigned int i = 0; i < count; i ++)
         free(state->values[i].units);
+    free(state);
 }
 
 

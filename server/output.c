@@ -180,6 +180,7 @@ static void capture_destroy(void *class_data)
 {
     struct capture_state *state = class_data;
     destroy_type(state->type);
+    free(state);
 }
 
 

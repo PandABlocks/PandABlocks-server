@@ -208,6 +208,7 @@ static void lut_destroy(void *type_data, unsigned int count)
     struct lut_state *state = type_data;
     for (unsigned int i = 0; i < count; i ++)
         free(state->values[i].string);
+    free(state);
 }
 
 
@@ -324,7 +325,8 @@ void destroy_type(struct type *type)
 {
     if (type->methods->destroy)
         type->methods->destroy(type->type_data, type->count);
-    free(type->type_data);
+    else
+        free(type->type_data);
     free(type);
 }
 

@@ -53,6 +53,7 @@ static void enum_destroy(void *type_data, unsigned int count)
     hash_table_destroy(state->map);
     for (unsigned int i = 0; i < state->count; i ++)
         free(state->strings[i]);
+    free(state);
 }
 
 
