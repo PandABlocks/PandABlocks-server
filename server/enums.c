@@ -35,7 +35,8 @@ static struct enum_state *create_enum_state(unsigned int hash_count)
 
 
 /* Starts the loading of an enumeration. */
-error__t enum_init(const char **string, unsigned int count, void **type_data)
+static error__t enum_init(
+    const char **string, unsigned int count, void **type_data)
 {
     unsigned int hash_count;
     return
@@ -46,7 +47,7 @@ error__t enum_init(const char **string, unsigned int count, void **type_data)
 
 
 /* Called during shutdown to release allocated resources. */
-void enum_destroy(void *type_data, unsigned int count)
+static void enum_destroy(void *type_data, unsigned int count)
 {
     struct enum_state *state = type_data;
     hash_table_destroy(state->map);
@@ -56,7 +57,7 @@ void enum_destroy(void *type_data, unsigned int count)
 
 
 /* Adds a single enumeration label to the enumeration set. */
-error__t enum_add_label(void *type_data, const char **string)
+static error__t enum_add_label(void *type_data, const char **string)
 {
     struct enum_state *state = type_data;
     unsigned int ix;
@@ -76,7 +77,7 @@ error__t enum_add_label(void *type_data, const char **string)
 
 
 /* Parses valid enumeration into corresponding value, otherwise error. */
-error__t enum_parse(
+static error__t enum_parse(
     void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
@@ -90,7 +91,7 @@ error__t enum_parse(
 
 
 /* Formats valid value into enumeration string, otherwise error. */
-error__t enum_format(
+static error__t enum_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
@@ -103,7 +104,7 @@ error__t enum_format(
 
 
 /* Returns list of enumeration values and strings. */
-error__t enum_labels_get(
+static error__t enum_labels_get(
     void *owner, void *type_data, unsigned int number,
     struct connection_result *result)
 {
@@ -118,3 +119,15 @@ error__t enum_labels_get(
     result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
+
+
+const struct type_methods enum_type_methods = {
+    "enum",
+    .init = enum_init, .destroy = enum_destroy,
+    .add_attribute_line = enum_add_label,
+    .parse = enum_parse, .format = enum_format,
+    .attrs = (struct attr_methods[]) {
+        { "LABELS", .get_many = enum_labels_get, },
+    },
+    .attr_count = 1,
+};

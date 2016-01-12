@@ -26,34 +26,6 @@
 
 
 
-struct type_methods {
-    const char *name;
-
-    /* This creates and initialises any type specific data needed. */
-    error__t (*init)(const char **string, unsigned int count, void **type_data);
-    /* By default type_data will be freed on destruction.  This optional method
-     * implements any more complex destruction process needed. */
-    void (*destroy)(void *type_data, unsigned int count);
-
-    /* This is called during startup to process an attribute line. */
-    error__t (*add_attribute_line)(void *type_data, const char **string);
-
-    /* This converts a string to a writeable integer. */
-    error__t (*parse)(
-        void *type_data, unsigned int number,
-        const char *string, unsigned int *value);
-
-    /* This formats the value into a string according to the type rules. */
-    error__t (*format)(
-        void *type_data, unsigned int number,
-        unsigned int value, char string[], size_t length);
-
-    /* Type specific attributes. */
-    const struct attr_methods *attrs;
-    unsigned int attr_count;
-};
-
-
 struct type {
     const struct type_methods *methods;
     const struct register_methods *reg;
@@ -616,9 +588,9 @@ void destroy_type(struct type *type)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
-static const struct type_methods types_table[] = {
+static const struct type_methods *types_table[] = {
     /* Unsigned integer with optional maximum limit. */
-    { "uint",
+    &(struct type_methods) { "uint",
         .init = uint_init,
         .parse = uint_parse, .format = uint_format,
         .attrs = (struct attr_methods[]) {
@@ -628,11 +600,12 @@ static const struct type_methods types_table[] = {
     },
 
     /* Bits are simple: 0 or 1. */
-    { "bit", .parse = bit_parse, .format = bit_format },
+    &(struct type_methods) { "bit",
+        .parse = bit_parse, .format = bit_format },
 
     /* Scaled time and position are similar, both convert between a floating
      * point representation and a digital hardware value. */
-    { "position",
+    &(struct type_methods) { "position",
         .init = position_init, .destroy = position_destroy,
         .parse = position_parse, .format = position_format,
         .attrs = (struct attr_methods[]) {
@@ -648,7 +621,7 @@ static const struct type_methods types_table[] = {
         .attr_count = 4,
     },
 
-    { "time",
+    &(struct type_methods) { "time",
         .init = time_init,
         .parse = time_parse, .format = time_format,
         .attrs = (struct attr_methods[]) {
@@ -664,16 +637,12 @@ static const struct type_methods types_table[] = {
         .attr_count = 2,
     },
 
-    /* The mux types are only valid for bit_in and pos_in classes. */
-    { "bit_mux", .parse = bit_mux_parse, .format = bit_mux_format },
-    { "pos_mux", .parse = pos_mux_parse, .format = pos_mux_format },
-
     /* A type for fields where the data is never read and only the action of
      * writing is important: no data allowed. */
-    { "action", .parse = action_parse, },
+    &(struct type_methods) { "action", .parse = action_parse, },
 
     /* 5-input lookup table with special parsing. */
-    { "lut",
+    &(struct type_methods) { "lut",
         .init = lut_init, .destroy = lut_destroy,
         .parse = lut_parse, .format = lut_format,
         .attrs = (struct attr_methods[]) {
@@ -681,16 +650,10 @@ static const struct type_methods types_table[] = {
         .attr_count = 1,
     },
 
-    /* Enumerations. */
-    { "enum",
-        .init = enum_init, .destroy = enum_destroy,
-        .add_attribute_line = enum_add_label,
-        .parse = enum_parse, .format = enum_format,
-        .attrs = (struct attr_methods[]) {
-            { "LABELS", .get_many = enum_labels_get, },
-        },
-        .attr_count = 1,
-    },
+    &bit_mux_type_methods,          // bit_mux
+    &pos_mux_type_methods,          // pos_mux
+
+    &enum_type_methods,             // enum
 };
 
 
@@ -702,7 +665,7 @@ static error__t lookup_type(
 {
     for (unsigned int i = 0; i < ARRAY_SIZE(types_table); i ++)
     {
-        const struct type_methods *methods = &types_table[i];
+        const struct type_methods *methods = types_table[i];
         if (strcmp(name, methods->name) == 0)
         {
             *result = methods;

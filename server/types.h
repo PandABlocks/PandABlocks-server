@@ -1,6 +1,38 @@
-/* Support for types. */
+/* Support for types.  Here a "type" object mediates between an integer value
+ * written to a register and a textual representation. */
 
 struct type;
+
+
+/* A support type is defined by defining at least some of the methods below.  In
+ * particular, at least one of .parse or .format should be defined. */
+struct type_methods {
+    const char *name;
+
+    /* This creates and initialises any type specific data needed. */
+    error__t (*init)(const char **string, unsigned int count, void **type_data);
+    /* By default type_data will be freed on destruction.  This optional method
+     * implements any more complex destruction process needed. */
+    void (*destroy)(void *type_data, unsigned int count);
+
+    /* This is called during startup to process an attribute line. */
+    error__t (*add_attribute_line)(void *type_data, const char **string);
+
+    /* This converts a string to a writeable integer. */
+    error__t (*parse)(
+        void *type_data, unsigned int number,
+        const char *string, unsigned int *value);
+
+    /* This formats the value into a string according to the type rules. */
+    error__t (*format)(
+        void *type_data, unsigned int number,
+        unsigned int value, char string[], size_t length);
+
+    /* Type specific attributes, automatically instantiated when type instance
+     * created. */
+    const struct attr_methods *attrs;
+    unsigned int attr_count;
+};
 
 
 /* API used by type to access the underlying register value.  All methods in

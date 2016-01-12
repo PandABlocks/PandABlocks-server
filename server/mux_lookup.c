@@ -10,6 +10,7 @@
 #include "hashtable.h"
 #include "config_server.h"
 #include "fields.h"
+#include "types.h"
 
 #include "mux_lookup.h"
 
@@ -133,14 +134,14 @@ size_t mux_lookup_get_length(struct mux_lookup *lookup)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* bit_mux and pos_mux type methods. */
 
-error__t bit_mux_format(
+static error__t bit_mux_format(
     void *type_data, unsigned int number,
     unsigned int value, char result[], size_t length)
 {
     return mux_lookup_index(&bit_mux_lookup, value, result, length);
 }
 
-error__t pos_mux_format(
+static error__t pos_mux_format(
     void *type_data, unsigned int number,
     unsigned int value, char result[], size_t length)
 {
@@ -148,20 +149,25 @@ error__t pos_mux_format(
 }
 
 
-error__t bit_mux_parse(
+static error__t bit_mux_parse(
     void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
     return mux_lookup_name(&bit_mux_lookup, string, value);
 }
 
-error__t pos_mux_parse(
+static error__t pos_mux_parse(
     void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
     return mux_lookup_name(&pos_mux_lookup, string, value);
 }
 
+
+const struct type_methods bit_mux_type_methods =
+    { "bit_mux", .parse = bit_mux_parse, .format = bit_mux_format };
+const struct type_methods pos_mux_type_methods =
+    { "pos_mux", .parse = pos_mux_parse, .format = pos_mux_format };
 
 
 /*****************************************************************************/

@@ -16,24 +16,9 @@ error__t add_mux_indices(
     unsigned int count, const unsigned int indices[]);
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Type interface for bit_mux and pos_mux. */
-
-/* Converts hardware index into a printable string. */
-error__t bit_mux_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length);
-error__t pos_mux_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length);
-
-/* Converts _out field name into hardware multiplexer index. */
-error__t bit_mux_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value);
-error__t pos_mux_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value);
+extern const struct type_methods bit_mux_type_methods;
+extern const struct type_methods pos_mux_type_methods;
 
 
 /* Access to mux. */
