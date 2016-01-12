@@ -39,8 +39,7 @@ struct type {
 /* Some support functions. */
 
 
-static error__t read_register(
-    struct type *type, unsigned int number, uint32_t *value)
+error__t read_register(struct type *type, unsigned int number, uint32_t *value)
 {
     return
         TEST_OK_(type->reg->read, "Register cannot be read")  ?:
@@ -48,8 +47,7 @@ static error__t read_register(
 }
 
 
-static error__t write_register(
-    struct type *type, unsigned int number, uint32_t value)
+error__t write_register(struct type *type, unsigned int number, uint32_t value)
 {
     return
         TEST_OK_(type->reg->write, "Register cannot be written")  ?:
@@ -57,7 +55,7 @@ static error__t write_register(
 }
 
 
-static void changed_register(struct type *type, unsigned int number)
+void changed_register(struct type *type, unsigned int number)
 {
     if (type->reg->changed)
         type->reg->changed(type->reg_data, number);
@@ -71,18 +69,7 @@ static void changed_register(struct type *type, unsigned int number)
 
 /* Raw field implementation for those fields that need it. */
 
-static error__t raw_format_int(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct type *type = owner;
-    uint32_t value;
-    return
-        read_register(type, number, &value)  ?:
-        format_string(result, length, "%d", value);
-}
-
-static error__t raw_format_uint(
+error__t raw_format_uint(
     void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
@@ -94,7 +81,7 @@ static error__t raw_format_uint(
 }
 
 
-static error__t raw_put_uint(
+error__t raw_put_uint(
     void *owner, void *data, unsigned int number, const char *string)
 {
     struct type *type = owner;
@@ -187,249 +174,6 @@ static error__t action_parse(
 {
     *value = 0;
     return parse_eos(&string);
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Position. */
-
-struct position_state {
-    pthread_mutex_t mutex;
-    struct position_field {
-        double scale;
-        double offset;
-        char *units;
-    } values[];
-};
-
-
-static error__t position_init(
-    const char **string, unsigned int count, void **type_data)
-{
-    struct position_state *state = malloc(
-        sizeof(struct position_state) + count * sizeof(struct position_field));
-    *state = (struct position_state) {
-        .mutex = PTHREAD_MUTEX_INITIALIZER,
-    };
-    for (unsigned int i = 0; i < count; i ++)
-        state->values[i] = (struct position_field) {
-            .scale = 1.0,
-        };
-    *type_data = state;
-    return ERROR_OK;
-}
-
-static void position_destroy(void *type_data, unsigned int count)
-{
-    struct position_state *state = type_data;
-    for (unsigned int i = 0; i < count; i ++)
-        free(state->values[i].units);
-}
-
-
-static error__t position_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
-{
-    struct position_state *state = type_data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double scale = field->scale;
-    double offset = field->offset;
-    UNLOCK(state->mutex);
-
-    double position;
-    double converted;
-    return
-        parse_double(&string, &position)  ?:
-        parse_eos(&string)  ?:
-        DO(converted = (position - offset) / scale)  ?:
-        TEST_OK_(INT32_MIN <= converted  &&  converted <= INT32_MAX,
-            "Position out of range")  ?:
-        DO(*value = (unsigned int) lround(converted));
-}
-
-
-static error__t position_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length)
-{
-    struct position_state *state = type_data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double scale = field->scale;
-    double offset = field->offset;
-    UNLOCK(state->mutex);
-
-    return format_double(result, length, (int) value * scale + offset);
-}
-
-
-static error__t position_scale_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double scale = field->scale;
-    UNLOCK(state->mutex);
-
-    return format_double(result, length, scale);
-}
-
-static error__t position_scale_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    double scale;
-    error__t error = parse_double(&value, &scale)  ?:  parse_eos(&value);
-
-    if (!error)
-    {
-        LOCK(state->mutex);
-        field->scale = scale;
-        UNLOCK(state->mutex);
-
-        changed_register(owner, number);
-    }
-    return error;
-}
-
-static error__t position_offset_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double offset = field->offset;
-    UNLOCK(state->mutex);
-
-    return format_double(result, length, offset);
-}
-
-static error__t position_offset_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    double offset;
-    error__t error = parse_double(&value, &offset)  ?: parse_eos(&value);
-    if (!error)
-    {
-        LOCK(state->mutex);
-        field->offset = offset;
-        UNLOCK(state->mutex);
-
-        changed_register(owner, number);
-    }
-    return error;
-}
-
-
-static error__t position_units_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    error__t error = format_string(result, length, "%s", field->units ?: "");
-    UNLOCK(state->mutex);
-
-    return error;
-}
-
-static error__t position_units_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    free(field->units);
-    field->units = strdup(value);
-    UNLOCK(state->mutex);
-
-    return ERROR_OK;
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Time. */
-
-/* The semantics of this code is very similar to that of time_class, but here
- * we're working at the type level with 32-bit values. */
-
-struct time_state {
-    enum time_scale scale[0];
-};
-
-
-static error__t time_init(
-    const char **string, unsigned int count, void **type_data)
-{
-    struct time_state *state = malloc(
-        sizeof(struct time_state) + count * sizeof(enum time_scale));
-    *state = (struct time_state) { };
-    for (unsigned int i = 0; i < count; i ++)
-        state->scale[i] = TIME_SECS;
-    *type_data = state;
-    return ERROR_OK;
-}
-
-
-static error__t time_parse(
-    void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
-{
-    struct time_state *state = type_data;
-    uint64_t result;
-    return
-        time_class_parse(string, state->scale[number], UINT32_MAX, &result)  ?:
-        DO(*value = (unsigned int) result);
-}
-
-
-static error__t time_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length)
-{
-    struct time_state *state = type_data;
-    return time_class_format(value, state->scale[number], result, length);
-}
-
-
-static error__t time_units_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct time_state *state = data;
-    return time_class_units_format(state->scale[number], result, length);
-}
-
-
-static error__t time_units_put(
-    void *owner, void *data, unsigned int number, const char *string)
-{
-    enum time_scale scale;
-    error__t error = time_class_units_parse(string, &scale);
-    if (!error)
-    {
-        struct time_state *state = data;
-        state->scale[number] = scale;
-        changed_register(owner, number);
-    }
-    return error;
 }
 
 
@@ -603,40 +347,6 @@ static const struct type_methods *types_table[] = {
     &(struct type_methods) { "bit",
         .parse = bit_parse, .format = bit_format },
 
-    /* Scaled time and position are similar, both convert between a floating
-     * point representation and a digital hardware value. */
-    &(struct type_methods) { "position",
-        .init = position_init, .destroy = position_destroy,
-        .parse = position_parse, .format = position_format,
-        .attrs = (struct attr_methods[]) {
-            { "RAW",
-                .format = raw_format_uint, .put = raw_put_uint, },
-            { "SCALE", true,
-                .format = position_scale_format, .put = position_scale_put, },
-            { "OFFSET", true,
-                .format = position_offset_format, .put = position_offset_put, },
-            { "UNITS", true,
-                .format = position_units_format, .put = position_units_put, },
-        },
-        .attr_count = 4,
-    },
-
-    &(struct type_methods) { "time",
-        .init = time_init,
-        .parse = time_parse, .format = time_format,
-        .attrs = (struct attr_methods[]) {
-            { "RAW",
-                .format = raw_format_int,
-                .put = raw_put_uint,
-            },
-            { "UNITS", true,
-                .format = time_units_format,
-                .put = time_units_put,
-            },
-        },
-        .attr_count = 2,
-    },
-
     /* A type for fields where the data is never read and only the action of
      * writing is important: no data allowed. */
     &(struct type_methods) { "action", .parse = action_parse, },
@@ -649,6 +359,9 @@ static const struct type_methods *types_table[] = {
             { "RAW", .format = raw_format_uint, }, },
         .attr_count = 1,
     },
+
+    &position_type_methods,         // position
+    &time_type_methods,             // time
 
     &bit_mux_type_methods,          // bit_mux
     &pos_mux_type_methods,          // pos_mux
@@ -675,6 +388,7 @@ static error__t lookup_type(
     return FAIL_("Unknown field type %s", name);
 }
 
+
 static struct type *create_type_block(
     const struct type_methods *methods,
     const struct register_methods *reg, void *reg_data,
@@ -691,6 +405,7 @@ static struct type *create_type_block(
     return type;
 }
 
+
 static void create_type_attributes(
     struct type *type, struct hash_table *attr_map)
 {
@@ -698,6 +413,7 @@ static void create_type_attributes(
         type->methods->attrs, type->methods->attr_count,
         type, type->type_data, type->count, attr_map);
 }
+
 
 error__t create_type(
     const char **line, const char *default_type, unsigned int count,

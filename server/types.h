@@ -47,6 +47,20 @@ struct register_methods {
 };
 
 
+/* Access to register methods via the bound type. */
+error__t read_register(struct type *type, unsigned int number, uint32_t *value);
+error__t write_register(struct type *type, unsigned int number, uint32_t value);
+void changed_register(struct type *type, unsigned int number);
+
+
+/* Formatted raw integer value access. */
+error__t raw_format_uint(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length);
+error__t raw_put_uint(
+    void *owner, void *data, unsigned int number, const char *string);
+
+
 
 /* Reads value from associated register and formats for presentation into the
  * given result.  Implements  block.field?  method. */
