@@ -17,7 +17,7 @@
 #include "database.h"
 #include "system_command.h"
 #include "fields.h"
-#include "capture.h"
+#include "output.h"
 #include "base64.h"
 #include "persistence.h"
 

@@ -15,7 +15,7 @@
 #include "types.h"
 #include "attributes.h"
 #include "hardware.h"
-#include "capture.h"
+#include "output.h"
 #include "register.h"
 #include "time_class.h"
 #include "table.h"

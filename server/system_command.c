@@ -16,7 +16,7 @@
 #include "config_server.h"
 #include "socket_server.h"
 #include "fields.h"
-#include "capture.h"
+#include "output.h"
 #include "classes.h"
 
 #include "system_command.h"

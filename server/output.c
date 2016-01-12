@@ -17,7 +17,7 @@
 #include "locking.h"
 #include "mux_lookup.h"
 
-#include "capture.h"
+#include "output.h"
 
 
 static pthread_mutex_t bit_mutex = PTHREAD_MUTEX_INITIALIZER;

@@ -12,7 +12,7 @@
 #include "hardware.h"
 #include "parse.h"
 #include "hashtable.h"
-#include "capture.h"
+#include "output.h"
 #include "types.h"
 #include "attributes.h"
 #include "classes.h"
