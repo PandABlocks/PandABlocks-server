@@ -560,6 +560,8 @@ error__t validate_fields(void)
             "No base address for block %s", block->name);
         if (block->description == NULL)
             log_message("No description for block %s", block->name);
+        else if (*block->description == '\0')
+            log_message("Empty description for block %s", block->name);
         FOR_EACH_FIELD_WHILE(!error, block->fields, field)
         {
             error = finalise_class(field->class);
@@ -568,6 +570,9 @@ error__t validate_fields(void)
                     "Checking field %s.%s", block->name, field->name);
             if (field->description == NULL)
                 log_message("No description for field %s.%s",
+                    block->name, field->name);
+            else if (*field->description == '\0')
+                log_message("Empty description for field %s.%s",
                     block->name, field->name);
         }
     }
