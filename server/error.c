@@ -127,13 +127,11 @@ static bool daemon_mode = false;
 static bool log_verbose = true;
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
-#define LOCK(x)     ASSERT_PTHREAD(pthread_mutex_lock(&log_mutex))
-#define UNLOCK(x)   ASSERT_PTHREAD(pthread_mutex_unlock(&log_mutex))
 
 
 void vlog_message(int priority, const char *format, va_list args)
 {
-    LOCK(log_lock);
+    pthread_mutex_lock(&log_mutex);
     if (daemon_mode)
         vsyslog(priority, format, args);
     else
@@ -141,7 +139,7 @@ void vlog_message(int priority, const char *format, va_list args)
         vfprintf(stderr, format, args);
         fprintf(stderr, "\n");
     }
-    UNLOCK(log_lock);
+    pthread_mutex_unlock(&log_mutex);
 }
 
 
