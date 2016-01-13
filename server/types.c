@@ -62,16 +62,10 @@ void changed_register(struct type *type, unsigned int number)
 }
 
 
-
-/*****************************************************************************/
-/* Individual type implementations. */
-
-
 /* Raw field implementation for those fields that need it. */
 
 error__t raw_format_uint(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
+    void *owner, void *data, unsigned int number, char result[], size_t length)
 {
     struct type *type = owner;
     uint32_t value;
@@ -91,6 +85,10 @@ error__t raw_put_uint(
         parse_eos(&string)  ?:
         write_register(type, number, value);
 }
+
+
+/*****************************************************************************/
+/* Individual type implementations. */
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -141,6 +139,17 @@ static error__t uint_max_format(
 }
 
 
+static const struct type_methods uint_type_methods = {
+    "uint",
+    .init = uint_init,
+    .parse = uint_parse, .format = uint_format,
+    .attrs = (struct attr_methods[]) {
+        { "MAX", .format = uint_max_format, },
+    },
+    .attr_count = 1,
+};
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Bit type: input can only be 0 or 1. */
 
@@ -164,6 +173,12 @@ static error__t bit_format(
 }
 
 
+static const struct type_methods bit_type_methods = {
+    "bit",
+    .parse = bit_parse, .format = bit_format,
+};
+
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Action types must have an empty write, and cannot be read. */
@@ -175,6 +190,12 @@ static error__t action_parse(
     *value = 0;
     return parse_eos(&string);
 }
+
+
+static const struct type_methods action_type_methods = {
+    "action",
+    .parse = action_parse,
+};
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -271,6 +292,16 @@ static error__t lut_format(
 }
 
 
+static const struct type_methods lut_type_methods = {
+    "lut",
+    .init = lut_init, .destroy = lut_destroy,
+    .parse = lut_parse, .format = lut_format,
+    .attrs = (struct attr_methods[]) {
+        { "RAW", .format = raw_format_uint, }, },
+    .attr_count = 1,
+};
+
+
 /*****************************************************************************/
 /* Type formatting API. */
 
@@ -335,32 +366,12 @@ void destroy_type(struct type *type)
 
 
 static const struct type_methods *types_table[] = {
-    /* Unsigned integer with optional maximum limit. */
-    &(struct type_methods) { "uint",
-        .init = uint_init,
-        .parse = uint_parse, .format = uint_format,
-        .attrs = (struct attr_methods[]) {
-            { "MAX", .format = uint_max_format, },
-        },
-        .attr_count = 1,
-    },
+    &uint_type_methods,             // uint
+    &bit_type_methods,              // bit
 
-    /* Bits are simple: 0 or 1. */
-    &(struct type_methods) { "bit",
-        .parse = bit_parse, .format = bit_format },
+    &action_type_methods,           // action
 
-    /* A type for fields where the data is never read and only the action of
-     * writing is important: no data allowed. */
-    &(struct type_methods) { "action", .parse = action_parse, },
-
-    /* 5-input lookup table with special parsing. */
-    &(struct type_methods) { "lut",
-        .init = lut_init, .destroy = lut_destroy,
-        .parse = lut_parse, .format = lut_format,
-        .attrs = (struct attr_methods[]) {
-            { "RAW", .format = raw_format_uint, }, },
-        .attr_count = 1,
-    },
+    &lut_type_methods,              // lut
 
     &position_type_methods,         // position
     &time_type_methods,             // time
