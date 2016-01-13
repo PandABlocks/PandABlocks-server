@@ -99,6 +99,7 @@ SRCS += enums.c                 # Enumeration handling
 SRCS += attributes.c            # Class and type attribute support
 SRCS += mux_lookup.c            # Mapping between field name and capture index
 SRCS += output.c                # {bit,pos}_out class support
+SRCS += capture.c               # Data capture control
 SRCS += time_position.c         # time and position support
 SRCS += table.c                 # table classes support
 SRCS += register.c              # param, read, write class support

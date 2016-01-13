@@ -19,6 +19,7 @@
 #include "register.h"
 #include "time_position.h"
 #include "table.h"
+#include "capture.h"
 
 #include "classes.h"
 
@@ -127,6 +128,8 @@ static const struct class_methods *classes_table[] = {
     &pos_out_class_methods,         // pos_out
 
     &table_class_methods,           // table
+
+    &software_class_methods,        // software
 };
 
 
@@ -153,6 +156,7 @@ static struct class *create_class_block(
         .methods = methods,
         .count = count,
         .class_data = class_data,
+        .initialised = !methods->parse_register,
     };
     return class;
 }
@@ -199,8 +203,9 @@ error__t class_parse_register(
     const char **line)
 {
     return
+        TEST_OK_(class->methods->parse_register,
+            "No register assignment expected for this class")  ?:
         TEST_OK_(!class->initialised, "Register already assigned")  ?:
-        TEST_OK(class->methods->parse_register)  ?:
         class->methods->parse_register(
             class->class_data, field, block_base, line)  ?:
         DO(class->initialised = true);
