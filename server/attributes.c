@@ -20,8 +20,8 @@ struct attr {
     void *owner;                // Attribute ownder
     void *data;                 // Any data associated with this attribute
     unsigned int count;         // Number of field instances
-    pthread_mutex_t mutex;      // Protects change_index entries
-    uint64_t *change_index;     // History management for reported attributes
+    pthread_mutex_t mutex;      // Protects update_index entries
+    uint64_t *update_index;     // History management for reported attributes
 };
 
 
@@ -57,7 +57,7 @@ error__t attr_put(struct attr *attr, unsigned int number, const char *value)
     if (!error)
     {
         LOCK(attr->mutex);
-        attr->change_index[number] = get_change_index();
+        attr->update_index[number] = get_change_index();
         UNLOCK(attr->mutex);
     }
     return error;
@@ -71,7 +71,7 @@ void get_attr_change_set(
     for (unsigned int i = 0; i < attr->count; i ++)
         change_set[i] =
             attr->methods->in_change_set  &&
-            attr->change_index[i] > report_index;
+            attr->update_index[i] > report_index;
     UNLOCK(attr->mutex);
 }
 
@@ -96,8 +96,11 @@ void create_attributes(
             .data = data,
             .count = count,
             .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .change_index = calloc(count, sizeof(uint64_t)),
+            .update_index = malloc(count * sizeof(uint64_t)),
         };
+        /* Initialise change index to ensure initial state is recorded. */
+        for (unsigned int j = 0; j < count; j ++)
+            attr->update_index[j] = 1;
         hash_table_insert(attr_map, methods[i].name, attr);
     }
 }
@@ -110,7 +113,7 @@ void delete_attributes(struct hash_table *attr_map)
     while (hash_table_walk(attr_map, &ix, NULL, &value))
     {
         struct attr *attr = value;
-        free(attr->change_index);
+        free(attr->update_index);
         free(attr);
     }
 }
