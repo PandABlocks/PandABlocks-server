@@ -17,6 +17,7 @@
 #include "attributes.h"
 #include "config_server.h"
 #include "base64.h"
+#include "locking.h"
 
 #include "table.h"
 
@@ -155,17 +156,6 @@ static error__t write_base_64(
 }
 
 
-static void lock_table_read(struct table_block *block)
-{
-    ASSERT_PTHREAD(pthread_rwlock_rdlock(&block->read_lock));
-}
-
-static void unlock_table_read(struct table_block *block)
-{
-    ASSERT_PTHREAD(pthread_rwlock_unlock(&block->read_lock));
-}
-
-
 /* Writing is rejected if there is another write to the same table in progress
  * simultaneously. */
 static error__t start_table_write(struct table_block *block)
@@ -189,7 +179,7 @@ static void complete_table_write(void *context, bool write_ok, size_t length)
 
     if (write_ok)
     {
-        ASSERT_PTHREAD(pthread_rwlock_wrlock(&block->read_lock));
+        LOCKW(block->read_lock);
 
         /* Write the data. */
         hw_write_table(
@@ -199,22 +189,11 @@ static void complete_table_write(void *context, bool write_ok, size_t length)
 
         block->update_index = get_change_index();
 
-        ASSERT_PTHREAD(pthread_rwlock_unlock(&block->read_lock));
+        UNLOCKRW(block->read_lock);
     }
 
-    ASSERT_PTHREAD(pthread_mutex_unlock(&block->write_lock));
+    UNLOCK(block->write_lock);
 }
-
-
-/* A helper macro for locked reads. */
-#define _id_LOCKED_READ(error, block, result) \
-    ( { \
-        lock_table_read(block); \
-        error__t error = (result); \
-        unlock_table_read(block); \
-        error; \
-    } )
-#define LOCKED_READ(args...) _id_LOCKED_READ(UNIQUE_ID(), args)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -332,7 +311,8 @@ static error__t table_get(
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return LOCKED_READ(block, write_ascii(block, result));
+    return WITH_LOCKR(block->read_lock,
+        write_ascii(block, result));
 }
 
 
@@ -343,9 +323,9 @@ static void table_change_set(
     for (unsigned int i = 0; i < state->block_count; i ++)
     {
         struct table_block *block = &state->blocks[i];
-        lock_table_read(block);
+        LOCKR(block->read_lock);
         changes[i] = block->update_index > report_index;
-        unlock_table_read(block);
+        UNLOCKRW(block->read_lock);
     }
 }
 
@@ -379,7 +359,7 @@ static error__t table_length_format(
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return LOCKED_READ(block,
+    return WITH_LOCKR(block->read_lock,
         format_string(result, length, "%zu", block->length));
 }
 
@@ -399,7 +379,8 @@ static error__t table_b_get_many(
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return LOCKED_READ(block, write_base_64(block, result));
+    return WITH_LOCKR(block->read_lock,
+        write_base_64(block, result));
 }
 
 

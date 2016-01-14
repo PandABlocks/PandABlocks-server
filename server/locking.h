@@ -8,3 +8,17 @@
 #define LOCKR(mutex)    ASSERT_PTHREAD(pthread_rwlock_rdlock(&(mutex)))
 #define LOCKW(mutex)    ASSERT_PTHREAD(pthread_rwlock_wrlock(&(mutex)))
 #define UNLOCKRW(mutex) ASSERT_PTHREAD(pthread_rwlock_unlock(&(mutex)))
+
+/* Compute and return result under mutex. */
+#define WITH_LOCK(mutex, result) \
+    ( { \
+        LOCK(mutex); \
+        DO_FINALLY(result, UNLOCK(mutex)); \
+    } )
+
+/* Comput and return result under read lock. */
+#define WITH_LOCKR(mutex, result) \
+    ( { \
+        LOCKR(mutex); \
+        DO_FINALLY(result, UNLOCKRW(mutex)); \
+    } )
