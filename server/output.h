@@ -4,9 +4,9 @@
 struct class;
 
 
-error__t initialise_capture(void);
+error__t initialise_output(void);
 
-void terminate_capture(void);
+void terminate_output(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -31,6 +31,10 @@ void report_capture_bits(struct connection_result *result, unsigned int group);
 
 /* *POSITIONS? implementation, reports all position names. */
 void report_capture_positions(struct connection_result *result);
+
+
+/* This call triggers writing of the hardware capture masks. */
+void write_capture_masks(void);
 
 
 /* Capture class api. */

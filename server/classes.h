@@ -112,9 +112,8 @@ error__t class_parse_register(
     struct class *class, struct field *field, unsigned int block_base,
     const char **line);
 
-/* To be called after database loading is complete to ensure that all classes
- * have their required register assignments.  Also at this point we assign the
- * block base address. */
+/* To be called after database loading is complete to ensure that the
+ * initialisation of all classes is complete. */
 error__t finalise_class(struct class *class);
 
 /* Returns description of class including any type. */

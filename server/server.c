@@ -150,7 +150,7 @@ int main(int argc, char *const argv[])
         process_options(argc, argv)  ?:
 
         initialise_fields()  ?:
-        initialise_capture()  ?:
+        initialise_output()  ?:
         load_config_databases(config_db, register_db, description_db)  ?:
 
         initialise_hardware()  ?:
@@ -187,7 +187,7 @@ int main(int argc, char *const argv[])
     terminate_system_command();
     terminate_hardware();
     terminate_databases();
-    terminate_capture();
+    terminate_output();
     terminate_fields();
 
     return error ? 1 : 0;
