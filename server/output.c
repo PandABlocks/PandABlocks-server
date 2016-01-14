@@ -74,16 +74,6 @@ static void update_capture_index(void)
 }
 
 
-static void update_capture_bit(uint32_t *target, unsigned int ix, bool value)
-{
-    if (value)
-        *target |= 1U << ix;
-    else
-        *target &= ~(1U << ix);
-    update_capture_index();
-}
-
-
 void report_capture_list(struct connection_result *result)
 {
     /* Position capture. */
@@ -185,6 +175,128 @@ static void pos_out_refresh(void *class_data, unsigned int number)
 }
 
 
+/*****************************************************************************/
+/* Bit/Position specific interface methods. */
+
+
+/* This structure is used to help maintain a common implementation between
+ * bit_out and pos_out classes. */
+struct output_class_methods {
+    void (*set_capture)(unsigned int ix, unsigned int value);
+    unsigned int (*get_capture)(unsigned int ix);
+    uint32_t (*get_value)(unsigned int ix);
+    error__t (*format_index)(unsigned int ix, char result[], size_t length);
+};
+
+
+static void update_bit(uint32_t *target, unsigned int ix, bool value)
+{
+    *target = (*target & ~(1U << ix)) | ((uint32_t) value << ix);
+}
+
+static uint32_t get_bit(uint32_t *target, unsigned int ix)
+{
+    return (*target >> ix) & 1;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* bit methods. */
+
+/* bit capture is controlled by the bit_capture[] array. */
+
+static void bit_set_capture(unsigned int ix, unsigned int value)
+{
+    update_bit(&bit_capture[ix / 32], ix % 32, value & 1);
+    update_capture_index();
+}
+
+
+static unsigned int bit_get_capture(unsigned int ix)
+{
+    return get_bit(&bit_capture[ix / 32], ix % 32);
+}
+
+
+static uint32_t bit_get_value(unsigned int ix)
+{
+    return bit_value[ix];
+}
+
+
+static error__t bit_format_index(
+    unsigned int ix, char result[], size_t length)
+{
+    int capture_index = bit_capture_index[ix / 32];
+    return
+        IF_ELSE(capture_index >= 0,
+            format_string(result, length, "%d:%d", capture_index, ix % 32),
+        // else
+            DO(*result = '\0'));
+}
+
+
+static const struct output_class_methods bit_output_methods = {
+    .set_capture = bit_set_capture,
+    .get_capture = bit_get_capture,
+    .get_value = bit_get_value,
+    .format_index = bit_format_index,
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* pos methods. */
+
+/* position capture is controlled through the three capture masks, with the
+ * corresponding bit numbers:
+ *  0:  pos_capture_mask
+ *  1:  pos_framing_mask
+ *  2:  pos_extension_mask */
+
+static void pos_set_capture(unsigned int ix, unsigned int value)
+{
+    update_bit(&pos_capture_mask, ix, value & 1);
+    update_bit(&pos_framing_mask, ix, (value >> 1) & 1);
+    update_bit(&pos_extension_mask, ix, (value >> 2) & 1);
+    update_capture_index();
+}
+
+
+static unsigned int pos_get_capture(unsigned int ix)
+{
+    return
+        (get_bit(&pos_capture_mask, ix) << 0) |
+        (get_bit(&pos_framing_mask, ix) << 1) |
+        (get_bit(&pos_extension_mask, ix) << 2);
+}
+
+
+static uint32_t pos_get_value(unsigned int ix)
+{
+    return pos_value[ix];
+}
+
+
+static error__t pos_format_index(
+    unsigned int ix, char result[], size_t length)
+{
+    int capture_index = pos_capture_index[ix];
+    return
+        IF_ELSE(capture_index >= 0,
+            format_string(result, length, "%d", capture_index),
+        // else
+            DO(*result = '\0'));
+}
+
+
+static const struct output_class_methods pos_output_methods = {
+    .set_capture = pos_set_capture,
+    .get_capture = pos_get_capture,
+    .get_value = pos_get_value,
+    .format_index = pos_format_index,
+};
+
+
 /******************************************************************************/
 /* Individual field control. */
 
@@ -197,15 +309,24 @@ enum output_type {
     OUTPUT_BIT,        // Single bit
     OUTPUT_POSN,       // Ordinary position
     OUTPUT_ADC,        // ADC => may have extended values
-    OUTPUT_CONST,      // Constant value, cannot be captured
     OUTPUT_ENCODER,    // Encoders may have extended values
+    OUTPUT_CONST,      // Constant value, cannot be captured
 };
 
+struct enum_entry { unsigned int value; const char *name; };
+struct enum_set { const struct enum_entry *enums; size_t count; };
+
+
+/* We share the output state between bit and position classes to help with
+ * sharing code, but the capture configuration for positions is somewhat more
+ * complex. */
 struct output_state {
-    unsigned int count;
-    enum output_type output_type;
-    struct type *type;
-    unsigned int index_array[];
+    unsigned int count;             // Number of instances of this field
+    enum output_type output_type;   // Selected output tupe
+    struct enum_set enums;          // Enumeration array for CAPTURE control
+    struct type *type;              // Type adapter for rendering value
+    const struct output_class_methods *methods;   // Helper methods
+    unsigned int index_array[];     // Field indices into global state
 };
 
 
@@ -213,40 +334,22 @@ struct output_state {
 /* Register access for type support: reads underlying value. */
 
 
-static error__t bit_out_read(
+static error__t register_read(
     void *reg_data, unsigned int number, uint32_t *result)
 {
     struct output_state *state = reg_data;
     LOCK(mutex);
-    *result = bit_value[state->index_array[number]];
+    *result = state->methods->get_value(state->index_array[number]);
     UNLOCK(mutex);
     return ERROR_OK;
 }
 
-static error__t pos_out_read(
-    void *reg_data, unsigned int number, uint32_t *result)
-{
-    struct output_state *state = reg_data;
-    LOCK(mutex);
-    *result = pos_value[state->index_array[number]];
-    UNLOCK(mutex);
-    return ERROR_OK;
-}
-
-static const struct register_methods bit_out_methods = {
-    .read = bit_out_read,
+static const struct register_methods register_methods = {
+    .read = register_read,
 };
 
-static const struct register_methods pos_out_methods = {
-    .read = pos_out_read,
-};
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Class value access (classes are read only). */
 
 /* When reading just return the current value from our static state. */
-
 static error__t output_get(
     void *class_data, unsigned int number, struct connection_result *result)
 {
@@ -285,107 +388,94 @@ static void pos_out_change_set(
 /* Attributes: CAPTURE and CAPTURE_INDEX. */
 
 
-static error__t bit_out_capture_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct output_state *state = data;
-    unsigned int ix = state->index_array[number];
-    bool capture = bit_capture[ix / 32] & (1U << (ix % 32));
-    return format_string(result, length, "%d", capture);
-}
+/* Differing capture enumeration tables. */
 
-static error__t pos_out_capture_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct output_state *state = data;
-    unsigned int ix = state->index_array[number];
-    bool capture = pos_capture_mask & (1U << (ix % 32));
-    return format_string(result, length, "%d", capture);
-}
+static const struct enum_entry bit_capture_enums[] = {
+    { 0, "No", },
+    { 1, "Triggered", },
+};
 
+/* The position enumeration values are 3-bit masks corresponding to the
+ * following fields (MSB to LSB):
+ *      extension_mask, framing_mask, capture_mask  */
 
-static error__t bit_out_capture_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct output_state *state = data;
-    unsigned int ix = state->index_array[number];
+static const struct enum_entry position_capture_enums[] = {
+    { 0, "No", },           // capture=0
+    { 1, "Triggered", },    // capture=1 framing=0
+    { 3, "Difference", },   // capture=1 framing=1
+};
 
-    bool capture;
-    return
-        parse_bit(&value, &capture)  ?:
-        parse_eos(&value)  ?:
-        DO(update_capture_bit(&bit_capture[ix / 32], ix % 32, capture));
-}
+static const struct enum_entry adc_capture_enums[] = {
+    { 0, "No", },           // capture=0
+    { 1, "Triggered", },    // capture=1 framing=0 extension=0
+    { 7, "Average", },      // capture=1 framing=1 extension=1
+};
 
+static const struct enum_entry encoder_capture_enums[] = {
+    { 0, "No", },           // capture=0
+    { 1, "Triggered", },    // capture=1 framing=0 extension=0
+    { 3, "Difference", },   // capture=1 framing=1 extension=0
+    { 5, "Extended", },     // capture=1 framing=0 extension=1
+};
 
-static error__t pos_out_capture_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct output_state *state = data;
-    unsigned int ix = state->index_array[number];
-
-    bool capture;
-    return
-        parse_bit(&value, &capture)  ?:
-        parse_eos(&value)  ?:
-        DO(update_capture_bit(&pos_capture_mask, ix, capture));
-}
-
-
-static error__t bit_out_index_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct output_state *state = data;
-    unsigned int ix = state->index_array[number];
-
-    int capture_index = bit_capture_index[ix / 32];
-    return
-        IF_ELSE(capture_index >= 0,
-            format_string(result, length, "%d:%d", capture_index, ix % 32),
-        // else
-            DO(*result = '\0'));
-}
-
-
-static error__t pos_out_index_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct output_state *state = data;
-    unsigned int ix = state->index_array[number];
-
-    int capture_index = pos_capture_index[ix];
-    return
-        IF_ELSE(capture_index >= 0,
-            format_string(result, length, "%d", capture_index),
-        // else
-            DO(*result = '\0'));
-}
-
-
-static const struct attr_methods bit_out_attr_methods[] =
-{
-    { "CAPTURE", true,
-        .format = bit_out_capture_format,
-        .put = bit_out_capture_put,
-    },
-    { "CAPTURE_INDEX",
-        .format = bit_out_index_format,
-    },
+/* Array of enums indexed by output_type. */
+#define ENUM_ENTRY(type) \
+    { type##_capture_enums, ARRAY_SIZE(type##_capture_enums) }
+static const struct enum_set capture_enums[] = {
+    ENUM_ENTRY(bit),
+    ENUM_ENTRY(position),
+    ENUM_ENTRY(adc),
+    ENUM_ENTRY(encoder),
+    { NULL, 0 },            // CONST: no enums defined
 };
 
 
-static const struct attr_methods pos_out_attr_methods[] =
+static error__t capture_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct output_state *state = data;
+    LOCK(mutex);
+    unsigned int capture =
+        state->methods->get_capture(state->index_array[number]);
+    UNLOCK(mutex);
+    return format_string(result, length, "%d", capture);
+}
+
+
+static error__t capture_put(
+    void *owner, void *data, unsigned int number, const char *value)
+{
+    struct output_state *state = data;
+    unsigned int capture;
+    return
+        parse_uint(&value, &capture)  ?:
+        parse_eos(&value)  ?:
+        WITH_LOCK(mutex,
+            DO(state->methods->set_capture(
+                state->index_array[number], capture)));
+}
+
+
+static error__t capture_index_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct output_state *state = data;
+    return WITH_LOCK(mutex,
+        state->methods->format_index(
+            state->index_array[number], result, length));
+}
+
+
+static const struct attr_methods output_attr_methods[] =
 {
     { "CAPTURE", true,
-        .format = pos_out_capture_format,
-        .put = pos_out_capture_put,
+        .format = capture_format,
+        .put = capture_put,
     },
     { "CAPTURE_INDEX",
-        .format = pos_out_index_format,
+        .format = capture_index_format,
     },
 };
 
@@ -396,8 +486,8 @@ static const struct attr_methods pos_out_attr_methods[] =
 
 
 static error__t output_init(
-    const struct register_methods *register_methods, const char *type_name,
-    enum output_type output_type, unsigned int count,
+    enum output_type output_type, const struct output_class_methods *methods,
+    const char *type_name, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
     struct output_state *state =
@@ -406,15 +496,20 @@ static error__t output_init(
     *state = (struct output_state) {
         .count = count,
         .output_type = output_type,
+        .methods = methods,
+        .enums = capture_enums[output_type],
     };
-    for (unsigned int i = 0; i < count; i ++)
-        state->index_array[i] = UNASSIGNED_REGISTER;
     *class_data = state;
 
     const char *empty_line = "";
-    return create_type(
-        &empty_line, type_name, count, register_methods, state,
-        attr_map, &state->type);
+    return
+        create_type(
+            &empty_line, type_name, count, &register_methods, state,
+            attr_map, &state->type)  ?:
+        IF(output_type != OUTPUT_CONST,
+            DO(create_attributes(
+                output_attr_methods, ARRAY_SIZE(output_attr_methods),
+                NULL, *class_data, count, attr_map)));
 }
 
 
@@ -423,7 +518,7 @@ static error__t bit_out_init(
     struct hash_table *attr_map, void **class_data)
 {
     return output_init(
-        &bit_out_methods, "bit", OUTPUT_BIT, count, attr_map, class_data);
+        OUTPUT_BIT, &bit_output_methods, "bit", count, attr_map, class_data);
 }
 
 
@@ -462,23 +557,8 @@ static error__t pos_out_init(
     return
         parse_output_type(line, &output_type)  ?:
         output_init(
-            &pos_out_methods, "position", output_type, count,
-            attr_map, class_data)  ?:
-        IF(output_type != OUTPUT_CONST,
-            DO(create_attributes(
-                pos_out_attr_methods, ARRAY_SIZE(pos_out_attr_methods),
-                NULL, *class_data, count, attr_map)));
-}
-
-
-/* For validation ensure that an index has been assigned to each field. */
-static error__t output_finalise(void *class_data)
-{
-    struct output_state *state = class_data;
-    for (unsigned int i = 0; i < state->count; i ++)
-        if (state->index_array[i] == UNASSIGNED_REGISTER)
-            return FAIL_("Output selector not assigned");
-    return ERROR_OK;
+            output_type, &pos_output_methods, "position",
+            count, attr_map, class_data);
 }
 
 
@@ -556,23 +636,18 @@ const struct class_methods bit_out_class_methods = {
     "bit_out",
     .init = bit_out_init,
     .parse_register = bit_out_parse_register,
-    .finalise = output_finalise,
     .destroy = output_destroy,
     .get = output_get, .refresh = bit_out_refresh,
     .change_set = bit_out_change_set,
     .change_set_index = CHANGE_IX_BITS,
-    .attrs = bit_out_attr_methods,
-    .attr_count = ARRAY_SIZE(bit_out_attr_methods),
 };
 
 const struct class_methods pos_out_class_methods = {
     "pos_out",
     .init = pos_out_init,
     .parse_register = pos_out_parse_register,
-    .finalise = output_finalise,
     .destroy = output_destroy,
     .get = output_get, .refresh = pos_out_refresh,
     .change_set = pos_out_change_set,
     .change_set_index = CHANGE_IX_POSITION,
-    // Note: attributes assigned by init method.
 };
