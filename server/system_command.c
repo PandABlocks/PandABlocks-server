@@ -32,7 +32,7 @@
  * Returns simple system identification. */
 static error__t get_idn(const char *command, struct connection_result *result)
 {
-    return write_one_result(result, "PandA");
+    return write_one_result(result, "PandA %s", GIT_VERSION);
 }
 
 

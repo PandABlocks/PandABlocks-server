@@ -8,6 +8,9 @@ endif
 # Discover name of compiler: we're going to want different flags in some cases
 CC_NAME := $(shell $(CC) --version | sed 's/ .*//;q')
 
+# Git version
+GIT_VERSION = $(shell git describe --abbrev=7 --dirty --always --tags)
+
 
 default:    # Default target comes first!
 .PHONY: default
@@ -107,6 +110,11 @@ SRCS += base64.c                # base64 conversion support
 
 HW_SRCS  += hardware.c          # Hardware interface
 SIM_SRCS += sim_hardware.c      # Simulated hardware interface
+
+
+# Pass the git version through to system command
+system_command.o: CPPFLAGS += -DGIT_VERSION='"$(GIT_VERSION)"'
+server.o: CPPFLAGS += -DGIT_VERSION='"$(GIT_VERSION)"'
 
 
 default: server sim_server

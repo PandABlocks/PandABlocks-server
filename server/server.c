@@ -144,6 +144,7 @@ static error__t initialise_signals(void)
 
 int main(int argc, char *const argv[])
 {
+    log_message("Starting PandA server version %s", GIT_VERSION);
     initialise_base64();
 
     error__t error =
