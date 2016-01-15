@@ -101,15 +101,14 @@ bool enum_name_to_index(
 
 
 bool walk_enumerations(
-    struct enumeration *enumeration, size_t *ix,
-    const struct enum_entry **entry_out)
+    struct enumeration *enumeration, size_t *ix, struct enum_entry *entry_out)
 {
     for (; *ix < enumeration->enum_set.count; (*ix) ++)
     {
         const struct enum_entry *entry = &enumeration->enum_set.enums[*ix];
         if (entry->name)
         {
-            *entry_out = entry;
+            *entry_out = *entry;
             *ix += 1;
             return true;
         }
@@ -251,23 +250,7 @@ void destroy_enumeration(struct enumeration *enumeration)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-
-struct enum_state {
-    struct hash_table *map;     // String to index
-    unsigned int count;         // Length of strings array
-    char *strings[];
-};
-
-
-static struct enum_state *create_enum_state(unsigned int enum_count)
-{
-    struct enum_state *state =
-        calloc(1, sizeof(struct enum_state) + enum_count * sizeof(char *));
-    state->map = hash_table_create(false);
-    state->count = enum_count;
-    return state;
-}
+/* enums type */
 
 
 /* Starts the loading of an enumeration. */
@@ -278,36 +261,25 @@ static error__t enum_init(
     return
         parse_whitespace(string)  ?:
         parse_uint(string, &enum_count)  ?:
-        DO(*type_data = create_enum_state(enum_count));
+        DO(*type_data = create_dynamic_enumeration(enum_count));
 }
 
 
 /* Called during shutdown to release allocated resources. */
 static void enum_destroy(void *type_data, unsigned int count)
 {
-    struct enum_state *state = type_data;
-    hash_table_destroy(state->map);
-    for (unsigned int i = 0; i < state->count; i ++)
-        free(state->strings[i]);
-    free(state);
+    destroy_enumeration(type_data);
 }
 
 
 /* Adds a single enumeration label to the enumeration set. */
 static error__t enum_add_label(void *type_data, const char **string)
 {
-    struct enum_state *state = type_data;
     unsigned int ix;
     return
         parse_uint(string, &ix)  ?:
         parse_whitespace(string)  ?:
-        TEST_OK_(ix < state->count, "Index out of range")  ?:
-        TEST_OK_(**string != '\0', "No label specified")  ?:
-        TEST_OK_(state->strings[ix] == NULL, "Reusing index")  ?:
-        DO(state->strings[ix] = strdup(*string))  ?:
-        TEST_OK_(!hash_table_insert(
-            state->map, state->strings[ix], (void *) (intptr_t) ix),
-            "Label already in use")  ?:
+        add_enumeration(type_data, *string, ix)  ?:
         /* Skip to end of string to complete the parse. */
         DO(*string = strchr(*string, '\0'));
 }
@@ -318,12 +290,8 @@ static error__t enum_parse(
     void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
-    struct enum_state *state = type_data;
-    void *ix;
-    return
-        TEST_OK_(hash_table_lookup_bool(state->map, string, &ix),
-            "Label not found")  ?:
-        DO(*value = (unsigned int) (intptr_t) ix);
+    return TEST_OK_(
+        enum_name_to_index(type_data, string, value), "Label not found");
 }
 
 
@@ -332,11 +300,10 @@ static error__t enum_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
-    struct enum_state *state = type_data;
+    const char *label = enum_index_to_name(type_data, value);
     return
-        TEST_OK_(value < state->count, "Index out of range")  ?:
-        TEST_OK_(state->strings[value], "No label for value")  ?:
-        format_string(string, length, "%s", state->strings[value]);
+        TEST_OK_(label, "No label for value")  ?:
+        format_string(string, length, "%s", label);
 }
 
 
@@ -345,14 +312,10 @@ static error__t enum_labels_get(
     void *owner, void *type_data, unsigned int number,
     struct connection_result *result)
 {
-    struct enum_state *state = type_data;
-    for (unsigned int i = 0; i < state->count; i ++)
-        if (state->strings[i])
-        {
-            char string[MAX_RESULT_LENGTH];
-            snprintf(string, sizeof(string), "%s", state->strings[i]);
-            result->write_many(result->write_context, string);
-        }
+    struct enum_entry entry;
+    size_t ix = 0;
+    while (walk_enumerations(type_data, &ix, &entry))
+        result->write_many(result->write_context, entry.name);
     result->response = RESPONSE_MANY;
     return ERROR_OK;
 }

@@ -24,8 +24,7 @@ bool enum_name_to_index(
  * hash_table_walk: start by setting *ix=0 and call repeatedly until false is
  * returned. */
 bool walk_enumerations(
-    struct enumeration *enumeration, size_t *ix,
-    const struct enum_entry **entry);
+    struct enumeration *enumeration, size_t *ix, struct enum_entry *entry);
 
 
 /* Constructs enumeration from static enum_set.  The enum_set.enums array is not
