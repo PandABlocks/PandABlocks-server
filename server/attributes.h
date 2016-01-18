@@ -32,7 +32,7 @@ struct attr_methods {
         const char *value);
 
     /* Returns enumeration assocated with type, if appropriate. */
-    struct enumeration *(*get_enumeration)(void *data);
+    const struct enumeration *(*get_enumeration)(void *data);
 };
 
 
@@ -52,7 +52,7 @@ void get_attr_change_set(
 const char *get_attr_name(const struct attr *attr);
 
 /* Associated enumeration or NULL. */
-struct enumeration *get_attr_enumeration(const struct attr *attr);
+const struct enumeration *get_attr_enumeration(const struct attr *attr);
 
 /* Description string for attribute. */
 const char *get_attr_description(const struct attr *attr);

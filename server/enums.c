@@ -55,7 +55,7 @@ static const char *binary_search(
 
 
 const char *enum_index_to_name(
-    struct enumeration *enumeration, unsigned int value)
+    const struct enumeration *enumeration, unsigned int value)
 {
     if (enumeration->direct_index)
     {
@@ -72,7 +72,7 @@ const char *enum_index_to_name(
 /* For sufficiently small lists a linear search is actually cheaper than a hash
  * table lookup. */
 static const struct enum_entry *linear_search(
-    struct enum_set *enum_set, const char *name)
+    const struct enum_set *enum_set, const char *name)
 {
     for (size_t i = 0; i < enum_set->count; i ++)
     {
@@ -85,7 +85,8 @@ static const struct enum_entry *linear_search(
 
 
 bool enum_name_to_index(
-    struct enumeration *enumeration, const char *name, unsigned int *value)
+    const struct enumeration *enumeration,
+    const char *name, unsigned int *value)
 {
     /* If we have a hash table use that, otherwise it'll have to be a linear
      * search through the keys. */
@@ -101,7 +102,8 @@ bool enum_name_to_index(
 
 
 bool walk_enumerations(
-    struct enumeration *enumeration, size_t *ix, struct enum_entry *entry_out)
+    const struct enumeration *enumeration,
+    size_t *ix, struct enum_entry *entry_out)
 {
     for (; *ix < enumeration->enum_set.count; (*ix) ++)
     {
@@ -155,7 +157,8 @@ static bool check_binary_search(const struct enum_set *enum_set)
 }
 
 
-struct enumeration *create_static_enumeration(const struct enum_set *enum_set)
+const struct enumeration *create_static_enumeration(
+    const struct enum_set *enum_set)
 {
     struct enumeration *enumeration = malloc(sizeof(struct enumeration));
     *enumeration = (struct enumeration) {
@@ -232,7 +235,7 @@ error__t add_enumeration(
 }
 
 
-void destroy_enumeration(struct enumeration *enumeration)
+void destroy_enumeration(const struct enumeration *enumeration)
 {
     if (enumeration->dynamic)
     {
@@ -245,7 +248,18 @@ void destroy_enumeration(struct enumeration *enumeration)
     }
     if (enumeration->map)
         hash_table_destroy(enumeration->map);
-    free(enumeration);
+    free(CAST_FROM_TO(const void *, void *, enumeration));
+}
+
+
+void write_enum_labels(
+    const struct enumeration *enumeration, struct connection_result *result)
+{
+    struct enum_entry entry;
+    size_t ix = 0;
+    while (walk_enumerations(enumeration, &ix, &entry))
+        result->write_many(result->write_context, entry.name);
+    result->response = RESPONSE_MANY;
 }
 
 
@@ -307,14 +321,9 @@ static error__t enum_format(
 }
 
 
-void write_enum_labels(
-    struct enumeration *enumeration, struct connection_result *result)
+static const struct enumeration *enum_get_enumeration(void *type_data)
 {
-    struct enum_entry entry;
-    size_t ix = 0;
-    while (walk_enumerations(enumeration, &ix, &entry))
-        result->write_many(result->write_context, entry.name);
-    result->response = RESPONSE_MANY;
+    return type_data;
 }
 
 
@@ -325,12 +334,6 @@ static error__t enum_labels_get(
 {
     write_enum_labels(type_data, result);
     return ERROR_OK;
-}
-
-
-static struct enumeration *enum_get_enumeration(void *data)
-{
-    return data;
 }
 
 

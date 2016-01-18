@@ -82,7 +82,7 @@ const char *get_attr_name(const struct attr *attr)
 }
 
 
-struct enumeration *get_attr_enumeration(const struct attr *attr)
+const struct enumeration *get_attr_enumeration(const struct attr *attr)
 {
     if (attr->methods->get_enumeration)
         return attr->methods->get_enumeration(attr->data);

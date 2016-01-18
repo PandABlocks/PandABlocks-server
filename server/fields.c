@@ -165,7 +165,7 @@ error__t attr_list_get(struct field *field, struct connection_result *result)
 }
 
 
-struct enumeration *get_field_enumeration(const struct field *field)
+const struct enumeration *get_field_enumeration(const struct field *field)
 {
     return get_class_enumeration(field->class);
 }

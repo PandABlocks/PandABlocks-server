@@ -237,7 +237,7 @@ static error__t put_verbose(
 static error__t get_enums(const char *command, struct connection_result *result)
 {
     struct entity_context parse;
-    struct enumeration *enumeration;
+    const struct enumeration *enumeration;
     return
         parse_char(&command, '.')  ?:
         parse_block_entity(&command, &parse, NULL, NULL)  ?:

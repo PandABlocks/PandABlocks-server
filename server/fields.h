@@ -82,7 +82,7 @@ error__t field_put_table(
 error__t attr_list_get(struct field *field, struct connection_result *result);
 
 /* Associated enumeration or NULL. */
-struct enumeration *get_field_enumeration(const struct field *field);
+const struct enumeration *get_field_enumeration(const struct field *field);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

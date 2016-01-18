@@ -61,7 +61,7 @@ struct class_methods {
     const char *(*describe)(void *class_data);
 
     /* Returns enumeration if class has an associated enumeration. */
-    struct enumeration *(*get_enumeration)(void *class_data);
+    const struct enumeration *(*get_enumeration)(void *class_data);
 
     /* Class specific attributes. */
     const struct attr_methods *attrs;
@@ -102,7 +102,7 @@ void get_class_change_set(
 error__t describe_class(struct class *class, char *string, size_t length);
 
 /* Associated enumeration or NULL. */
-struct enumeration *get_class_enumeration(const struct class *class);
+const struct enumeration *get_class_enumeration(const struct class *class);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

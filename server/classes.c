@@ -103,7 +103,7 @@ error__t describe_class(struct class *class, char *string, size_t length)
 }
 
 
-struct enumeration *get_class_enumeration(const struct class *class)
+const struct enumeration *get_class_enumeration(const struct class *class)
 {
     if (class->methods->get_enumeration)
         return class->methods->get_enumeration(class->class_data);

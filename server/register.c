@@ -179,7 +179,7 @@ static const char *base_describe(void *class_data)
 }
 
 
-static struct enumeration *base_get_enumeration(void *class_data)
+static const struct enumeration *base_get_enumeration(void *class_data)
 {
     struct base_state *state = class_data;
     return get_type_enumeration(state->type);
