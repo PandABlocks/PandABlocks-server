@@ -20,6 +20,7 @@
 #include "output.h"
 #include "base64.h"
 #include "persistence.h"
+#include "version.h"
 
 
 static unsigned int config_port = 8888;
@@ -144,7 +145,9 @@ static error__t initialise_signals(void)
 
 int main(int argc, char *const argv[])
 {
-    log_message("Starting PandA server version %s", GIT_VERSION);
+    log_message(
+        "Starting %s server version %s built %s",
+        server_name, server_version, server_build_date);
     initialise_base64();
 
     error__t error =

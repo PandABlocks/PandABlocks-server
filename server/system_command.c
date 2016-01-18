@@ -18,6 +18,7 @@
 #include "fields.h"
 #include "output.h"
 #include "classes.h"
+#include "version.h"
 
 #include "system_command.h"
 
@@ -32,7 +33,7 @@
  * Returns simple system identification. */
 static error__t get_idn(const char *command, struct connection_result *result)
 {
-    return write_one_result(result, "PandA %s", GIT_VERSION);
+    return write_one_result(result, "%s %s", server_name, server_version);
 }
 
 

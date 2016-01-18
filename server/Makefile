@@ -10,6 +10,7 @@ CC_NAME := $(shell $(CC) --version | sed 's/ .*//;q')
 
 # Git version
 GIT_VERSION = $(shell git describe --abbrev=7 --dirty --always --tags)
+BUILD_DATE_TIME = $(shell date +'%Y-%m-%d %H:%M:%S')
 
 
 default:    # Default target comes first!
@@ -83,6 +84,7 @@ CFLAGS += $(CFLAGS_$(CC_NAME))
 
 
 SRCS += server.c                # Entry point to server, command line parsing
+SRCS += version.c               # Server version string
 SRCS += persistence.c           # Support for persistence state over restarts
 SRCS += error.c                 # Common error handling framework
 SRCS += socket_server.c         # Common socket server handling
@@ -112,9 +114,13 @@ HW_SRCS  += hardware.c          # Hardware interface
 SIM_SRCS += sim_hardware.c      # Simulated hardware interface
 
 
-# Pass the git version through to system command
-system_command.o: CPPFLAGS += -DGIT_VERSION='"$(GIT_VERSION)"'
-server.o: CPPFLAGS += -DGIT_VERSION='"$(GIT_VERSION)"'
+# Pass the git version through to version
+version.o: CPPFLAGS += -DGIT_VERSION='"$(GIT_VERSION)"'
+version.o: CPPFLAGS += -DBUILD_DATE_TIME='"$(BUILD_DATE_TIME)"'
+# Forces version.o to be rebuild every time so that it's accurate
+version.o: FORCE
+FORCE:
+.phony: FORCE
 
 
 default: server sim_server
