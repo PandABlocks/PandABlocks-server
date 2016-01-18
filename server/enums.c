@@ -334,7 +334,8 @@ const struct type_methods enum_type_methods = {
     .parse = enum_parse, .format = enum_format,
     .get_enumeration = enum_get_enumeration,
     .attrs = (struct attr_methods[]) {
-        { "LABELS", .get_many = enum_labels_get, },
+        { "LABELS", "List of possible enumeration values",
+          .get_many = enum_labels_get, },
     },
     .attr_count = 1,
 };

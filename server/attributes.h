@@ -11,6 +11,8 @@ struct hash_table;
 struct attr_methods {
     /* Name of this attribute. */
     const char *name;
+    /* Fixed description string for attribute. */
+    const char *description;
     /* Set if this attribute contributes to the ATTR change set. */
     bool in_change_set;
 
@@ -51,6 +53,9 @@ const char *get_attr_name(const struct attr *attr);
 
 /* Associated enumeration or NULL. */
 struct enumeration *get_attr_enumeration(const struct attr *attr);
+
+/* Description string for attribute. */
+const char *get_attr_description(const struct attr *attr);
 
 
 /* This function creates an attribute with the given ownder and data pointers

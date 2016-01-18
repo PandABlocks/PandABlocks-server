@@ -91,6 +91,12 @@ struct enumeration *get_attr_enumeration(const struct attr *attr)
 }
 
 
+const char *get_attr_description(const struct attr *attr)
+{
+    return attr->methods->description;
+}
+
+
 void create_attributes(
     const struct attr_methods methods[], unsigned int attr_count,
     void *owner, void *data, unsigned int count,

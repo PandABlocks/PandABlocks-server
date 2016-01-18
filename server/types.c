@@ -144,7 +144,8 @@ static const struct type_methods uint_type_methods = {
     .init = uint_init,
     .parse = uint_parse, .format = uint_format,
     .attrs = (struct attr_methods[]) {
-        { "MAX", .format = uint_max_format, },
+        { "MAX", "Maximum valid value for this field",
+          .format = uint_max_format, },
     },
     .attr_count = 1,
 };
@@ -297,7 +298,8 @@ static const struct type_methods lut_type_methods = {
     .init = lut_init, .destroy = lut_destroy,
     .parse = lut_parse, .format = lut_format,
     .attrs = (struct attr_methods[]) {
-        { "RAW", .format = raw_format_uint, }, },
+        { "RAW", "Bit pattern written to register",
+          .format = raw_format_uint, }, },
     .attr_count = 1,
 };
 

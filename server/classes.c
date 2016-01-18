@@ -106,7 +106,8 @@ static error__t info_format(
 
 
 static struct attr_methods info_attribute = {
-    "INFO", .format = info_format,
+    "INFO", "Class information for field",
+    .format = info_format,
 };
 
 

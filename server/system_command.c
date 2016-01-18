@@ -19,6 +19,7 @@
 #include "fields.h"
 #include "output.h"
 #include "classes.h"
+#include "attributes.h"
 #include "version.h"
 
 #include "system_command.h"
@@ -150,7 +151,8 @@ static error__t get_desc(const char *command, struct connection_result *result)
         parse_eos(&command)  ?:
 
         IF_ELSE(parse.attr,
-            FAIL_("No description for attribute"),
+            TEST_OK_(string = get_attr_description(parse.attr),
+                "No description for attribute"),
         //else
             IF_ELSE(parse.field,
                 /* Field follows: *DESC.block.field? */
