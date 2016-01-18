@@ -81,6 +81,9 @@ error__t field_put_table(
 /* List of attributes for field:  block.field.*?  */
 error__t attr_list_get(struct field *field, struct connection_result *result);
 
+/* Associated enumeration or NULL. */
+struct enumeration *get_field_enumeration(const struct field *field);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Field and block database initialisation.  All the following methods are

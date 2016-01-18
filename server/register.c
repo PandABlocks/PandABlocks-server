@@ -179,12 +179,20 @@ static const char *base_describe(void *class_data)
 }
 
 
+static struct enumeration *base_get_enumeration(void *class_data)
+{
+    struct base_state *state = class_data;
+    return get_type_enumeration(state->type);
+}
+
+
 /* The following methods defined above are shared among all three classes. */
 #define BASE_METHODS \
     .destroy = base_destroy, \
     .parse_attribute = base_parse_attribute, \
     .parse_register = base_parse_register, \
-    .describe = base_describe
+    .describe = base_describe, \
+    .get_enumeration = base_get_enumeration
 
 
 static error__t base_get(

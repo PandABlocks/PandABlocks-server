@@ -307,16 +307,23 @@ static error__t enum_format(
 }
 
 
+void write_enum_labels(
+    struct enumeration *enumeration, struct connection_result *result)
+{
+    struct enum_entry entry;
+    size_t ix = 0;
+    while (walk_enumerations(enumeration, &ix, &entry))
+        result->write_many(result->write_context, entry.name);
+    result->response = RESPONSE_MANY;
+}
+
+
 /* Returns list of enumeration values and strings. */
 static error__t enum_labels_get(
     void *owner, void *type_data, unsigned int number,
     struct connection_result *result)
 {
-    struct enum_entry entry;
-    size_t ix = 0;
-    while (walk_enumerations(type_data, &ix, &entry))
-        result->write_many(result->write_context, entry.name);
-    result->response = RESPONSE_MANY;
+    write_enum_labels(type_data, result);
     return ERROR_OK;
 }
 

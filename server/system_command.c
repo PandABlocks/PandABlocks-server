@@ -20,6 +20,7 @@
 #include "output.h"
 #include "classes.h"
 #include "attributes.h"
+#include "enums.h"
 #include "version.h"
 
 #include "system_command.h"
@@ -229,6 +230,31 @@ static error__t put_verbose(
 }
 
 
+/* *ENUMS.block.field?
+ * *ENUMS.block.field.attr?
+ *
+ * Returns list of enumeration labels, if appropriate. */
+static error__t get_enums(const char *command, struct connection_result *result)
+{
+    struct entity_context parse;
+    struct enumeration *enumeration;
+    return
+        parse_char(&command, '.')  ?:
+        parse_block_entity(&command, &parse, NULL, NULL)  ?:
+        parse_eos(&command)  ?:
+
+        TEST_OK_(parse.field, "Missing field name")  ?:
+        IF_ELSE(parse.attr,
+            TEST_OK_(enumeration = get_attr_enumeration(parse.attr),
+                "Attribute is not an enumeration"),
+        //else
+            TEST_OK_(enumeration = get_field_enumeration(parse.field),
+                "Field is not an enumeration"))  ?:
+        DO(write_enum_labels(enumeration, result));
+}
+
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
 
@@ -253,6 +279,7 @@ static const struct command_table_entry command_table_list[] = {
     { "BITS",       .get = get_bits, .allow_arg = true },
     { "POSITIONS",  .get = get_positions, },
     { "VERBOSE",    .put = put_verbose, },
+    { "ENUMS",      .get = get_enums, .allow_arg = true, },
 };
 
 static struct hash_table *command_table;

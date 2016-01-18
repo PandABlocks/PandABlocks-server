@@ -26,6 +26,10 @@ bool enum_name_to_index(
 bool walk_enumerations(
     struct enumeration *enumeration, size_t *ix, struct enum_entry *entry);
 
+/* Outputs list of enumerations to given connection. */
+void write_enum_labels(
+    struct enumeration *enumeration, struct connection_result *result);
+
 
 /* Constructs enumeration from static enum_set.  The enum_set.enums array is not
  * copied and must remain valid. */
