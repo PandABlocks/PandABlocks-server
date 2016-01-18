@@ -15,6 +15,7 @@
 #include "parse.h"
 #include "config_server.h"
 #include "socket_server.h"
+#include "config_command.h"
 #include "fields.h"
 #include "output.h"
 #include "classes.h"
@@ -141,27 +142,24 @@ static error__t put_changes(
  * Returns description field for block or field. */
 static error__t get_desc(const char *command, struct connection_result *result)
 {
-    char block_name[MAX_NAME_LENGTH];
-    struct block *block;
     const char *string = NULL;
-    char field_name[MAX_NAME_LENGTH];
-    struct field *field;
+    struct entity_context parse;
     return
         parse_char(&command, '.')  ?:
-        parse_name(&command, block_name, sizeof(block_name))  ?:
-        lookup_block(block_name, &block, NULL)  ?:
-        IF_ELSE(read_char(&command, '.'),
-            /* Field follows: *DESC.block.field? */
-            parse_name(&command, field_name, sizeof(field_name))  ?:
-            lookup_field(block, field_name, &field)  ?:
-            TEST_OK_(string = get_field_description(field),
-                "No description set for field"),
-        //else
-            /* Just a block: *DESC.block? */
-            TEST_OK_(string = get_block_description(block),
-                "No description set for block")
-        )  ?:
+        parse_block_entity(&command, &parse, NULL, NULL)  ?:
         parse_eos(&command)  ?:
+
+        IF_ELSE(parse.attr,
+            FAIL_("No description for attribute"),
+        //else
+            IF_ELSE(parse.field,
+                /* Field follows: *DESC.block.field? */
+                TEST_OK_(string = get_field_description(parse.field),
+                    "No description set for field"),
+            //else
+                /* Just a block: *DESC.block? */
+                TEST_OK_(string = get_block_description(parse.block),
+                    "No description set for block")))  ?:
         write_one_result(result, "%s", string);
 }
 
