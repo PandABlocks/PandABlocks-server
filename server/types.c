@@ -144,7 +144,8 @@ static const struct type_methods uint_type_methods = {
     .init = uint_init,
     .parse = uint_parse, .format = uint_format,
     .attrs = (struct attr_methods[]) {
-        { "MAX", .format = uint_max_format, },
+        { "MAX", "Maximum valid value for this field",
+          .format = uint_max_format, },
     },
     .attr_count = 1,
 };
@@ -297,7 +298,8 @@ static const struct type_methods lut_type_methods = {
     .init = lut_init, .destroy = lut_destroy,
     .parse = lut_parse, .format = lut_format,
     .attrs = (struct attr_methods[]) {
-        { "RAW", .format = raw_format_uint, }, },
+        { "RAW", "Bit pattern written to register",
+          .format = raw_format_uint, }, },
     .attr_count = 1,
 };
 
@@ -340,6 +342,15 @@ error__t type_put(struct type *type, unsigned int number, const char *string)
 const char *get_type_name(const struct type *type)
 {
     return type->methods->name;
+}
+
+
+const struct enumeration *get_type_enumeration(const struct type *type)
+{
+    if (type->methods->get_enumeration)
+        return type->methods->get_enumeration(type->type_data);
+    else
+        return NULL;
 }
 
 

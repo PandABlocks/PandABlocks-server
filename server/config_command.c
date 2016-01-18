@@ -22,17 +22,6 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
-/* This structure is used to hold the context require to complete an entity
- * operation. */
-struct entity_context {
-    /* Fields derived from parsing the entity target. */
-    struct block *block;                    // Block database entry
-    unsigned int number;                    // Block number, within valid range
-    struct field *field;                    // Field database entry
-    struct attr *attr;                      // Attribute data, may be absent
-};
-
-
 /* This structure contains the implementations of the various entity operations,
  * depending on the exact structure of the entity request.  The fields in this
  * structure are a close reflection of the fields in config_command set. */
@@ -159,21 +148,23 @@ static error__t parse_block_name(
             TEST_OK_(
                 0 < context->number  &&  context->number <= *max_number,
                 "Invalid block number") ?:
-            DO(*number_present = true;  context->number -= 1),
+            DO( if (number_present) *number_present = true;
+                context->number -= 1),
         //else
-            DO(*number_present = false; context->number = 0))  ?:
-
-        /* Finally eat the trailing . */
-        TEST_OK_(read_char(input, '.'), "Missing field name");
+            DO( if (number_present) *number_present = false;
+                context->number = 0));
 }
 
 
 /* Block number must be present or defaulted for normal field and attribute
  * commands. */
 static error__t check_block_number(
-    unsigned int max_number, bool number_present)
+    unsigned int max_number, bool *number_present)
 {
-    return TEST_OK_(number_present || max_number == 1, "Missing block number");
+    return
+        IF(number_present,
+            TEST_OK_(*number_present || max_number == 1,
+                "Missing block number"));
 }
 
 
@@ -204,54 +195,81 @@ static error__t parse_attr_name(
 /* Parses name into two or three sub-fields separated by dots, according to the
  * following syntax:
  *
- *  block [number] "." ( "*" | field [ "." ( "*" | meta ) ]
+ *  block [number] [ "." ( "*" | field [ "." ( "*" | meta ) ] ]
  *
- * One of the following four commands is parsed and the *actions field is set
+ * The number is only optional if there is only one instance of the block. */
+error__t parse_block_entity(
+    const char **input, struct entity_context *parse,
+    bool *number_present, bool *star_present)
+{
+    unsigned int max_number;
+
+    *parse = (struct entity_context) {};
+    if (star_present)
+        *star_present = false;
+
+    return
+        /* Parse block name */
+        parse_block_name(input, parse, &max_number, number_present)  ?:
+
+        /* Check for field following. */
+        IF(read_char(input, '.'),
+            /* At this point we expect * or a field. */
+            IF_ELSE(star_present  &&  read_char(input, '*'),
+                /*  block.*  */
+                DO(*star_present = true),
+            //else
+                /* Parse field name. */
+                parse_field_name(input, parse)  ?:
+
+                /* Now we have block.field, check for possible attribute. */
+                IF_ELSE(read_char(input, '.'),
+                    /* Again, check for * or name */
+                    IF_ELSE(star_present  &&  read_char(input, '*'),
+                        /*  block.field.*  */
+                        DO(*star_present = true),
+                    //else
+                        /*  block.field.attr  */
+                        check_block_number(max_number, number_present)  ?:
+                        parse_attr_name(input, parse)),
+                //else
+                    /*  block.field  */
+                    check_block_number(max_number, number_present))));
+}
+
+
+/* One of the following four commands is parsed and the *actions field is set
  * accordingly:
  *
  *  block.*                             field_list_actions
  *  block[number].field                 block_field_actions
  *  block.field.*                       attr_list_actions
  *  block[number].field.attr            field_attr_actions
- *
- * The number is only optional if there is only one instance of the block. */
+ */
 static error__t compute_entity_handler(
     const char *input, struct entity_context *context,
     const struct entity_actions **actions)
 {
-    unsigned int max_number;
-    bool number_present;
+    bool number_present, star_present;
     return
-        /* Consume the  block.  part of the input. */
-        parse_block_name(&input, context, &max_number, &number_present)  ?:
+        parse_block_entity(&input, context, &number_present, &star_present)  ?:
+        parse_eos(&input)  ?:
 
-        IF_ELSE(read_char(&input, '*'),
-            /*  block.*  */
-            DO(*actions = &field_list_actions),
-
+        IF_ELSE(star_present,
+            DO(
+                if (context->field)
+                    *actions = &attr_list_actions;      // block.field.*
+                else
+                    *actions = &field_list_actions;     // block.*
+            ),
         //else
-            /* If not block meta-query then field name must follow. */
-            parse_field_name(&input, context)  ?:
-            IF_ELSE(read_char(&input, '.'),
-                /* There's a further * or an attribute. */
-                IF_ELSE(read_char(&input, '*'),
-                    /*  block.field.*  */
-                    DO(*actions = &attr_list_actions),
-                //else
-                    /*  block.field.attr  */
-                    check_block_number(max_number, number_present)  ?:
-                    parse_attr_name(&input, context)  ?:
-                    DO(*actions = &field_attr_actions)
-                ),
-            //else
-                /*  block.field  */
-                check_block_number(max_number, number_present)  ?:
-                DO(*actions = &block_field_actions)
-            )
-        )  ?:
-
-        /* Make sure there's nothing left over in the field. */
-        parse_eos(&input);
+            TEST_OK_(context->field, "Missing field name")  ?:
+            DO(
+                if (context->attr)
+                    *actions = &field_attr_actions;     // block.field.attr
+                else
+                    *actions = &block_field_actions;    // block.field
+            ));
 }
 
 

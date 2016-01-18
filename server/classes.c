@@ -93,6 +93,25 @@ void get_class_change_set(
 }
 
 
+error__t describe_class(struct class *class, char *string, size_t length)
+{
+    if (class->methods->describe)
+        return format_string(string, length, "%s %s",
+            class->methods->name, class->methods->describe(class->class_data));
+    else
+        return format_string(string, length, "%s", class->methods->name);
+}
+
+
+const struct enumeration *get_class_enumeration(const struct class *class)
+{
+    if (class->methods->get_enumeration)
+        return class->methods->get_enumeration(class->class_data);
+    else
+        return NULL;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Global class attributes. */
 
@@ -106,7 +125,8 @@ static error__t info_format(
 
 
 static struct attr_methods info_attribute = {
-    "INFO", .format = info_format,
+    "INFO", "Class information for field",
+    .format = info_format,
 };
 
 
@@ -219,15 +239,6 @@ error__t finalise_class(struct class *class)
         TEST_OK_(class->initialised, "No register assigned for class")  ?:
         IF(class->methods->finalise,
             class->methods->finalise(class->class_data));
-}
-
-error__t describe_class(struct class *class, char *string, size_t length)
-{
-    if (class->methods->describe)
-        return format_string(string, length, "%s %s",
-            class->methods->name, class->methods->describe(class->class_data));
-    else
-        return format_string(string, length, "%s", class->methods->name);
 }
 
 void destroy_class(struct class *class)

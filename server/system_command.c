@@ -15,9 +15,13 @@
 #include "parse.h"
 #include "config_server.h"
 #include "socket_server.h"
+#include "config_command.h"
 #include "fields.h"
 #include "output.h"
 #include "classes.h"
+#include "attributes.h"
+#include "enums.h"
+#include "version.h"
 
 #include "system_command.h"
 
@@ -32,7 +36,7 @@
  * Returns simple system identification. */
 static error__t get_idn(const char *command, struct connection_result *result)
 {
-    return write_one_result(result, "PandA");
+    return write_one_result(result, "%s %s", server_name, server_version);
 }
 
 
@@ -140,27 +144,25 @@ static error__t put_changes(
  * Returns description field for block or field. */
 static error__t get_desc(const char *command, struct connection_result *result)
 {
-    char block_name[MAX_NAME_LENGTH];
-    struct block *block;
     const char *string = NULL;
-    char field_name[MAX_NAME_LENGTH];
-    struct field *field;
+    struct entity_context parse;
     return
         parse_char(&command, '.')  ?:
-        parse_name(&command, block_name, sizeof(block_name))  ?:
-        lookup_block(block_name, &block, NULL)  ?:
-        IF_ELSE(read_char(&command, '.'),
-            /* Field follows: *DESC.block.field? */
-            parse_name(&command, field_name, sizeof(field_name))  ?:
-            lookup_field(block, field_name, &field)  ?:
-            TEST_OK_(string = get_field_description(field),
-                "No description set for field"),
-        //else
-            /* Just a block: *DESC.block? */
-            TEST_OK_(string = get_block_description(block),
-                "No description set for block")
-        )  ?:
+        parse_block_entity(&command, &parse, NULL, NULL)  ?:
         parse_eos(&command)  ?:
+
+        IF_ELSE(parse.attr,
+            TEST_OK_(string = get_attr_description(parse.attr),
+                "No description for attribute"),
+        //else
+            IF_ELSE(parse.field,
+                /* Field follows: *DESC.block.field? */
+                TEST_OK_(string = get_field_description(parse.field),
+                    "No description set for field"),
+            //else
+                /* Just a block: *DESC.block? */
+                TEST_OK_(string = get_block_description(parse.block),
+                    "No description set for block")))  ?:
         write_one_result(result, "%s", string);
 }
 
@@ -228,6 +230,31 @@ static error__t put_verbose(
 }
 
 
+/* *ENUMS.block.field?
+ * *ENUMS.block.field.attr?
+ *
+ * Returns list of enumeration labels, if appropriate. */
+static error__t get_enums(const char *command, struct connection_result *result)
+{
+    struct entity_context parse;
+    const struct enumeration *enumeration;
+    return
+        parse_char(&command, '.')  ?:
+        parse_block_entity(&command, &parse, NULL, NULL)  ?:
+        parse_eos(&command)  ?:
+
+        TEST_OK_(parse.field, "Missing field name")  ?:
+        IF_ELSE(parse.attr,
+            TEST_OK_(enumeration = get_attr_enumeration(parse.attr),
+                "Attribute is not an enumeration"),
+        //else
+            TEST_OK_(enumeration = get_field_enumeration(parse.field),
+                "Field is not an enumeration"))  ?:
+        DO(write_enum_labels(enumeration, result));
+}
+
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
 
@@ -252,6 +279,7 @@ static const struct command_table_entry command_table_list[] = {
     { "BITS",       .get = get_bits, .allow_arg = true },
     { "POSITIONS",  .get = get_positions, },
     { "VERBOSE",    .put = put_verbose, },
+    { "ENUMS",      .get = get_enums, .allow_arg = true, },
 };
 
 static struct hash_table *command_table;

@@ -82,6 +82,21 @@ const char *get_attr_name(const struct attr *attr)
 }
 
 
+const struct enumeration *get_attr_enumeration(const struct attr *attr)
+{
+    if (attr->methods->get_enumeration)
+        return attr->methods->get_enumeration(attr->data);
+    else
+        return NULL;
+}
+
+
+const char *get_attr_description(const struct attr *attr)
+{
+    return attr->methods->description;
+}
+
+
 void create_attributes(
     const struct attr_methods methods[], unsigned int attr_count,
     void *owner, void *data, unsigned int count,

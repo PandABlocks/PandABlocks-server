@@ -331,7 +331,7 @@ bool hash_table_walk(
                 *key = entry->key;
             if (value)
                 *value = entry->value;
-            (*ix) += 1;
+            *ix += 1;
             return true;
         }
     }

@@ -60,6 +60,9 @@ struct class_methods {
     /* Optionally returns class description. */
     const char *(*describe)(void *class_data);
 
+    /* Returns enumeration if class has an associated enumeration. */
+    const struct enumeration *(*get_enumeration)(void *class_data);
+
     /* Class specific attributes. */
     const struct attr_methods *attrs;
     unsigned int attr_count;
@@ -95,6 +98,12 @@ void get_class_change_set(
     struct class *class, enum change_set change_set,
     const uint64_t report_index[], bool changes[]);
 
+/* Returns description of class including any type. */
+error__t describe_class(struct class *class, char *string, size_t length);
+
+/* Associated enumeration or NULL. */
+const struct enumeration *get_class_enumeration(const struct class *class);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Class inititialisation. */
@@ -115,9 +124,6 @@ error__t class_parse_register(
 /* To be called after database loading is complete to ensure that the
  * initialisation of all classes is complete. */
 error__t finalise_class(struct class *class);
-
-/* Returns description of class including any type. */
-error__t describe_class(struct class *class, char *string, size_t length);
 
 /* This should be called during shutdown for each created class. */
 void destroy_class(struct class *class);

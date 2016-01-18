@@ -16,12 +16,33 @@
 #include "classes.h"
 #include "attributes.h"
 #include "types.h"
+#include "enums.h"
 #include "locking.h"
 
 #include "time_position.h"
 
 
-enum time_scale { TIME_MINS, TIME_SECS, TIME_MSECS, TIME_USECS, };
+#define TIME_SECS   1
+
+static const struct enum_set time_units_enum_set = {
+    .enums = (const struct enum_entry[]) {
+        { 0, "min" },
+        { 1, "s" },
+        { 2, "ms" },
+        { 3, "us" },
+    },
+    .count = 4,
+};
+
+static const double time_conversion[] =
+{
+    (double) 60 * CLOCK_FREQUENCY,      // TIME_MINS
+    CLOCK_FREQUENCY,                    // TIME_SECS
+    CLOCK_FREQUENCY / 1e3,              // TIME_MSECS
+    CLOCK_FREQUENCY / 1e6,              // TIME_USECS
+};
+
+static const struct enumeration *time_units_enumeration;
 
 
 struct time_class_state {
@@ -36,21 +57,11 @@ struct time_class_state {
     uint64_t min_value;                 // Minimum valid value less 1
 
     struct time_field {
-        enum time_scale time_scale;         // Scaling factor selection
-        uint64_t value;                     // Current value
-        uint64_t update_index;              // Timestamp of last update
+        unsigned int time_scale;        // Scaling factor selection (enum ix)
+        uint64_t value;                 // Current value
+        uint64_t update_index;          // Timestamp of last update
     } values[];
 };
-
-static const double time_conversion[] =
-{
-    (double) 60 * CLOCK_FREQUENCY,      // TIME_MINS
-    CLOCK_FREQUENCY,                    // TIME_SECS
-    CLOCK_FREQUENCY / 1e3,              // TIME_MSECS
-    CLOCK_FREQUENCY / 1e6,              // TIME_USECS
-};
-
-static const char *time_units[] = { "min", "s", "ms", "us", };
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -105,7 +116,7 @@ static error__t time_parse_register(
 
 
 static error__t time_class_format(
-    uint64_t value, enum time_scale scale, char result[], size_t length)
+    uint64_t value, unsigned int scale, char result[], size_t length)
 {
     return format_double(
         result, length, (double) value / time_conversion[scale]);
@@ -154,7 +165,7 @@ static error__t write_time_value(
 
 
 static error__t time_class_parse(
-    const char *string, enum time_scale scale,
+    const char *string, unsigned int scale,
     uint64_t max_value, uint64_t *result)
 {
     double scaled_value;
@@ -232,9 +243,12 @@ static error__t time_raw_put(
 
 /* block.time.UNITS? */
 static error__t shared_units_format(
-    enum time_scale scale, char result[], size_t length)
+    unsigned int scale, char result[], size_t length)
 {
-    return format_string(result, length, "%s", time_units[scale]);
+    const char *units;
+    return
+        TEST_OK(units = enum_index_to_name(time_units_enumeration, scale))  ?:
+        format_string(result, length, "%s", units);
 }
 
 static error__t time_class_units_format(
@@ -248,21 +262,16 @@ static error__t time_class_units_format(
 
 
 /* block.time.UNITS=string */
-static error__t shared_units_parse(const char *string, enum time_scale *scale)
+static error__t shared_units_parse(const char *string, unsigned int *scale)
 {
-    for (unsigned int i = 0; i < ARRAY_SIZE(time_units); i ++)
-        if (strcmp(string, time_units[i]) == 0)
-        {
-            *scale = (enum time_scale) i;
-            return ERROR_OK;
-        }
-    return FAIL_("Invalid time units");
+    return TEST_OK_(enum_name_to_index(time_units_enumeration, string, scale),
+        "Invalid time units");
 }
 
 static error__t time_class_units_put(
     void *owner, void *class_data, unsigned int number, const char *string)
 {
-    enum time_scale scale = 0;
+    unsigned int scale = 0;
     error__t error = shared_units_parse(string, &scale);
     if (!error)
     {
@@ -470,7 +479,7 @@ static error__t position_units_put(
  * we're working at the type level with 32-bit values. */
 
 struct time_type_state {
-    enum time_scale scale[0];
+    unsigned int scale[0];
 };
 
 
@@ -478,7 +487,7 @@ static error__t time_type_init(
     const char **string, unsigned int count, void **type_data)
 {
     struct time_type_state *state = malloc(
-        sizeof(struct time_type_state) + count * sizeof(enum time_scale));
+        sizeof(struct time_type_state) + count * sizeof(unsigned int));
     *state = (struct time_type_state) { };
     for (unsigned int i = 0; i < count; i ++)
         state->scale[i] = TIME_SECS;
@@ -520,7 +529,7 @@ static error__t time_type_units_format(
 static error__t time_type_units_put(
     void *owner, void *data, unsigned int number, const char *string)
 {
-    enum time_scale scale = 0;
+    unsigned int scale = 0;
     error__t error = shared_units_parse(string, &scale);
     if (!error)
     {
@@ -532,8 +541,25 @@ static error__t time_type_units_put(
 }
 
 
+static const struct enumeration *time_units_get_enumeration(void *data)
+{
+    return time_units_enumeration;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Class and type definitions. */
+
+error__t initialise_time_position(void)
+{
+    time_units_enumeration = create_static_enumeration(&time_units_enum_set);
+    return ERROR_OK;
+}
+
+void terminate_time_position(void)
+{
+    destroy_enumeration(time_units_enumeration);
+}
 
 
 const struct class_methods time_class_methods = {
@@ -545,15 +571,17 @@ const struct class_methods time_class_methods = {
     .change_set = time_change_set,
     .change_set_index = CHANGE_IX_CONFIG,
     .attrs = (struct attr_methods[]) {
-        { "RAW",
+        { "RAW", "Time in ticks",
             .format = time_raw_format,
             .put = time_raw_put,
         },
-        { "UNITS", true,
+        { "UNITS", "Units of time setting",
+            .in_change_set = true,
             .format = time_class_units_format,
             .put = time_class_units_put,
+            .get_enumeration = time_units_get_enumeration,
         },
-        { "MIN",
+        { "MIN", "Minimum programmable time",
             .format = time_min_format,
         },
     },
@@ -566,14 +594,20 @@ const struct type_methods position_type_methods = {
     .init = position_init, .destroy = position_destroy,
     .parse = position_parse, .format = position_format,
     .attrs = (struct attr_methods[]) {
-        { "RAW",
+        { "RAW", "Unscaled underlying value",
             .format = raw_format_uint, .put = raw_put_uint, },
-        { "SCALE", true,
+        { "SCALE", "Scale factor",
+            .in_change_set = true,
             .format = position_scale_format, .put = position_scale_put, },
-        { "OFFSET", true,
+        { "OFFSET", "Offset",
+            .in_change_set = true,
             .format = position_offset_format, .put = position_offset_put, },
-        { "UNITS", true,
-            .format = position_units_format, .put = position_units_put, },
+        { "UNITS", "Units string",
+            .in_change_set = true,
+            .format = position_units_format,
+            .put = position_units_put,
+            .get_enumeration = time_units_get_enumeration,
+        },
     },
     .attr_count = 4,
 };
@@ -584,13 +618,15 @@ const struct type_methods time_type_methods = {
     .init = time_type_init,
     .parse = time_parse, .format = time_format,
     .attrs = (struct attr_methods[]) {
-        { "RAW",
+        { "RAW", "Time in ticks",
             .format = raw_format_uint,
             .put = raw_put_uint,
         },
-        { "UNITS", true,
+        { "UNITS", "Units of time setting",
+            .in_change_set = true,
             .format = time_type_units_format,
             .put = time_type_units_put,
+            .get_enumeration = time_units_get_enumeration,
         },
     },
     .attr_count = 2,

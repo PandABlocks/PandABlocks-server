@@ -407,10 +407,14 @@ const struct class_methods table_class_methods = {
     .change_set = table_change_set,
     .change_set_index = CHANGE_IX_TABLE,
     .attrs = (struct attr_methods[]) {
-        { "LENGTH", .format = table_length_format, },
-        { "MAX_LENGTH", .format = table_max_length_format, },
-        { "FIELDS", .get_many = table_fields_get_many, },
-        { "B",      .get_many = table_b_get_many, },
+        { "LENGTH", "Number of entries in table",
+          .format = table_length_format, },
+        { "MAX_LENGTH", "Maximum number of entries in table",
+          .format = table_max_length_format, },
+        { "FIELDS", "List of sub-fields for this table",
+          .get_many = table_fields_get_many, },
+        { "B", "Table in base-64 representation",
+          .get_many = table_b_get_many, },
     },
     .attr_count = 4,
 };

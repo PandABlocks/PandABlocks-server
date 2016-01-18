@@ -28,6 +28,9 @@ struct type_methods {
         void *type_data, unsigned int number,
         unsigned int value, char string[], size_t length);
 
+    /* Returns enumeration assocated with type, if appropriate. */
+    const struct enumeration *(*get_enumeration)(void *type_data);
+
     /* Type specific attributes, automatically instantiated when type instance
      * created. */
     const struct attr_methods *attrs;
@@ -83,6 +86,9 @@ void destroy_type(struct type *type);
 
 /* Returns name of type. */
 const char *get_type_name(const struct type *type);
+
+/* Associated enumeration or NULL. */
+const struct enumeration *get_type_enumeration(const struct type *type);
 
 
 /* Adds attribute line to specified type.  Used to add enumeration options. */

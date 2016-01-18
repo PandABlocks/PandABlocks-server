@@ -470,11 +470,12 @@ static error__t capture_index_format(
 
 static const struct attr_methods output_attr_methods[] =
 {
-    { "CAPTURE", true,
+    { "CAPTURE", "Configure capture for this field",
+        .in_change_set = true,
         .format = capture_format,
         .put = capture_put,
     },
-    { "CAPTURE_INDEX",
+    { "CAPTURE_INDEX", "Position in output stream of this field",
         .format = capture_index_format,
     },
 };

@@ -18,8 +18,10 @@
 #include "system_command.h"
 #include "fields.h"
 #include "output.h"
+#include "time_position.h"
 #include "base64.h"
 #include "persistence.h"
+#include "version.h"
 
 
 static unsigned int config_port = 8888;
@@ -144,6 +146,9 @@ static error__t initialise_signals(void)
 
 int main(int argc, char *const argv[])
 {
+    log_message(
+        "Starting %s server version %s built %s",
+        server_name, server_version, server_build_date);
     initialise_base64();
 
     error__t error =
@@ -151,6 +156,7 @@ int main(int argc, char *const argv[])
 
         initialise_fields()  ?:
         initialise_output()  ?:
+        initialise_time_position()  ?:
         load_config_databases(config_db, register_db, description_db)  ?:
 
         initialise_hardware()  ?:
@@ -187,6 +193,7 @@ int main(int argc, char *const argv[])
     terminate_system_command();
     terminate_hardware();
     terminate_databases();
+    terminate_time_position();
     terminate_output();
     terminate_fields();
 

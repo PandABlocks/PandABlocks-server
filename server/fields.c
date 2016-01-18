@@ -165,6 +165,11 @@ error__t attr_list_get(struct field *field, struct connection_result *result)
 }
 
 
+const struct enumeration *get_field_enumeration(const struct field *field)
+{
+    return get_class_enumeration(field->class);
+}
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Field read and write.  These all just delegate the implementation down to the
