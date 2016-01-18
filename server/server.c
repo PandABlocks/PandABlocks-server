@@ -18,6 +18,7 @@
 #include "system_command.h"
 #include "fields.h"
 #include "output.h"
+#include "time_position.h"
 #include "base64.h"
 #include "persistence.h"
 #include "version.h"
@@ -155,6 +156,7 @@ int main(int argc, char *const argv[])
 
         initialise_fields()  ?:
         initialise_output()  ?:
+        initialise_time_position()  ?:
         load_config_databases(config_db, register_db, description_db)  ?:
 
         initialise_hardware()  ?:
@@ -191,6 +193,7 @@ int main(int argc, char *const argv[])
     terminate_system_command();
     terminate_hardware();
     terminate_databases();
+    terminate_time_position();
     terminate_output();
     terminate_fields();
 
