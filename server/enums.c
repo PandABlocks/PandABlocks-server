@@ -321,11 +321,18 @@ static error__t enum_labels_get(
 }
 
 
+static struct enumeration *enum_get_enumeration(void *data)
+{
+    return data;
+}
+
+
 const struct type_methods enum_type_methods = {
     "enum",
     .init = enum_init, .destroy = enum_destroy,
     .add_attribute_line = enum_add_label,
     .parse = enum_parse, .format = enum_format,
+    .get_enumeration = enum_get_enumeration,
     .attrs = (struct attr_methods[]) {
         { "LABELS", .get_many = enum_labels_get, },
     },

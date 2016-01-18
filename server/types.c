@@ -343,6 +343,15 @@ const char *get_type_name(const struct type *type)
 }
 
 
+struct enumeration *get_type_enumeration(const struct type *type)
+{
+    if (type->methods->get_enumeration)
+        return type->methods->get_enumeration(type->type_data);
+    else
+        return NULL;
+}
+
+
 error__t type_parse_attribute(struct type *type, const char **line)
 {
     return

@@ -28,6 +28,9 @@ struct attr_methods {
     error__t (*put)(
         void *owner, void *data, unsigned int number,
         const char *value);
+
+    /* Returns enumeration assocated with type, if appropriate. */
+    struct enumeration *(*get_enumeration)(void *data);
 };
 
 
@@ -45,6 +48,9 @@ void get_attr_change_set(
 
 /* Name of attribute. */
 const char *get_attr_name(const struct attr *attr);
+
+/* Associated enumeration or NULL. */
+struct enumeration *get_attr_enumeration(const struct attr *attr);
 
 
 /* This function creates an attribute with the given ownder and data pointers
