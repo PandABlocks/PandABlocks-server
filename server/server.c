@@ -126,6 +126,7 @@ static error__t initialise_signals(void)
         .sa_handler = at_exit, .sa_flags = SA_RESTART };
     struct sigaction do_ignore = {
         .sa_handler = SIG_IGN, .sa_flags = SA_RESTART };
+    struct sigaction do_default = { .sa_handler = SIG_DFL, };
     return
         TEST_IO(sigfillset(&do_shutdown.sa_mask))  ?:
         /* Catch the usual interruption signals and use them to trigger an
@@ -140,7 +141,11 @@ static error__t initialise_signals(void)
         TEST_IO(sigaction(SIGTERM, &do_shutdown, NULL))  ?:
 
         /* When acting as a server we need to ignore SIGPIPE, of course. */
-        TEST_IO(sigaction(SIGPIPE, &do_ignore,   NULL));
+        TEST_IO(sigaction(SIGPIPE, &do_ignore,   NULL))  ?:
+
+        /* Allow SIGQUIT to kill us unconditionally.  This is useful if the
+         * server has become stuck. */
+        TEST_IO(sigaction(SIGQUIT, &do_default,  NULL));
 }
 
 

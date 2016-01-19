@@ -16,6 +16,8 @@
 #include "types.h"
 #include "locking.h"
 #include "mux_lookup.h"
+#include "enums.h"
+#include "capture.h"
 
 #include "output.h"
 
@@ -306,15 +308,18 @@ static const struct output_class_methods pos_output_methods = {
 /* Differing outputs have differing output options, this value is read from the
  * configuration file. */
 enum output_type {
-    OUTPUT_BIT,        // Single bit
-    OUTPUT_POSN,       // Ordinary position
-    OUTPUT_ADC,        // ADC => may have extended values
-    OUTPUT_ENCODER,    // Encoders may have extended values
-    OUTPUT_CONST,      // Constant value, cannot be captured
+    OUTPUT_BIT,         // Single bit
+    OUTPUT_POSN,        // Ordinary position
+    OUTPUT_ADC,         // ADC => may have extended values
+    OUTPUT_ENCODER,     // Encoders may have extended values
+    OUTPUT_CONST,       // Constant value, cannot be captured
+
+    OUTPUT_TYPE_SIZE    // Number of output type entries
 };
 
-struct enum_entry { unsigned int value; const char *name; };
-struct enum_set { const struct enum_entry *enums; size_t count; };
+static const char *output_type_names[OUTPUT_TYPE_SIZE] = {
+    "bit", NULL, "adc", "encoder", "const",
+};
 
 
 /* We share the output state between bit and position classes to help with
@@ -323,7 +328,7 @@ struct enum_set { const struct enum_entry *enums; size_t count; };
 struct output_state {
     unsigned int count;             // Number of instances of this field
     enum output_type output_type;   // Selected output tupe
-    struct enum_set enums;          // Enumeration array for CAPTURE control
+    const struct enumeration *enumeration; // Enumeration for CAPTURE control
     struct type *type;              // Type adapter for rendering value
     const struct output_class_methods *methods;   // Helper methods
     unsigned int index_array[];     // Field indices into global state
@@ -418,16 +423,19 @@ static const struct enum_entry encoder_capture_enums[] = {
     { 5, "Extended", },     // capture=1 framing=0 extension=1
 };
 
-/* Array of enums indexed by output_type. */
+/* Array of enums indexed by output_type.  This must match the definitions of
+ * output_type. */
 #define ENUM_ENTRY(type) \
     { type##_capture_enums, ARRAY_SIZE(type##_capture_enums) }
-static const struct enum_set capture_enums[] = {
+static const struct enum_set capture_enum_sets[] = {
     ENUM_ENTRY(bit),
     ENUM_ENTRY(position),
     ENUM_ENTRY(adc),
     ENUM_ENTRY(encoder),
     { NULL, 0 },            // CONST: no enums defined
 };
+
+static const struct enumeration *capture_enums[OUTPUT_TYPE_SIZE];
 
 
 static error__t capture_format(
@@ -439,7 +447,11 @@ static error__t capture_format(
     unsigned int capture =
         state->methods->get_capture(state->index_array[number]);
     UNLOCK(mutex);
-    return format_string(result, length, "%d", capture);
+
+    const char *string;
+    return
+        TEST_OK(string = enum_index_to_name(state->enumeration, capture))  ?:
+        format_string(result, length, "%s", string);
 }
 
 
@@ -449,11 +461,16 @@ static error__t capture_put(
     struct output_state *state = data;
     unsigned int capture;
     return
-        parse_uint(&value, &capture)  ?:
-        parse_eos(&value)  ?:
-        WITH_LOCK(mutex,
-            DO(state->methods->set_capture(
-                state->index_array[number], capture)));
+        TEST_OK_(
+            enum_name_to_index(state->enumeration, value, &capture),
+            "Not a valid capture option")  ?:
+
+        /* Forbid any changes to the capture setup during capture. */
+        WITH_CAPTURE_STATE(capture_state,
+            TEST_OK_(capture_state != CAPTURE_ACTIVE, "Capture in progress")  ?:
+            WITH_LOCK(mutex,
+                DO(state->methods->set_capture(
+                    state->index_array[number], capture))));
 }
 
 
@@ -468,12 +485,20 @@ static error__t capture_index_format(
 }
 
 
+static const struct enumeration *capture_get_enumeration(void *data)
+{
+    struct output_state *state = data;
+    return state->enumeration;
+}
+
+
 static const struct attr_methods output_attr_methods[] =
 {
     { "CAPTURE", "Configure capture for this field",
         .in_change_set = true,
         .format = capture_format,
         .put = capture_put,
+        .get_enumeration = capture_get_enumeration,
     },
     { "CAPTURE_INDEX", "Position in output stream of this field",
         .format = capture_index_format,
@@ -498,7 +523,7 @@ static error__t output_init(
         .count = count,
         .output_type = output_type,
         .methods = methods,
-        .enums = capture_enums[output_type],
+        .enumeration = capture_enums[output_type],
     };
     *class_data = state;
 
@@ -571,6 +596,13 @@ static void output_destroy(void *class_data)
 }
 
 
+static const char *pos_out_describe(void *class_data)
+{
+    struct output_state *state = class_data;
+    return output_type_names[state->output_type];
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Register initialisation. */
 
@@ -620,12 +652,24 @@ error__t initialise_output(void)
 {
     initialise_mux_lookup();
     update_capture_index();
+
+    for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
+    {
+        const struct enum_set *enum_set = &capture_enum_sets[i];
+        if (enum_set->enums)
+            capture_enums[i] = create_static_enumeration(enum_set);
+        else
+            capture_enums[i] = NULL;
+    }
     return ERROR_OK;
 }
 
 
 void terminate_output(void)
 {
+    for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
+        if (capture_enums[i])
+            destroy_enumeration(capture_enums[i]);
     terminate_mux_lookup();
 }
 
@@ -649,6 +693,7 @@ const struct class_methods pos_out_class_methods = {
     .parse_register = pos_out_parse_register,
     .destroy = output_destroy,
     .get = output_get, .refresh = pos_out_refresh,
+    .describe = pos_out_describe,
     .change_set = pos_out_change_set,
     .change_set_index = CHANGE_IX_POSITION,
 };
