@@ -317,6 +317,10 @@ enum output_type {
     OUTPUT_TYPE_SIZE    // Number of output type entries
 };
 
+static const char *output_type_names[OUTPUT_TYPE_SIZE] = {
+    "bit", NULL, "adc", "encoder", "const",
+};
+
 
 /* We share the output state between bit and position classes to help with
  * sharing code, but the capture configuration for positions is somewhat more
@@ -419,7 +423,8 @@ static const struct enum_entry encoder_capture_enums[] = {
     { 5, "Extended", },     // capture=1 framing=0 extension=1
 };
 
-/* Array of enums indexed by output_type. */
+/* Array of enums indexed by output_type.  This must match the definitions of
+ * output_type. */
 #define ENUM_ENTRY(type) \
     { type##_capture_enums, ARRAY_SIZE(type##_capture_enums) }
 static const struct enum_set capture_enum_sets[] = {
@@ -591,6 +596,13 @@ static void output_destroy(void *class_data)
 }
 
 
+static const char *pos_out_describe(void *class_data)
+{
+    struct output_state *state = class_data;
+    return output_type_names[state->output_type];
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Register initialisation. */
 
@@ -681,6 +693,7 @@ const struct class_methods pos_out_class_methods = {
     .parse_register = pos_out_parse_register,
     .destroy = output_destroy,
     .get = output_get, .refresh = pos_out_refresh,
+    .describe = pos_out_describe,
     .change_set = pos_out_change_set,
     .change_set_index = CHANGE_IX_POSITION,
 };
