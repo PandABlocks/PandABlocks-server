@@ -45,7 +45,7 @@ static const char *binary_search(
         if (value <= enum_set->enums[centre].value)
             right = centre;
         else
-            left = centre;
+            left = centre + 1;
     }
     if (enum_set->enums[left].value == value)
         return enum_set->enums[left].name;
@@ -145,7 +145,7 @@ static bool check_binary_search(const struct enum_set *enum_set)
         if (!enum_set->enums[0].name)
             return false;
         unsigned int value = enum_set->enums[0].value;
-        for (size_t i = 0; i < enum_set->count; i ++)
+        for (size_t i = 1; i < enum_set->count; i ++)
         {
             const struct enum_entry *entry = &enum_set->enums[i];
             if (!entry->name  ||  entry->value <= value)
