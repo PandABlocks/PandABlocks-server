@@ -13,3 +13,10 @@ enum capture_state {
 enum capture_state lock_capture_state(void);
 /* This must be called shortly after calling get_capture_state(). */
 void release_capture_state(void);
+
+
+#define WITH_CAPTURE_STATE(state, result) \
+    ( { \
+        enum capture_state state = lock_capture_state(); \
+        DO_FINALLY(result, release_capture_state()); \
+    } )
