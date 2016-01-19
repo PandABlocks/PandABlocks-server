@@ -29,9 +29,9 @@ static uint32_t register_map_size;
 
 /* Named registers. */
 
-#define BIT_READ_RESET          0
+#define BIT_READ_RST            0
 #define BIT_READ_VALUE          1
-#define POS_READ_RESET          2
+#define POS_READ_RST            2
 #define POS_READ_VALUE          3
 #define POS_READ_CHANGES        4
 #define BIT_CAPTURE_MASK        5
@@ -48,9 +48,9 @@ struct named_register {
     [name] = { #name, UNASSIGNED_REGISTER }
 
 static struct named_register named_registers[] = {
-    NAMED_REGISTER(BIT_READ_RESET),
+    NAMED_REGISTER(BIT_READ_RST),
     NAMED_REGISTER(BIT_READ_VALUE),
-    NAMED_REGISTER(POS_READ_RESET),
+    NAMED_REGISTER(POS_READ_RST),
     NAMED_REGISTER(POS_READ_VALUE),
     NAMED_REGISTER(POS_READ_CHANGES),
     NAMED_REGISTER(BIT_CAPTURE_MASK),
@@ -130,7 +130,7 @@ uint32_t hw_read_register(
  * bottom 16-bits whether the value has changed. */
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
 {
-    *named_register(BIT_READ_RESET) = 1;
+    *named_register(BIT_READ_RST) = 1;
     for (unsigned int i = 0; i < BIT_BUS_COUNT / 16; i ++)
     {
         uint32_t word = *named_register(BIT_READ_VALUE);
@@ -149,7 +149,7 @@ void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT])
 void hw_read_positions(
     uint32_t positions[POS_BUS_COUNT], bool changes[POS_BUS_COUNT])
 {
-    *named_register(POS_READ_RESET) = 1;
+    *named_register(POS_READ_RST) = 1;
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
         positions[i] = *named_register(POS_READ_VALUE);
     uint32_t word = *named_register(POS_READ_CHANGES);
