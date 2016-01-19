@@ -299,6 +299,37 @@ static const struct output_class_methods pos_output_methods = {
 };
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* ext methods. */
+
+/* Extension methods require special processing.  Only capture setup is
+ * supported, nothing else. */
+static void ext_set_capture(unsigned int ix, unsigned int value)
+{
+    printf("ext_set_capture %ud %ud\n", ix, value);
+}
+
+
+static unsigned int ext_get_capture(unsigned int ix)
+{
+    return 0;
+}
+
+
+static error__t ext_format_index(
+    unsigned int ix, char result[], size_t length)
+{
+    return FAIL_("Not implemented");
+}
+
+
+static const struct output_class_methods ext_output_methods = {
+    .set_capture = ext_set_capture,
+    .get_capture = ext_get_capture,
+    .format_index = ext_format_index,
+};
+
+
 /******************************************************************************/
 /* Individual field control. */
 
@@ -313,12 +344,14 @@ enum output_type {
     OUTPUT_ADC,         // ADC => may have extended values
     OUTPUT_ENCODER,     // Encoders may have extended values
     OUTPUT_CONST,       // Constant value, cannot be captured
+    OUTPUT_TIMESTAMP,   // Timestamp value (extra value with extension)
+    OUTPUT_EXTRA,       // Extra extension value
 
     OUTPUT_TYPE_SIZE    // Number of output type entries
 };
 
 static const char *output_type_names[OUTPUT_TYPE_SIZE] = {
-    "bit", NULL, "adc", "encoder", "const",
+    "bit", NULL, "adc", "encoder", "const", "timestamp", NULL,
 };
 
 
@@ -423,16 +456,24 @@ static const struct enum_entry encoder_capture_enums[] = {
     { 5, "Extended", },     // capture=1 framing=0 extension=1
 };
 
+static const struct enum_entry timestamp_capture_enums[] = {
+    { 0, "No", },
+    { 1, "Short", },
+    { 2, "Long", },
+};
+
 /* Array of enums indexed by output_type.  This must match the definitions of
  * output_type. */
 #define ENUM_ENTRY(type) \
     { type##_capture_enums, ARRAY_SIZE(type##_capture_enums) }
 static const struct enum_set capture_enum_sets[] = {
-    ENUM_ENTRY(bit),
-    ENUM_ENTRY(position),
-    ENUM_ENTRY(adc),
-    ENUM_ENTRY(encoder),
+    ENUM_ENTRY(bit),        // BIT
+    ENUM_ENTRY(position),   // POSN
+    ENUM_ENTRY(adc),        // ADC
+    ENUM_ENTRY(encoder),    // ENCODER
     { NULL, 0 },            // CONST: no enums defined
+    ENUM_ENTRY(timestamp),  // TIMESTAMP
+    ENUM_ENTRY(bit),        // EXTRA
 };
 
 static const struct enumeration *capture_enums[OUTPUT_TYPE_SIZE];
@@ -529,9 +570,10 @@ static error__t output_init(
 
     const char *empty_line = "";
     return
-        create_type(
-            &empty_line, type_name, count, &register_methods, state,
-            attr_map, &state->type)  ?:
+        IF(type_name,
+            create_type(
+                &empty_line, type_name, count, &register_methods, state,
+                attr_map, &state->type))  ?:
         IF(output_type != OUTPUT_CONST,
             DO(create_attributes(
                 output_attr_methods, ARRAY_SIZE(output_attr_methods),
@@ -549,7 +591,7 @@ static error__t bit_out_init(
 
 
 /* Valid pos_out output types are default, adc, encoder, or const. */
-static error__t parse_output_type(
+static error__t parse_pos_out_type(
     const char **line, enum output_type *output_type)
 {
     if (**line == '\0')
@@ -581,9 +623,44 @@ static error__t pos_out_init(
 {
     enum output_type output_type = 0;
     return
-        parse_output_type(line, &output_type)  ?:
+        parse_pos_out_type(line, &output_type)  ?:
         output_init(
             output_type, &pos_output_methods, "position",
+            count, attr_map, class_data);
+}
+
+
+/* timestamp or blank. */
+static error__t parse_ext_out_type(
+    const char **line, enum output_type *output_type)
+{
+    if (**line == '\0')
+    {
+        *output_type = OUTPUT_EXTRA;
+        return ERROR_OK;
+    }
+    else
+    {
+        char type_name[MAX_NAME_LENGTH];
+        return
+            parse_whitespace(line)  ?:
+            parse_name(line, type_name, sizeof(type_name))  ?:
+            TEST_OK_(strcmp(type_name, "timestamp") == 0,
+                "Unknown ext_out type")  ?:
+            DO(*output_type = OUTPUT_TIMESTAMP);
+    }
+}
+
+
+static error__t ext_out_init(
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
+{
+    enum output_type output_type = 0;
+    return
+        parse_ext_out_type(line, &output_type)  ?:
+        output_init(
+            output_type, &ext_output_methods, NULL,
             count, attr_map, class_data);
 }
 
@@ -596,7 +673,7 @@ static void output_destroy(void *class_data)
 }
 
 
-static const char *pos_out_describe(void *class_data)
+static const char *output_describe(void *class_data)
 {
     struct output_state *state = class_data;
     return output_type_names[state->output_type];
@@ -641,6 +718,17 @@ static error__t pos_out_parse_register(
 {
     return output_parse_register(
         &pos_mux_lookup, POS_BUS_COUNT, class_data, field, line);
+}
+
+static error__t ext_out_parse_register(
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
+{
+    struct output_state *state = class_data;
+    printf("Ignoring ext register field: \"%s\"\n", *line);
+    state->index_array[0] = 0;
+    *line += strlen(*line);
+    return ERROR_OK;
 }
 
 
@@ -693,7 +781,15 @@ const struct class_methods pos_out_class_methods = {
     .parse_register = pos_out_parse_register,
     .destroy = output_destroy,
     .get = output_get, .refresh = pos_out_refresh,
-    .describe = pos_out_describe,
+    .describe = output_describe,
     .change_set = pos_out_change_set,
     .change_set_index = CHANGE_IX_POSITION,
+};
+
+const struct class_methods ext_out_class_methods = {
+    "ext_out",
+    .init = ext_out_init,
+    .parse_register = ext_out_parse_register,
+//     .destroy = output_destroy,
+    .describe = output_describe,
 };

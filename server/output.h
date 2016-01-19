@@ -40,3 +40,4 @@ void write_capture_masks(void);
 /* Capture class api. */
 extern const struct class_methods bit_out_class_methods;
 extern const struct class_methods pos_out_class_methods;
+extern const struct class_methods ext_out_class_methods;
