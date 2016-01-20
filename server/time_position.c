@@ -558,7 +558,8 @@ error__t initialise_time_position(void)
 
 void terminate_time_position(void)
 {
-    destroy_enumeration(time_units_enumeration);
+    if (time_units_enumeration)
+        destroy_enumeration(time_units_enumeration);
 }
 
 

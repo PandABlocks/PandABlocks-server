@@ -774,8 +774,10 @@ void terminate_output(void)
     for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
         if (capture_enums[i])
             destroy_enumeration(capture_enums[i]);
-    destroy_enumeration(bit_mux_lookup);
-    destroy_enumeration(pos_mux_lookup);
+    if (bit_mux_lookup)
+        destroy_enumeration(bit_mux_lookup);
+    if (pos_mux_lookup)
+        destroy_enumeration(pos_mux_lookup);
 }
 
 
