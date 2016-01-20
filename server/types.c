@@ -18,7 +18,6 @@
 #include "attributes.h"
 #include "enums.h"
 #include "fields.h"
-#include "mux_lookup.h"
 #include "locking.h"
 #include "time_position.h"
 

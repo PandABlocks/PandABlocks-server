@@ -102,7 +102,6 @@ SRCS += classes.c               # Hardware class support
 SRCS += types.c                 # Type parsing and formatting support
 SRCS += enums.c                 # Enumeration handling
 SRCS += attributes.c            # Class and type attribute support
-SRCS += mux_lookup.c            # Mapping between field name and capture index
 SRCS += output.c                # {bit,pos}_out class support
 SRCS += capture.c               # Data capture control
 SRCS += time_position.c         # time and position support
@@ -117,6 +116,7 @@ SIM_SRCS += sim_hardware.c      # Simulated hardware interface
 # Pass the git version through to version
 version.o: CPPFLAGS += -DGIT_VERSION='"$(GIT_VERSION)"'
 version.o: CPPFLAGS += -DBUILD_DATE_TIME='"$(BUILD_DATE_TIME)"'
+
 # Forces version.o to be rebuild every time so that it's accurate
 version.o: FORCE
 FORCE:

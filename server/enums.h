@@ -52,3 +52,11 @@ error__t add_enumeration(
 
 
 extern const struct type_methods enum_type_methods;
+
+
+/* bit_mux and pos_mux enumerations and types. */
+extern struct enumeration *bit_mux_lookup;
+extern struct enumeration *pos_mux_lookup;
+
+extern const struct type_methods bit_mux_type_methods;
+extern const struct type_methods pos_mux_type_methods;

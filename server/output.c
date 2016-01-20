@@ -15,7 +15,6 @@
 #include "attributes.h"
 #include "types.h"
 #include "locking.h"
-#include "mux_lookup.h"
 #include "enums.h"
 #include "capture.h"
 
@@ -83,7 +82,7 @@ void report_capture_list(struct connection_result *result)
         if (pos_capture_mask & (1U << i))
             result->write_many(
                 result->write_context,
-                mux_lookup_get_name(&pos_mux_lookup, i));
+                enum_index_to_name(pos_mux_lookup, i));
 
     /* Bit capture. */
     for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
@@ -102,7 +101,7 @@ void report_capture_bits(struct connection_result *result, unsigned int group)
 {
     for (unsigned int i = 0; i < 32; i ++)
         result->write_many(result->write_context,
-            mux_lookup_get_name(&bit_mux_lookup, 32*group + i) ?: "");
+            enum_index_to_name(bit_mux_lookup, 32*group + i) ?: "");
     result->response = RESPONSE_MANY;
 }
 
@@ -111,7 +110,7 @@ void report_capture_positions(struct connection_result *result)
 {
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
         result->write_many(result->write_context,
-            mux_lookup_get_name(&pos_mux_lookup, i) ?: "");
+            enum_index_to_name(pos_mux_lookup, i) ?: "");
     result->response = RESPONSE_MANY;
 }
 
@@ -695,13 +694,28 @@ static error__t parse_out_registers(
     return error;
 }
 
+
+static error__t add_mux_indices(
+    struct enumeration *lookup, struct field *field, struct output_state *state)
+{
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < state->count; i ++)
+    {
+        char name[MAX_NAME_LENGTH];
+        format_field_name(name, sizeof(name), field, NULL, i, '\0');
+        error = add_enumeration(lookup, name, state->index_array[i]);
+    }
+    return error;
+}
+
+
 static error__t output_parse_register(
-    struct mux_lookup *lookup, size_t length, struct output_state *state,
+    struct enumeration *lookup, size_t length, struct output_state *state,
     struct field *field, const char **line)
 {
     return
         parse_out_registers(state, line, length) ?:
-        add_mux_indices(lookup, field, state->count, state->index_array);
+        add_mux_indices(lookup, field, state);
 }
 
 static error__t bit_out_parse_register(
@@ -709,7 +723,7 @@ static error__t bit_out_parse_register(
     const char **line)
 {
     return output_parse_register(
-        &bit_mux_lookup, BIT_BUS_COUNT, class_data, field, line);
+        bit_mux_lookup, BIT_BUS_COUNT, class_data, field, line);
 }
 
 static error__t pos_out_parse_register(
@@ -717,7 +731,7 @@ static error__t pos_out_parse_register(
     const char **line)
 {
     return output_parse_register(
-        &pos_mux_lookup, POS_BUS_COUNT, class_data, field, line);
+        pos_mux_lookup, POS_BUS_COUNT, class_data, field, line);
 }
 
 static error__t ext_out_parse_register(
@@ -738,8 +752,10 @@ static error__t ext_out_parse_register(
 
 error__t initialise_output(void)
 {
-    initialise_mux_lookup();
     update_capture_index();
+
+    bit_mux_lookup = create_dynamic_enumeration(BIT_BUS_COUNT);
+    pos_mux_lookup = create_dynamic_enumeration(POS_BUS_COUNT);
 
     for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
     {
@@ -758,7 +774,8 @@ void terminate_output(void)
     for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
         if (capture_enums[i])
             destroy_enumeration(capture_enums[i]);
-    terminate_mux_lookup();
+    destroy_enumeration(bit_mux_lookup);
+    destroy_enumeration(pos_mux_lookup);
 }
 
 
