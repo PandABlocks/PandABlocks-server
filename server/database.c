@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <limits.h>
 
 #include "error.h"
 #include "hardware.h"
@@ -85,8 +86,10 @@ static const struct indent_parser config_indent_parser = {
     .parse_line = config_parse_line,
 };
 
-static error__t load_config_database(const char *db_name)
+static error__t load_config_database(const char *config_dir)
 {
+    char db_name[PATH_MAX];
+    snprintf(db_name, sizeof(db_name), "%s/config", config_dir);
     log_message("Loading configuration database from \"%s\"", db_name);
     return parse_indented_file(db_name, 2, &config_indent_parser);
 }
@@ -185,8 +188,10 @@ static const struct indent_parser register_indent_parser = {
     .parse_line = register_parse_line,
 };
 
-static error__t load_register_database(const char *db_name)
+static error__t load_register_database(const char *config_dir)
 {
+    char db_name[PATH_MAX];
+    snprintf(db_name, sizeof(db_name), "%s/registers", config_dir);
     log_message("Loading register database from \"%s\"", db_name);
     return parse_indented_file(db_name, 1, &register_indent_parser);
 }
@@ -244,8 +249,10 @@ static const struct indent_parser description_indent_parser = {
     .parse_line = description_parse_line,
 };
 
-static error__t load_description_database(const char *db_name)
+static error__t load_description_database(const char *config_dir)
 {
+    char db_name[PATH_MAX];
+    snprintf(db_name, sizeof(db_name), "%s/description", config_dir);
     log_message("Loading description database from \"%s\"", db_name);
     return parse_indented_file(db_name, 1, &description_indent_parser);
 }
@@ -253,14 +260,13 @@ static error__t load_description_database(const char *db_name)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-error__t load_config_databases(
-    const char *config_db, const char *register_db,
-    const char *description_db)
+error__t load_config_databases(const char *config_dir)
 {
     return
-        load_config_database(config_db)  ?:
-        load_register_database(register_db)  ?:
-        load_description_database(description_db)  ?:
+        TEST_OK_(config_dir, "Must specify configuration directory")  ?:
+        load_config_database(config_dir)  ?:
+        load_register_database(config_dir)  ?:
+        load_description_database(config_dir)  ?:
         validate_fields()  ?:
         hw_validate();
 }
