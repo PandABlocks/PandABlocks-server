@@ -99,6 +99,9 @@ static error__t load_config_database(const char *config_dir)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Register database loading. */
 
+/* We need to check the hardware register setup before loading normal blocks. */
+static bool hw_checked = false;
+
 
 static error__t register_parse_special_header(const char *line)
 {
@@ -135,6 +138,9 @@ static error__t register_parse_normal_header(
     unsigned int base;
     struct block *block;
     return
+        IF(!hw_checked,
+            hw_validate()  ?:
+            DO(hw_checked = true))  ?:
         parse_name(&line, block_name, sizeof(block_name))  ?:
         parse_whitespace(&line)  ?:
         parse_uint(&line, &base)  ?:
@@ -193,7 +199,9 @@ static error__t load_register_database(const char *config_dir)
     char db_name[PATH_MAX];
     snprintf(db_name, sizeof(db_name), "%s/registers", config_dir);
     log_message("Loading register database from \"%s\"", db_name);
-    return parse_indented_file(db_name, 1, &register_indent_parser);
+    return
+        parse_indented_file(db_name, 1, &register_indent_parser)  ?:
+        TEST_OK_(hw_checked, "Nothing found in register file");
 }
 
 
@@ -267,8 +275,7 @@ error__t load_config_databases(const char *config_dir)
         load_config_database(config_dir)  ?:
         load_register_database(config_dir)  ?:
         load_description_database(config_dir)  ?:
-        validate_fields()  ?:
-        hw_validate();
+        validate_fields();
 }
 
 

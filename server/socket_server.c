@@ -391,6 +391,7 @@ error__t initialise_socket_server(
     unsigned int config_port, unsigned int data_port, bool reuse_addr)
 {
     return
+        TEST_OK_(running, "Socket server already killed!")  ?:
         create_and_listen(&config_socket, config_port, reuse_addr)  ?:
         create_and_listen(&data_socket, data_port, reuse_addr);
 }

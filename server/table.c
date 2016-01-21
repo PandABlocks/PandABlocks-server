@@ -265,13 +265,20 @@ static error__t long_table_parse_register(
     struct table_state *state, unsigned int block_base, const char **line)
 {
     unsigned int table_order;
+    unsigned int base_reg;
+    unsigned int length_reg;
     return
         parse_whitespace(line)  ?:
         parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
         parse_uint(line, &table_order)  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &base_reg)  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &length_reg)  ?:
 
         hw_open_long_table(
             block_base, state->block_count, table_order,
+            base_reg, length_reg,
             &state->table, &state->max_length);
 }
 

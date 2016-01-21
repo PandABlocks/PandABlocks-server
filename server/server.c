@@ -156,18 +156,19 @@ int main(int argc, char *const argv[])
         initialise_fields()  ?:
         initialise_output()  ?:
         initialise_time_position()  ?:
+        initialise_system_command()  ?:
+
+        initialise_signals()  ?:
+        initialise_hardware()  ?:
         load_config_databases(config_dir)  ?:
 
-        initialise_hardware()  ?:
-        initialise_system_command()  ?:
         IF(persistence_file,
             initialise_persistence(
                 persistence_file,
                 persistence_poll, persistence_holdoff, persistence_backoff))  ?:
         initialise_socket_server(config_port, data_port, reuse_addr)  ?:
 
-        maybe_daemonise()  ?:
-        initialise_signals();
+        maybe_daemonise();
     if (error)
         ERROR_REPORT(error, "Server startup failed");
 

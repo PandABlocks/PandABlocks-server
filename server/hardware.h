@@ -70,6 +70,7 @@ error__t hw_open_short_table(
  * maximum length in words is returned. */
 error__t hw_open_long_table(
     unsigned int block_base, unsigned int block_count, unsigned int order,
+    unsigned int base_reg, unsigned int length_reg,
     struct hw_table **table, size_t *length);
 
 /* When called during initialisation returns data area of block for readback. */

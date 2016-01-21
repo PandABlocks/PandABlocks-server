@@ -13,8 +13,9 @@ GIT_VERSION = $(shell git describe --abbrev=7 --dirty --always --tags)
 BUILD_DATE_TIME = $(shell date +'%Y-%m-%d %H:%M:%S')
 
 
-default:    # Default target comes first!
+default: server sim_server
 .PHONY: default
+
 
 CFLAGS += -std=gnu99
 CFLAGS += -O3
@@ -82,6 +83,14 @@ LDLIBS += -lm
 
 CFLAGS += $(CFLAGS_$(CC_NAME))
 
+# Allow access to function names in assert fail tracebacks
+sim_server: LDFLAGS += -rdynamic
+
+# Debug override option
+ifdef DEBUG
+CFLAGS += -O0
+endif
+
 
 SRCS += server.c                # Entry point to server, command line parsing
 SRCS += version.c               # Server version string
@@ -109,8 +118,16 @@ SRCS += table.c                 # table classes support
 SRCS += register.c              # param, read, write class support
 SRCS += base64.c                # base64 conversion support
 
-HW_SRCS  += hardware.c          # Hardware interface
-SIM_SRCS += sim_hardware.c      # Simulated hardware interface
+
+# For the true hardware target and simulation targets we need to take a bit of
+# care.  The source file hardware.c needs to be compiled twice with two
+# differing targets.
+hw_hardware.o: hardware.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $^
+
+sw_hardware.o: CPPFLAGS += -DSIM_HARDWARE
+sw_hardware.o: hardware.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $^
 
 
 # Pass the git version through to version
@@ -123,11 +140,9 @@ FORCE:
 .phony: FORCE
 
 
-default: server sim_server
+server: $(SRCS:.c=.o) hw_hardware.o
 
-server: $(SRCS:.c=.o) $(HW_SRCS:.c=.o)
-
-sim_server: $(SRCS:.c=.o) $(SIM_SRCS:.c=.o)
+sim_server: $(SRCS:.c=.o) sw_hardware.o sim_hardware.o
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 %.d: %.c
