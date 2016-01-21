@@ -132,7 +132,7 @@ error__t parse_bit(const char **string, bool *result)
 
 error__t parse_eos(const char **string)
 {
-    return TEST_OK_(**string == '\0', "Unexpected character at end");
+    return TEST_OK_(**string == '\0', "Unexpected character after input");
 }
 
 

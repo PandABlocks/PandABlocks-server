@@ -86,6 +86,29 @@ error__t raw_put_uint(
 }
 
 
+error__t raw_format_int(
+    void *owner, void *data, unsigned int number, char result[], size_t length)
+{
+    struct type *type = owner;
+    uint32_t value;
+    return
+        read_register(type, number, &value)  ?:
+        format_string(result, length, "%d", (int) value);
+}
+
+
+error__t raw_put_int(
+    void *owner, void *data, unsigned int number, const char *string)
+{
+    struct type *type = owner;
+    int value;
+    return
+        parse_int(&string, &value)  ?:
+        parse_eos(&string)  ?:
+        write_register(type, number, (unsigned int) value);
+}
+
+
 /*****************************************************************************/
 /* Individual type implementations. */
 
@@ -120,12 +143,28 @@ static error__t uint_parse(
         TEST_OK_(*value <= *max_value, "Number out of range");
 }
 
+static error__t int_parse(
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
+{
+    return
+        parse_int(&string, (int *) value)  ?:
+        parse_eos(&string);
+}
+
 
 static error__t uint_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
     return format_string(string, length, "%u", value);
+}
+
+static error__t int_format(
+    void *type_data, unsigned int number,
+    unsigned int value, char string[], size_t length)
+{
+    return format_string(string, length, "%d", (int) value);
 }
 
 
@@ -147,6 +186,11 @@ static const struct type_methods uint_type_methods = {
           .format = uint_max_format, },
     },
     .attr_count = 1,
+};
+
+static const struct type_methods int_type_methods = {
+    "int",
+    .parse = int_parse, .format = int_format,
 };
 
 
@@ -377,6 +421,7 @@ void destroy_type(struct type *type)
 
 static const struct type_methods *types_table[] = {
     &uint_type_methods,             // uint
+    &int_type_methods,              // int
     &bit_type_methods,              // bit
 
     &action_type_methods,           // action

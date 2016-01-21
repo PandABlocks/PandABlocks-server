@@ -62,6 +62,10 @@ error__t raw_format_uint(
 error__t raw_put_uint(
     void *owner, void *data, unsigned int number, const char *string);
 
+error__t raw_format_int(
+    void *owner, void *data, unsigned int number, char result[], size_t length);
+error__t raw_put_int(
+    void *owner, void *data, unsigned int number, const char *string);
 
 
 /* Reads value from associated register and formats for presentation into the

@@ -355,7 +355,7 @@ static error__t position_parse(
         DO(converted = (position - offset) / scale)  ?:
         TEST_OK_(INT32_MIN <= converted  &&  converted <= INT32_MAX,
             "Position out of range")  ?:
-        DO(*value = (unsigned int) lround(converted));
+        DO(*value = (unsigned int) (int) lround(converted));
 }
 
 
@@ -596,7 +596,7 @@ const struct type_methods position_type_methods = {
     .parse = position_parse, .format = position_format,
     .attrs = (struct attr_methods[]) {
         { "RAW", "Unscaled underlying value",
-            .format = raw_format_uint, .put = raw_put_uint, },
+            .format = raw_format_int, .put = raw_put_int, },
         { "SCALE", "Scale factor",
             .in_change_set = true,
             .format = position_scale_format, .put = position_scale_put, },
