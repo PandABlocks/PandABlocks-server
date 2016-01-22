@@ -143,44 +143,45 @@ error__t parse_eos(const char **string)
 
 struct indent_state {
     size_t indent;          // Character up to this indentation
-    void *context;          // Parse context for this indentation
+
+    /* Indentation parser and context for this indentation level. */
+    const struct indent_parser *parser;
+    void *context;
 };
 
 
 /* Opens a new indentation. */
 static error__t open_indent(
-    struct indent_state stack[], unsigned int *sp, size_t indent,
-    unsigned int max_indent, void *context)
+    struct indent_state stack[], unsigned int *sp,
+    unsigned int max_indent, size_t indent)
 {
-    if (*sp < max_indent)
-    {
-        *sp += 1;
-        stack[*sp] = (struct indent_state) {
-            .indent = indent, .context = context, };
-        return ERROR_OK;
-    }
-    else
-        return FAIL_("Too much indentation");
+    return
+        TEST_OK_(*sp < max_indent, "Too much indentation")  ?:
+        DO(stack[++*sp].indent = indent)  ?:
+        TEST_OK_(stack[*sp].parser, "Cannot parse this indentation");
 }
 
 
 /* Closes any existing indentations deeper than the current line. */
 static error__t close_indents(
-    const struct indent_parser *parser,
     struct indent_state stack[], unsigned int *sp, size_t indent)
 {
     /* Close all indents until we reach an indent less than or equal to the
      * current line ... it had better be equal, otherwise we're trying to start
      * a new indent in an invalid location. */
-    error__t error = ERROR_OK;
-    while (!error  &&  indent < stack[*sp].indent)
+    while (true)
     {
-        if (parser->end_parse_line)
-            error = parser->end_parse_line(*sp, stack[*sp].context);
-        *sp -= 1;
+        struct indent_state *state = &stack[*sp + 1];
+        if (state->parser  &&  state->parser->end)
+            state->parser->end(state->context);
+
+        if (indent < stack[*sp].indent)
+            *sp -= 1;
+        else
+            break;
     }
+
     return
-        error  ?:
         TEST_OK_(indent == stack[*sp].indent, "Invalid indentation on line");
 }
 
@@ -189,8 +190,7 @@ static error__t close_indents(
  * indentation of indentation stack, and parse line using the parser. */
 static error__t parse_one_line(
     unsigned int max_indent, char *line,
-    struct indent_state indent_stack[], unsigned int *sp,
-    const struct indent_parser *parser, void **new_context)
+    struct indent_state indent_stack[], unsigned int *sp)
 {
     /* Discard any trailing newline character. */
     *strchrnul(line, '\n') = '\0';
@@ -200,28 +200,35 @@ static error__t parse_one_line(
     size_t indent = (size_t) (parse_line - line);
 
     /* Ignore comments and blank lines. */
+    error__t error = ERROR_OK;
     if (*parse_line != '#'  &&  *parse_line != '\0')
-        return
-            /* Prepare the appropriate indent level. */
+    {
+        error =
             IF_ELSE(indent > indent_stack[*sp].indent,
-                /* New line is more indented, open new indent. */
-                open_indent(indent_stack, sp, indent, max_indent, *new_context),
-            // else
+                /* New indent, check we can accomodate it and that we have a
+                 * parser for this new level. */
+                open_indent(indent_stack, sp, max_indent, indent),
+            //else
                 /* Close any indentations until flush with current line. */
-                close_indents(parser, indent_stack, sp, indent))  ?:
+                close_indents(indent_stack, sp, indent));
 
-            /* Process the line with a fresh new_context. */
-            DO(*new_context = NULL)  ?:
-            parser->parse_line(
-                *sp, indent_stack[*sp].context, parse_line, new_context);
-    else
-        return ERROR_OK;
+        if (!error)
+        {
+            struct indent_state *state = &indent_stack[*sp];
+            struct indent_state *next_state = &indent_stack[*sp + 1];
+            *next_state = (struct indent_state) { };
+            error = state->parser->parse_line(
+                *sp, state->context, parse_line,
+                &next_state->parser, &next_state->context);
+        }
+    }
+    return error;
 }
 
 
 error__t parse_indented_file(
     const char *file_name, unsigned int max_indent,
-    const struct indent_parser *parser)
+    const struct indent_parser *parser, void *context)
 {
     FILE *file;
     error__t error = TEST_OK_IO_(file = fopen(file_name, "r"),
@@ -234,21 +241,25 @@ error__t parse_indented_file(
         /* The indentation stack is used to keep track of indents as they're
          * opened and closed. */
         unsigned int sp = 0;
-        struct indent_state indent_stack[max_indent + 1];
+        /* We need max_indent+2 entries in the stack: parsing with max_indent=0
+         * requires one entry for the current parser, and an extra entry for the
+         * (unusable) sub-parser. */
+        struct indent_state indent_stack[max_indent + 2];
+        /* Start with the given parser and context. */
         indent_stack[0] = (struct indent_state) {
             .indent = 0,
-            .context = parser->start ? parser->start() : NULL, };
-
-        /* This context is written each time we parse a line and then used for
-         * lines with higher indentation. */
-        void *new_context = NULL;
+            .parser = parser,
+            .context = context,
+        };
+        /* Initially start with an empty parser to close out. */
+        indent_stack[1] = (struct indent_state) { };
 
         while (!error  &&  fgets(line, sizeof(line), file))
         {
             line_no += 1;
             /* Skip whitespace and compute the current indentation. */
-            error = parse_one_line(
-                max_indent, line, indent_stack, &sp, parser, &new_context);
+            error = parse_one_line(max_indent, line, indent_stack, &sp);
+
             /* In this case extend the error with the file name and line number
              * for more helpful reporting. */
             if (error)
@@ -259,7 +270,7 @@ error__t parse_indented_file(
 
         /* The end parse function is optional. */
         if (!error  &&  parser->end)
-            error = parser->end(indent_stack[0].context);
+            parser->end(indent_stack[0].context);
     }
     return error;
 }
