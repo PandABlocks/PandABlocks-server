@@ -35,9 +35,9 @@ static unsigned int make_offset(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     return
-        ((block_base & 0x1f) << 10) |
-        ((block_number & 0xf) << 6) |
-        (reg & 0x3f);
+        ((block_base & 0x1f) << 10) |   // 5 bits for block identifier
+        ((block_number & 0xf) << 6) |   // 4 bits for block number
+        (reg & 0x3f);                   // 6 bits for register within block
 }
 
 
@@ -70,8 +70,12 @@ uint32_t hw_read_register(
 #define POS_READ_RST            2
 #define POS_READ_VALUE          3
 #define POS_READ_CHANGES        4
-#define BIT_CAPTURE_MASK        5
-#define POS_CAPTURE_MASK        6
+#define PCAP_START_WRITE        5
+#define PCAP_WRITE              6
+#define PCAP_FRAMING_MASK       7
+#define PCAP_ARM                8
+#define PCAP_DISARM             9
+#define PCAP_FRAMING_ENABLE     10
 
 struct named_register {
     const char *name;
@@ -87,8 +91,12 @@ static struct named_register named_registers[] = {
     NAMED_REGISTER(POS_READ_RST),
     NAMED_REGISTER(POS_READ_VALUE),
     NAMED_REGISTER(POS_READ_CHANGES),
-    NAMED_REGISTER(BIT_CAPTURE_MASK),
-    NAMED_REGISTER(POS_CAPTURE_MASK),
+    NAMED_REGISTER(PCAP_START_WRITE),
+    NAMED_REGISTER(PCAP_WRITE),
+    NAMED_REGISTER(PCAP_FRAMING_MASK),
+    NAMED_REGISTER(PCAP_ARM),
+    NAMED_REGISTER(PCAP_DISARM),
+    NAMED_REGISTER(PCAP_FRAMING_ENABLE),
 };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
@@ -171,10 +179,32 @@ void hw_read_positions(
 }
 
 
-void hw_write_capture_masks(
-    uint32_t bit_capture, uint32_t pos_capture,
-    uint32_t framed_mask, uint32_t extended_mask)
+void hw_write_arm(bool enable)
 {
+    if (enable)
+        write_named_register(PCAP_ARM, 0);
+    else
+        write_named_register(PCAP_DISARM, 0);
+}
+
+
+void hw_write_framing_mask(uint32_t framing_mask)
+{
+    write_named_register(PCAP_FRAMING_MASK, framing_mask);
+}
+
+
+void hw_write_framing_enable(bool enable)
+{
+    write_named_register(PCAP_FRAMING_ENABLE, enable);
+}
+
+
+void hw_write_capture_set(const unsigned int capture[], size_t count)
+{
+    write_named_register(PCAP_START_WRITE, 0);
+    for (size_t i = 0; i < count; i ++)
+        write_named_register(PCAP_WRITE, capture[i]);
 }
 
 
@@ -420,7 +450,7 @@ void hw_close_table(struct hw_table *table)
 
 #ifndef SIM_HARDWARE
 
-static int map;
+static int map = -1;
 
 error__t initialise_hardware(void)
 {
@@ -436,10 +466,12 @@ error__t initialise_hardware(void)
 void terminate_hardware(void)
 {
     ERROR_REPORT(
-        TEST_IO(munmap(
-            CAST_FROM_TO(volatile uint32_t *, void *, register_map),
-            register_map_size))  ?:
-        TEST_IO(close(map)),
+        IF(register_map,
+            TEST_IO(munmap(
+                CAST_FROM_TO(volatile uint32_t *, void *, register_map),
+                register_map_size)))  ?:
+        IF(map >= 0,
+            TEST_IO(close(map))),
         "Calling terminate_hardware");
 }
 
