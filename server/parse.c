@@ -145,8 +145,7 @@ struct indent_state {
     size_t indent;          // Character up to this indentation
 
     /* Indentation parser and context for this indentation level. */
-    const struct indent_parser *parser;
-    void *context;
+    struct indent_parser parser;
 };
 
 
@@ -157,8 +156,7 @@ static error__t open_indent(
 {
     return
         TEST_OK_(*sp < max_indent, "Too much indentation")  ?:
-        DO(stack[++*sp].indent = indent)  ?:
-        TEST_OK_(stack[*sp].parser, "Cannot parse this indentation");
+        DO(stack[++*sp].indent = indent);
 }
 
 
@@ -169,11 +167,12 @@ static error__t close_indents(
     /* Close all indents until we reach an indent less than or equal to the
      * current line ... it had better be equal, otherwise we're trying to start
      * a new indent in an invalid location. */
-    while (true)
+    error__t error = ERROR_OK;
+    while (!error)
     {
         struct indent_state *state = &stack[*sp + 1];
-        if (state->parser  &&  state->parser->end)
-            state->parser->end(state->context);
+        if (state->parser.end)
+            error = state->parser.end(state->parser.context);
 
         if (indent < stack[*sp].indent)
             *sp -= 1;
@@ -182,6 +181,7 @@ static error__t close_indents(
     }
 
     return
+        error  ?:
         TEST_OK_(indent == stack[*sp].indent, "Invalid indentation on line");
 }
 
@@ -189,19 +189,17 @@ static error__t close_indents(
 /* Processing for a single line: skip comments and blank lines, keep track of
  * indentation of indentation stack, and parse line using the parser. */
 static error__t parse_one_line(
-    unsigned int max_indent, char *line,
+    unsigned int max_indent, const char **line,
     struct indent_state indent_stack[], unsigned int *sp)
 {
-    /* Discard any trailing newline character. */
-    *strchrnul(line, '\n') = '\0';
-
     /* Find indent of the current line. */
-    const char *parse_line = skip_whitespace(line);
-    size_t indent = (size_t) (parse_line - line);
+    const char *line_in = *line;
+    *line = skip_whitespace(*line);
+    size_t indent = (size_t) (*line - line_in);
 
     /* Ignore comments and blank lines. */
     error__t error = ERROR_OK;
-    if (*parse_line != '#'  &&  *parse_line != '\0')
+    if (**line != '#'  &&  **line != '\0')
     {
         error =
             IF_ELSE(indent > indent_stack[*sp].indent,
@@ -215,11 +213,14 @@ static error__t parse_one_line(
         if (!error)
         {
             struct indent_state *state = &indent_stack[*sp];
-            struct indent_state *next_state = &indent_stack[*sp + 1];
-            *next_state = (struct indent_state) { };
-            error = state->parser->parse_line(
-                *sp, state->context, parse_line,
-                &next_state->parser, &next_state->context);
+            struct indent_parser *next_parser = &indent_stack[*sp+1].parser;
+            *next_parser = (struct indent_parser) { };
+            error =
+                TEST_OK_(state->parser.parse_line,
+                    "Cannot parse this indentation")  ?:
+                state->parser.parse_line(
+                    state->parser.context, line, next_parser)  ?:
+                parse_eos(line);
         }
     }
     return error;
@@ -228,7 +229,7 @@ static error__t parse_one_line(
 
 error__t parse_indented_file(
     const char *file_name, unsigned int max_indent,
-    const struct indent_parser *parser, void *context)
+    const struct indent_parser *parser)
 {
     FILE *file;
     error__t error = TEST_OK_IO_(file = fopen(file_name, "r"),
@@ -248,17 +249,20 @@ error__t parse_indented_file(
         /* Start with the given parser and context. */
         indent_stack[0] = (struct indent_state) {
             .indent = 0,
-            .parser = parser,
-            .context = context,
+            .parser = *parser,
         };
         /* Initially start with an empty parser to close out. */
         indent_stack[1] = (struct indent_state) { };
 
         while (!error  &&  fgets(line, sizeof(line), file))
         {
+            /* Discard any trailing newline character. */
+            *strchrnul(line, '\n') = '\0';
+
             line_no += 1;
             /* Skip whitespace and compute the current indentation. */
-            error = parse_one_line(max_indent, line, indent_stack, &sp);
+            const char *parsed_line = line;
+            error = parse_one_line(max_indent, &parsed_line, indent_stack, &sp);
 
             /* In this case extend the error with the file name and line number
              * for more helpful reporting. */
@@ -270,7 +274,7 @@ error__t parse_indented_file(
 
         /* The end parse function is optional. */
         if (!error  &&  parser->end)
-            parser->end(indent_stack[0].context);
+            parser->end(indent_stack[0].parser.context);
     }
     return error;
 }
