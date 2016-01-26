@@ -51,9 +51,11 @@ struct register_methods {
 
 
 /* Access to register methods via the bound type. */
-error__t read_register(struct type *type, unsigned int number, uint32_t *value);
-error__t write_register(struct type *type, unsigned int number, uint32_t value);
-void changed_register(struct type *type, unsigned int number);
+error__t read_type_register(
+    struct type *type, unsigned int number, uint32_t *value);
+error__t write_type_register(
+    struct type *type, unsigned int number, uint32_t value);
+void changed_type_register(struct type *type, unsigned int number);
 
 
 /* Formatted raw integer value access. */

@@ -38,7 +38,8 @@ struct type {
 /* Some support functions. */
 
 
-error__t read_register(struct type *type, unsigned int number, uint32_t *value)
+error__t read_type_register(
+    struct type *type, unsigned int number, uint32_t *value)
 {
     return
         TEST_OK_(type->reg->read, "Register cannot be read")  ?:
@@ -46,7 +47,8 @@ error__t read_register(struct type *type, unsigned int number, uint32_t *value)
 }
 
 
-error__t write_register(struct type *type, unsigned int number, uint32_t value)
+error__t write_type_register(
+    struct type *type, unsigned int number, uint32_t value)
 {
     return
         TEST_OK_(type->reg->write, "Register cannot be written")  ?:
@@ -54,7 +56,7 @@ error__t write_register(struct type *type, unsigned int number, uint32_t value)
 }
 
 
-void changed_register(struct type *type, unsigned int number)
+void changed_type_register(struct type *type, unsigned int number)
 {
     if (type->reg->changed)
         type->reg->changed(type->reg_data, number);
@@ -69,7 +71,7 @@ error__t raw_format_uint(
     struct type *type = owner;
     uint32_t value;
     return
-        read_register(type, number, &value)  ?:
+        read_type_register(type, number, &value)  ?:
         format_string(result, length, "%u", value);
 }
 
@@ -82,7 +84,7 @@ error__t raw_put_uint(
     return
         parse_uint(&string, &value)  ?:
         parse_eos(&string)  ?:
-        write_register(type, number, value);
+        write_type_register(type, number, value);
 }
 
 
@@ -92,7 +94,7 @@ error__t raw_format_int(
     struct type *type = owner;
     uint32_t value;
     return
-        read_register(type, number, &value)  ?:
+        read_type_register(type, number, &value)  ?:
         format_string(result, length, "%d", (int) value);
 }
 
@@ -105,7 +107,7 @@ error__t raw_put_int(
     return
         parse_int(&string, &value)  ?:
         parse_eos(&string)  ?:
-        write_register(type, number, (unsigned int) value);
+        write_type_register(type, number, (unsigned int) value);
 }
 
 
@@ -359,7 +361,7 @@ error__t type_get(
     return
         TEST_OK_(type->methods->format,
             "Cannot read %s value", type->methods->name)  ?:
-        read_register(type, number, &value)  ?:
+        read_type_register(type, number, &value)  ?:
         type->methods->format(
             type->type_data, number, value, result->string, result->length)  ?:
         DO(result->response = RESPONSE_ONE);
@@ -374,7 +376,7 @@ error__t type_put(struct type *type, unsigned int number, const char *string)
         TEST_OK_(type->methods->parse,
             "Cannot write %s value", type->methods->name)  ?:
         type->methods->parse(type->type_data, number, string, &value)  ?:
-        write_register(type, number, value);
+        write_type_register(type, number, value);
 }
 
 

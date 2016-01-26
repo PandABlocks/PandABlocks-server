@@ -404,7 +404,7 @@ static error__t position_scale_put(
         field->scale = scale;
         UNLOCK(state->mutex);
 
-        changed_register(owner, number);
+        changed_type_register(owner, number);
     }
     return error;
 }
@@ -437,7 +437,7 @@ static error__t position_offset_put(
         field->offset = offset;
         UNLOCK(state->mutex);
 
-        changed_register(owner, number);
+        changed_type_register(owner, number);
     }
     return error;
 }
@@ -535,7 +535,7 @@ static error__t time_type_units_put(
     {
         struct time_type_state *state = data;
         state->scale[number] = scale;
-        changed_register(owner, number);
+        changed_type_register(owner, number);
     }
     return error;
 }
