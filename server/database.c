@@ -77,7 +77,7 @@ static error__t load_config_database(const char *config_dir)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Register database loading. */
+/* Register database. */
 
 /* We need to check the hardware register setup before loading normal blocks. */
 static bool hw_checked = false;
@@ -86,6 +86,8 @@ static bool hw_checked = false;
 static error__t register_parse_special_field(
     void *context, const char **line, struct indent_parser *parser)
 {
+    error__t (*set_named_register)(const char *, unsigned int) = context;
+
     char reg_name[MAX_NAME_LENGTH];
     unsigned int reg;
     return
@@ -94,11 +96,13 @@ static error__t register_parse_special_field(
         parse_uint(line, &reg)  ?:
         parse_eos(line)  ?:
 
-        hw_set_named_register(reg_name, reg);
+        IF(set_named_register, set_named_register(reg_name, reg));
 }
 
 
-static error__t register_parse_special_end(void *context)
+/* After completing *REG block record that we seen one and check the register
+ * validation. */
+static error__t register_parse_reg_end(void *context)
 {
     hw_checked = true;
     return hw_validate();
@@ -109,18 +113,34 @@ static error__t register_parse_special_header(
     void *context, const char **line, struct indent_parser *parser)
 {
     parser->parse_line = register_parse_special_field;
-    parser->end = register_parse_special_end;
     char block_name[MAX_NAME_LENGTH];
     unsigned int base;
-    return
+    error__t error =
         parse_char(line, '*')  ?:
         parse_name(line, block_name, sizeof(block_name))  ?:
-        TEST_OK_(strcmp(block_name, "REG") == 0, "Invalid special block")  ?:
         parse_whitespace(line)  ?:
         parse_uint(line, &base)  ?:
-        parse_eos(line)  ?:
+        parse_eos(line);
 
-        DO(hw_set_block_base(base));
+    if (!error)
+    {
+        if (strcmp(block_name, "REG") == 0)
+        {
+            /* *REG block, for special hardware registers.  We parse this
+             * normally and assign registers. */
+            hw_set_block_base(base);
+            parser->end = register_parse_reg_end;
+            parser->context = hw_set_named_register;
+        }
+        else if (strcmp(block_name, "DRV") == 0)
+        {
+            /* *DRV block, for kernel driver registers.  We parse this but throw
+             * the results away. */
+        }
+        else
+            error = FAIL_("Invalid special block");
+    }
+    return error;
 }
 
 
@@ -184,6 +204,7 @@ static error__t load_register_database(const char *config_dir)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Description database. */
 
 
 static error__t description_parse_field_line(
@@ -231,6 +252,7 @@ static error__t load_description_database(const char *config_dir)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+
 error__t load_config_databases(const char *config_dir)
 {
     return
@@ -239,10 +261,4 @@ error__t load_config_databases(const char *config_dir)
         load_register_database(config_dir)  ?:
         load_description_database(config_dir)  ?:
         validate_fields();
-}
-
-
-void terminate_databases(void)
-{
-    /* Seems to be nothing to do. */
 }

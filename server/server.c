@@ -192,7 +192,6 @@ int main(int argc, char *const argv[])
 
     terminate_system_command();
     terminate_hardware();
-    terminate_databases();
     terminate_time_position();
     terminate_output();
     terminate_fields();
