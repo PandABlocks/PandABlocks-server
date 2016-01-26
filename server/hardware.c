@@ -76,11 +76,11 @@ uint32_t hw_read_register(
 #define PCAP_START_WRITE        5
 #define PCAP_WRITE              6
 #define PCAP_FRAMING_MASK       7
-#define PCAP_ARM                8
-#define PCAP_DISARM             9
-#define PCAP_FRAMING_ENABLE     10
-#define SLOW_WRITE_STATUS       11
-#define SLOW_READ_STATUS        12
+#define PCAP_FRAMING_ENABLE     8
+#define PCAP_FRAMING_MODE       9
+#define PCAP_ARM                10
+#define PCAP_DISARM             11
+#define SLOW_REGISTER_STATUS    12
 
 struct named_register {
     const char *name;
@@ -99,11 +99,11 @@ static struct named_register named_registers[] = {
     NAMED_REGISTER(PCAP_START_WRITE),
     NAMED_REGISTER(PCAP_WRITE),
     NAMED_REGISTER(PCAP_FRAMING_MASK),
+    NAMED_REGISTER(PCAP_FRAMING_ENABLE),
+    NAMED_REGISTER(PCAP_FRAMING_MODE),
     NAMED_REGISTER(PCAP_ARM),
     NAMED_REGISTER(PCAP_DISARM),
-    NAMED_REGISTER(PCAP_FRAMING_ENABLE),
-    NAMED_REGISTER(SLOW_WRITE_STATUS),
-    NAMED_REGISTER(SLOW_READ_STATUS),
+    NAMED_REGISTER(SLOW_REGISTER_STATUS),
 };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
@@ -161,16 +161,15 @@ static unsigned int busy_wait_timeout = 1000;
 
 /* This waits for the given named register to go to zero.  This should happen
  * within a few microseconds. */
-static void wait_for_status(unsigned int name)
+static void wait_for_slow_ready(void)
 {
     for (unsigned int i = 0; i < busy_wait_timeout; i ++)
-        if (read_named_register(name) == 0)
+        if (read_named_register(SLOW_REGISTER_STATUS) == 0)
             return;
 
     /* Damn.  Looks like we're stuck.  Log this but return anyway.  We're
      * probably going to storm the log with errors. */
-    log_error("Register %s(%d) stuck at non-zero value %u",
-        named_registers[name].name, name, read_named_register(name));
+    log_error("SLOW_REGISTER_STATUS stuck at non-zero value");
 }
 
 
@@ -181,7 +180,9 @@ void hw_write_slow_register(
     uint32_t value)
 {
     LOCK(slow_mutex);
-    wait_for_status(SLOW_WRITE_STATUS);
+    /* Wait for any preceding write to complete. */
+    wait_for_slow_ready();
+    /* Initiate write. */
     hw_write_register(block_base, block_number, reg, value);
     UNLOCK(slow_mutex);
 }
@@ -194,10 +195,13 @@ uint32_t hw_read_slow_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     LOCK(slow_mutex);
-    if (read_named_register(SLOW_READ_STATUS) != 0)
-        log_error("SLOW_READ_STATUS unexpectedly non-zero");
+    /* Wait for any preceding write to complete. */
+    wait_for_slow_ready();
+    /* Initiate the read. */
     hw_write_register(block_base, block_number, reg, 0);
-    wait_for_status(SLOW_READ_STATUS);
+    /* Wait for read to complete. */
+    wait_for_slow_ready();
+    /* Retrieve the result. */
     uint32_t result = hw_read_register(block_base, block_number, reg);
     UNLOCK(slow_mutex);
     return result;
