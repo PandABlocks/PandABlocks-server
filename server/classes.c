@@ -19,7 +19,6 @@
 #include "register.h"
 #include "time_position.h"
 #include "table.h"
-#include "capture.h"
 
 #include "classes.h"
 
@@ -151,8 +150,6 @@ static const struct class_methods *classes_table[] = {
     &ext_out_class_methods,         // ext_out
 
     &table_class_methods,           // table
-
-    &software_class_methods,        // software
 };
 
 
