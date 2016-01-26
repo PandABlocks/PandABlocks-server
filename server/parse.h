@@ -47,20 +47,15 @@ error__t parse_eos(const char **string);
 /* Indented file parser. */
 
 struct indent_parser {
-    /* This is called at the start of the parse to establish the top level
-     * context.  This context is passed to each level 0 line parsed and the
-     * end() function. */
-    void *(*start)(void);
-    /* Parses one line using the given indentation and parse context.  Returns a
-     * new context to be used by an lines indented under this line. */
+    /* Context passed through to associated methods. */
+    void *context;
+    /* Parses one line using the given indentation, parse context, and parser.
+     * Must return a new indent_parser and parse context if sub-context lines
+     * are to be parsed. */
     error__t (*parse_line)(
-        unsigned int indent, void *context,
-        const char *line, void **indent_context);
-    /* This optional function is called after parsing all the indents after each
-     * line.  The original indent_context is passed. */
-    error__t (*end_parse_line)(unsigned int indent, void *indent_context);
-    /* Called at the end of parsing if the rest of parsing was successful.  This
-     * function is optional and can be set to NULL if not required. */
+        void *context, const char **line, struct indent_parser *parser);
+    /* This is called when the indent parser is finished with, and is optional:
+     * should be set to NULL if not required. */
     error__t (*end)(void *context);
 };
 

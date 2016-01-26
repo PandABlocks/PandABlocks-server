@@ -105,6 +105,8 @@ static error__t load_one_value(struct read_line_context *read_line, char *line)
 
 static void load_persistent_state(void)
 {
+    log_message("Loading persistence file");
+
     FILE *in_file;
     error__t error =
         TEST_OK_IO_(in_file = fopen(file_name, "r"),

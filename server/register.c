@@ -25,7 +25,8 @@
 struct base_state {
     struct type *type;              // Type implementation for value conversion
     unsigned int block_base;        // Base number for block
-    unsigned int field_register;    // Register to be written
+    unsigned int field_register;    // Register to be read or written
+    bool slow;                      // Set if register is a slow register
 
     const struct filter_methods *filter;  // Optional filter
     void *filter_data;              // Context for filter
@@ -167,6 +168,11 @@ static error__t base_parse_register(
     state->block_base = block_base;
     return
         parse_whitespace(line)  ?:
+        IF(strncmp(*line, "slow", 4) == 0,
+            /* Slow register, must be followed by whitespace. */
+            DO( *line += 4;
+                state->slow = true)  ?:     // default state is false
+            parse_whitespace(line))  ?:
         parse_uint(line, &state->field_register)  ?:
         create_filter(line, state);
 }
@@ -211,6 +217,30 @@ static error__t base_put(
 }
 
 
+/* Register access methods. */
+static void write_register(
+    struct base_state *state, unsigned int number, uint32_t value)
+{
+    if (state->slow)
+        hw_write_slow_register(
+            state->block_base, number, state->field_register, value);
+    else
+        hw_write_register(
+            state->block_base, number, state->field_register, value);
+}
+
+
+static uint32_t read_register(struct base_state *state, unsigned int number)
+{
+    if (state->slow)
+        return hw_read_slow_register(
+            state->block_base, number, state->field_register);
+    else
+        return hw_read_register(
+            state->block_base, number, state->field_register);
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Shared implementation for param and read classes, in particular param and
  * read classes share the same state. */
@@ -239,7 +269,6 @@ static error__t simple_register_init(
     struct simple_state *state = malloc(
         sizeof(struct simple_state) + fields_size);
     *state = (struct simple_state) {
-        .base = { .field_register = UNASSIGNED_REGISTER, },
         .mutex = PTHREAD_MUTEX_INITIALIZER,
         .count = count,
     };
@@ -294,8 +323,7 @@ static error__t param_write(void *reg_data, unsigned int number, uint32_t value)
         LOCK(state->mutex);
         state->values[number].value = value;
         state->values[number].update_index = get_change_index();
-        hw_write_register(
-            state->base.block_base, number, state->base.field_register, value);
+        write_register(&state->base, number, value);
         UNLOCK(state->mutex);
     }
     return error;
@@ -350,8 +378,7 @@ const struct class_methods param_class_methods = {
 static uint32_t unlocked_read_read(
     struct simple_state *state, unsigned int number)
 {
-    uint32_t result = hw_read_register(
-        state->base.block_base, number, state->base.field_register);
+    uint32_t result = read_register(&state->base, number);
     if (result != state->values[number].value)
     {
         state->values[number].value = result;
@@ -420,8 +447,7 @@ static error__t write_write(void *reg_data, unsigned int number, uint32_t value)
     struct base_state *state = reg_data;
     return
         filter_write(state, &value)  ?:
-        DO(hw_write_register(
-            state->block_base, number, state->field_register, value));
+        DO(write_register(state, number, value));
 }
 
 static struct register_methods write_methods = {
@@ -433,10 +459,7 @@ static error__t write_init(
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
-    struct base_state *state = malloc(sizeof(struct base_state));
-    *state = (struct base_state) {
-        .field_register = UNASSIGNED_REGISTER,
-    };
+    struct base_state *state = calloc(1, sizeof(struct base_state));
     *class_data = state;
 
     return create_type(

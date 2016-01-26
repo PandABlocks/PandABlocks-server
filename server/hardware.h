@@ -42,6 +42,14 @@ void hw_write_register(
 uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg);
 
+/* Certain registers are designated as slow: these need a special protocol for
+ * reading and writing. */
+void hw_write_slow_register(
+    unsigned int block_base, unsigned int block_number, unsigned int reg,
+    uint32_t value);
+uint32_t hw_read_slow_register(
+    unsigned int block_base, unsigned int block_number, unsigned int reg);
+
 /* Read bit values and changes. */
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT]);
 
@@ -111,10 +119,11 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end);
  * *data_end==true the data capture engine should be treated as locked. */
 void hw_write_arm(bool enable);
 
-/* Writes bit capture mask (only four bits), position capture mask, framing
- * mask, and extension mask (only valid for ADC and encoders).  Must not be
- * called while capture in progress, ie between calling hw_write_arm(true) and
- * receiving a *data_end set return from hw_read_streamed_data. */
-void hw_write_capture_masks(
-    uint32_t bit_capture, uint32_t pos_capture,
-    uint32_t framed_mask, uint32_t extended_mask);
+/* Configures framing mask. */
+void hw_write_framing_mask(uint32_t framing_mask);
+
+/* Configures whether framing is enabled. */
+void hw_write_framing_enable(bool enable);
+
+/* Writes list of capture bus fields to capture. */
+void hw_write_capture_set(const unsigned int capture[], size_t count);
