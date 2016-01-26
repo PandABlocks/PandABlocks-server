@@ -10,10 +10,13 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #include "panda_device.h"
 
 #include "error.h"
+#include "locking.h"
+
 #ifdef SIM_HARDWARE
 #include "sim_hardware.h"
 #endif
@@ -76,6 +79,8 @@ uint32_t hw_read_register(
 #define PCAP_ARM                8
 #define PCAP_DISARM             9
 #define PCAP_FRAMING_ENABLE     10
+#define SLOW_WRITE_STATUS       11
+#define SLOW_READ_STATUS        12
 
 struct named_register {
     const char *name;
@@ -97,6 +102,8 @@ static struct named_register named_registers[] = {
     NAMED_REGISTER(PCAP_ARM),
     NAMED_REGISTER(PCAP_DISARM),
     NAMED_REGISTER(PCAP_FRAMING_ENABLE),
+    NAMED_REGISTER(SLOW_WRITE_STATUS),
+    NAMED_REGISTER(SLOW_READ_STATUS),
 };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
@@ -140,6 +147,60 @@ static inline void write_named_register(unsigned int name, uint32_t value)
 static inline uint32_t read_named_register(unsigned int name)
 {
     return hw_read_register(reg_block_base, 0, named_registers[name].offset);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Slow register access has the extra problem that it can fail. */
+
+
+static pthread_mutex_t slow_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static unsigned int busy_wait_timeout = 1000;
+
+
+/* This waits for the given named register to go to zero.  This should happen
+ * within a few microseconds. */
+static void wait_for_status(unsigned int name)
+{
+    for (unsigned int i = 0; i < busy_wait_timeout; i ++)
+        if (read_named_register(name) == 0)
+            return;
+
+    /* Damn.  Looks like we're stuck.  Log this but return anyway.  We're
+     * probably going to storm the log with errors. */
+    log_error("Register %s(%d) stuck at non-zero value %u",
+        named_registers[name].name, name, read_named_register(name));
+}
+
+
+/* To write a slow register we need to check that the write buffer is empty
+ * before initiating the write. */
+void hw_write_slow_register(
+    unsigned int block_base, unsigned int block_number, unsigned int reg,
+    uint32_t value)
+{
+    LOCK(slow_mutex);
+    wait_for_status(SLOW_WRITE_STATUS);
+    hw_write_register(block_base, block_number, reg, value);
+    UNLOCK(slow_mutex);
+}
+
+
+/* Reading a slow register is a bit more involved: we read the status (as a
+ * sanity check), write the target register to initiate the read, then wait for
+ * status to clear before finally returning the result. */
+uint32_t hw_read_slow_register(
+    unsigned int block_base, unsigned int block_number, unsigned int reg)
+{
+    LOCK(slow_mutex);
+    if (read_named_register(SLOW_READ_STATUS) != 0)
+        log_error("SLOW_READ_STATUS unexpectedly non-zero");
+    hw_write_register(block_base, block_number, reg, 0);
+    wait_for_status(SLOW_READ_STATUS);
+    uint32_t result = hw_read_register(block_base, block_number, reg);
+    UNLOCK(slow_mutex);
+    return result;
 }
 
 

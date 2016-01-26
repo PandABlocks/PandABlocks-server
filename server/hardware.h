@@ -42,6 +42,14 @@ void hw_write_register(
 uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg);
 
+/* Certain registers are designated as slow: these need a special protocol for
+ * reading and writing. */
+void hw_write_slow_register(
+    unsigned int block_base, unsigned int block_number, unsigned int reg,
+    uint32_t value);
+uint32_t hw_read_slow_register(
+    unsigned int block_base, unsigned int block_number, unsigned int reg);
+
 /* Read bit values and changes. */
 void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT]);
 
