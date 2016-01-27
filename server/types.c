@@ -38,7 +38,8 @@ struct type {
 /* Some support functions. */
 
 
-error__t read_register(struct type *type, unsigned int number, uint32_t *value)
+error__t read_type_register(
+    struct type *type, unsigned int number, uint32_t *value)
 {
     return
         TEST_OK_(type->reg->read, "Register cannot be read")  ?:
@@ -46,7 +47,8 @@ error__t read_register(struct type *type, unsigned int number, uint32_t *value)
 }
 
 
-error__t write_register(struct type *type, unsigned int number, uint32_t value)
+error__t write_type_register(
+    struct type *type, unsigned int number, uint32_t value)
 {
     return
         TEST_OK_(type->reg->write, "Register cannot be written")  ?:
@@ -54,7 +56,7 @@ error__t write_register(struct type *type, unsigned int number, uint32_t value)
 }
 
 
-void changed_register(struct type *type, unsigned int number)
+void changed_type_register(struct type *type, unsigned int number)
 {
     if (type->reg->changed)
         type->reg->changed(type->reg_data, number);
@@ -69,7 +71,7 @@ error__t raw_format_uint(
     struct type *type = owner;
     uint32_t value;
     return
-        read_register(type, number, &value)  ?:
+        read_type_register(type, number, &value)  ?:
         format_string(result, length, "%u", value);
 }
 
@@ -82,7 +84,30 @@ error__t raw_put_uint(
     return
         parse_uint(&string, &value)  ?:
         parse_eos(&string)  ?:
-        write_register(type, number, value);
+        write_type_register(type, number, value);
+}
+
+
+error__t raw_format_int(
+    void *owner, void *data, unsigned int number, char result[], size_t length)
+{
+    struct type *type = owner;
+    uint32_t value;
+    return
+        read_type_register(type, number, &value)  ?:
+        format_string(result, length, "%d", (int) value);
+}
+
+
+error__t raw_put_int(
+    void *owner, void *data, unsigned int number, const char *string)
+{
+    struct type *type = owner;
+    int value;
+    return
+        parse_int(&string, &value)  ?:
+        parse_eos(&string)  ?:
+        write_type_register(type, number, (unsigned int) value);
 }
 
 
@@ -120,12 +145,28 @@ static error__t uint_parse(
         TEST_OK_(*value <= *max_value, "Number out of range");
 }
 
+static error__t int_parse(
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
+{
+    return
+        parse_int(&string, (int *) value)  ?:
+        parse_eos(&string);
+}
+
 
 static error__t uint_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
     return format_string(string, length, "%u", value);
+}
+
+static error__t int_format(
+    void *type_data, unsigned int number,
+    unsigned int value, char string[], size_t length)
+{
+    return format_string(string, length, "%d", (int) value);
 }
 
 
@@ -147,6 +188,11 @@ static const struct type_methods uint_type_methods = {
           .format = uint_max_format, },
     },
     .attr_count = 1,
+};
+
+static const struct type_methods int_type_methods = {
+    "int",
+    .parse = int_parse, .format = int_format,
 };
 
 
@@ -315,7 +361,7 @@ error__t type_get(
     return
         TEST_OK_(type->methods->format,
             "Cannot read %s value", type->methods->name)  ?:
-        read_register(type, number, &value)  ?:
+        read_type_register(type, number, &value)  ?:
         type->methods->format(
             type->type_data, number, value, result->string, result->length)  ?:
         DO(result->response = RESPONSE_ONE);
@@ -330,7 +376,7 @@ error__t type_put(struct type *type, unsigned int number, const char *string)
         TEST_OK_(type->methods->parse,
             "Cannot write %s value", type->methods->name)  ?:
         type->methods->parse(type->type_data, number, string, &value)  ?:
-        write_register(type, number, value);
+        write_type_register(type, number, value);
 }
 
 
@@ -377,6 +423,7 @@ void destroy_type(struct type *type)
 
 static const struct type_methods *types_table[] = {
     &uint_type_methods,             // uint
+    &int_type_methods,              // int
     &bit_type_methods,              // bit
 
     &action_type_methods,           // action

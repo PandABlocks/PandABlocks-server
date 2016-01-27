@@ -10,10 +10,13 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #include "panda_device.h"
 
 #include "error.h"
+#include "locking.h"
+
 #ifdef SIM_HARDWARE
 #include "sim_hardware.h"
 #endif
@@ -35,9 +38,9 @@ static unsigned int make_offset(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     return
-        ((block_base & 0x1f) << 10) |
-        ((block_number & 0xf) << 6) |
-        (reg & 0x3f);
+        ((block_base & 0x1f) << 10) |   // 5 bits for block identifier
+        ((block_number & 0xf) << 6) |   // 4 bits for block number
+        (reg & 0x3f);                   // 6 bits for register within block
 }
 
 
@@ -70,8 +73,14 @@ uint32_t hw_read_register(
 #define POS_READ_RST            2
 #define POS_READ_VALUE          3
 #define POS_READ_CHANGES        4
-#define BIT_CAPTURE_MASK        5
-#define POS_CAPTURE_MASK        6
+#define PCAP_START_WRITE        5
+#define PCAP_WRITE              6
+#define PCAP_FRAMING_MASK       7
+#define PCAP_ARM                8
+#define PCAP_DISARM             9
+#define PCAP_FRAMING_ENABLE     10
+#define SLOW_WRITE_STATUS       11
+#define SLOW_READ_STATUS        12
 
 struct named_register {
     const char *name;
@@ -87,8 +96,14 @@ static struct named_register named_registers[] = {
     NAMED_REGISTER(POS_READ_RST),
     NAMED_REGISTER(POS_READ_VALUE),
     NAMED_REGISTER(POS_READ_CHANGES),
-    NAMED_REGISTER(BIT_CAPTURE_MASK),
-    NAMED_REGISTER(POS_CAPTURE_MASK),
+    NAMED_REGISTER(PCAP_START_WRITE),
+    NAMED_REGISTER(PCAP_WRITE),
+    NAMED_REGISTER(PCAP_FRAMING_MASK),
+    NAMED_REGISTER(PCAP_ARM),
+    NAMED_REGISTER(PCAP_DISARM),
+    NAMED_REGISTER(PCAP_FRAMING_ENABLE),
+    NAMED_REGISTER(SLOW_WRITE_STATUS),
+    NAMED_REGISTER(SLOW_READ_STATUS),
 };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
@@ -136,6 +151,60 @@ static inline uint32_t read_named_register(unsigned int name)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Slow register access has the extra problem that it can fail. */
+
+
+static pthread_mutex_t slow_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static unsigned int busy_wait_timeout = 1000;
+
+
+/* This waits for the given named register to go to zero.  This should happen
+ * within a few microseconds. */
+static void wait_for_status(unsigned int name)
+{
+    for (unsigned int i = 0; i < busy_wait_timeout; i ++)
+        if (read_named_register(name) == 0)
+            return;
+
+    /* Damn.  Looks like we're stuck.  Log this but return anyway.  We're
+     * probably going to storm the log with errors. */
+    log_error("Register %s(%d) stuck at non-zero value %u",
+        named_registers[name].name, name, read_named_register(name));
+}
+
+
+/* To write a slow register we need to check that the write buffer is empty
+ * before initiating the write. */
+void hw_write_slow_register(
+    unsigned int block_base, unsigned int block_number, unsigned int reg,
+    uint32_t value)
+{
+    LOCK(slow_mutex);
+    wait_for_status(SLOW_WRITE_STATUS);
+    hw_write_register(block_base, block_number, reg, value);
+    UNLOCK(slow_mutex);
+}
+
+
+/* Reading a slow register is a bit more involved: we read the status (as a
+ * sanity check), write the target register to initiate the read, then wait for
+ * status to clear before finally returning the result. */
+uint32_t hw_read_slow_register(
+    unsigned int block_base, unsigned int block_number, unsigned int reg)
+{
+    LOCK(slow_mutex);
+    if (read_named_register(SLOW_READ_STATUS) != 0)
+        log_error("SLOW_READ_STATUS unexpectedly non-zero");
+    hw_write_register(block_base, block_number, reg, 0);
+    wait_for_status(SLOW_READ_STATUS);
+    uint32_t result = hw_read_register(block_base, block_number, reg);
+    UNLOCK(slow_mutex);
+    return result;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
 /* The bit updates interface consists of a burst read of 8 16-bit pairs (packed
@@ -171,10 +240,32 @@ void hw_read_positions(
 }
 
 
-void hw_write_capture_masks(
-    uint32_t bit_capture, uint32_t pos_capture,
-    uint32_t framed_mask, uint32_t extended_mask)
+void hw_write_arm(bool enable)
 {
+    if (enable)
+        write_named_register(PCAP_ARM, 0);
+    else
+        write_named_register(PCAP_DISARM, 0);
+}
+
+
+void hw_write_framing_mask(uint32_t framing_mask)
+{
+    write_named_register(PCAP_FRAMING_MASK, framing_mask);
+}
+
+
+void hw_write_framing_enable(bool enable)
+{
+    write_named_register(PCAP_FRAMING_ENABLE, enable);
+}
+
+
+void hw_write_capture_set(const unsigned int capture[], size_t count)
+{
+    write_named_register(PCAP_START_WRITE, 0);
+    for (size_t i = 0; i < count; i ++)
+        write_named_register(PCAP_WRITE, capture[i]);
 }
 
 
@@ -420,7 +511,7 @@ void hw_close_table(struct hw_table *table)
 
 #ifndef SIM_HARDWARE
 
-static int map;
+static int map = -1;
 
 error__t initialise_hardware(void)
 {
@@ -436,10 +527,12 @@ error__t initialise_hardware(void)
 void terminate_hardware(void)
 {
     ERROR_REPORT(
-        TEST_IO(munmap(
-            CAST_FROM_TO(volatile uint32_t *, void *, register_map),
-            register_map_size))  ?:
-        TEST_IO(close(map)),
+        IF(register_map,
+            TEST_IO(munmap(
+                CAST_FROM_TO(volatile uint32_t *, void *, register_map),
+                register_map_size)))  ?:
+        IF(map >= 0,
+            TEST_IO(close(map))),
         "Calling terminate_hardware");
 }
 

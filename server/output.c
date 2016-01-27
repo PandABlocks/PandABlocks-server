@@ -126,13 +126,13 @@ void reset_capture_list(void)
 
 void write_capture_masks(void)
 {
-    uint32_t bit_capture_mask = 0;
-    for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
-        if (bit_capture[i])
-            bit_capture_mask |= 1U << i;
-    hw_write_capture_masks(
-        bit_capture_mask, pos_capture_mask,
-        pos_framing_mask, pos_extension_mask);
+//     uint32_t bit_capture_mask = 0;
+//     for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
+//         if (bit_capture[i])
+//             bit_capture_mask |= 1U << i;
+//     hw_write_capture_masks(
+//         bit_capture_mask, pos_capture_mask,
+//         pos_framing_mask, pos_extension_mask);
 }
 
 
