@@ -21,6 +21,7 @@
 #include "classes.h"
 #include "attributes.h"
 #include "enums.h"
+#include "capture.h"
 #include "version.h"
 
 #include "system_command.h"
@@ -254,6 +255,73 @@ static error__t get_enums(const char *command, struct connection_result *result)
 }
 
 
+/* *PCAP control methods.
+ *
+ * *PCAP.ARM=
+ * *PCAP.DISARM=
+ * *PCAP.RESET=
+ * *PCAP.STATUS?
+ * *PCAP.WAITING?
+ *
+ * Manages and interrogates capture interface. */
+
+static error__t lookup_pcap_put_action(
+    const char *name, error__t (**action)(void))
+{
+    return
+        IF_ELSE(strcmp(name, "ARM") == 0,
+            DO(*action = arm_capture),
+        //else
+        IF_ELSE(strcmp(name, "DISARM") == 0,
+            DO(*action = disarm_capture),
+        //else
+        IF_ELSE(strcmp(name, "RESET") == 0,
+            DO(*action = reset_capture),
+        //else
+            FAIL_("Invalid *PCAP field"))));
+}
+
+static error__t put_pcap(
+    struct connection_context *connection,
+    const char *command, const char *value)
+{
+    char action_name[MAX_NAME_LENGTH];
+    error__t (*action)(void) = NULL;
+    return
+        parse_char(&command, '.')  ?:
+        parse_name(&command, action_name, sizeof(action_name))  ?:
+        parse_eos(&value)  ?:
+
+        lookup_pcap_put_action(action_name, &action)  ?:
+        action();
+}
+
+
+static error__t lookup_pcap_get_action(
+    const char *name, error__t (**action)(struct connection_result *))
+{
+    return
+        IF_ELSE(strcmp(name, "STATUS") == 0,
+            DO(*action = capture_status),
+        //else
+        IF_ELSE(strcmp(name, "WAITING") == 0,
+            DO(*action = capture_waiting),
+        //else
+            FAIL_("Invalid *PCAP field")));
+}
+
+static error__t get_pcap(const char *command, struct connection_result *result)
+{
+    char action_name[MAX_NAME_LENGTH];
+    error__t (*action)(struct connection_result *) = NULL;
+    return
+        parse_char(&command, '.')  ?:
+        parse_name(&command, action_name, sizeof(action_name))  ?:
+
+        lookup_pcap_get_action(action_name, &action)  ?:
+        action(result);
+}
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
@@ -280,6 +348,7 @@ static const struct command_table_entry command_table_list[] = {
     { "POSITIONS",  .get = get_positions, },
     { "VERBOSE",    .put = put_verbose, },
     { "ENUMS",      .get = get_enums, .allow_arg = true, },
+    { "PCAP",       .get = get_pcap, .allow_arg = true, .put = put_pcap, },
 };
 
 static struct hash_table *command_table;

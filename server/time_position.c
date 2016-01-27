@@ -472,6 +472,17 @@ static error__t position_units_put(
 }
 
 
+void get_position_info(
+    const struct position_state *position, unsigned int number,
+    double *scale, double *offset, const char **units)
+{
+    const struct position_field *field = &position->values[number];
+    *scale = field->scale;
+    *offset = field->offset;
+    *units = field->units;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Time. */
 

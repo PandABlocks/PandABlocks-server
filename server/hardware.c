@@ -76,11 +76,11 @@ uint32_t hw_read_register(
 #define PCAP_START_WRITE        5
 #define PCAP_WRITE              6
 #define PCAP_FRAMING_MASK       7
-#define PCAP_ARM                8
-#define PCAP_DISARM             9
-#define PCAP_FRAMING_ENABLE     10
-#define SLOW_WRITE_STATUS       11
-#define SLOW_READ_STATUS        12
+#define PCAP_FRAMING_ENABLE     8
+#define PCAP_FRAMING_MODE       9
+#define PCAP_ARM                10
+#define PCAP_DISARM             11
+#define SLOW_REGISTER_STATUS    12
 
 struct named_register {
     const char *name;
@@ -99,11 +99,11 @@ static struct named_register named_registers[] = {
     NAMED_REGISTER(PCAP_START_WRITE),
     NAMED_REGISTER(PCAP_WRITE),
     NAMED_REGISTER(PCAP_FRAMING_MASK),
+    NAMED_REGISTER(PCAP_FRAMING_ENABLE),
+    NAMED_REGISTER(PCAP_FRAMING_MODE),
     NAMED_REGISTER(PCAP_ARM),
     NAMED_REGISTER(PCAP_DISARM),
-    NAMED_REGISTER(PCAP_FRAMING_ENABLE),
-    NAMED_REGISTER(SLOW_WRITE_STATUS),
-    NAMED_REGISTER(SLOW_READ_STATUS),
+    NAMED_REGISTER(SLOW_REGISTER_STATUS),
 };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
@@ -161,16 +161,15 @@ static unsigned int busy_wait_timeout = 1000;
 
 /* This waits for the given named register to go to zero.  This should happen
  * within a few microseconds. */
-static void wait_for_status(unsigned int name)
+static void wait_for_slow_ready(void)
 {
     for (unsigned int i = 0; i < busy_wait_timeout; i ++)
-        if (read_named_register(name) == 0)
+        if (read_named_register(SLOW_REGISTER_STATUS) == 0)
             return;
 
     /* Damn.  Looks like we're stuck.  Log this but return anyway.  We're
      * probably going to storm the log with errors. */
-    log_error("Register %s(%d) stuck at non-zero value %u",
-        named_registers[name].name, name, read_named_register(name));
+    log_error("SLOW_REGISTER_STATUS stuck at non-zero value");
 }
 
 
@@ -181,7 +180,9 @@ void hw_write_slow_register(
     uint32_t value)
 {
     LOCK(slow_mutex);
-    wait_for_status(SLOW_WRITE_STATUS);
+    /* Wait for any preceding write to complete. */
+    wait_for_slow_ready();
+    /* Initiate write. */
     hw_write_register(block_base, block_number, reg, value);
     UNLOCK(slow_mutex);
 }
@@ -194,10 +195,13 @@ uint32_t hw_read_slow_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
     LOCK(slow_mutex);
-    if (read_named_register(SLOW_READ_STATUS) != 0)
-        log_error("SLOW_READ_STATUS unexpectedly non-zero");
+    /* Wait for any preceding write to complete. */
+    wait_for_slow_ready();
+    /* Initiate the read. */
     hw_write_register(block_base, block_number, reg, 0);
-    wait_for_status(SLOW_READ_STATUS);
+    /* Wait for read to complete. */
+    wait_for_slow_ready();
+    /* Retrieve the result. */
     uint32_t result = hw_read_register(block_base, block_number, reg);
     UNLOCK(slow_mutex);
     return result;
@@ -240,6 +244,47 @@ void hw_read_positions(
 }
 
 
+/******************************************************************************/
+/* Data capture. */
+
+#ifndef SIM_HARDWARE
+
+static int stream = -1;
+
+
+size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
+{
+    ssize_t count = read(stream, buffer, length);
+    if (count == EAGAIN)
+    {
+        /* Read timed out at hardware level (this is normal). */
+        *data_end = false;
+        return 0;
+    }
+    else if (count == 0)
+    {
+        /* Nothing more from this capture stream.  This particular device will
+         * allow us to pick up again once data capture is restarted. */
+        *data_end = true;
+        return 0;
+    }
+    else if (ERROR_REPORT(TEST_OK(count), "Error reading /dev/panda.stream"))
+    {
+        /* Well, that was unexpected.  Presume there's no more data. */
+        *data_end = true;
+        return 0;
+    }
+    else
+    {
+        /* All in order, we have data. */
+        *data_end = false;
+        return (size_t) count;
+    }
+}
+
+#endif
+
+
 void hw_write_arm(bool enable)
 {
     if (enable)
@@ -249,9 +294,10 @@ void hw_write_arm(bool enable)
 }
 
 
-void hw_write_framing_mask(uint32_t framing_mask)
+void hw_write_framing_mask(uint32_t framing_mask, uint32_t framing_mode)
 {
     write_named_register(PCAP_FRAMING_MASK, framing_mask);
+    write_named_register(PCAP_FRAMING_MODE, framing_mode);
 }
 
 
@@ -517,10 +563,14 @@ error__t initialise_hardware(void)
 {
     return
         TEST_IO_(map = open("/dev/panda.map", O_RDWR | O_SYNC),
-            "Unable to open PandA device")  ?:
+            "Unable to open PandA device /dev/panda.map")  ?:
         TEST_IO(ioctl(map, PANDA_MAP_SIZE, &register_map_size))  ?:
         TEST_IO(register_map = mmap(
-            0, register_map_size, PROT_READ | PROT_WRITE, MAP_SHARED, map, 0));
+            0, register_map_size,
+            PROT_READ | PROT_WRITE, MAP_SHARED, map, 0))  ?:
+
+        TEST_IO_(stream = open("/dev/panda.stream", O_RDONLY),
+            "Unable to open PandA device /dev/panda.stream");
 }
 
 
@@ -531,8 +581,8 @@ void terminate_hardware(void)
             TEST_IO(munmap(
                 CAST_FROM_TO(volatile uint32_t *, void *, register_map),
                 register_map_size)))  ?:
-        IF(map >= 0,
-            TEST_IO(close(map))),
+        IF(map >= 0, TEST_IO(close(map)))  ?:
+        IF(stream >= 0, TEST_IO(close(stream))),
         "Calling terminate_hardware");
 }
 

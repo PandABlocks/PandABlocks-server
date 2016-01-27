@@ -1,7 +1,5 @@
 /* Data capture control. */
 
-extern const struct class_methods software_class_methods;
-
 enum capture_state {
     CAPTURE_IDLE,       // No capture in progress, can update state
     CAPTURE_ACTIVE,     // Capture in progress
@@ -20,3 +18,11 @@ void release_capture_state(void);
         enum capture_state state = lock_capture_state(); \
         DO_FINALLY(result, release_capture_state()); \
     } )
+
+
+/* User callable capture control methods. */
+error__t arm_capture(void);
+error__t disarm_capture(void);
+error__t reset_capture(void);
+error__t capture_status(struct connection_result *result);
+error__t capture_waiting(struct connection_result *result);
