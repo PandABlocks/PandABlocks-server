@@ -98,7 +98,7 @@ static error__t write_command_int(
 }
 
 
-static void handle_error(error__t error)
+static bool handle_error(error__t error)
 {
     /* This flag will be reset on the first error, which will cause all
      * subsequent access attempts to silently fail. */
@@ -116,6 +116,7 @@ static void handle_error(error__t error)
             /* Quietly discard subsequent error messages. */
             error_discard(error);
     }
+    return error;
 }
 
 
@@ -145,6 +146,36 @@ uint32_t hw_read_register(
     UNLOCK();
 
     return result;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Data streaming. */
+
+size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
+{
+    int32_t result = -1;
+    LOCK();
+    bool failed = handle_error(
+        write_command_int('D', 0, 0, 0, (uint32_t) length)  ?:
+        read_all(&result, 4)  ?:
+        IF(result > 0, read_all(buffer, (size_t) result)));
+    UNLOCK();
+
+    if (failed  ||  result < 0)
+    {
+        *data_end = true;
+        return 0;
+    }
+    else
+    {
+        if (result == 0)
+            /* Simulate hardware timeout on zero length read. */
+            usleep(100000);     // 100ms delay
+
+        *data_end = false;
+        return (size_t) result;
+    }
 }
 
 

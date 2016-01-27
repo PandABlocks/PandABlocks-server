@@ -14,6 +14,7 @@
 #include "parse.h"
 #include "config_server.h"
 #include "socket_server.h"
+#include "data_server.h"
 #include "database.h"
 #include "system_command.h"
 #include "fields.h"
@@ -176,7 +177,9 @@ int main(int argc, char *const argv[])
     {
         /* Now run the server.  Control will not return until we're ready to
          * terminate. */
-        error = run_socket_server();
+        error =
+            start_data_server()  ?:
+            run_socket_server();
 
         if (error)
             ERROR_REPORT(error, "Server shutting down");
@@ -190,6 +193,7 @@ int main(int argc, char *const argv[])
     terminate_socket_server();
     terminate_persistence();
 
+    terminate_data_server();
     terminate_system_command();
     terminate_hardware();
     terminate_time_position();

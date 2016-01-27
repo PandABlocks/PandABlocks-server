@@ -244,6 +244,47 @@ void hw_read_positions(
 }
 
 
+/******************************************************************************/
+/* Data capture. */
+
+#ifndef SIM_HARDWARE
+
+static int stream = -1;
+
+
+size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
+{
+    ssize_t count = read(stream, buffer, length);
+    if (count == EAGAIN)
+    {
+        /* Read timed out at hardware level (this is normal). */
+        *data_end = false;
+        return 0;
+    }
+    else if (count == 0)
+    {
+        /* Nothing more from this capture stream.  This particular device will
+         * allow us to pick up again once data capture is restarted. */
+        *data_end = true;
+        return 0;
+    }
+    else if (ERROR_REPORT(TEST_OK(count), "Error reading /dev/panda.stream"))
+    {
+        /* Well, that was unexpected.  Presume there's no more data. */
+        *data_end = true;
+        return 0;
+    }
+    else
+    {
+        /* All in order, we have data. */
+        *data_end = false;
+        return (size_t) count;
+    }
+}
+
+#endif
+
+
 void hw_write_arm(bool enable)
 {
     if (enable)
@@ -522,10 +563,14 @@ error__t initialise_hardware(void)
 {
     return
         TEST_IO_(map = open("/dev/panda.map", O_RDWR | O_SYNC),
-            "Unable to open PandA device")  ?:
+            "Unable to open PandA device /dev/panda.map")  ?:
         TEST_IO(ioctl(map, PANDA_MAP_SIZE, &register_map_size))  ?:
         TEST_IO(register_map = mmap(
-            0, register_map_size, PROT_READ | PROT_WRITE, MAP_SHARED, map, 0));
+            0, register_map_size,
+            PROT_READ | PROT_WRITE, MAP_SHARED, map, 0))  ?:
+
+        TEST_IO_(stream = open("/dev/panda.stream", O_RDONLY),
+            "Unable to open PandA device /dev/panda.stream");
 }
 
 
@@ -536,8 +581,8 @@ void terminate_hardware(void)
             TEST_IO(munmap(
                 CAST_FROM_TO(volatile uint32_t *, void *, register_map),
                 register_map_size)))  ?:
-        IF(map >= 0,
-            TEST_IO(close(map))),
+        IF(map >= 0, TEST_IO(close(map)))  ?:
+        IF(stream >= 0, TEST_IO(close(stream))),
         "Calling terminate_hardware");
 }
 
