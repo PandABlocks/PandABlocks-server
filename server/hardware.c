@@ -253,9 +253,10 @@ void hw_write_arm(bool enable)
 }
 
 
-void hw_write_framing_mask(uint32_t framing_mask)
+void hw_write_framing_mask(uint32_t framing_mask, uint32_t framing_mode)
 {
     write_named_register(PCAP_FRAMING_MASK, framing_mask);
+    write_named_register(PCAP_FRAMING_MODE, framing_mode);
 }
 
 

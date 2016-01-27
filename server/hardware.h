@@ -119,8 +119,8 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end);
  * *data_end==true the data capture engine should be treated as locked. */
 void hw_write_arm(bool enable);
 
-/* Configures framing mask. */
-void hw_write_framing_mask(uint32_t framing_mask);
+/* Configures framing mask and mode. */
+void hw_write_framing_mask(uint32_t framing_mask, uint32_t framing_mode);
 
 /* Configures whether framing is enabled. */
 void hw_write_framing_enable(bool enable);
