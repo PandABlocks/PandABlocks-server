@@ -64,7 +64,10 @@ static void *data_thread(void *context)
         LOCK(data_thread_mutex);
         data_capture_enabled = false;
         if (data_thread_running)
+        {
             data_capture_complete();
+            data_clients_complete();        // lies!!!
+        }
         UNLOCK(data_thread_mutex);
     }
     return NULL;
