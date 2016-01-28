@@ -4,6 +4,11 @@
 #define LOCK(mutex)     ASSERT_PTHREAD(pthread_mutex_lock(&(mutex)))
 #define UNLOCK(mutex)   ASSERT_PTHREAD(pthread_mutex_unlock(&(mutex)))
 
+/* Condition waiting and signalling. */
+#define WAIT(mutex, signal) \
+    ASSERT_PTHREAD(pthread_cond_wait(&(signal), &(mutex)))
+#define SIGNAL(signal)  ASSERT_PTHREAD(pthread_cond_signal(&(signal)))
+
 /* Read and write locks. */
 #define LOCKR(mutex)    ASSERT_PTHREAD(pthread_rwlock_rdlock(&(mutex)))
 #define LOCKW(mutex)    ASSERT_PTHREAD(pthread_rwlock_wrlock(&(mutex)))

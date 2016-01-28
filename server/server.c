@@ -168,6 +168,7 @@ int main(int argc, char *const argv[])
                 persistence_file,
                 persistence_poll, persistence_holdoff, persistence_backoff))  ?:
         initialise_socket_server(config_port, data_port, reuse_addr)  ?:
+        initialise_data_server()  ?:
 
         maybe_daemonise();
     if (error)

@@ -4,8 +4,23 @@
  * socket connection.  This function will run until the given socket closes. */
 error__t process_data_socket(int scon);
 
+/* Data server and processing initialisation. */
+error__t initialise_data_server(void);
+
 /* This starts the background data server task.  Must be called after forking to
  * avoid losing the created thread! */
 error__t start_data_server(void);
 
 void terminate_data_server(void);
+
+/* This is called at the completion of capture arming to initiate reading from
+ * the hardware. */
+void start_data_capture(void);
+
+/* This can be called at any time.  Data capture to existing and new clients
+ * must be aborted, if necessary.  The function data_clients_complete() will be
+ * called on successful completion. */
+void reset_data_capture(void);
+
+/* Returns numbers of connected clients. */
+void get_data_capture_counts(unsigned int *reading, unsigned int *waiting);
