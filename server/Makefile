@@ -94,6 +94,7 @@ endif
 
 SRCS += server.c                # Entry point to server, command line parsing
 SRCS += version.c               # Server version string
+SRCS += locking.c               # Pthread locking support etc
 SRCS += persistence.c           # Support for persistence state over restarts
 SRCS += error.c                 # Common error handling framework
 SRCS += socket_server.c         # Common socket server handling
