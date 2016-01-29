@@ -24,11 +24,6 @@ static volatile bool data_thread_running = true;
 
 static void *data_thread(void *context)
 {
-    char buffer[4096];
-    bool at_eof;
-    size_t count;
-    while (data_thread_running)
-        count = hw_read_streamed_data(buffer, sizeof(buffer), &at_eof);
     return NULL;
 }
 
