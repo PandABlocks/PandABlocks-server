@@ -19,6 +19,11 @@ bool read_block(struct buffered_file *file, char data[], size_t length);
 void write_string(
     struct buffered_file *file, const char *string, size_t length);
 
+/* Writes buffer to output.  The output buffer is bypassed, after first being
+ * flushed if necessary. */
+void write_block(
+    struct buffered_file *file, const void *buffer, size_t length);
+
 /* Writes a single character to output. */
 void write_char(struct buffered_file *file, char ch);
 
@@ -32,3 +37,7 @@ struct buffered_file *create_buffered_file(
 
 /* Destroys buffered file, returns final error status. */
 error__t destroy_buffered_file(struct buffered_file *file);
+
+/* Returns the error status of the buffered file.  If false is returned then an
+ * error condition has been detected. */
+bool check_buffered_file(struct buffered_file *file);

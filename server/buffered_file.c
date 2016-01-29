@@ -43,21 +43,27 @@ struct buffered_file {
 };
 
 
+/* Does what is necessary to send the entire given buffer to the socket. */
+static void send_entire_buffer(
+    struct buffered_file *file, const void *buffer, size_t length)
+{
+    while (!file->error  &&  length > 0)
+    {
+        ssize_t written;
+        file->error =
+            TEST_IO_(written = write(file->sock, buffer, length),
+                "Error writing to socket")  ?:
+            DO( length -= (size_t) written;
+                buffer += (size_t) written);
+    }
+}
+
+
 /* Writes out the entire output buffer, retrying as necessary to ensure it's all
  * gone. */
 void flush_out_buf(struct buffered_file *file)
 {
-    size_t out_start = 0;
-    while (!file->error  &&  out_start < file->out_length)
-    {
-        ssize_t written;
-        file->error =
-            TEST_IO_(written = write(
-                    file->sock, file->out_buf + out_start,
-                    file->out_length - out_start),
-                "Error writing to socket");
-            DO(out_start += (size_t) written);
-    }
+    send_entire_buffer(file, file->out_buf, file->out_length);
     file->out_length = 0;
 }
 
@@ -165,6 +171,14 @@ void write_string(
 }
 
 
+void write_block(
+    struct buffered_file *file, const void *buffer, size_t length)
+{
+    flush_out_buf(file);
+    send_entire_buffer(file, buffer, length);
+}
+
+
 /* As we guarantee that there's always room for one character in the output
  * buffer (we always flush when full) this function can be quite simple. */
 void write_char(struct buffered_file *file, char ch)
@@ -202,4 +216,9 @@ error__t destroy_buffered_file(struct buffered_file *file)
     free(file->out_buf);
     free(file);
     return error;
+}
+
+bool check_buffered_file(struct buffered_file *file)
+{
+    return !file->error;
 }

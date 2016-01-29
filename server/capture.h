@@ -13,6 +13,15 @@ enum capture_state lock_capture_state(void);
 void release_capture_state(void);
 
 
+/* This is called by the data capture server once data capture has completed.
+ * There may still be clients connected at this point. */
+void data_capture_complete(void);
+
+/* This is called by the data cpature server once all clients have completed.
+ * This will only be called after data_capture_complete(). */
+void data_clients_complete(void);
+
+
 #define WITH_CAPTURE_STATE(state, result) \
     ( { \
         enum capture_state state = lock_capture_state(); \

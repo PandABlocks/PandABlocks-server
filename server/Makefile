@@ -99,6 +99,7 @@ SRCS += error.c                 # Common error handling framework
 SRCS += socket_server.c         # Common socket server handling
 SRCS += config_server.c         # Configuration command server
 SRCS += data_server.c           # Data socket server for streamed data capture
+SRCS += buffer.c                # Circular buffer for captured data stream
 SRCS += buffered_file.c         # Buffered file IO for socket interface
 SRCS += parse.c                 # Common string parsing support
 SRCS += parse_lut.c             # 5 input lookup table expression parsing
