@@ -167,8 +167,8 @@ int main(int argc, char *const argv[])
             initialise_persistence(
                 persistence_file,
                 persistence_poll, persistence_holdoff, persistence_backoff))  ?:
-        initialise_socket_server(config_port, data_port, reuse_addr)  ?:
         initialise_data_server()  ?:
+        initialise_socket_server(config_port, data_port, reuse_addr)  ?:
 
         maybe_daemonise();
     if (error)
@@ -191,6 +191,7 @@ int main(int argc, char *const argv[])
     /* Purely for the sake of valgrind heap checking, perform an orderly
      * shutdown.  Everything is done in reverse order, and each component needs
      * to cope with being called even if it was never initialised. */
+    terminate_data_server_early();
     terminate_socket_server();
     terminate_persistence();
 

@@ -23,15 +23,22 @@
 #include "data_server.h"
 
 
-#define DATA_BLOCK_SIZE     (1U << 18)
-#define DATA_BLOCK_COUNT    16
+#define DATA_BLOCK_SIZE         (1U << 18)
+#define DATA_BLOCK_COUNT        16
 
-#define IN_BUF_SIZE         4096
-#define OUT_BUF_SIZE        4096
+/* File buffers. */
+#define IN_BUF_SIZE             4096
+#define OUT_BUF_SIZE            4096
+/* Proper network buffer. */
+#define NET_BUF_SIZE            16384
 
 /* Connection poll interval. */
-#define CONNECTION_POLL_SECS    0
+// #define CONNECTION_POLL_SECS    0
 #define CONNECTION_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
+#define CONNECTION_POLL_SECS    5
+
+/* Allow this many data blocks between the reader and the writer on startup. */
+#define BUFFER_READ_MARGIN      2
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -76,7 +83,6 @@ static void capture_experiment(void)
         while (data_thread_running  &&  count == 0  &&  !at_eof);
         if (count > 0)
             release_write_block(data_buffer, count);
-printf("data_thread: %d %zu %d\n", data_thread_running, count, at_eof);
     }
 
     end_write(data_buffer);
@@ -105,7 +111,6 @@ static void *data_thread(void *context)
 
 void start_data_capture(void)
 {
-printf("start_data_capture\n");
     LOCK(data_thread_mutex);
     data_capture_enabled = true;
     BROADCAST(data_thread_event);
@@ -115,7 +120,6 @@ printf("start_data_capture\n");
 
 void reset_data_capture(void)
 {
-printf("reset_data_capture\n");
     data_clients_complete();
 }
 
@@ -139,35 +143,6 @@ void get_data_capture_counts(unsigned int *connected, unsigned int *reading)
 }
 
 
-/* Keeps count of the connected clients. */
-static void count_connection(bool connected)
-{
-    LOCK(data_thread_mutex);
-    if (connected)
-        connected_client_count += 1;
-    else
-        connected_client_count -= 1;
-    UNLOCK(data_thread_mutex);
-}
-
-
-/* When a client completes its data processing we can mark it as inactive.  In
- * this case we may need to let the capture layer know about this as well. */
-static void count_active_client(bool active)
-{
-    LOCK(data_thread_mutex);
-    if (active)
-        active_client_count += 1;
-    else
-    {
-        active_client_count -= 1;
-        if (active_client_count == 0)
-            data_clients_complete();
-    }
-    UNLOCK(data_thread_mutex);
-}
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Data delivery to client. */
 
@@ -175,6 +150,7 @@ static void count_active_client(bool active)
 struct data_connection {
     int scon;
     struct buffered_file *file;
+    struct reader_state *reader;
 };
 
 
@@ -212,26 +188,26 @@ static bool check_connection(struct data_connection *connection)
 {
     char buffer[4096];
     ssize_t rx = recv(connection->scon, buffer, sizeof(buffer), MSG_DONTWAIT);
-printf("rx = %zd, %d\n", rx, errno);
     return (rx == -1  &&  errno == EAGAIN)  ||  rx > 0;
 }
 
 
 /* Block until capture begins or the socket is closed. */
-static bool wait_for_capture(struct data_connection *connection)
+static bool wait_for_capture(
+    struct data_connection *connection, size_t *lost_bytes)
 {
     /* Block here waiting for data capture to begin or for the client to
      * disconnect.  Alas, detecting disconnection is a bit of a pain: we either
      * have to poll or use file handles (eventfd(2)) for wakeup, and using a
      * file handle is a pain because we'd need one per client.  So we poll. */
-    LOCK(data_thread_mutex);
-    while (check_connection(connection)  &&  !data_capture_enabled)
-        pwait_timeout(
-            &data_thread_mutex, &data_thread_event,
-            CONNECTION_POLL_SECS, CONNECTION_POLL_NSECS);
-    UNLOCK(data_thread_mutex);
-
-    return true;
+    bool opened = false;
+    while (check_connection(connection)  &&  !opened)
+        opened = open_reader(
+            connection->reader, BUFFER_READ_MARGIN,
+            &(struct timespec) {
+                .tv_sec = CONNECTION_POLL_SECS,
+                .tv_nsec = CONNECTION_POLL_NSECS }, lost_bytes);
+    return opened;
 }
 
 
@@ -242,16 +218,48 @@ static void send_data_header(struct data_connection *connection)
 }
 
 
+static size_t fill_out_buf(
+    const void *in_buf, size_t in_length, size_t *consumed, char *out_buf)
+{
+    const uint32_t *buf = in_buf;
+    /* Lazy, about to redo.  For the moment the out buf is long enough. */
+    *consumed = in_length;
+    return (size_t) sprintf(out_buf, "%u..%u(%zu)\n",
+        buf[0], buf[in_length/4 - 1], in_length);
+}
+
+
 static void send_data_stream(struct data_connection *connection)
 {
-    /* Wrong test, really needs to consume buffer. */
-    while (data_capture_enabled)
+    size_t in_length;
+    const void *buffer;
+    while (buffer = get_read_block(connection->reader, &in_length),
+           buffer)
     {
-        write_string(connection->file, "data\n", 5);
-        flush_out_buf(connection->file);
-        sleep(1);
-    }
+        while (in_length > 0)
+        {
+            char out_buf[NET_BUF_SIZE];
+            size_t consumed;
+            size_t out_length =
+                fill_out_buf(buffer, in_length, &consumed, out_buf);
+            in_length -= consumed;
+            buffer += consumed;
 
+            if (check_read_block(connection->reader))
+                write_block(connection->file, out_buf, out_length);
+        }
+    }
+}
+
+
+static void send_data_completion(
+    struct data_connection *connection, enum reader_status status)
+{
+    static const char *completions[] = {
+        "OK\n", "Closed\n", "Overrun\n", "Reset\n", };
+    const char *message = completions[status];
+    write_string(connection->file, message, strlen(message));
+    flush_out_buf(connection->file);
 }
 
 
@@ -265,18 +273,19 @@ error__t process_data_socket(int scon)
         .file = create_buffered_file(scon, IN_BUF_SIZE, OUT_BUF_SIZE),
     };
 
-    count_connection(true);
     if (process_data_request(&connection))
     {
-        while (wait_for_capture(&connection))
+        connection.reader = create_reader(data_buffer);
+        size_t lost_bytes;
+        while (wait_for_capture(&connection, &lost_bytes))
         {
-            count_active_client(true);
             send_data_header(&connection);
             send_data_stream(&connection);
-            count_active_client(false);
+            enum reader_status status = close_reader(connection.reader);
+            send_data_completion(&connection, status);
         }
+        destroy_reader(connection.reader);
     }
-    count_connection(false);
 
     return destroy_buffered_file(connection.file);
 }
@@ -303,12 +312,20 @@ error__t start_data_server(void)
 }
 
 
+void terminate_data_server_early(void)
+{
+    if (data_thread_started)
+    {
+        stop_data_thread();
+        error_report(TEST_PTHREAD(pthread_join(data_thread_id, NULL)));
+        reset_buffer(data_buffer);
+    }
+}
+
+
 void terminate_data_server(void)
 {
-    stop_data_thread();
-    if (data_thread_started)
-        error_report(
-            TEST_PTHREAD(pthread_join(data_thread_id, NULL)));
+    /* Can't do this safely until all our clients have gone. */
     if (data_buffer)
         destroy_buffer(data_buffer);
 }

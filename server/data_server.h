@@ -11,6 +11,10 @@ error__t initialise_data_server(void);
  * avoid losing the created thread! */
 error__t start_data_server(void);
 
+/* Terminating the data server needs to be done in two stages to avoid delays.
+ * The _early call ensures that none of the data clients are blocked, and the
+ * final call must not be called until the sockets have cleared. */
+void terminate_data_server_early(void);
 void terminate_data_server(void);
 
 /* This is called at the completion of capture arming to initiate reading from

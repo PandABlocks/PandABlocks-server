@@ -6,6 +6,7 @@
 #include <time.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stdio.h>
 
 #include "error.h"
 #include "locking.h"
@@ -22,22 +23,26 @@ void pwait_initialise(pthread_cond_t *signal)
 }
 
 
-bool pwait_timeout(
-    pthread_mutex_t *mutex, pthread_cond_t *signal,
-    unsigned int secs, unsigned long nsecs)
+void compute_deadline(
+    const struct timespec *timeout, struct timespec *deadline)
 {
-    struct timespec timeout;
-    ASSERT_IO(clock_gettime(CLOCK_MONOTONIC, &timeout));
+    ASSERT_IO(clock_gettime(CLOCK_MONOTONIC, deadline));
 
-    timeout.tv_sec += (int) secs;
-    timeout.tv_nsec += (long) nsecs;
-    if (timeout.tv_nsec >= NSECS)
+    deadline->tv_sec  += timeout->tv_sec;
+    deadline->tv_nsec += timeout->tv_nsec;
+    if (deadline->tv_nsec >= NSECS)
     {
-        timeout.tv_nsec -= NSECS;
-        timeout.tv_sec += 1;
+        deadline->tv_nsec -= NSECS;
+        deadline->tv_sec += 1;
     }
+}
 
-    int rc = pthread_cond_timedwait(signal, mutex, &timeout);
+
+bool pwait_deadline(
+    pthread_mutex_t *mutex, pthread_cond_t *signal,
+    const struct timespec *deadline)
+{
+    int rc = pthread_cond_timedwait(signal, mutex, deadline);
     if (rc == ETIMEDOUT)
         return false;
     else
@@ -45,4 +50,14 @@ bool pwait_timeout(
         ASSERT_PTHREAD(rc);
         return true;
     }
+}
+
+
+bool pwait_timeout(
+    pthread_mutex_t *mutex, pthread_cond_t *signal,
+    const struct timespec *timeout)
+{
+    struct timespec deadline;
+    compute_deadline(timeout, &deadline);
+    return pwait_deadline(mutex, signal, &deadline);
 }

@@ -241,7 +241,8 @@ static bool interruptible_timeout(unsigned int delay)
 {
     LOCK(mutex);
     if (thread_running)
-        pwait_timeout(&mutex, &psignal, delay, 0);
+        pwait_timeout(
+            &mutex, &psignal, &(struct timespec) { .tv_sec = delay, });
     bool running = thread_running;
     UNLOCK(mutex);
     return running;

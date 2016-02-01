@@ -24,15 +24,16 @@ struct buffer {
     pthread_cond_t signal;  // Used to trigger wakeup events
 
     void *buffer;           // Base of captured data buffer
-    /* Cycle and capture counting are used to manage connections without having
-     * to keep track of clients.  If the client and buffer capture_count don't
-     * agree then the client has been reset, and the cycle_count is used to
-     * check whether the client's buffer has been overwritten. */
-    unsigned int capture_count; // Counts data capture cycles
-    unsigned int cycle_count;   // Counts buffer cycles, for overrun detection
+    /* Capture and buffer cycle counting are used to manage connections without
+     * having to keep track of clients.  If the client and buffer capture_cycle
+     * don't agree then the client has been reset, and the buffer_cycle is used
+     * to check whether the client's buffer has been overwritten. */
+    unsigned int capture_cycle; // Counts data capture cycles
+    unsigned int buffer_cycle;  // Counts buffer cycles, for overrun detection
 
     bool active;            // True if data currently being captured
     unsigned int reader_count;  // Number of connected readers
+    unsigned int active_count;  // Number of connected active readers
 
     size_t in_ptr;          // Index of next block to write
     size_t lost_bytes;      // Length of overwritten data so far.
@@ -43,9 +44,10 @@ struct buffer {
 
 struct reader_state {
     struct buffer *buffer;  // Buffer we're reading from
-    unsigned int capture_count;
-    unsigned int cycle_count;
+    unsigned int capture_cycle;
+    unsigned int buffer_cycle;
     size_t out_ptr;         // Index of our current block
+    bool active;            // Sanity check against incorrect usage
     enum reader_status status;  // Return code
 };
 
@@ -56,10 +58,10 @@ struct reader_state {
 void start_write(struct buffer *buffer)
 {
     ASSERT_OK(!buffer->active);
-    ASSERT_OK(!buffer->reader_count);
+    ASSERT_OK(!buffer->active_count);
 
     LOCK(buffer->mutex);
-    buffer->cycle_count = 0;
+    buffer->buffer_cycle = 0;
     buffer->active = true;
     buffer->in_ptr = 0;
     buffer->lost_bytes = 0;
@@ -98,7 +100,7 @@ void release_write_block(struct buffer *buffer, size_t written)
     if (buffer->in_ptr >= buffer->block_count)
     {
         buffer->in_ptr = 0;
-        buffer->cycle_count += 1;
+        buffer->buffer_cycle += 1;
     }
 
     /* Let all clients know there's data to read. */
@@ -115,8 +117,8 @@ void end_write(struct buffer *buffer)
     buffer->active = false;
     /* Only advance the capture count on a normal end when there are no more
      * readers. */
-    if (buffer->reader_count == 0)
-        buffer->capture_count += 1;
+    if (buffer->active_count == 0)
+        buffer->capture_cycle += 1;
     else
         /* Let clients know there's something to deal with. */
         BROADCAST(buffer->signal);
@@ -124,35 +126,39 @@ void end_write(struct buffer *buffer)
 }
 
 
-/* This is called when a reader disconnects, but ONLY if the capture_count
+/* This is called when a reader disconnects, but ONLY if the capture_cycle
  * fields agree. */
 static void disconnect_client(struct buffer *buffer)
 {
-    buffer->reader_count -= 1;
-    if (buffer->reader_count == 0)
-        buffer->capture_count += 1;
+    buffer->active_count -= 1;
+    if (!buffer->active  &&  buffer->active_count == 0)
+        buffer->capture_cycle += 1;
 }
 
 
 void reset_buffer(struct buffer *buffer)
 {
-    ASSERT_OK(!buffer->active);
-
     LOCK(buffer->mutex);
-    if (buffer->reader_count > 0)
+    if (!buffer->active)
     {
-        buffer->reader_count = 0;
-        buffer->capture_count += 1;
+        if (buffer->active_count > 0)
+        {
+            buffer->active_count = 0;
+            buffer->capture_cycle += 1;
+        }
     }
+    BROADCAST(buffer->signal);
     UNLOCK(buffer->mutex);
 }
 
 
-bool read_buffer_status(struct buffer *buffer, unsigned int *clients)
+bool read_buffer_status(
+    struct buffer *buffer, unsigned int *readers, unsigned int *active_readers)
 {
     LOCK(buffer->mutex);
     bool active = buffer->active;
-    *clients = buffer->reader_count;
+    *readers = buffer->reader_count;
+    *active_readers = buffer->active_count;
     UNLOCK(buffer->mutex);
     return active;
 }
@@ -160,6 +166,32 @@ bool read_buffer_status(struct buffer *buffer, unsigned int *clients)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Reader API. */
+
+
+struct reader_state *create_reader(struct buffer *buffer)
+{
+    struct reader_state *reader = malloc(sizeof(struct reader_state));
+    LOCK(buffer->mutex);
+    *reader = (struct reader_state) {
+        .buffer = buffer,
+        .capture_cycle = buffer->capture_cycle,
+    };
+    buffer->reader_count += 1;
+    UNLOCK(buffer->mutex);
+    return reader;
+}
+
+
+void destroy_reader(struct reader_state *reader)
+{
+    ASSERT_OK(!reader->active);
+
+    struct buffer *buffer = reader->buffer;
+    LOCK(buffer->mutex);
+    buffer->reader_count -= 1;
+    UNLOCK(buffer->mutex);
+    free(reader);
+}
 
 
 /* The counting of lost bytes interacts closely with the updating of the written
@@ -187,26 +219,26 @@ static void compute_reader_start(
 {
     struct buffer *buffer = reader->buffer;
     /* If the buffer is not too full then we don't have to think. */
-    if (buffer->cycle_count == 0  &&
+    if (buffer->buffer_cycle == 0  &&
         buffer->in_ptr + read_margin + 1 < buffer->block_count)
     {
-        reader->cycle_count = 0;
+        reader->buffer_cycle = 0;
         reader->out_ptr = 0;
         *lost_bytes = 0;
     }
     else
     {
-        /* Hum.  Not enough margin.  Compute out_ptr, associated cycle_count,
+        /* Hum.  Not enough margin.  Compute out_ptr, associated buffer_cycle,
          * and lost bytes. */
         size_t out_ptr = buffer->in_ptr + read_margin + 1;
         if (out_ptr >= buffer->block_count)
         {
-            reader->cycle_count = buffer->cycle_count - 1;
+            reader->buffer_cycle = buffer->buffer_cycle - 1;
             reader->out_ptr = out_ptr - buffer->block_count;
         }
         else
         {
-            reader->cycle_count = buffer->cycle_count;
+            reader->buffer_cycle = buffer->buffer_cycle;
             reader->out_ptr = out_ptr;
         }
         *lost_bytes = count_lost_bytes(buffer, reader->out_ptr);
@@ -214,37 +246,66 @@ static void compute_reader_start(
 }
 
 
-struct reader_state *open_reader(
-    struct buffer *buffer, unsigned int read_margin, size_t *lost_bytes)
+static bool wait_for_buffer_ready(
+    struct reader_state *reader, const struct timespec *timeout)
 {
-    struct reader_state *reader = malloc(sizeof(struct reader_state));
+    struct timespec deadline;
+    compute_deadline(timeout, &deadline);
+
+    struct buffer *buffer = reader->buffer;
+    bool ready;
+    /* Wait until the buffer is ready and we have a fresh capture cycle to work
+     * with or until the deadline expires. */
+    do
+        ready =
+            buffer->active  &&
+            buffer->capture_cycle >= reader->capture_cycle;
+    while (!ready  &&
+           pwait_deadline(&buffer->mutex, &buffer->signal, &deadline));
+    return ready;
+}
+
+
+bool open_reader(
+    struct reader_state *reader, unsigned int read_margin,
+    const struct timespec *timeout, size_t *lost_bytes)
+{
+    ASSERT_OK(!reader->active);
+
+    struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
-    *reader = (struct reader_state) {
-        .buffer = buffer,
-        .capture_count = buffer->capture_count,
-        /* This is the status that will be returned if we close the reader
-         * prematurely. */
-        .status = READER_STATUS_CLOSED,
-    };
-    compute_reader_start(reader, read_margin, lost_bytes);
+
+    /* Wait for buffer to become active with a newer capture. */
+    bool active = wait_for_buffer_ready(reader, timeout);
+    if (active)
+    {
+        /* Add ourself to the client count and prepare capture.. */
+        buffer->active_count += 1;
+        reader->active = true;
+        reader->capture_cycle = buffer->capture_cycle;
+        compute_reader_start(reader, read_margin, lost_bytes);
+        reader->status = READER_STATUS_CLOSED;
+    }
     UNLOCK(buffer->mutex);
 
-    return reader;
+    return active;
 }
 
 
 enum reader_status close_reader(struct reader_state *reader)
 {
+    ASSERT_OK(reader->active);
+
     struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
     /* If we can, count ourself off. */
-    if (reader->capture_count == buffer->capture_count)
+    if (reader->capture_cycle == buffer->capture_cycle)
         disconnect_client(buffer);
     UNLOCK(buffer->mutex);
 
-    enum reader_status status = reader->status;
-    free(reader);
-    return status;
+    reader->active = false;
+    reader->capture_cycle += 1;
+    return reader->status;
 }
 
 
@@ -254,7 +315,7 @@ enum reader_status close_reader(struct reader_state *reader)
  * eliminates that risk. */
 static bool check_overrun_ok(
     struct reader_state *reader,
-    unsigned int cycle_count, size_t in_ptr, size_t out_ptr)
+    unsigned int buffer_cycle, size_t in_ptr, size_t out_ptr)
 {
     if (in_ptr == out_ptr)
         /* Unmistakable collision! */
@@ -262,11 +323,11 @@ static bool check_overrun_ok(
     else if (in_ptr > out_ptr)
         /* Out pointer ahead of in pointer.  We're ok if we're both on the same
          * cycle. */
-        return cycle_count == reader->cycle_count;
+        return buffer_cycle == reader->buffer_cycle;
     else
         /* Out pointer behind in pointer.  In this case the buffer should be one
          * step ahead of us. */
-        return cycle_count == reader->cycle_count + 1;
+        return buffer_cycle == reader->buffer_cycle + 1;
 }
 
 
@@ -278,18 +339,18 @@ static bool check_block_status(struct reader_state *reader, size_t out_ptr)
 
     struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
-    unsigned int capture_count = buffer->capture_count;
-    unsigned int cycle_count = buffer->cycle_count;
+    unsigned int capture_cycle = buffer->capture_cycle;
+    unsigned int buffer_cycle = buffer->buffer_cycle;
     size_t in_ptr = buffer->in_ptr;
     UNLOCK(buffer->mutex);
 
-    if (reader->capture_count != capture_count)
+    if (reader->capture_cycle != capture_cycle)
     {
         /* We're now in the wrong capture cycle, let's call this a reset. */
         reader->status = READER_STATUS_RESET;
         return false;
     }
-    else if (!check_overrun_ok(reader, cycle_count, in_ptr, out_ptr))
+    else if (!check_overrun_ok(reader, buffer_cycle, in_ptr, out_ptr))
     {
         reader->status = READER_STATUS_OVERRUN;
         return false;
@@ -301,7 +362,11 @@ static bool check_block_status(struct reader_state *reader, size_t out_ptr)
 
 bool check_read_block(struct reader_state *reader)
 {
-    return check_block_status(reader, reader->out_ptr);
+    /* Because out_ptr is the *next* block we're going to read, we need to
+     * compute the out_ptr of the current block. */
+    size_t out_ptr = reader->out_ptr == 0 ?
+        reader->buffer->block_count : reader->out_ptr;
+    return check_block_status(reader, out_ptr - 1);
 }
 
 
@@ -310,15 +375,18 @@ static bool _pure waiting_for_input(struct reader_state *reader)
 {
     struct buffer *buffer = reader->buffer;
     return
-        buffer->capture_count == reader->capture_count  &&
-        buffer->cycle_count == reader->cycle_count  &&
+        buffer->capture_cycle == reader->capture_cycle  &&
+        buffer->buffer_cycle == reader->buffer_cycle  &&
         buffer->in_ptr == reader->out_ptr;
 }
 
 
 const void *get_read_block(struct reader_state *reader, size_t *length)
 {
-    ASSERT_OK(reader->status == READER_STATUS_CLOSED);
+    /* If the status is not in the default state (confusingly, this is the state
+     * which will be returned if we close prematurely) then return nothing. */
+    if (reader->status != READER_STATUS_CLOSED)
+        return NULL;
 
     struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
@@ -343,7 +411,10 @@ const void *get_read_block(struct reader_state *reader, size_t *length)
 
         /* Check the status of the block we're about to return. */
         if (check_block_status(reader, out_ptr))
+        {
+            *length = buffer->written[out_ptr];
             return get_buffer(buffer, out_ptr);
+        }
         else
             return NULL;
     }
@@ -361,9 +432,9 @@ struct buffer *create_buffer(size_t block_size, size_t block_count)
         .block_size = block_size,
         .block_count = block_count,
         .mutex = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER,
-        .signal = (pthread_cond_t) PTHREAD_COND_INITIALIZER,
         .buffer = malloc(block_count * block_size),
     };
+    pwait_initialise(&buffer->signal);
     return buffer;
 }
 

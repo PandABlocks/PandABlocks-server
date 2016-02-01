@@ -33,7 +33,8 @@ void release_write_block(struct buffer *buffer, size_t written);
 
 
 /* Returns true if buffer is taking data, and count of active clients. */
-bool read_buffer_status(struct buffer *buffer, unsigned int *clients);
+bool read_buffer_status(
+    struct buffer *buffer, unsigned int *readers, unsigned int *active);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -42,10 +43,18 @@ bool read_buffer_status(struct buffer *buffer, unsigned int *clients);
 /* A single reader connected to a buffer. */
 struct reader_state;
 
-/* Creates a new reading connection to the buffer.  If the connection is too
- * late to receive all data then the number of missed bytes is returned. */
-struct reader_state *open_reader(
-    struct buffer *buffer, unsigned int read_margin, size_t *lost_bytes);
+/* Creates a reader connected to the buffer. */
+struct reader_state *create_reader(struct buffer *buffer);
+
+/* Releases resources used by a reader. */
+void destroy_reader(struct reader_state *reader);
+
+/* Blocks until the buffer is ready for a new read session or times out,
+ * returning false on timeout.  If the connection is too late to receive all
+ * data then the number of missed bytes is returned. */
+bool open_reader(
+    struct reader_state *reader, unsigned int read_margin,
+    const struct timespec *timeout, size_t *lost_bytes);
 
 /* Returns status of reader when reader closed. */
 enum reader_status {
@@ -55,7 +64,8 @@ enum reader_status {
     READER_STATUS_RESET,    // Buffer forcibly reset
 };
 
-/* Closes a previously opened reader connection, returns status. */
+/* Closes a previously opened reader connection, returns status.  The reader can
+ * now be recycled by calling open_reader() again. */
 enum reader_status close_reader(struct reader_state *reader);
 
 
