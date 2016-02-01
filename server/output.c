@@ -674,6 +674,9 @@ static error__t ext_out_init(
     enum output_type output_type = 0;
     return
         parse_ext_out_type(line, &output_type)  ?:
+        IF(**line,
+            DO( printf("Ignoring extra ext_out text: \"%s\"\n", *line);
+                *line += strlen(*line)))  ?:
         output_init(
             output_type, &ext_output_methods, NULL,
             count, attr_map, class_data);
