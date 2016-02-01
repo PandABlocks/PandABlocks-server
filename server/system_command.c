@@ -304,8 +304,8 @@ static error__t lookup_pcap_get_action(
         IF_ELSE(strcmp(name, "STATUS") == 0,
             DO(*action = capture_status),
         //else
-        IF_ELSE(strcmp(name, "WAITING") == 0,
-            DO(*action = capture_waiting),
+        IF_ELSE(strcmp(name, "CONNECTED") == 0,
+            DO(*action = capture_connected),
         //else
             FAIL_("Invalid *PCAP field")));
 }

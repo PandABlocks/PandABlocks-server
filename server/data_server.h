@@ -23,4 +23,4 @@ void start_data_capture(void);
 void reset_data_capture(void);
 
 /* Returns numbers of connected clients. */
-void get_data_capture_counts(unsigned int *reading, unsigned int *waiting);
+void get_data_capture_counts(unsigned int *connected, unsigned int *reading);

@@ -80,6 +80,7 @@ void data_capture_complete(void)
 }
 
 
+/* This is called when a data client taking data disconnectes. */
 void data_clients_complete(void)
 {
     LOCK(capture_mutex);
@@ -103,9 +104,9 @@ error__t capture_status(struct connection_result *result)
 }
 
 
-error__t capture_waiting(struct connection_result *result)
+error__t capture_connected(struct connection_result *result)
 {
-    unsigned int reading, waiting;
-    get_data_capture_counts(&reading, &waiting);
-    return write_one_result(result, "%u %u", reading, waiting);
+    unsigned int connected, reading;
+    get_data_capture_counts(&connected, &reading);
+    return write_one_result(result, "%u %u", connected, reading);
 }

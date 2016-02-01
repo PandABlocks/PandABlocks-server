@@ -58,7 +58,9 @@ struct session {
     pthread_t thread;               // Thread id of connection thread
     char name[64];                  // Name of connected client
 
-    /* Two lifetime control flags. */
+    /* We may need to hang onto a session instance longer than its natural
+     * lifetime while generating usage reports, this reference count is used to
+     * manage this. */
     unsigned int ref_count;
 };
 

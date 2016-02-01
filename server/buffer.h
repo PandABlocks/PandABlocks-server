@@ -2,40 +2,70 @@
 
 /* The buffer. */
 struct buffer;
-/* A single reader connected to a buffer. */
-struct reader_state;
+
 
 /* Prepares central memory buffer. */
 struct buffer *create_buffer(size_t block_size, size_t block_count);
+
 /* Destroys memory buffer. */
 void destroy_buffer(struct buffer *buffer);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Writing to the buffer. */
+
+/* Initiates a write cycle. */
+void start_write(struct buffer *buffer);
+
+/* Completes a write cycle. */
+void end_write(struct buffer *buffer);
+
+/* Resets the buffer to empty.  Any active readers will fail. */
+void reset_buffer(struct buffer *buffer);
 
 /* Reserves the next slot in the buffer for writing. An entire contiguous
  * block of block_size bytes is guaranteed to be returned, and
  * release_write_block() must be called when writing is complete. */
-void *get_write_block(struct buffer *buffer, size_t *block_size);
-/* Releases the write block.  The number of bytes written is specified together
- * with the state of the data stream: at end of capture data_end is set to true.
- * It is valid to write zero bytes. */
-void release_write_block(struct buffer *buffer, size_t written, bool data_end);
+void *get_write_block(struct buffer *buffer);
 
-/* Creates a new reading connection to the buffer. */
-struct reader_state *open_reader(struct buffer *buffer);
-/* Closes a previously opened reader connection. */
-void close_reader(struct reader_state *reader);
+/* Releases the write block, specifies number of bytes written. */
+void release_write_block(struct buffer *buffer, size_t written);
+
+
+/* Returns true if buffer is taking data, and count of active clients. */
+bool read_buffer_status(struct buffer *buffer, unsigned int *clients);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Reading from the buffer */
+
+/* A single reader connected to a buffer. */
+struct reader_state;
+
+/* Creates a new reading connection to the buffer.  If the connection is too
+ * late to receive all data then the number of missed bytes is returned. */
+struct reader_state *open_reader(
+    struct buffer *buffer, unsigned int read_margin, size_t *lost_bytes);
+
+/* Returns status of reader when reader closed. */
+enum reader_status {
+    READER_STATUS_ALL_READ, // Valid buffer data
+    READER_STATUS_CLOSED,   // Close called early while data still available
+    READER_STATUS_OVERRUN,  // Input data overrun
+    READER_STATUS_RESET,    // Buffer forcibly reset
+};
+
+/* Closes a previously opened reader connection, returns status. */
+enum reader_status close_reader(struct reader_state *reader);
+
 
 /* Blocks until an entire block_size block is available to be read out, returns
- * pointer to data to be read.  At the end of the data stream NULL is returned,
- * and release_write_block() should not be called before calling
- * get_read_block() again. */
+ * pointer to data to be read.  Call this repeatedly to advance through the
+ * buffer, returns NULL once no more data available. */
 const void *get_read_block(struct reader_state *reader, size_t *length);
 
-size_t read_block_data(
-    struct reader_state *reader, size_t length, bool *data_end);
-
-
-
-/* Releases the write block.  If false is returned then the block was
- * overwritten while locked due to reader underrun.  Only call if non-NULL value
- * returned by get_read_block(). */
-bool release_read_block(struct reader_state *reader);
+/* Returns true if the current read block remains valid, returns false if the
+ * buffer has been reset or if the current read block has been overwritten.
+ * This MUST be called after consuming the contents of the block returned by
+ * get_read_block. */
+bool check_read_block(struct reader_state *reader);
