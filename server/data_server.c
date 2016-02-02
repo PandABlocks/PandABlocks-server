@@ -190,10 +190,11 @@ error__t disarm_capture(void)
 
 error__t reset_capture(void)
 {
-    LOCK(data_thread_mutex);
-    error__t error = FAIL_("Not implemented");
-    UNLOCK(data_thread_mutex);
-    return error;
+    /* For reset we just make a best effort.  This may silently do nothing if
+     * called at the wrong time.  Too bad. */
+    hw_write_arm(false);
+    reset_buffer(data_buffer);
+    return ERROR_OK;
 }
 
 
@@ -257,7 +258,7 @@ static bool check_connection(struct data_connection *connection)
 
 /* Block until capture begins or the socket is closed. */
 static bool wait_for_capture(
-    struct data_connection *connection, size_t *lost_bytes)
+    struct data_connection *connection, uint64_t *lost_bytes)
 {
     /* Block here waiting for data capture to begin or for the client to
      * disconnect.  Alas, detecting disconnection is a bit of a pain: we either
@@ -342,7 +343,7 @@ error__t process_data_socket(int scon)
     if (process_data_request(&connection))
     {
         connection.reader = create_reader(data_buffer);
-        size_t lost_bytes;
+        uint64_t lost_bytes;
         while (wait_for_capture(&connection, &lost_bytes))
         {
             send_data_header(&connection);

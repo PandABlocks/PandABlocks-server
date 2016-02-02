@@ -10,6 +10,9 @@ struct buffer *create_buffer(size_t block_size, size_t block_count);
 /* Destroys memory buffer. */
 void destroy_buffer(struct buffer *buffer);
 
+/* Forces buffer into shutdown mode: all readers will fail immediately. */
+void shutdown_buffer(struct buffer *buffer);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Writing to the buffer. */
@@ -19,12 +22,6 @@ void start_write(struct buffer *buffer);
 
 /* Completes a write cycle. */
 void end_write(struct buffer *buffer);
-
-/* Resets the buffer to empty.  Any active readers will fail. */
-void reset_buffer(struct buffer *buffer);
-
-/* Forces buffer into shutdown mode: all readers will fail immediately. */
-void shutdown_buffer(struct buffer *buffer);
 
 /* Reserves the next slot in the buffer for writing. An entire contiguous
  * block of block_size bytes is guaranteed to be returned, and
@@ -39,12 +36,23 @@ void release_write_block(struct buffer *buffer, size_t written);
 bool read_buffer_status(
     struct buffer *buffer, unsigned int *readers, unsigned int *active);
 
+/* Resets the buffer to empty.  Any active readers will fail. */
+void reset_buffer(struct buffer *buffer);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Reading from the buffer */
 
 /* A single reader connected to a buffer. */
 struct reader_state;
+
+/* Returned status of reader when reader closed. */
+enum reader_status {
+    READER_STATUS_ALL_READ, // Valid buffer data
+    READER_STATUS_CLOSED,   // Close called early while data still available
+    READER_STATUS_OVERRUN,  // Input data overrun
+    READER_STATUS_RESET,    // Buffer forcibly reset
+};
 
 /* Creates a reader connected to the buffer. */
 struct reader_state *create_reader(struct buffer *buffer);
@@ -57,15 +65,7 @@ void destroy_reader(struct reader_state *reader);
  * data then the number of missed bytes is returned. */
 bool open_reader(
     struct reader_state *reader, unsigned int read_margin,
-    const struct timespec *timeout, size_t *lost_bytes);
-
-/* Returns status of reader when reader closed. */
-enum reader_status {
-    READER_STATUS_ALL_READ, // Valid buffer data
-    READER_STATUS_CLOSED,   // Close called early while data still available
-    READER_STATUS_OVERRUN,  // Input data overrun
-    READER_STATUS_RESET,    // Buffer forcibly reset
-};
+    const struct timespec *timeout, uint64_t *lost_bytes);
 
 /* Closes a previously opened reader connection, returns status.  The reader can
  * now be recycled by calling open_reader() again. */

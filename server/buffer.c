@@ -37,7 +37,7 @@ struct buffer {
     unsigned int active_count;  // Number of connected active readers
 
     size_t in_ptr;          // Index of next block to write
-    size_t lost_bytes;      // Length of overwritten data so far.
+    uint64_t lost_bytes;    // Length of overwritten data so far.
 
     size_t written[];       // Bytes written into each block
 };
@@ -130,15 +130,12 @@ static void disconnect_client(struct buffer *buffer)
 void reset_buffer(struct buffer *buffer)
 {
     LOCK(buffer->mutex);
-    if (!buffer->active)
+    if (!buffer->active  &&  buffer->active_count > 0)
     {
-        if (buffer->active_count > 0)
-        {
-            buffer->active_count = 0;
-            buffer->capture_cycle += 1;
-        }
+        buffer->active_count = 0;
+        buffer->capture_cycle += 1;
+        BROADCAST(buffer->signal);
     }
-    BROADCAST(buffer->signal);
     UNLOCK(buffer->mutex);
 }
 
@@ -205,9 +202,9 @@ void destroy_reader(struct reader_state *reader)
  * and lost counts in release_write_block.  We include the in_ptr block in our
  * count here because it doesn't get added to .lost_bytes until the write is
  * complete. */
-static size_t count_lost_bytes(struct buffer *buffer, size_t out_ptr)
+static uint64_t count_lost_bytes(struct buffer *buffer, size_t out_ptr)
 {
-    size_t lost_bytes = buffer->lost_bytes;
+    uint64_t lost_bytes = buffer->lost_bytes;
     for (size_t ix = buffer->in_ptr; ix != out_ptr; )
     {
         lost_bytes += buffer->written[ix];
@@ -222,7 +219,7 @@ static size_t count_lost_bytes(struct buffer *buffer, size_t out_ptr)
 /* Computes a sensible starting point for the reader and compute the number of
  * missed bytes. */
 static void compute_reader_start(
-    struct reader_state *reader, unsigned int read_margin, size_t *lost_bytes)
+    struct reader_state *reader, unsigned int read_margin, uint64_t *lost_bytes)
 {
     struct buffer *buffer = reader->buffer;
     /* If the buffer is not too full then we don't have to think. */
@@ -240,12 +237,12 @@ static void compute_reader_start(
         size_t out_ptr = buffer->in_ptr + read_margin + 1;
         if (out_ptr >= buffer->block_count)
         {
-            reader->buffer_cycle = buffer->buffer_cycle - 1;
+            reader->buffer_cycle = buffer->buffer_cycle;
             reader->out_ptr = out_ptr - buffer->block_count;
         }
         else
         {
-            reader->buffer_cycle = buffer->buffer_cycle;
+            reader->buffer_cycle = buffer->buffer_cycle - 1;
             reader->out_ptr = out_ptr;
         }
         *lost_bytes = count_lost_bytes(buffer, reader->out_ptr);
@@ -280,7 +277,7 @@ static bool wait_for_buffer_ready(
 
 bool open_reader(
     struct reader_state *reader, unsigned int read_margin,
-    const struct timespec *timeout, size_t *lost_bytes)
+    const struct timespec *timeout, uint64_t *lost_bytes)
 {
     struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
