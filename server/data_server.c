@@ -23,13 +23,15 @@
 #include "data_server.h"
 
 
+/* Central circular data buffer. */
 #define DATA_BLOCK_SIZE         (1U << 18)
 #define DATA_BLOCK_COUNT        16
 
-/* File buffers. */
+/* File buffers.  These are only used for text buffered text communication on
+ * the data channel. */
 #define IN_BUF_SIZE             4096
 #define OUT_BUF_SIZE            4096
-/* Proper network buffer. */
+/* Proper network buffer.  All data communication uses this buffer size. */
 #define NET_BUF_SIZE            16384
 
 
@@ -51,30 +53,39 @@
 static pthread_mutex_t data_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t data_thread_event;
 
+/* Thread id for shutdown synchronisation.  Alas, we need a separate thread to
+ * record whether this id is valid. */
 static pthread_t data_thread_id;
 static bool data_thread_started = false;
+
+
+/* The data capture thread drives the two core state machines associated with
+ * data capture: hardware and the data capture buffer.
+ *
+ *  Hardware data capture is either Idle or Busy.  The transition to Busy is in
+ *  response to *PCAP.ARM= while the transition back to Idle is notified to the
+ *  capture thread.  Thus the data_capture_enabled flag effectively encapsulates
+ *  the state of the hardware as far as software is concerned.
+ *
+ *  The data capture buffer is also either Idle or Busy, and this state is also
+ *  directly controlled by the data capture thread, but in the Idle state we
+ *  also have to check the number of connected busy clients: if a client is busy
+ *  we cannot start a new capture.
+ *
+ * The data_capture_enabled flag is used to distinguish these two states.  The
+ * data_thread_running flag is used to trigger an orderly shutdown of the thread
+ * on server shutdown. */
+static bool data_capture_enabled = false;
 static volatile bool data_thread_running = true;
 
-/* Set during data capture, reset when capture complete. */
-static bool data_capture_enabled = false;
-
+/* Data capture buffer. */
 static struct buffer *data_buffer;
 
 
-/* Number of currently connected data clients. */
-static unsigned int connected_client_count;
-/* Number of data clients current taking data. */
-static unsigned int active_client_count;
-
-
+/* Performs a complete experiment capture: start data buffer, process the data
+ * stream until hardware is complete, stop data buffer.. */
 static void capture_experiment(void)
 {
-    /* Wait for data capture to start. */
-    LOCK(data_thread_mutex);
-    while (data_thread_running  &&  !data_capture_enabled)
-        WAIT(data_thread_mutex, data_thread_event);
-    UNLOCK(data_thread_mutex);
-
     start_write(data_buffer);
 
     bool at_eof = false;
@@ -93,57 +104,105 @@ static void capture_experiment(void)
 }
 
 
+/* Data thread: the responsive half of the data capture state machine.  Captures
+ * hardware data to internal buffer in response to triggered experiments. */
 static void *data_thread(void *context)
 {
     while (data_thread_running)
     {
-        capture_experiment();
+        /* Wait for data capture to start. */
+        LOCK(data_thread_mutex);
+        while (data_thread_running  &&  !data_capture_enabled)
+            WAIT(data_thread_mutex, data_thread_event);
+        UNLOCK(data_thread_mutex);
+
+        if (data_thread_running)
+            capture_experiment();
 
         LOCK(data_thread_mutex);
         data_capture_enabled = false;
-        if (data_thread_running)
-        {
-            data_capture_complete();
-            if (active_client_count == 0)
-                data_clients_complete();
-        }
         UNLOCK(data_thread_mutex);
     }
     return NULL;
 }
 
 
-void start_data_capture(void)
-{
-    LOCK(data_thread_mutex);
-    data_capture_enabled = true;
-    BROADCAST(data_thread_event);
-    UNLOCK(data_thread_mutex);
-}
-
-
-void reset_data_capture(void)
-{
-    data_clients_complete();
-}
-
-
+/* Forces the data capture thread to exit in an orderly way. */
 static void stop_data_thread(void)
 {
     LOCK(data_thread_mutex);
     data_thread_running = false;
-    BROADCAST(data_thread_event);
+    SIGNAL(data_thread_event);
     UNLOCK(data_thread_mutex);
 }
 
 
-void get_data_capture_counts(unsigned int *connected, unsigned int *reading)
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* User interface and control. */
+
+
+/* Note that if this function returns ERROR_OK then the mutex remains held. */
+error__t lock_capture_disabled(void)
 {
-    /* We lock this so that we get a consistent pair of values. */
     LOCK(data_thread_mutex);
-    *connected = connected_client_count;
-    *reading = active_client_count;
+    error__t error = TEST_OK_(!data_capture_enabled,
+        "Data capture in progress");
+    if (error)
+        UNLOCK(data_thread_mutex);
+    return error;
+}
+
+void unlock_capture_disabled(void)
+{
     UNLOCK(data_thread_mutex);
+}
+
+
+error__t arm_capture(void)
+{
+    LOCK(data_thread_mutex);
+    unsigned int readers, active;
+    error__t error =
+        TEST_OK_(!data_capture_enabled, "Data capture already in progress")  ?:
+        /* If data capture is not enabled then we can safely expect the buffer
+         * status to be idle. */
+        TEST_OK(!read_buffer_status(data_buffer, &readers, &active))  ?:
+        TEST_OK_(active == 0, "Data clients still taking data");
+    if (!error)
+    {
+        prepare_data_capture();
+        hw_write_arm(true);
+
+        data_capture_enabled = true;
+        SIGNAL(data_thread_event);
+    }
+    UNLOCK(data_thread_mutex);
+    return error;
+}
+
+
+error__t disarm_capture(void)
+{
+    hw_write_arm(false);
+    return ERROR_OK;
+}
+
+
+error__t reset_capture(void)
+{
+    LOCK(data_thread_mutex);
+    error__t error = FAIL_("Not implemented");
+    UNLOCK(data_thread_mutex);
+    return error;
+}
+
+
+error__t capture_status(struct connection_result *result)
+{
+    unsigned int readers, active;
+    bool status = read_buffer_status(data_buffer, &readers, &active);
+    return write_one_result(
+        result, "%s %u %u", status ? "Busy" : "Idle", readers, active);
 }
 
 

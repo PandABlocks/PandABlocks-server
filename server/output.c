@@ -10,6 +10,7 @@
 #include "hardware.h"
 #include "parse.h"
 #include "config_server.h"
+#include "data_server.h"
 #include "fields.h"
 #include "classes.h"
 #include "attributes.h"
@@ -514,8 +515,7 @@ static error__t capture_put(
             "Not a valid capture option")  ?:
 
         /* Forbid any changes to the capture setup during capture. */
-        WITH_CAPTURE_STATE(capture_state,
-            TEST_OK_(capture_state != CAPTURE_ACTIVE, "Capture in progress")  ?:
+        IF_CAPTURE_DISABLED(
             WITH_LOCK(mutex,
                 DO(state->methods->set_capture(
                     state->index_array[number], capture))));
