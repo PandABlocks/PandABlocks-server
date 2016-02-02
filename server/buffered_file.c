@@ -61,10 +61,11 @@ static void send_entire_buffer(
 
 /* Writes out the entire output buffer, retrying as necessary to ensure it's all
  * gone. */
-void flush_out_buf(struct buffered_file *file)
+bool flush_out_buf(struct buffered_file *file)
 {
     send_entire_buffer(file, file->out_buf, file->out_length);
     file->out_length = 0;
+    return !file->error;
 }
 
 
@@ -152,7 +153,7 @@ bool read_block(struct buffered_file *file, char data[], size_t length)
 
 
 /* Writes a string to the output buffer, flushing it to make room if needed. */
-void write_string(
+bool write_string(
     struct buffered_file *file, const char *string, size_t length)
 {
     while (!file->error  &&  length > 0)
@@ -168,20 +169,22 @@ void write_string(
         if (file->out_length >= file->out_buf_size)  // Only == is possible!
             flush_out_buf(file);
     }
+    return !file->error;
 }
 
 
-void write_block(
+bool write_block(
     struct buffered_file *file, const void *buffer, size_t length)
 {
     flush_out_buf(file);
     send_entire_buffer(file, buffer, length);
+    return !file->error;
 }
 
 
 /* As we guarantee that there's always room for one character in the output
  * buffer (we always flush when full) this function can be quite simple. */
-void write_char(struct buffered_file *file, char ch)
+bool write_char(struct buffered_file *file, char ch)
 {
     if (!file->error)
     {
@@ -189,6 +192,7 @@ void write_char(struct buffered_file *file, char ch)
         if (file->out_length >= file->out_buf_size)
             flush_out_buf(file);
     }
+    return !file->error;
 }
 
 

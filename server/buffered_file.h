@@ -16,19 +16,20 @@ bool read_line(
 bool read_block(struct buffered_file *file, char data[], size_t length);
 
 /* Writes given string to output. */
-void write_string(
+bool write_string(
     struct buffered_file *file, const char *string, size_t length);
 
 /* Writes buffer to output.  The output buffer is bypassed, after first being
  * flushed if necessary. */
-void write_block(
+bool write_block(
     struct buffered_file *file, const void *buffer, size_t length);
 
 /* Writes a single character to output. */
-void write_char(struct buffered_file *file, char ch);
+bool write_char(struct buffered_file *file, char ch);
 
-/* Ensures output buffer is flushed to socket. */
-void flush_out_buf(struct buffered_file *file);
+/* Ensures output buffer is flushed to socket.  Returns false if unable to write
+ * for any reason. */
+bool flush_out_buf(struct buffered_file *file);
 
 
 /* Creates buffered file.  Is not expected to fail. */
