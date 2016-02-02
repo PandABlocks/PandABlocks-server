@@ -329,8 +329,8 @@ enum reader_status close_reader(struct reader_state *reader)
  * ocurred since the last time we looked, but the pacing of reading and writing
  * eliminates that risk. */
 static bool check_overrun_ok(
-    struct reader_state *reader,
-    unsigned int buffer_cycle, size_t in_ptr, size_t out_ptr)
+    unsigned int buffer_cycle, unsigned int reader_buffer_cycle,
+    size_t in_ptr, size_t out_ptr)
 {
     if (in_ptr == out_ptr)
         /* Unmistakable collision! */
@@ -338,17 +338,19 @@ static bool check_overrun_ok(
     else if (in_ptr > out_ptr)
         /* Out pointer ahead of in pointer.  We're ok if we're both on the same
          * cycle. */
-        return buffer_cycle == reader->buffer_cycle;
+        return buffer_cycle == reader_buffer_cycle;
     else
         /* Out pointer behind in pointer.  In this case the buffer should be one
          * step ahead of us. */
-        return buffer_cycle == reader->buffer_cycle + 1;
+        return buffer_cycle == reader_buffer_cycle + 1;
 }
 
 
 /* Checks status of indicated out_ptr block and updates the status result
  * accordingly if there's any failure. */
-static bool check_block_status(struct reader_state *reader, size_t out_ptr)
+static bool check_block_status(
+    struct reader_state *reader,
+    unsigned int reader_buffer_cycle, size_t out_ptr)
 {
     ASSERT_OK(reader->status == READER_STATUS_CLOSED);
 
@@ -365,7 +367,8 @@ static bool check_block_status(struct reader_state *reader, size_t out_ptr)
         reader->status = READER_STATUS_RESET;
         return false;
     }
-    else if (!check_overrun_ok(reader, buffer_cycle, in_ptr, out_ptr))
+    else if (!check_overrun_ok(
+        buffer_cycle, reader_buffer_cycle, in_ptr, out_ptr))
     {
         reader->status = READER_STATUS_OVERRUN;
         return false;
@@ -378,10 +381,17 @@ static bool check_block_status(struct reader_state *reader, size_t out_ptr)
 bool check_read_block(struct reader_state *reader)
 {
     /* Because out_ptr is the *next* block we're going to read, we need to
-     * compute the out_ptr of the current block. */
-    size_t out_ptr = reader->out_ptr == 0 ?
-        reader->buffer->block_count : reader->out_ptr;
-    return check_block_status(reader, out_ptr - 1);
+     * compute the out_ptr and buffer_cycle of the current block. */
+    size_t out_ptr = reader->out_ptr;
+    unsigned int buffer_cycle = reader->buffer_cycle;
+    if (out_ptr > 0)
+        out_ptr -= 1;
+    else
+    {
+        out_ptr = reader->buffer->block_count - 1;
+        buffer_cycle -= 1;
+    }
+    return check_block_status(reader, buffer_cycle, out_ptr);
 }
 
 
@@ -452,12 +462,16 @@ const void *get_read_block(
     {
         /* Advance to next block and return the current one, if we can. */
         size_t out_ptr = reader->out_ptr;
+        unsigned int buffer_cycle = reader->buffer_cycle;
         reader->out_ptr += 1;
         if (reader->out_ptr >= buffer->block_count)
+        {
             reader->out_ptr = 0;
+            reader->buffer_cycle += 1;
+        }
 
         /* Check the status of the block we're about to return. */
-        if (check_block_status(reader, out_ptr))
+        if (check_block_status(reader, buffer_cycle, out_ptr))
         {
             *length = buffer->written[out_ptr];
             return get_buffer(buffer, out_ptr);

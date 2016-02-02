@@ -24,8 +24,7 @@
 
 
 #define DATA_BLOCK_SIZE         (1U << 18)
-// #define DATA_BLOCK_COUNT        16
-#define DATA_BLOCK_COUNT        8
+#define DATA_BLOCK_COUNT        16
 
 /* File buffers. */
 #define IN_BUF_SIZE             4096
@@ -33,11 +32,11 @@
 /* Proper network buffer. */
 #define NET_BUF_SIZE            16384
 
+
 /* Connection and read block polling intervals.  These determine how long it
  * takes for a socket disconnect to be detected. */
-// #define CONNECTION_POLL_SECS    0
+#define CONNECTION_POLL_SECS    0
 #define CONNECTION_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
-#define CONNECTION_POLL_SECS    5
 
 #define READ_BLOCK_POLL_SECS    0
 #define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
