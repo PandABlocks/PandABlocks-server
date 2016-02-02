@@ -43,16 +43,6 @@ struct buffer {
 };
 
 
-struct reader_state {
-    struct buffer *buffer;  // Buffer we're reading from
-    unsigned int capture_cycle;
-    unsigned int buffer_cycle;
-    size_t out_ptr;         // Index of our current block
-    bool active;            // Sanity check against incorrect usage
-    enum reader_status status;  // Return code
-};
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Buffer writer API. */
 
@@ -178,6 +168,15 @@ bool read_buffer_status(
 /* Reader API. */
 
 
+struct reader_state {
+    struct buffer *buffer;      // Buffer we're reading from
+    unsigned int capture_cycle; // Checks whether we've been reset
+    unsigned int buffer_cycle;
+    size_t out_ptr;             // Index of our current block
+    enum reader_status status;  // Return code
+};
+
+
 struct reader_state *create_reader(struct buffer *buffer)
 {
     struct reader_state *reader = malloc(sizeof(struct reader_state));
@@ -194,8 +193,6 @@ struct reader_state *create_reader(struct buffer *buffer)
 
 void destroy_reader(struct reader_state *reader)
 {
-    ASSERT_OK(!reader->active);
-
     struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
     buffer->reader_count -= 1;
@@ -285,8 +282,6 @@ bool open_reader(
     struct reader_state *reader, unsigned int read_margin,
     const struct timespec *timeout, size_t *lost_bytes)
 {
-    ASSERT_OK(!reader->active);
-
     struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
 
@@ -296,7 +291,6 @@ bool open_reader(
     {
         /* Add ourself to the client count and prepare capture.. */
         buffer->active_count += 1;
-        reader->active = true;
         reader->capture_cycle = buffer->capture_cycle;
         compute_reader_start(reader, read_margin, lost_bytes);
         reader->status = READER_STATUS_CLOSED;
@@ -309,8 +303,6 @@ bool open_reader(
 
 enum reader_status close_reader(struct reader_state *reader)
 {
-    ASSERT_OK(reader->active);
-
     struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
     /* If we can, count ourself off. */
@@ -318,7 +310,6 @@ enum reader_status close_reader(struct reader_state *reader)
         disconnect_client(buffer);
     UNLOCK(buffer->mutex);
 
-    reader->active = false;
     reader->capture_cycle += 1;
     return reader->status;
 }
