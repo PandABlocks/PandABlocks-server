@@ -24,7 +24,8 @@
 
 
 #define DATA_BLOCK_SIZE         (1U << 18)
-#define DATA_BLOCK_COUNT        16
+// #define DATA_BLOCK_COUNT        16
+#define DATA_BLOCK_COUNT        8
 
 /* File buffers. */
 #define IN_BUF_SIZE             4096
@@ -32,10 +33,14 @@
 /* Proper network buffer. */
 #define NET_BUF_SIZE            16384
 
-/* Connection poll interval. */
+/* Connection and read block polling intervals.  These determine how long it
+ * takes for a socket disconnect to be detected. */
 // #define CONNECTION_POLL_SECS    0
 #define CONNECTION_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
 #define CONNECTION_POLL_SECS    5
+
+#define READ_BLOCK_POLL_SECS    0
+#define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
 
 /* Allow this many data blocks between the reader and the writer on startup. */
 #define BUFFER_READ_MARGIN      2
@@ -200,13 +205,13 @@ static bool wait_for_capture(
      * disconnect.  Alas, detecting disconnection is a bit of a pain: we either
      * have to poll or use file handles (eventfd(2)) for wakeup, and using a
      * file handle is a pain because we'd need one per client.  So we poll. */
+    const struct timespec timeout = {
+        .tv_sec  = CONNECTION_POLL_SECS,
+        .tv_nsec = CONNECTION_POLL_NSECS, };
     bool opened = false;
     while (check_connection(connection)  &&  !opened)
         opened = open_reader(
-            connection->reader, BUFFER_READ_MARGIN,
-            &(struct timespec) {
-                .tv_sec = CONNECTION_POLL_SECS,
-                .tv_nsec = CONNECTION_POLL_NSECS }, lost_bytes);
+            connection->reader, BUFFER_READ_MARGIN, &timeout, lost_bytes);
     return opened;
 }
 
@@ -231,10 +236,13 @@ static size_t fill_out_buf(
 
 static void send_data_stream(struct data_connection *connection)
 {
+    const struct timespec timeout = {
+        .tv_sec  = READ_BLOCK_POLL_SECS,
+        .tv_nsec = READ_BLOCK_POLL_NSECS, };
     size_t in_length;
     const void *buffer;
-    while (buffer = get_read_block(connection->reader, &in_length),
-           buffer)
+    while (buffer = get_read_block(connection->reader, &timeout, &in_length),
+           buffer  &&  check_connection(connection))
     {
         while (in_length > 0)
         {
@@ -318,7 +326,7 @@ void terminate_data_server_early(void)
     {
         stop_data_thread();
         error_report(TEST_PTHREAD(pthread_join(data_thread_id, NULL)));
-        reset_buffer(data_buffer);
+        shutdown_buffer(data_buffer);
     }
 }
 

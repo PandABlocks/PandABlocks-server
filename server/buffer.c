@@ -31,6 +31,7 @@ struct buffer {
     unsigned int capture_cycle; // Counts data capture cycles
     unsigned int buffer_cycle;  // Counts buffer cycles, for overrun detection
 
+    bool shutdown;          // Set to true to force shutdown
     bool active;            // True if data currently being captured
     unsigned int reader_count;  // Number of connected readers
     unsigned int active_count;  // Number of connected active readers
@@ -152,6 +153,15 @@ void reset_buffer(struct buffer *buffer)
 }
 
 
+void shutdown_buffer(struct buffer *buffer)
+{
+    LOCK(buffer->mutex);
+    buffer->shutdown = true;
+    BROADCAST(buffer->signal);
+    UNLOCK(buffer->mutex);
+}
+
+
 bool read_buffer_status(
     struct buffer *buffer, unsigned int *readers, unsigned int *active_readers)
 {
@@ -246,6 +256,7 @@ static void compute_reader_start(
 }
 
 
+/* Wait a new capture cycle to begin or for the timeout to expire. */
 static bool wait_for_buffer_ready(
     struct reader_state *reader, const struct timespec *timeout)
 {
@@ -253,16 +264,20 @@ static bool wait_for_buffer_ready(
     compute_deadline(timeout, &deadline);
 
     struct buffer *buffer = reader->buffer;
-    bool ready;
     /* Wait until the buffer is ready and we have a fresh capture cycle to work
      * with or until the deadline expires. */
-    do
-        ready =
-            buffer->active  &&
-            buffer->capture_cycle >= reader->capture_cycle;
-    while (!ready  &&
-           pwait_deadline(&buffer->mutex, &buffer->signal, &deadline));
-    return ready;
+    while (true)
+    {
+        if (buffer->shutdown)
+            /* Shutdown forced. */
+            return false;
+        if (buffer->active  &&  buffer->capture_cycle >= reader->capture_cycle)
+            /* New capture cycle ready for us. */
+            return true;
+        if (!pwait_deadline(&buffer->mutex, &buffer->signal, &deadline))
+            /* Timeout detected. */
+            return false;
+    }
 }
 
 
@@ -370,18 +385,47 @@ bool check_read_block(struct reader_state *reader)
 }
 
 
-/* Returns true while we're waiting for input. */
-static bool _pure waiting_for_input(struct reader_state *reader)
+static void wait_for_block_ready(
+    struct reader_state *reader, const struct timespec *timeout,
+    bool *all_read, bool *timeout_occurred)
 {
+    struct timespec deadline;
+    compute_deadline(timeout, &deadline);
+
+    *all_read = false;
+    *timeout_occurred = false;
     struct buffer *buffer = reader->buffer;
-    return
-        buffer->capture_cycle == reader->capture_cycle  &&
-        buffer->buffer_cycle == reader->buffer_cycle  &&
-        buffer->in_ptr == reader->out_ptr;
+    while (!buffer->shutdown)
+    {
+        bool waiting =
+            buffer->capture_cycle == reader->capture_cycle  &&
+            buffer->buffer_cycle == reader->buffer_cycle  &&
+            buffer->in_ptr == reader->out_ptr;
+        if (!waiting)
+            /* No longer waiting, things have moved on. */
+            return;
+
+        if (!buffer->active)
+        {
+            /* Still in waiting condition but no longer active.  This is the
+             * data completion state. */
+            *all_read = true;
+            return;
+        }
+
+        if (!pwait_deadline(&buffer->mutex, &buffer->signal, &deadline))
+        {
+            /* Timeout detected. */
+            *timeout_occurred = true;
+            return;
+        }
+    }
 }
 
 
-const void *get_read_block(struct reader_state *reader, size_t *length)
+const void *get_read_block(
+    struct reader_state *reader,
+    const struct timespec *timeout, size_t *length)
 {
     /* If the status is not in the default state (confusingly, this is the state
      * which will be returned if we close prematurely) then return nothing. */
@@ -390,13 +434,16 @@ const void *get_read_block(struct reader_state *reader, size_t *length)
 
     struct buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
-    /* While the block we want to read is being written we're blocked. */
-    while (buffer->active  &&  waiting_for_input(reader))
-        WAIT(buffer->mutex, buffer->signal);
-    bool all_read = !buffer->active  &&  waiting_for_input(reader);
+    bool all_read, timeout_occurred;
+    wait_for_block_ready(reader, timeout, &all_read, &timeout_occurred);
     UNLOCK(buffer->mutex);
 
-    if (all_read)
+    if (timeout_occurred)
+    {
+        *length = 0;
+        return "";      // Dummy non NULL buffer, won't be read
+    }
+    else if (all_read)
     {
         reader->status = READER_STATUS_ALL_READ;
         return NULL;
@@ -422,6 +469,7 @@ const void *get_read_block(struct reader_state *reader, size_t *length)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Buffer creation and destruction. */
 
 
 struct buffer *create_buffer(size_t block_size, size_t block_count)

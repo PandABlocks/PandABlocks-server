@@ -23,6 +23,9 @@ void end_write(struct buffer *buffer);
 /* Resets the buffer to empty.  Any active readers will fail. */
 void reset_buffer(struct buffer *buffer);
 
+/* Forces buffer into shutdown mode: all readers will fail immediately. */
+void shutdown_buffer(struct buffer *buffer);
+
 /* Reserves the next slot in the buffer for writing. An entire contiguous
  * block of block_size bytes is guaranteed to be returned, and
  * release_write_block() must be called when writing is complete. */
@@ -72,7 +75,9 @@ enum reader_status close_reader(struct reader_state *reader);
 /* Blocks until an entire block_size block is available to be read out, returns
  * pointer to data to be read.  Call this repeatedly to advance through the
  * buffer, returns NULL once no more data available. */
-const void *get_read_block(struct reader_state *reader, size_t *length);
+const void *get_read_block(
+    struct reader_state *reader,
+    const struct timespec *timeout, size_t *length);
 
 /* Returns true if the current read block remains valid, returns false if the
  * buffer has been reset or if the current read block has been overwritten.
