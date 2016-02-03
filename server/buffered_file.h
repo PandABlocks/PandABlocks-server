@@ -19,6 +19,11 @@ bool read_block(struct buffered_file *file, char data[], size_t length);
 bool write_string(
     struct buffered_file *file, const char *string, size_t length);
 
+/* Writes formatted string to output. */
+bool __attribute__((format(printf, 2, 3))) write_formatted_string(
+    struct buffered_file *file, const char *format, ...);
+
+
 /* Writes buffer to output.  The output buffer is bypassed, after first being
  * flushed if necessary. */
 bool write_block(struct buffered_file *file, const void *buffer, size_t length);

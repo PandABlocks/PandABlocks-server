@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "error.h"
@@ -169,6 +170,40 @@ bool write_string(
         if (file->out_length >= file->out_buf_size)  // Only == is possible!
             flush_out_buf(file);
     }
+    return !file->error;
+}
+
+
+bool write_formatted_string(
+    struct buffered_file *file, const char *format, ...)
+{
+    if (file->error)
+        return false;
+
+    va_list args;
+    va_start(args, format);
+
+    /* First try writing into the buffer as is. */
+    size_t length = file->out_buf_size - file->out_length;
+    size_t written = (size_t) vsnprintf(
+        file->out_buf + file->out_length, length, format, args);
+    if (written < length)
+        /* Good, job done. */
+        file->out_length += (size_t) written;
+    else
+    {
+        /* Not enough room.  Flush the buffer and try again. */
+        if (flush_out_buf(file))
+        {
+            file->out_length = (size_t) vsnprintf(
+                file->out_buf, file->out_buf_size, format, args);
+            file->error =
+                TEST_OK_(file->out_length < file->out_buf_size,
+                    "Formatted string too long for buffered output");
+        }
+    }
+
+    va_end(args);
     return !file->error;
 }
 
