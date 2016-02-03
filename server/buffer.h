@@ -1,43 +1,44 @@
 /* Shared circular buffer for single writer and multiple independent readers. */
 
 /* The buffer. */
-struct buffer;
+struct capture_buffer;
 
 
 /* Prepares central memory buffer. */
-struct buffer *create_buffer(size_t block_size, size_t block_count);
+struct capture_buffer *create_buffer(size_t block_size, size_t block_count);
 
 /* Destroys memory buffer. */
-void destroy_buffer(struct buffer *buffer);
+void destroy_buffer(struct capture_buffer *buffer);
 
 /* Forces buffer into shutdown mode: all readers will fail immediately. */
-void shutdown_buffer(struct buffer *buffer);
+void shutdown_buffer(struct capture_buffer *buffer);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Writing to the buffer. */
 
 /* Initiates a write cycle. */
-void start_write(struct buffer *buffer);
+void start_write(struct capture_buffer *buffer);
 
 /* Completes a write cycle. */
-void end_write(struct buffer *buffer);
+void end_write(struct capture_buffer *buffer);
 
 /* Reserves the next slot in the buffer for writing. An entire contiguous
  * block of block_size bytes is guaranteed to be returned, and
  * release_write_block() must be called when writing is complete. */
-void *get_write_block(struct buffer *buffer);
+void *get_write_block(struct capture_buffer *buffer);
 
 /* Releases the write block, specifies number of bytes written. */
-void release_write_block(struct buffer *buffer, size_t written);
+void release_write_block(struct capture_buffer *buffer, size_t written);
 
 
 /* Returns true if buffer is taking data, and count of active clients. */
 bool read_buffer_status(
-    struct buffer *buffer, unsigned int *readers, unsigned int *active);
+    struct capture_buffer *buffer,
+    unsigned int *readers, unsigned int *active_readers);
 
 /* Resets the buffer to empty.  Any active readers will fail. */
-void reset_buffer(struct buffer *buffer);
+void reset_buffer(struct capture_buffer *buffer);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -55,7 +56,7 @@ enum reader_status {
 };
 
 /* Creates a reader connected to the buffer. */
-struct reader_state *create_reader(struct buffer *buffer);
+struct reader_state *create_reader(struct capture_buffer *buffer);
 
 /* Releases resources used by a reader. */
 void destroy_reader(struct reader_state *reader);

@@ -79,7 +79,7 @@ static bool data_capture_enabled = false;
 static volatile bool data_thread_running = true;
 
 /* Data capture buffer. */
-static struct buffer *data_buffer;
+static struct capture_buffer *data_buffer;
 /* Structure used to define data capture in progress.  This is valid while data
  * capture is enabled, invalid otherwise. */
 static struct data_capture *data_capture;
