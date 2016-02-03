@@ -13,15 +13,15 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
-#include "config_server.h"
 #include "socket_server.h"
+#include "config_server.h"
+#include "data_server.h"
 #include "config_command.h"
 #include "fields.h"
 #include "output.h"
 #include "classes.h"
 #include "attributes.h"
 #include "enums.h"
-#include "capture.h"
 #include "version.h"
 
 #include "system_command.h"
@@ -304,10 +304,7 @@ static error__t lookup_pcap_get_action(
         IF_ELSE(strcmp(name, "STATUS") == 0,
             DO(*action = capture_status),
         //else
-        IF_ELSE(strcmp(name, "WAITING") == 0,
-            DO(*action = capture_waiting),
-        //else
-            FAIL_("Invalid *PCAP field")));
+            FAIL_("Invalid *PCAP field"));
 }
 
 static error__t get_pcap(const char *command, struct connection_result *result)

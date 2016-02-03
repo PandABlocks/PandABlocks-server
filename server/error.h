@@ -246,6 +246,11 @@ void vlog_message(int priority, const char *format, va_list args);
 #define STATIC_COMPILE_ASSERT(e)    _id_STATIC_COMPILE_ASSERT(UNIQUE_ID(), e)
 
 
+/* Use this to mark functions that can be constant folded, ie depend only on
+ * their arguments and global state. */
+#define _pure __attribute__((pure))
+
+
 /* A rather randomly placed helper routine.  This and its equivalents are
  * defined all over the place, but there doesn't appear to be a definitive
  * definition anywhere. */

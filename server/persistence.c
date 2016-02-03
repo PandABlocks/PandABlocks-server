@@ -237,18 +237,14 @@ static pthread_cond_t psignal;
 
 
 /* Interruptible timeout wait: returns false if thread interrupt requested. */
-static bool pwait_timeout(unsigned int delay)
+static bool interruptible_timeout(unsigned int delay)
 {
-    struct timespec timeout;
-    ASSERT_IO(clock_gettime(CLOCK_MONOTONIC, &timeout));
-    timeout.tv_sec += (time_t) delay;
-
     LOCK(mutex);
     if (thread_running)
-        pthread_cond_timedwait(&psignal, &mutex, &timeout);
+        pwait_timeout(
+            &mutex, &psignal, &(struct timespec) { .tv_sec = delay, });
     bool running = thread_running;
     UNLOCK(mutex);
-
     return running;
 }
 
@@ -264,7 +260,7 @@ static void stop_thread(void)
 
 static void *persistence_thread(void *context)
 {
-    while (pwait_timeout(poll_interval))
+    while (interruptible_timeout(poll_interval))
     {
         /* Check for change. */
         if (check_state_changed())
@@ -272,11 +268,11 @@ static void *persistence_thread(void *context)
             /* First wait a bit to let all the changes settle before writing the
              * current state: typically changes will occur in a burst as things
              * are being configured. */
-            pwait_timeout(holdoff_interval);
+            interruptible_timeout(holdoff_interval);
             write_changed_state();
             /* Now back off a bit so that we don't generate too many updates if
              * there are continual changes going on. */
-            pwait_timeout(backoff_interval);
+            interruptible_timeout(backoff_interval);
         }
     }
 
@@ -303,14 +299,8 @@ error__t initialise_persistence(
     asprintf(&backup_file_name, "%s.backup", file_name);
     thread_running = true;
 
-    pthread_condattr_t attr;
+    pwait_initialise(&psignal);
     return
-        /* Need to initialise the shutdown/wakeup signal we're using to use the
-         * CLOCK_MONOTONIC clock. */
-        TEST_PTHREAD(pthread_condattr_init(&attr))  ?:
-        TEST_PTHREAD(pthread_condattr_setclock(&attr, CLOCK_MONOTONIC))  ?:
-        TEST_PTHREAD(pthread_cond_init(&psignal, &attr))  ?:
-
         /* Load state and start the monitor thread. */
         DO(load_persistent_state())  ?:
         TRY_CATCH(

@@ -10,6 +10,7 @@
 #include "hardware.h"
 #include "parse.h"
 #include "config_server.h"
+#include "data_server.h"
 #include "fields.h"
 #include "classes.h"
 #include "attributes.h"
@@ -514,8 +515,7 @@ static error__t capture_put(
             "Not a valid capture option")  ?:
 
         /* Forbid any changes to the capture setup during capture. */
-        WITH_CAPTURE_STATE(capture_state,
-            TEST_OK_(capture_state != CAPTURE_ACTIVE, "Capture in progress")  ?:
+        IF_CAPTURE_DISABLED(
             WITH_LOCK(mutex,
                 DO(state->methods->set_capture(
                     state->index_array[number], capture))));
@@ -674,6 +674,9 @@ static error__t ext_out_init(
     enum output_type output_type = 0;
     return
         parse_ext_out_type(line, &output_type)  ?:
+        IF(**line,
+            DO( printf("Ignoring extra ext_out text: \"%s\"\n", *line);
+                *line += strlen(*line)))  ?:
         output_init(
             output_type, &ext_output_methods, NULL,
             count, attr_map, class_data);

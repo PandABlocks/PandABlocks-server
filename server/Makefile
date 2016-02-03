@@ -5,9 +5,6 @@ $(error Do not call this make file directly)
 endif
 
 
-# Discover name of compiler: we're going to want different flags in some cases
-CC_NAME := $(shell $(CC) --version | sed 's/ .*//;q')
-
 # Git version
 GIT_VERSION = $(shell git describe --abbrev=7 --dirty --always --tags)
 BUILD_DATE_TIME = $(shell date +'%Y-%m-%d %H:%M:%S')
@@ -54,26 +51,6 @@ CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-missing-field-initializers
 
 
-# Compiling the server with clang has flagged up some points of interest, but
-# alas most of its messages need to be disabled.
-CFLAGS_clang += -Wmost
-CFLAGS_clang += -Weverything
-
-CFLAGS_clang += -Wno-language-extension-token
-CFLAGS_clang += -Wno-disabled-macro-expansion
-CFLAGS_clang += -Wno-gnu-conditional-omitted-operand
-CFLAGS_clang += -Wno-gnu-statement-expression
-CFLAGS_clang += -Wno-gnu-empty-struct
-CFLAGS_clang += -Wno-gnu-zero-variadic-macro-arguments
-CFLAGS_clang += -Wno-gnu-empty-initializer
-
-CFLAGS_clang += -Wno-initializer-overrides
-CFLAGS_clang += -Wno-pedantic
-CFLAGS_clang += -Wno-assign-enum
-CFLAGS_clang += -Wno-conditional-uninitialized
-CFLAGS_clang += -Wno-covered-switch-default
-
-
 # Pick up kernel driver header file
 CPPFLAGS += -I$(TOP)/driver
 
@@ -81,7 +58,6 @@ LDLIBS += -lpthread
 LDLIBS += -lrt
 LDLIBS += -lm
 
-CFLAGS += $(CFLAGS_$(CC_NAME))
 
 # Allow access to function names in assert fail tracebacks
 sim_server: LDFLAGS += -rdynamic
@@ -94,6 +70,7 @@ endif
 
 SRCS += server.c                # Entry point to server, command line parsing
 SRCS += version.c               # Server version string
+SRCS += locking.c               # Pthread locking support etc
 SRCS += persistence.c           # Support for persistence state over restarts
 SRCS += error.c                 # Common error handling framework
 SRCS += socket_server.c         # Common socket server handling
