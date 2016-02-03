@@ -34,6 +34,9 @@
 /* Proper network buffer.  All data communication uses this buffer size. */
 #define NET_BUF_SIZE            16384
 
+/* Should be large enough for the largest single raw sample. */
+#define MAX_RAW_SAMPLE_LENGTH   256
+
 
 /* Connection and read block polling intervals.  These determine how long it
  * takes for a socket disconnect to be detected. */
@@ -248,8 +251,6 @@ static bool check_connection(struct data_connection *connection)
 {
     char buffer[4096];
     ssize_t rx = recv(connection->scon, buffer, sizeof(buffer), MSG_DONTWAIT);
-if (rx > 0)
-printf("Discarding:\"%.*s\"\n", (int) rx, buffer);
     return (rx == -1  &&  errno == EAGAIN)  ||  rx > 0;
 }
 
@@ -273,73 +274,187 @@ static bool wait_for_capture(
 }
 
 
-#if 0
-/* This processes a single data buffer, returning false if there is a
- * communication problem with the client.
- *    Extra work is needed to deal with the fact that compute_output_data can
- * only work in whole lines, so we need to make sure that any fragments are
- * carried over and processed separately. */
-static bool process_data_buffer(
-    struct data_connection *connection,
-    void *line_buffer, size_t line_length, size_t *line_buffer_count,
-    const void *buffer, size_t in_length)
+/* State needed for data stream processing. */
+struct data_capture_state {
+    /* Underlying connection with socket connection and selected options. */
+    struct data_connection *connection;
+    /* Computed raw and binary converted single sample sizes, needed for buffer
+     * processing and preparation. */
+    size_t raw_sample_length;
+    size_t binary_sample_length;
+
+    /* Number of bytes currently in sample buffer. */
+    size_t sample_buffer_count;
+    /* Number of bytes currently in output buffer. */
+    size_t output_buffer_count;
+
+    /* Buffer for storing a single raw sample. */
+    char sample_buffer[MAX_RAW_SAMPLE_LENGTH];
+    /* Binary processed data. */
+    char output_buffer[NET_BUF_SIZE];
+};
+
+
+/* Process as many samples as will fit into the output buffer. */
+static unsigned int process_samples(
+    struct data_capture_state *state, const void **buffer, size_t *length)
 {
-    /* Check for anything in the line buffer. */
-    if (*line_buffer_count > 0)
+    /* Work out how many samples are available and how many will fit into the
+     * output buffer. */
+    size_t free_space =
+        sizeof(state->output_buffer) - state->output_buffer_count;
+    unsigned int sample_count = MIN(
+        *length / state->raw_sample_length,
+        free_space / state->binary_sample_length);
+
+    convert_raw_data_to_binary(
+        data_capture, &state->connection->options, sample_count,
+        *buffer, state->output_buffer + state->output_buffer_count);
+    state->output_buffer_count += sample_count * state->binary_sample_length;
+
+    size_t consumed = sample_count * state->raw_sample_length;
+    *buffer += consumed;
+    *length -= consumed;
+    return sample_count;
+}
+
+
+/* Update and handle the single sample buffer.  This is needed to cope with
+ * alignment errors on the data stream. */
+static unsigned int process_single_sample(
+    struct data_capture_state *state, const void **buffer, size_t *length)
+{
+    if (state->sample_buffer_count > 0)
     {
-        size_t to_copy = MIN(in_length, line_length - *line_buffer_count);
-        memcpy(line_buffer, buffer, to_copy);
-        buffer += to_copy;
-        in_length -= to_copy;
-        *line_buffer_count += to_copy;
-        if (*line_buffer_count >= line_length)
+        size_t to_copy = MIN(
+            *length, state->raw_sample_length - state->sample_buffer_count);
+        memcpy(
+            state->sample_buffer + state->sample_buffer_count,
+            *buffer, to_copy);
+        *buffer += to_copy;
+        *length -= to_copy;
+        state->sample_buffer_count += to_copy;
+        if (state->sample_buffer_count >= state->raw_sample_length)
         {
-            emit line buffer;
-            *line_buffer_count = 0;
+            const void *sample_buffer = state->sample_buffer;
+            return process_samples(
+                state, &sample_buffer, &state->sample_buffer_count);
         }
     }
+    return 0;       // Buffer not processed
+}
 
-    while (in_length > 0)
+
+/* Adds any residual data onto the single sample buffer. */
+static void update_single_sample_buffer(
+    struct data_capture_state *state, const void *buffer, size_t length)
+{
+    ASSERT_OK(state->sample_buffer_count + length < state->raw_sample_length);
+    memcpy(state->sample_buffer + state->sample_buffer_count, buffer, length);
+    state->sample_buffer_count += length;
+}
+
+
+/* Reset the output buffer, and if appropriate add the appropriate binary
+ * prefix. */
+static void prepare_output_buffer(struct data_capture_state *state)
+{
+    if (state->connection->options.data_format == DATA_FORMAT_FRAMED)
+        /* Allow room for framing header. */
+        state->output_buffer_count = 8;
+    else
+        state->output_buffer_count = 0;
+}
+
+
+/* Send the output buffer in the appropriate format. */
+static bool send_output_buffer(
+    struct data_capture_state *state, unsigned int samples)
+{
+    if (state->connection->options.data_format == DATA_FORMAT_FRAMED)
     {
+        /* Update the first four bytes of the buffer with a header followed by a
+         * frame byte count. */
+        memcpy(state->output_buffer, "BIN ", 4);
+        CAST_FROM_TO(void *, uint32_t *, state->output_buffer)[1] =
+            (uint32_t) state->output_buffer_count;
+    }
+
+    switch (state->connection->options.data_format)
+    {
+        case DATA_FORMAT_ASCII:
+            return send_binary_as_ascii(
+                data_capture, &state->connection->options,
+                state->connection->file, samples, state->output_buffer);
+        case DATA_FORMAT_BASE64:
+            printf("not implemented\n");
+            return false;
+        default:
+            return write_block(
+                state->connection->file,
+                state->output_buffer, state->output_buffer_count);
     }
 }
-#endif
+
+
+static void process_capture_block(
+    struct data_capture_state *state, const void *buffer, size_t length)
+{
+    /* Ensure output buffer is ready for a fresh transmission. */
+    prepare_output_buffer(state);
+
+    /* Ensure the buffer is aligned to a multiple of samples. */
+    unsigned int samples = process_single_sample(state, &buffer, &length);
+
+    /* Now loop until we've consumed the input buffer. */
+    do {
+        /* Process as much of the input buffer as will fit into the output
+         * buffer, and if there's anything to send, transmit it. */
+        samples += process_samples(state, &buffer, &length);
+        if (samples > 0)
+        {
+            /* Transmit the output buffer, if we can.  If this fails, just
+             * bail out. */
+            if (!send_output_buffer(state, samples))
+                break;
+
+            /* In case there's more to come, reinitialise the output. */
+            prepare_output_buffer(state);
+            samples = 0;
+        }
+    } while (length >= state->raw_sample_length);
+
+    /* Add any residue to the single sample buffer. */
+    update_single_sample_buffer(state, buffer, length);
+}
 
 
 /* Sends the data stream until end of stream or there's a problem with the
  * client connection.  Returns false if there's a client connection problem. */
 static bool send_data_stream(struct data_connection *connection)
 {
+    struct data_capture_state state = {
+        .connection = connection,
+        .raw_sample_length = get_raw_sample_length(data_capture),
+        .binary_sample_length = get_binary_sample_length(
+            data_capture, &connection->options),
+    };
+    ASSERT_OK(state.raw_sample_length <= MAX_RAW_SAMPLE_LENGTH);
+
     const struct timespec timeout = {
         .tv_sec  = READ_BLOCK_POLL_SECS,
         .tv_nsec = READ_BLOCK_POLL_NSECS, };
+
+    /* Read and process buffers. */
     size_t in_length;
     const void *buffer;
     while (buffer = get_read_block(connection->reader, &timeout, &in_length),
            buffer  &&  check_connection(connection))
     {
-        while (in_length > 0)
-        {
-            char out_buf[NET_BUF_SIZE];
-
-            size_t consumed;
-            size_t out_length = compute_output_data(
-                data_capture, &connection->options,
-                buffer, in_length, &consumed,
-                out_buf, sizeof(out_buf));
-            in_length -= consumed;
-            buffer += consumed;
-
-            if (check_read_block(connection->reader))
-            {
-                if (!write_block(connection->file, out_buf, out_length))
-                    return false;
-            }
-            else
-                /* Oops.  Buffer overrun.  Discard this block, the next
-                 * get_read_block() call will fail immediately. */
-                break;
-        }
+        if (in_length > 0)
+            process_capture_block(&state, buffer, in_length);
+        if (!flush_out_buf(connection->file))
+            return false;
     }
     return true;
 }

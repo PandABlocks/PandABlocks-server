@@ -23,9 +23,12 @@
 
 
 struct data_capture {
+    size_t raw_sample_words;
 };
 
-static struct data_capture data_capture_state;
+static struct data_capture data_capture_state = {
+    .raw_sample_words = 11,
+};
 
 
 struct data_capture *prepare_data_capture(void)
@@ -38,8 +41,23 @@ struct data_capture *prepare_data_capture(void)
 
 error__t parse_data_options(const char *line, struct data_options *options)
 {
+    *options = (struct data_options) { };
+    options->data_format = DATA_FORMAT_ASCII;
     printf("parse_data_options: \"%s\"\n", line);
     return ERROR_OK;
+}
+
+
+size_t get_raw_sample_length(struct data_capture *capture)
+{
+    return sizeof(uint32_t) * capture->raw_sample_words;
+}
+
+
+size_t get_binary_sample_length(
+    struct data_capture *capture, struct data_options *options)
+{
+    return sizeof(uint32_t) * capture->raw_sample_words;
 }
 
 
@@ -52,24 +70,25 @@ bool send_data_header(
 }
 
 
-size_t compute_output_data(
+void convert_raw_data_to_binary(
     struct data_capture *capture, struct data_options *options,
-    const void *input, size_t input_length, size_t *input_consumed,
-    void *output, size_t output_length)
+    unsigned int sample_count, const void *input, void *output)
 {
-    const uint32_t *buf = input;
-#if 1
-    /* Lazy, about to redo.  For the moment the out buf is long enough. */
-    *input_consumed = input_length;
-//     ASSERT_IO(usleep(1000000));
-    return (size_t) sprintf(output, "%u..%u(%zu)\n",
-        buf[0], buf[input_length/4 - 1], input_length);
-#else
-    size_t count = 0;
-    for (size_t i = 0; i < in_length / 4; i ++)
-        count += (size_t) sprintf(output + count, " %d", buf[i]);
-    *input_consumed = input_length;
-    usleep(100000);
-    return count;
-#endif
+    size_t sample_size = get_raw_sample_length(capture);
+    memcpy(output, input, sample_size * sample_count);
+}
+
+
+bool send_binary_as_ascii(
+    struct data_capture *capture, struct data_options *options,
+    struct buffered_file *file, unsigned int sample_count, const void *data)
+{
+    const uint32_t *data_in = data;
+    for (unsigned int i = 0; i < sample_count; i ++)
+    {
+        for (unsigned int j = 0; j < capture->raw_sample_words; j ++)
+            write_formatted_string(file, " %d", *data_in++);
+        write_char(file, '\n');
+    }
+    return check_buffered_file(file);
 }
