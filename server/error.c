@@ -1,6 +1,7 @@
 /* Generic error handling framework. */
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -165,7 +166,6 @@ void log_error(const char *message, ...)
 
 
 
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /* Two mechanisms for reporting extra error information. */
@@ -215,4 +215,44 @@ void _error_panic(char *extra, const char *filename, int line)
     write(STDERR_FILENO, last_line, (size_t) char_count);
 
     _exit(255);
+}
+
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Utility function with no proper home, occasionally very useful for debug. */
+
+
+void dump_binary(FILE *out, const void *buffer, size_t length)
+{
+    const uint8_t *dump = buffer;
+
+    for (size_t a = 0; a < length; a += 16)
+    {
+        fprintf(out, "%08zx: ", a);
+        for (unsigned int i = 0; i < 16; i ++)
+        {
+            if (a + i < length)
+                fprintf(out, " %02x", dump[a+i]);
+            else
+                fprintf(out, "   ");
+            if (i % 16 == 7)
+                fprintf(out, " ");
+        }
+
+        fprintf(out, "  ");
+        for (unsigned int i = 0; i < 16; i ++)
+        {
+            uint8_t c = dump[a+i];
+            if (a + i < length)
+                fprintf(out, "%c", 32 <= c  &&  c < 127 ? c : '.');
+            else
+                fprintf(out, " ");
+            if (i % 16 == 7)
+                fprintf(out, " ");
+        }
+        fprintf(out, "\n");
+    }
+    if (length % 16 != 0)
+        fprintf(out, "\n");
 }
