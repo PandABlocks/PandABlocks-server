@@ -159,7 +159,9 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
     bool failed = handle_error(
         write_command_int('D', 0, 0, 0, (uint32_t) length)  ?:
         read_all(&result, 4)  ?:
-        IF(result > 0, read_all(buffer, (size_t) result)));
+        IF(result > 0,
+            TEST_OK((size_t) result <= length)  ?:
+            read_all(buffer, (size_t) result)));
     UNLOCK();
 
     if (failed  ||  result < 0)

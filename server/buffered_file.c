@@ -173,8 +173,7 @@ bool write_string(
 }
 
 
-bool write_block(
-    struct buffered_file *file, const void *buffer, size_t length)
+bool write_block(struct buffered_file *file, const void *buffer, size_t length)
 {
     flush_out_buf(file);
     send_entire_buffer(file, buffer, length);

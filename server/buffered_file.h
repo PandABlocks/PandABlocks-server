@@ -21,8 +21,7 @@ bool write_string(
 
 /* Writes buffer to output.  The output buffer is bypassed, after first being
  * flushed if necessary. */
-bool write_block(
-    struct buffered_file *file, const void *buffer, size_t length);
+bool write_block(struct buffered_file *file, const void *buffer, size_t length);
 
 /* Writes a single character to output. */
 bool write_char(struct buffered_file *file, char ch);

@@ -80,6 +80,9 @@ static volatile bool data_thread_running = true;
 
 /* Data capture buffer. */
 static struct buffer *data_buffer;
+/* Structure used to define data capture in progress.  This is valid while data
+ * capture is enabled, invalid otherwise. */
+static struct data_capture *data_capture;
 
 
 /* Performs a complete experiment capture: start data buffer, process the data
@@ -158,26 +161,26 @@ void unlock_capture_disabled(void)
 }
 
 
+static void start_data_capture(void)
+{
+    data_capture = prepare_data_capture();
+    hw_write_arm(true);
+
+    data_capture_enabled = true;
+    SIGNAL(data_thread_event);
+}
+
+
 error__t arm_capture(void)
 {
-    LOCK(data_thread_mutex);
     unsigned int readers, active;
-    error__t error =
+    return WITH_LOCK(data_thread_mutex,
         TEST_OK_(!data_capture_enabled, "Data capture already in progress")  ?:
         /* If data capture is not enabled then we can safely expect the buffer
          * status to be idle. */
         TEST_OK(!read_buffer_status(data_buffer, &readers, &active))  ?:
-        TEST_OK_(active == 0, "Data clients still taking data");
-    if (!error)
-    {
-        prepare_data_capture();
-        hw_write_arm(true);
-
-        data_capture_enabled = true;
-        SIGNAL(data_thread_event);
-    }
-    UNLOCK(data_thread_mutex);
-    return error;
+        TEST_OK_(active == 0, "Data clients still taking data")  ?:
+        DO(start_data_capture()));
 }
 
 
@@ -215,15 +218,8 @@ struct data_connection {
     int scon;
     struct buffered_file *file;
     struct reader_state *reader;
+    struct data_options options;
 };
-
-
-static error__t parse_data_request(
-    struct data_connection *connection, const char *line)
-{
-    printf("parsing line: \"%s\"\n", line);
-    return ERROR_OK;
-}
 
 
 /* Every data request must start with a newline terminated format request. */
@@ -232,7 +228,7 @@ static bool process_data_request(struct data_connection *connection)
     char line[MAX_LINE_LENGTH];
     if (read_line(connection->file, line, sizeof(line), false))
     {
-        error__t error = parse_data_request(connection, line);
+        error__t error = parse_data_options(line, &connection->options);
         int length = error ?
             snprintf(line, sizeof(line), "ERR %s\n", error_format(error))
         :
@@ -252,6 +248,8 @@ static bool check_connection(struct data_connection *connection)
 {
     char buffer[4096];
     ssize_t rx = recv(connection->scon, buffer, sizeof(buffer), MSG_DONTWAIT);
+if (rx > 0)
+printf("Discarding:\"%.*s\"\n", (int) rx, buffer);
     return (rx == -1  &&  errno == EAGAIN)  ||  rx > 0;
 }
 
@@ -275,25 +273,42 @@ static bool wait_for_capture(
 }
 
 
-static void send_data_header(struct data_connection *connection)
+#if 0
+/* This processes a single data buffer, returning false if there is a
+ * communication problem with the client.
+ *    Extra work is needed to deal with the fact that compute_output_data can
+ * only work in whole lines, so we need to make sure that any fragments are
+ * carried over and processed separately. */
+static bool process_data_buffer(
+    struct data_connection *connection,
+    void *line_buffer, size_t line_length, size_t *line_buffer_count,
+    const void *buffer, size_t in_length)
 {
-    write_string(connection->file, "header\n", 7);
-    flush_out_buf(connection->file);
+    /* Check for anything in the line buffer. */
+    if (*line_buffer_count > 0)
+    {
+        size_t to_copy = MIN(in_length, line_length - *line_buffer_count);
+        memcpy(line_buffer, buffer, to_copy);
+        buffer += to_copy;
+        in_length -= to_copy;
+        *line_buffer_count += to_copy;
+        if (*line_buffer_count >= line_length)
+        {
+            emit line buffer;
+            *line_buffer_count = 0;
+        }
+    }
+
+    while (in_length > 0)
+    {
+    }
 }
+#endif
 
 
-static size_t fill_out_buf(
-    const void *in_buf, size_t in_length, size_t *consumed, char *out_buf)
-{
-    const uint32_t *buf = in_buf;
-    /* Lazy, about to redo.  For the moment the out buf is long enough. */
-    *consumed = in_length;
-    return (size_t) sprintf(out_buf, "%u..%u(%zu)\n",
-        buf[0], buf[in_length/4 - 1], in_length);
-}
-
-
-static void send_data_stream(struct data_connection *connection)
+/* Sends the data stream until end of stream or there's a problem with the
+ * client connection.  Returns false if there's a client connection problem. */
+static bool send_data_stream(struct data_connection *connection)
 {
     const struct timespec timeout = {
         .tv_sec  = READ_BLOCK_POLL_SECS,
@@ -306,27 +321,44 @@ static void send_data_stream(struct data_connection *connection)
         while (in_length > 0)
         {
             char out_buf[NET_BUF_SIZE];
+
             size_t consumed;
-            size_t out_length =
-                fill_out_buf(buffer, in_length, &consumed, out_buf);
+            size_t out_length = compute_output_data(
+                data_capture, &connection->options,
+                buffer, in_length, &consumed,
+                out_buf, sizeof(out_buf));
             in_length -= consumed;
             buffer += consumed;
 
             if (check_read_block(connection->reader))
-                write_block(connection->file, out_buf, out_length);
+            {
+                if (!write_block(connection->file, out_buf, out_length))
+                    return false;
+            }
+            else
+                /* Oops.  Buffer overrun.  Discard this block, the next
+                 * get_read_block() call will fail immediately. */
+                break;
         }
     }
+    return true;
 }
 
 
-static void send_data_completion(
+static bool send_data_completion(
     struct data_connection *connection, enum reader_status status)
 {
+    /* This list of completion strings must match the definition of the
+     * reader_status enumeration in buffer.h. */
     static const char *completions[] = {
-        "OK\n", "Closed\n", "Overrun\n", "Reset\n", };
+        "OK\n",
+        "ERR Early disconnect\n",   // Hard to see how this gets to the user!
+        "ERR Data overrun\n",
+        "ERR Connection reset\n",
+    };
     const char *message = completions[status];
     write_string(connection->file, message, strlen(message));
-    flush_out_buf(connection->file);
+    return flush_out_buf(connection->file);
 }
 
 
@@ -344,12 +376,17 @@ error__t process_data_socket(int scon)
     {
         connection.reader = create_reader(data_buffer);
         uint64_t lost_bytes;
-        while (wait_for_capture(&connection, &lost_bytes))
+        bool ok = true;
+        while (ok  &&  wait_for_capture(&connection, &lost_bytes))
         {
-            send_data_header(&connection);
-            send_data_stream(&connection);
+            ok = send_data_header(
+                data_capture, &connection.options, connection.file);
+            if (ok)
+                ok = send_data_stream(&connection);
+
             enum reader_status status = close_reader(connection.reader);
-            send_data_completion(&connection, status);
+            if (ok)
+                ok = send_data_completion(&connection, status);
         }
         destroy_reader(connection.reader);
     }

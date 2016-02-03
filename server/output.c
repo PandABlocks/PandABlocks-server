@@ -17,7 +17,6 @@
 #include "types.h"
 #include "locking.h"
 #include "enums.h"
-#include "capture.h"
 
 #include "output.h"
 
