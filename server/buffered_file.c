@@ -195,6 +195,7 @@ bool write_formatted_string(
         /* Not enough room.  Flush the buffer and try again. */
         if (flush_out_buf(file))
         {
+            va_start(args, format);
             file->out_length = (size_t) vsnprintf(
                 file->out_buf, file->out_buf_size, format, args);
             file->error =
