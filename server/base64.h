@@ -2,7 +2,11 @@
 
 /* Converts binary data to base 64.  The output buffer must be at least
  * ceiling(4/3*length)+1 bytes long. */
-void base64_encode(const void *data, size_t length, char out[]);
+size_t base64_encode(const void *data, size_t length, char out[]);
+
+/* Converts a binary data length to the corresponding encoded length: does not
+ * include the trailing null character. */
+#define BASE64_ENCODE_LENGTH(length)    ((4*(length)+2)/3)
 
 /* Return codes from decoding. */
 enum base64_status {

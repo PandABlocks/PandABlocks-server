@@ -13,8 +13,9 @@ static const char encode[64] =
 static unsigned char decode[256];
 
 
-void base64_encode(const void *data, size_t length, char out[])
+size_t base64_encode(const void *data, size_t length, char out[])
 {
+    char *out_start = out;
     const unsigned char *data_in = data;
     for (; length >= 3; length -= 3)
     {
@@ -50,6 +51,7 @@ void base64_encode(const void *data, size_t length, char out[])
         }
     }
     *out++ = '\0';
+    return (size_t) (out - out_start);
 }
 
 

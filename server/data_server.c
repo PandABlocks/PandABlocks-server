@@ -19,6 +19,7 @@
 #include "buffer.h"
 #include "capture.h"
 #include "locking.h"
+#include "base64.h"
 
 #include "data_server.h"
 
@@ -36,6 +37,9 @@
 
 /* Should be large enough for the largest single raw sample. */
 #define MAX_RAW_SAMPLE_LENGTH   256
+
+/* Length of one base64 line. */
+#define BASE64_CONVERT_COUNT    57U
 
 
 /* Connection and read block polling intervals.  These determine how long it
@@ -274,6 +278,10 @@ static bool wait_for_capture(
 }
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Data processing and transmission. */
+
+
 /* State needed for data stream processing. */
 struct data_capture_state {
     /* Underlying connection with socket connection and selected options. */
@@ -367,6 +375,31 @@ static void prepare_output_buffer(struct data_capture_state *state)
 }
 
 
+/* Transmits data block in base 64. */
+static bool write_block_base64(
+    struct buffered_file *file, const void *data, size_t data_length)
+{
+    /* Simply work through the data a line at a time. */
+    bool ok = true;
+    while (ok  &&  data_length > 0)
+    {
+        /* Space for encoded buffer, leading space, trailing newline, null. */
+        char line[128];
+        COMPILE_ASSERT(
+            sizeof(line) > BASE64_ENCODE_LENGTH(BASE64_CONVERT_COUNT) + 2);
+        size_t to_encode = MIN(data_length, BASE64_CONVERT_COUNT);
+        line[0] = ' ';
+        size_t encoded = base64_encode(data, to_encode, line + 1);
+        line[encoded + 1] = '\n';
+        ok = write_string(file, line, encoded + 2);
+
+        data += to_encode;
+        data_length -= to_encode;
+    }
+    return ok;
+}
+
+
 /* Send the output buffer in the appropriate format. */
 static bool send_output_buffer(
     struct data_capture_state *state, unsigned int samples)
@@ -385,10 +418,12 @@ static bool send_output_buffer(
         case DATA_FORMAT_ASCII:
             return send_binary_as_ascii(
                 data_capture, &state->connection->options,
-                state->connection->file, samples, state->output_buffer);
+                state->connection->file, samples,
+                state->output_buffer, state->output_buffer_count);
         case DATA_FORMAT_BASE64:
-            printf("not implemented\n");
-            return false;
+            return write_block_base64(
+                state->connection->file,
+                state->output_buffer, state->output_buffer_count);
         default:
             return write_block(
                 state->connection->file,
@@ -397,7 +432,7 @@ static bool send_output_buffer(
 }
 
 
-static void process_capture_block(
+static bool process_capture_block(
     struct data_capture_state *state, const void *buffer, size_t length)
 {
     /* Ensure output buffer is ready for a fresh transmission. */
@@ -416,7 +451,7 @@ static void process_capture_block(
             /* Transmit the output buffer, if we can.  If this fails, just
              * bail out. */
             if (!send_output_buffer(state, samples))
-                break;
+                return false;
 
             /* In case there's more to come, reinitialise the output. */
             prepare_output_buffer(state);
@@ -426,6 +461,7 @@ static void process_capture_block(
 
     /* Add any residue to the single sample buffer. */
     update_single_sample_buffer(state, buffer, length);
+    return true;
 }
 
 
@@ -452,11 +488,12 @@ static bool send_data_stream(struct data_connection *connection)
            buffer  &&  check_connection(connection))
     {
         if (in_length > 0)
-            process_capture_block(&state, buffer, in_length);
+            if (!process_capture_block(&state, buffer, in_length))
+                break;
         if (!flush_out_buf(connection->file))
-            return false;
+            break;
     }
-    return true;
+    return buffer == NULL;
 }
 
 

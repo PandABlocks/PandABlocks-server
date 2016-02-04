@@ -18,7 +18,7 @@ struct data_options {
     enum data_format data_format;
     enum data_process data_process;
     bool omit_header;
-    bool single_experiment;
+    bool one_shot;
 };
 
 /* This structure encapsulates everything needed to process captured data. */
@@ -61,4 +61,5 @@ void convert_raw_data_to_binary(
  * communication problem. */
 bool send_binary_as_ascii(
     struct data_capture *capture, struct data_options *options,
-    struct buffered_file *file, unsigned int sample_count, const void *data);
+    struct buffered_file *file, unsigned int sample_count,
+    const void *data, size_t data_length);
