@@ -181,12 +181,14 @@ bool write_formatted_string(
         return false;
 
     va_list args;
-    va_start(args, format);
 
     /* First try writing into the buffer as is. */
     size_t length = file->out_buf_size - file->out_length;
+    va_start(args, format);
     size_t written = (size_t) vsnprintf(
         file->out_buf + file->out_length, length, format, args);
+    va_end(args);
+
     if (written < length)
         /* Good, job done. */
         file->out_length += (size_t) written;
@@ -198,13 +200,14 @@ bool write_formatted_string(
             va_start(args, format);
             file->out_length = (size_t) vsnprintf(
                 file->out_buf, file->out_buf_size, format, args);
+            va_end(args);
+
             file->error =
                 TEST_OK_(file->out_length < file->out_buf_size,
                     "Formatted string too long for buffered output");
         }
     }
 
-    va_end(args);
     return !file->error;
 }
 

@@ -303,7 +303,7 @@ static unsigned int process_samples(
      * output buffer. */
     size_t free_space =
         sizeof(state->output_buffer) - state->output_buffer_count;
-    unsigned int sample_count = MIN(
+    unsigned int sample_count = (unsigned int) MIN(
         *length / state->raw_sample_length,
         free_space / state->binary_sample_length);
 
