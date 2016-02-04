@@ -39,13 +39,73 @@ struct data_capture *prepare_data_capture(void)
 }
 
 
+static error__t parse_one_option(
+    const char *option, struct data_options *options)
+{
+    /* Data formatting options. */
+    if (strcmp(option, "UNFRAMED") == 0)
+        options->data_format = DATA_FORMAT_RAW;
+    else if (strcmp(option, "FRAMED") == 0)
+        options->data_format = DATA_FORMAT_FRAMED;
+    else if (strcmp(option, "BASE64") == 0)
+        options->data_format = DATA_FORMAT_BASE64;
+    else if (strcmp(option, "ASCII") == 0)
+        options->data_format = DATA_FORMAT_ASCII;
+
+    /* Data processing options. */
+    else if (strcmp(option, "RAW") == 0)
+        options->data_process = DATA_PROCESS_RAW;
+    else if (strcmp(option, "UNSCALED") == 0)
+        options->data_process = DATA_PROCESS_UNSCALED;
+    else if (strcmp(option, "SCALED") == 0)
+        options->data_process = DATA_PROCESS_SCALED;
+
+    /* Reporting and control options. */
+    else if (strcmp(option, "NO_HEADER") == 0)
+        options->omit_header = true;
+    else if (strcmp(option, "NO_STATUS") == 0)
+        options->omit_status = true;
+    else if (strcmp(option, "ONE_SHOT") == 0)
+        options->one_shot = true;
+
+    /* Some compound options. */
+    else if (strcmp(option, "BARE") == 0)
+        *options = (struct data_options) {
+            .data_format = DATA_FORMAT_RAW,
+            .data_process = DATA_PROCESS_UNSCALED,
+            .omit_header = true,
+            .omit_status = true,
+            .one_shot = true,
+        };
+    else if (strcmp(option, "DEFAULT") == 0)
+        *options = (struct data_options) {
+            .data_format = DATA_FORMAT_ASCII,
+            .data_process = DATA_PROCESS_SCALED,
+        };
+
+    else
+        return FAIL_("Invalid data capture option");
+    return ERROR_OK;
+}
+
+
 error__t parse_data_options(const char *line, struct data_options *options)
 {
-    *options = (struct data_options) { };
-//     options->data_format = DATA_FORMAT_ASCII;
-    options->data_format = DATA_FORMAT_BASE64;
-    printf("parse_data_options: \"%s\"\n", line);
-    return ERROR_OK;
+    *options = (struct data_options) {
+        .data_format = DATA_FORMAT_ASCII,
+        .data_process = DATA_PROCESS_SCALED,
+    };
+
+    char option[MAX_NAME_LENGTH];
+    error__t error = ERROR_OK;
+    while (!error  &&  *line)
+        error =
+            DO(line = skip_whitespace(line))  ?:
+            parse_alphanum_name(&line, option, sizeof(option))  ?:
+            parse_one_option(option, options);
+    return
+        error  ?:
+        parse_eos(&line);
 }
 
 

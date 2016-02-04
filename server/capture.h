@@ -18,6 +18,7 @@ struct data_options {
     enum data_format data_format;
     enum data_process data_process;
     bool omit_header;
+    bool omit_status;
     bool one_shot;
 };
 

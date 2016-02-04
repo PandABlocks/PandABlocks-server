@@ -39,17 +39,25 @@ error__t parse_whitespace(const char **string)
 
 
 /* Test for valid character in a name.  We allow ASCII letters and underscores,
- * only.  Even digits are forbidden at the moment. */
+ * only. */
 static bool valid_name_char(char ch)
 {
     return isascii(ch)  &&  (isalpha(ch)  ||  ch == '_');
 }
 
+/* Allow numbers as well. */
+static bool valid_alphanum_char(char ch)
+{
+    return isascii(ch)  &&  (isalpha(ch)  ||  ch == '_'  ||  isdigit(ch));
+}
 
-error__t parse_name(const char **string, char result[], size_t max_length)
+
+static error__t parse_filtered_name(
+    const char **string, bool (*filter_char)(char),
+    char result[], size_t max_length)
 {
     size_t ix = 0;
-    while (ix < max_length  &&  valid_name_char(**string))
+    while (ix < max_length  &&  filter_char(**string))
     {
         result[ix] = *(*string)++;
         ix += 1;
@@ -58,6 +66,21 @@ error__t parse_name(const char **string, char result[], size_t max_length)
         TEST_OK_(ix > 0, "No name found")  ?:
         TEST_OK_(ix < max_length, "Name too long")  ?:
         DO(result[ix] = '\0');
+}
+
+
+error__t parse_name(const char **string, char result[], size_t max_length)
+{
+    return parse_filtered_name(string, valid_name_char, result, max_length);
+}
+
+
+error__t parse_alphanum_name(
+    const char **string, char result[], size_t max_length)
+{
+    return
+        TEST_OK_(valid_name_char(**string), "No name found")  ?:
+        parse_filtered_name(string, valid_alphanum_char, result, max_length);
 }
 
 

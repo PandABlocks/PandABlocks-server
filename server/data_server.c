@@ -236,13 +236,18 @@ static bool process_data_request(struct data_connection *connection)
     if (read_line(connection->file, line, sizeof(line), false))
     {
         error__t error = parse_data_options(line, &connection->options);
-        int length = error ?
-            snprintf(line, sizeof(line), "ERR %s\n", error_format(error))
-        :
-            snprintf(line, sizeof(line), "OK\n");
-        error_discard(error);
-        write_string(connection->file, line, (size_t) length);
-        return flush_out_buf(connection->file)  &&  !error;
+        if (!error  &&  connection->options.omit_status)
+            return true;
+        else
+        {
+            int length = error ?
+                snprintf(line, sizeof(line), "ERR %s\n", error_format(error))
+            :
+                snprintf(line, sizeof(line), "OK\n");
+            error_discard(error);
+            write_string(connection->file, line, (size_t) length);
+            return flush_out_buf(connection->file)  &&  !error;
+        }
     }
     else
         return false;
@@ -531,14 +536,18 @@ error__t process_data_socket(int scon)
         bool ok = true;
         while (ok  &&  wait_for_capture(&connection, &lost_bytes))
         {
-            ok = send_data_header(
-                data_capture, &connection.options, connection.file);
+            if (!connection.options.omit_header)
+                ok = send_data_header(
+                    data_capture, &connection.options, connection.file);
             if (ok)
                 ok = send_data_stream(&connection);
 
             enum reader_status status = close_reader(connection.reader);
-            if (ok)
+            if (ok  &&  !connection.options.omit_status)
                 ok = send_data_completion(&connection, status);
+
+            if (connection.options.one_shot)
+                break;
         }
         destroy_reader(connection.reader);
     }

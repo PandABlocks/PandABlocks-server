@@ -12,6 +12,10 @@ error__t parse_whitespace(const char **string);
  * The given max_length includes the trailing null character. */
 error__t parse_name(const char **string, char result[], size_t max_length);
 
+/* As for parse_name, but also accepts numbers after the leading character. */
+error__t parse_alphanum_name(
+    const char **string, char result[], size_t max_length);
+
 /* Tests whether the next character in *string is ch and if so consumes it and
  * returns true, otherwise returns false. */
 bool read_char(const char **string, char ch);
