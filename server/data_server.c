@@ -266,7 +266,8 @@ static bool check_connection(struct data_connection *connection)
 
 /* Block until capture begins or the socket is closed. */
 static bool wait_for_capture(
-    struct data_connection *connection, uint64_t *lost_bytes)
+    struct data_connection *connection,
+    uint64_t *lost_samples, size_t *skip_bytes)
 {
     /* Block here waiting for data capture to begin or for the client to
      * disconnect.  Alas, detecting disconnection is a bit of a pain: we either
@@ -276,9 +277,20 @@ static bool wait_for_capture(
         .tv_sec  = CONNECTION_POLL_SECS,
         .tv_nsec = CONNECTION_POLL_NSECS, };
     bool opened = false;
+    uint64_t lost_bytes;
     while (check_connection(connection)  &&  !opened)
         opened = open_reader(
-            connection->reader, BUFFER_READ_MARGIN, &timeout, lost_bytes);
+            connection->reader, BUFFER_READ_MARGIN, &timeout, &lost_bytes);
+
+    if (opened)
+    {
+        /* Convert lost bytes into lost samples and byte count we need to skip
+         * to get back into line. */
+        size_t sample_size = get_raw_sample_length(data_capture);
+        *lost_samples = (lost_bytes + sample_size - 1) / sample_size;
+        uint64_t extra_bytes = lost_bytes % sample_size;
+        *skip_bytes = extra_bytes > 0 ? sample_size - (size_t) extra_bytes : 0;
+    }
     return opened;
 }
 
@@ -470,7 +482,8 @@ static bool process_capture_block(
 
 /* Sends the data stream until end of stream or there's a problem with the
  * client connection.  Returns false if there's a client connection problem. */
-static bool send_data_stream(struct data_connection *connection)
+static bool send_data_stream(
+    struct data_connection *connection, size_t skip_bytes)
 {
     struct data_capture_state state = {
         .connection = connection,
@@ -489,6 +502,14 @@ static bool send_data_stream(struct data_connection *connection)
     while (buffer = get_read_block(connection->reader, &timeout, &in_length),
            buffer  &&  check_connection(connection))
     {
+        if (skip_bytes)
+        {
+            size_t skipped = MIN(skip_bytes, in_length);
+            skip_bytes -= skipped;
+            in_length -= skipped;
+            buffer += skipped;
+        }
+
         if (in_length > 0)
             if (!process_capture_block(&state, buffer, in_length))
                 break;
@@ -529,15 +550,18 @@ error__t process_data_socket(int scon)
     if (process_data_request(&connection))
     {
         connection.reader = create_reader(data_buffer);
-        uint64_t lost_bytes;
+        uint64_t lost_samples;
+        size_t skip_bytes;
         bool ok = true;
-        while (ok  &&  wait_for_capture(&connection, &lost_bytes))
+        while (ok  &&
+            wait_for_capture(&connection, &lost_samples, &skip_bytes))
         {
             if (!connection.options.omit_header)
                 ok = send_data_header(
-                    data_capture, &connection.options, connection.file);
+                    data_capture, &connection.options, connection.file,
+                    lost_samples);
             if (ok)
-                ok = send_data_stream(&connection);
+                ok = send_data_stream(&connection, skip_bytes);
 
             enum reader_status status = close_reader(connection.reader);
             if (ok  &&  !connection.options.omit_status)
