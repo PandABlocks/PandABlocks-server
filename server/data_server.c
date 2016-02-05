@@ -89,7 +89,7 @@ static volatile bool data_thread_running = true;
 static struct capture_buffer *data_buffer;
 /* Structure used to define data capture in progress.  This is valid while data
  * capture is enabled, invalid otherwise. */
-static struct data_capture *data_capture;
+static const struct data_capture *data_capture;
 
 
 /* Performs a complete experiment capture: start data buffer, process the data
@@ -362,7 +362,6 @@ static unsigned int process_single_sample(
 static void update_single_sample_buffer(
     struct data_capture_state *state, const void *buffer, size_t length)
 {
-    ASSERT_OK(state->sample_buffer_count + length < state->raw_sample_length);
     memcpy(state->sample_buffer + state->sample_buffer_count, buffer, length);
     state->sample_buffer_count += length;
 }
@@ -423,8 +422,7 @@ static bool send_output_buffer(
         case DATA_FORMAT_ASCII:
             return send_binary_as_ascii(
                 data_capture, &state->connection->options,
-                state->connection->file, samples,
-                state->output_buffer, state->output_buffer_count);
+                state->connection->file, samples, state->output_buffer);
         case DATA_FORMAT_BASE64:
             return write_block_base64(
                 state->connection->file,
@@ -480,7 +478,6 @@ static bool send_data_stream(struct data_connection *connection)
         .binary_sample_length = get_binary_sample_length(
             data_capture, &connection->options),
     };
-    ASSERT_OK(state.raw_sample_length <= MAX_RAW_SAMPLE_LENGTH);
 
     const struct timespec timeout = {
         .tv_sec  = READ_BLOCK_POLL_SECS,
