@@ -16,7 +16,7 @@ MODULE_SUPPORTED_DEVICE("panda");
 MODULE_VERSION("0");
 
 
-#define PANDA_MINORS    3           // We have 3 sub devices
+#define PANDA_MINORS    2           // We have 2 sub devices
 
 
 /* The fops and name fields of this structure are filled in by the appropriate
@@ -28,8 +28,7 @@ struct panda_info {
 };
 static struct panda_info panda_info[PANDA_MINORS] = {
     { .init = panda_map_init },
-    { .init = panda_dummy1_init },
-    { .init = panda_dummy2_init },
+    { .init = panda_stream_init },
 };
 
 
