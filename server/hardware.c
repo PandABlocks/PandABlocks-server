@@ -69,19 +69,22 @@ uint32_t hw_read_register(
 
 /* Named registers. */
 
-#define BIT_READ_RST            0
-#define BIT_READ_VALUE          1
-#define POS_READ_RST            2
-#define POS_READ_VALUE          3
-#define POS_READ_CHANGES        4
-#define PCAP_START_WRITE        5
-#define PCAP_WRITE              6
-#define PCAP_FRAMING_MASK       7
-#define PCAP_FRAMING_ENABLE     8
-#define PCAP_FRAMING_MODE       9
-#define PCAP_ARM                10
-#define PCAP_DISARM             11
-#define SLOW_REGISTER_STATUS    12
+#define FPGA_VERSION            0
+#define FPGA_BUILD              1
+#define SLOW_VERSION            2
+#define BIT_READ_RST            3
+#define BIT_READ_VALUE          4
+#define POS_READ_RST            5
+#define POS_READ_VALUE          6
+#define POS_READ_CHANGES        7
+#define PCAP_START_WRITE        8
+#define PCAP_WRITE              9
+#define PCAP_FRAMING_MASK       10
+#define PCAP_FRAMING_ENABLE     11
+#define PCAP_FRAMING_MODE       12
+#define PCAP_ARM                13
+#define PCAP_DISARM             14
+#define SLOW_REGISTER_STATUS    15
 
 struct named_register {
     const char *name;
@@ -92,6 +95,9 @@ struct named_register {
     [name] = { #name, UNASSIGNED_REGISTER }
 
 static struct named_register named_registers[] = {
+    NAMED_REGISTER(FPGA_VERSION),
+    NAMED_REGISTER(FPGA_BUILD),
+    NAMED_REGISTER(SLOW_VERSION),
     NAMED_REGISTER(BIT_READ_RST),
     NAMED_REGISTER(BIT_READ_VALUE),
     NAMED_REGISTER(POS_READ_RST),
