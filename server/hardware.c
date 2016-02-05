@@ -69,6 +69,10 @@ uint32_t hw_read_register(
 
 /* Named registers. */
 
+/* All of these register names also appear in the *REG fields of the register
+ * configuration file.  For simplicity, because we need to refer to the
+ * registers directly by number in this file, all we do is check that the named
+ * registers in *REG have precisely the offsets we expect here. */
 #define FPGA_VERSION            0
 #define FPGA_BUILD              1
 #define SLOW_VERSION            2
@@ -86,15 +90,8 @@ uint32_t hw_read_register(
 #define PCAP_DISARM             14
 #define SLOW_REGISTER_STATUS    15
 
-struct named_register {
-    const char *name;
-    unsigned int offset;
-};
-
-#define NAMED_REGISTER(name) \
-    [name] = { #name, UNASSIGNED_REGISTER }
-
-static struct named_register named_registers[] = {
+#define NAMED_REGISTER(name)    [name] = #name
+static const char *named_registers[] = {
     NAMED_REGISTER(FPGA_VERSION),
     NAMED_REGISTER(FPGA_BUILD),
     NAMED_REGISTER(SLOW_VERSION),
@@ -112,6 +109,7 @@ static struct named_register named_registers[] = {
     NAMED_REGISTER(PCAP_DISARM),
     NAMED_REGISTER(SLOW_REGISTER_STATUS),
 };
+static bool named_register_seen[ARRAY_SIZE(named_registers)] = { };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
 
@@ -125,35 +123,33 @@ void hw_set_block_base(unsigned int reg)
 error__t hw_set_named_register(const char *name, unsigned int reg)
 {
     for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
-    {
-        if (strcmp(named_registers[i].name, name) == 0)
+        if (strcmp(named_registers[i], name) == 0)
             return
-                TEST_OK_(named_registers[i].offset == UNASSIGNED_REGISTER,
-                    "Register already assigned")  ?:
-                DO(named_registers[i].offset = reg);
-    }
+                TEST_OK_(i == reg,
+                    "Register *REG.%s expected with offset %u", name, i)  ?:
+                TEST_OK_(!named_register_seen[i], "Register recorded twice")  ?:
+                DO(named_register_seen[i] = true);
     return FAIL_("Invalid register name");
 }
 
 error__t hw_validate(void)
 {
     for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
-        if (named_registers[i].offset == UNASSIGNED_REGISTER)
-            return FAIL_("Register %s unassigned", named_registers[i].name);
+        if (!named_register_seen[i])
+            return FAIL_("Register %s not in *REG list", named_registers[i]);
     return ERROR_OK;
 }
 
 
-static inline void write_named_register(unsigned int name, uint32_t value)
+static inline void write_named_register(unsigned int offset, uint32_t value)
 {
-    hw_write_register(
-        reg_block_base, 0, named_registers[name].offset, value);
+    hw_write_register(reg_block_base, 0, offset, value);
 }
 
 
-static inline uint32_t read_named_register(unsigned int name)
+static inline uint32_t read_named_register(unsigned int offset)
 {
-    return hw_read_register(reg_block_base, 0, named_registers[name].offset);
+    return hw_read_register(reg_block_base, 0, offset);
 }
 
 
