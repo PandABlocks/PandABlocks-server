@@ -1,5 +1,31 @@
 /* Data capture control. */
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Data capture interface. */
+
+struct output;
+
+
+/* When registering output sources and preparing data capture we need to treat a
+ * number of output sources specially. */
+enum output_class {
+    OUTPUT_CLASS_NORMAL,       // Normal output source
+    OUTPUT_CLASS_TIMESTAMP,    // Timestamp, may need special offset handling
+    OUTPUT_CLASS_TS_OFFSET,    // Timestamp offset
+    OUTPUT_CLASS_ADC_COUNT,    // ADC sample count for average calculations
+};
+
+
+/* This function is called during system startup to register output sources.  Up
+ * to 2 separate capture indices can be registered for each source. */
+void register_output(
+    const struct output *output, const char *name,
+    enum output_class output_class, unsigned int capture_ix[2]);
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Data capture readout. */
+
 enum data_format {
     DATA_FORMAT_RAW,        // Raw and unframed data
     DATA_FORMAT_FRAMED,     // Framed binary data
@@ -29,7 +55,7 @@ struct data_capture;
 /* Called just before arming hardware to prepare system for data capture.  The
  * data capture state will remain valid while lock_capture_disable() returns
  * success. */
-const struct data_capture *prepare_data_capture(void);
+error__t prepare_data_capture(const struct data_capture **capture);
 
 
 /* Returns size of single raw data capture length in bytes. */

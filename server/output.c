@@ -553,6 +553,13 @@ static const struct attr_methods output_attr_methods[] =
 };
 
 
+enum capture_mode get_capture_mode(
+    const struct output *output,
+    enum framing_mode *framing_mode, struct scaling *scaling)
+{
+    return CAPTURE_OFF;
+}
+
 
 /******************************************************************************/
 /* Initialisation. */

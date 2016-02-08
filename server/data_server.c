@@ -168,13 +168,16 @@ void unlock_capture_disabled(void)
 }
 
 
-static void start_data_capture(void)
+static error__t start_data_capture(void)
 {
-    data_capture = prepare_data_capture();
-    hw_write_arm(true);
-
-    data_capture_enabled = true;
+    error__t error = prepare_data_capture(&data_capture);
+    if (!error)
+    {
+        hw_write_arm(true);
+        data_capture_enabled = true;
+    }
     SIGNAL(data_thread_event);
+    return error;
 }
 
 
@@ -187,7 +190,7 @@ error__t arm_capture(void)
          * status to be idle. */
         TEST_OK(!read_buffer_status(data_buffer, &readers, &active))  ?:
         TEST_OK_(active == 0, "Data clients still taking data")  ?:
-        DO(start_data_capture()));
+        start_data_capture());
 }
 
 
@@ -502,7 +505,7 @@ static bool send_data_stream(
     while (buffer = get_read_block(connection->reader, &timeout, &in_length),
            buffer  &&  check_connection(connection))
     {
-        if (skip_bytes)
+        if (unlikely(skip_bytes > 0))
         {
             size_t skipped = MIN(skip_bytes, in_length);
             skip_bytes -= skipped;
