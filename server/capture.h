@@ -32,7 +32,7 @@ struct data_capture;
 const struct data_capture *prepare_data_capture(void);
 
 
-/* Returns size of single raw data capture length. */
+/* Returns size of single raw data capture length in bytes. */
 size_t get_raw_sample_length(const struct data_capture *capture);
 
 /* Returns size of converted binary data with current output parameters. */
@@ -47,7 +47,7 @@ error__t parse_data_options(const char *line, struct data_options *options);
  * writing to the connection fails. */
 bool send_data_header(
     const struct data_capture *capture, struct data_options *options,
-    struct buffered_file *file);
+    struct buffered_file *file, uint64_t lost_samples);
 
 /* Converts the given number of samples from raw to binary format.  The sizes of
  * the input and output buffers is determined by the corresponding raw and

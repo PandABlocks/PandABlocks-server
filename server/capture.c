@@ -62,6 +62,9 @@ struct data_capture {
 };
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Data capture request parsing. */
+
 static error__t parse_one_option(
     const char *option, struct data_options *options)
 {
@@ -129,21 +132,6 @@ error__t parse_data_options(const char *line, struct data_options *options)
     return
         error  ?:
         parse_eos(&line);
-}
-
-
-size_t get_raw_sample_length(const struct data_capture *capture)
-{
-    return sizeof(uint32_t) * capture->raw_sample_words;
-}
-
-
-bool send_data_header(
-    const struct data_capture *capture, struct data_options *options,
-    struct buffered_file *file)
-{
-    write_string(file, "header\n", 7);
-    return flush_out_buf(file);
 }
 
 
@@ -333,6 +321,12 @@ static void convert_scaled_data(
 /* Conversion. */
 
 
+size_t get_raw_sample_length(const struct data_capture *capture)
+{
+    return sizeof(uint32_t) * capture->raw_sample_words;
+}
+
+
 size_t get_binary_sample_length(
     const struct data_capture *capture, struct data_options *options)
 {
@@ -365,6 +359,17 @@ size_t get_binary_sample_length(
 }
 
 
+bool send_data_header(
+    const struct data_capture *capture, struct data_options *options,
+    struct buffered_file *file, uint64_t lost_samples)
+{
+    write_formatted_string(
+        file, "header: lost %"PRIu64" samples\n", lost_samples);
+    write_string(file, "header\n", 7);
+    return flush_out_buf(file);
+}
+
+
 void convert_raw_data_to_binary(
     const struct data_capture *capture, struct data_options *options,
     unsigned int sample_count, const void *input, void *output)
@@ -383,6 +388,10 @@ void convert_raw_data_to_binary(
             break;
     }
 }
+
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+/* Output in ASCII. */
 
 
 /* Helper routine for printing in ASCII format. */
