@@ -31,48 +31,20 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
  * field.  For bits there is a complication: although capture can be configured
  * for each bit output, capture actually occurs in blocks of 32 bits.  Thus the
  * hardware capture mask will be reduced from bit_capture[] when written. */
-static uint32_t bit_capture[BIT_BUS_COUNT / 32];
 static uint32_t pos_capture_mask;
 static uint32_t pos_framing_mask;
 static uint32_t pos_extension_mask;
 
-/* Capture indices for the four captured *BITS fields. */
-static int bit_capture_index[BIT_BUS_COUNT / 32];
-static int pos_capture_index[POS_BUS_COUNT];
-
 /* Current values for each output field. */
-static bool bit_value[BIT_BUS_COUNT];
 static uint32_t pos_value[POS_BUS_COUNT];
 
 /* Update indices for output fields. */
-static uint64_t bit_update_index[BIT_BUS_COUNT];
 static uint64_t pos_update_index[POS_BUS_COUNT];
 
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Capture enumeration. */
-
-/* Update the bit and pos capture index arrays.  This needs to be called each
- * time either capture mask is written. */
-static void update_capture_index(void)
-{
-    int capture_index = 0;
-
-    /* Position capture. */
-    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-        if (pos_capture_mask & (1U << i))
-            pos_capture_index[i] = capture_index++;
-        else
-            pos_capture_index[i] = -1;
-
-    /* Bit capture. */
-    for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
-        if (bit_capture[i])
-            bit_capture_index[i] = capture_index++;
-        else
-            bit_capture_index[i] = -1;
-}
 
 
 void report_capture_list(struct connection_result *result)
@@ -84,24 +56,6 @@ void report_capture_list(struct connection_result *result)
                 result->write_context,
                 enum_index_to_name(pos_mux_lookup, i));
 
-    /* Bit capture. */
-    for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
-        if (bit_capture[i])
-        {
-            char string[MAX_NAME_LENGTH];
-            snprintf(string, sizeof(string), "*BITS%d", i);
-            result->write_many(result->write_context, string);
-        }
-
-    result->response = RESPONSE_MANY;
-}
-
-
-void report_capture_bits(struct connection_result *result, unsigned int group)
-{
-    for (unsigned int i = 0; i < 32; i ++)
-        result->write_many(result->write_context,
-            enum_index_to_name(bit_mux_lookup, 32*group + i) ?: "");
     result->response = RESPONSE_MANY;
 }
 
@@ -117,22 +71,7 @@ void report_capture_positions(struct connection_result *result)
 
 void reset_capture_list(void)
 {
-    for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
-        bit_capture[i] = 0;
     pos_capture_mask = 0;
-    update_capture_index();
-}
-
-
-void write_capture_masks(void)
-{
-//     uint32_t bit_capture_mask = 0;
-//     for (unsigned int i = 0; i < BIT_BUS_COUNT / 32; i ++)
-//         if (bit_capture[i])
-//             bit_capture_mask |= 1U << i;
-//     hw_write_capture_masks(
-//         bit_capture_mask, pos_capture_mask,
-//         pos_framing_mask, pos_extension_mask);
 }
 
 
@@ -141,17 +80,6 @@ void write_capture_masks(void)
 
 /* The refresh methods are called when we need a fresh value.  We retrieve
  * values and changed bits from the hardware and update settings accordingly. */
-
-void do_bit_out_refresh(uint64_t change_index)
-{
-    LOCK(mutex);
-    bool changes[BIT_BUS_COUNT];
-    hw_read_bits(bit_value, changes);
-    for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
-        if (changes[i]  &&  change_index > bit_update_index[i])
-            bit_update_index[i] = change_index;
-    UNLOCK(mutex);
-}
 
 void do_pos_out_refresh(uint64_t change_index)
 {
@@ -164,11 +92,6 @@ void do_pos_out_refresh(uint64_t change_index)
     UNLOCK(mutex);
 }
 
-
-static void bit_out_refresh(void *class_data, unsigned int number)
-{
-    do_bit_out_refresh(get_change_index());
-}
 
 static void pos_out_refresh(void *class_data, unsigned int number)
 {
@@ -186,7 +109,6 @@ struct output_class_methods {
     void (*set_capture)(unsigned int ix, unsigned int value);
     unsigned int (*get_capture)(unsigned int ix);
     uint32_t (*get_value)(unsigned int ix);
-    error__t (*format_index)(unsigned int ix, char result[], size_t length);
 };
 
 
@@ -201,52 +123,6 @@ static uint32_t get_bit(uint32_t *target, unsigned int ix)
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* bit methods. */
-
-/* bit capture is controlled by the bit_capture[] array. */
-
-static void bit_set_capture(unsigned int ix, unsigned int value)
-{
-    update_bit(&bit_capture[ix / 32], ix % 32, value & 1);
-    update_capture_index();
-}
-
-
-static unsigned int bit_get_capture(unsigned int ix)
-{
-    return get_bit(&bit_capture[ix / 32], ix % 32);
-}
-
-
-static uint32_t bit_get_value(unsigned int ix)
-{
-    return bit_value[ix];
-}
-
-
-static error__t bit_format_index(
-    unsigned int ix, char result[], size_t length)
-{
-    int capture_index = bit_capture_index[ix / 32];
-    return
-        IF_ELSE(capture_index >= 0,
-            format_string(result, length, "%d:%d", capture_index, ix % 32),
-        // else
-            DO(*result = '\0'));
-}
-
-
-static const struct output_class_methods bit_output_methods = {
-    .set_capture = bit_set_capture,
-    .get_capture = bit_get_capture,
-    .get_value = bit_get_value,
-    .format_index = bit_format_index,
-};
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* pos methods. */
 
 /* position capture is controlled through the three capture masks, with the
  * corresponding bit numbers:
@@ -259,7 +135,6 @@ static void pos_set_capture(unsigned int ix, unsigned int value)
     update_bit(&pos_capture_mask, ix, value & 1);
     update_bit(&pos_framing_mask, ix, (value >> 1) & 1);
     update_bit(&pos_extension_mask, ix, (value >> 2) & 1);
-    update_capture_index();
 }
 
 
@@ -278,23 +153,10 @@ static uint32_t pos_get_value(unsigned int ix)
 }
 
 
-static error__t pos_format_index(
-    unsigned int ix, char result[], size_t length)
-{
-    int capture_index = pos_capture_index[ix];
-    return
-        IF_ELSE(capture_index >= 0,
-            format_string(result, length, "%d", capture_index),
-        // else
-            DO(*result = '\0'));
-}
-
-
 static const struct output_class_methods pos_output_methods = {
     .set_capture = pos_set_capture,
     .get_capture = pos_get_capture,
     .get_value = pos_get_value,
-    .format_index = pos_format_index,
 };
 
 
@@ -315,17 +177,9 @@ static unsigned int ext_get_capture(unsigned int ix)
 }
 
 
-static error__t ext_format_index(
-    unsigned int ix, char result[], size_t length)
-{
-    return FAIL_("Not implemented");
-}
-
-
 static const struct output_class_methods ext_output_methods = {
     .set_capture = ext_set_capture,
     .get_capture = ext_get_capture,
-    .format_index = ext_format_index,
 };
 
 
@@ -338,7 +192,6 @@ static const struct output_class_methods ext_output_methods = {
 /* Differing outputs have differing output options, this value is read from the
  * configuration file. */
 enum output_type {
-    OUTPUT_BIT,         // Single bit (we'll lose this shortly)
     OUTPUT_POSN,        // Ordinary position
     OUTPUT_ADC,         // ADC => may have extended values
     OUTPUT_ENCODER,     // Encoders may have extended values
@@ -353,7 +206,7 @@ enum output_type {
 };
 
 static const char *output_type_names[OUTPUT_TYPE_SIZE] = {
-    "bit", NULL, "adc", "encoder", "const", "timestamp",
+    NULL, "adc", "encoder", "const", "timestamp",
     NULL, "offset", "bits", "adc_count",
 };
 
@@ -400,27 +253,13 @@ static error__t output_get(
 
 
 /* Computation of change set. */
-static void bit_pos_change_set(
-    struct output_state *state, const uint64_t update_index[],
-    const uint64_t report_index, bool changes[])
-{
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = update_index[state->index_array[i]] > report_index;
-}
-
-static void bit_out_change_set(
-    void *class_data, const uint64_t report_index, bool changes[])
-{
-    LOCK(mutex);
-    bit_pos_change_set(class_data, bit_update_index, report_index, changes);
-    UNLOCK(mutex);
-}
-
 static void pos_out_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
+    struct output_state *state = class_data;
     LOCK(mutex);
-    bit_pos_change_set(class_data, pos_update_index, report_index, changes);
+    for (unsigned int i = 0; i < state->count; i ++)
+        changes[i] = pos_update_index[state->index_array[i]] > report_index;
     UNLOCK(mutex);
 }
 
@@ -521,17 +360,6 @@ static error__t capture_put(
 }
 
 
-static error__t capture_index_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct output_state *state = data;
-    return WITH_LOCK(mutex,
-        state->methods->format_index(
-            state->index_array[number], result, length));
-}
-
-
 static const struct enumeration *capture_get_enumeration(void *data)
 {
     struct output_state *state = data;
@@ -546,9 +374,6 @@ static const struct attr_methods output_attr_methods[] =
         .format = capture_format,
         .put = capture_put,
         .get_enumeration = capture_get_enumeration,
-    },
-    { "CAPTURE_INDEX", "Position in output stream of this field",
-        .format = capture_index_format,
     },
 };
 
@@ -591,15 +416,6 @@ static error__t output_init(
             DO(create_attributes(
                 output_attr_methods, ARRAY_SIZE(output_attr_methods),
                 NULL, *class_data, count, attr_map)));
-}
-
-
-static error__t bit_out_init(
-    const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
-{
-    return output_init(
-        OUTPUT_BIT, &bit_output_methods, "bit", count, attr_map, class_data);
 }
 
 
@@ -707,61 +523,38 @@ static const char *output_describe(void *class_data)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Register initialisation. */
 
-static error__t parse_out_registers(
-    struct output_state *state, const char **line, size_t limit)
+
+error__t add_mux_indices(
+    struct enumeration *lookup, struct field *field,
+    const unsigned int array[], size_t length)
 {
     error__t error = ERROR_OK;
-    for (unsigned int i = 0; !error  &&  i < state->count; i ++)
-        error =
-            parse_whitespace(line)  ?:
-            parse_uint(line, &state->index_array[i])  ?:
-            TEST_OK_(state->index_array[i] < limit, "Mux index out of range");
-    return error;
-}
-
-
-static error__t add_mux_indices(
-    struct enumeration *lookup, struct field *field, struct output_state *state)
-{
-    error__t error = ERROR_OK;
-    for (unsigned int i = 0; !error  &&  i < state->count; i ++)
+    for (unsigned int i = 0; !error  &&  i < length; i ++)
     {
         char name[MAX_NAME_LENGTH];
         format_field_name(name, sizeof(name), field, NULL, i, '\0');
-        error = add_enumeration(lookup, name, state->index_array[i]);
+        error = add_enumeration(lookup, name, array[i]);
     }
     return error;
 }
 
 
-static error__t output_parse_register(
-    struct enumeration *lookup, size_t length, struct output_state *state,
-    struct field *field, const char **line)
+static error__t pos_out_parse_register(
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
 {
+    struct output_state *state = class_data;
     return
-        parse_out_registers(state, line, length) ?:
-        add_mux_indices(lookup, field, state)  ?:
+        parse_whitespace(line)  ?:
+        parse_uint_array(line, state->index_array, state->count)  ?:
+        add_mux_indices(
+            pos_mux_lookup, field, state->index_array, state->count)  ?:
         IF(**line,
             DO(
                 printf("ignoring extra: \"%s\"\n", *line);
                 *line += strlen(*line)));
 }
 
-static error__t bit_out_parse_register(
-    void *class_data, struct field *field, unsigned int block_base,
-    const char **line)
-{
-    return output_parse_register(
-        bit_mux_lookup, BIT_BUS_COUNT, class_data, field, line);
-}
-
-static error__t pos_out_parse_register(
-    void *class_data, struct field *field, unsigned int block_base,
-    const char **line)
-{
-    return output_parse_register(
-        pos_mux_lookup, POS_BUS_COUNT, class_data, field, line);
-}
 
 static error__t ext_out_parse_register(
     void *class_data, struct field *field, unsigned int block_base,
@@ -781,9 +574,6 @@ static error__t ext_out_parse_register(
 
 error__t initialise_output(void)
 {
-    update_capture_index();
-
-    bit_mux_lookup = create_dynamic_enumeration(BIT_BUS_COUNT);
     pos_mux_lookup = create_dynamic_enumeration(POS_BUS_COUNT);
 
     for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
@@ -803,8 +593,6 @@ void terminate_output(void)
     for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
         if (capture_enums[i])
             destroy_enumeration(capture_enums[i]);
-    if (bit_mux_lookup)
-        destroy_enumeration(bit_mux_lookup);
     if (pos_mux_lookup)
         destroy_enumeration(pos_mux_lookup);
 }
@@ -812,16 +600,6 @@ void terminate_output(void)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Published class definitions. */
-
-const struct class_methods bit_out_class_methods = {
-    "bit_out",
-    .init = bit_out_init,
-    .parse_register = bit_out_parse_register,
-    .destroy = output_destroy,
-    .get = output_get, .refresh = bit_out_refresh,
-    .change_set = bit_out_change_set,
-    .change_set_index = CHANGE_IX_BITS,
-};
 
 const struct class_methods pos_out_class_methods = {
     "pos_out",

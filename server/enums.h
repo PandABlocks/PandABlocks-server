@@ -51,12 +51,31 @@ error__t add_enumeration(
     struct enumeration *enumeration, const char *name, unsigned int index);
 
 
+/* Helper methods for building types from an unwrapped enumeration.  If
+ * type_data is a struct enumeration then the following three methods can be
+ * used directly as type access methods. */
+
+/* Parses string according to enumeration passed as type_data, assigning result
+ * to *value if possible. */
+error__t enum_parse(
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value);
+
+/* Converts index passed as value according to enumeration passed as type_data,
+ * writing result to string if possible. */
+error__t enum_format(
+    void *type_data, unsigned int number,
+    unsigned int value, char string[], size_t length);
+
+/* Simply returns type_data as an enumeration. */
+const struct enumeration *enum_get_enumeration(void *type_data);
+
+
+/* Type methods for enum. */
 extern const struct type_methods enum_type_methods;
 
 
 /* bit_mux and pos_mux enumerations and types. */
-extern struct enumeration *bit_mux_lookup;
 extern struct enumeration *pos_mux_lookup;
 
-extern const struct type_methods bit_mux_type_methods;
 extern const struct type_methods pos_mux_type_methods;

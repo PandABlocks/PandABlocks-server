@@ -191,20 +191,6 @@ static error__t put_capture(
 }
 
 
-/* *BITSn?
- *
- * Returns list of bit field names for each bit capture block. */
-static error__t get_bits(const char *command, struct connection_result *result)
-{
-    unsigned int bit;
-    return
-        parse_uint(&command, &bit)  ?:
-        parse_eos(&command)  ?:
-        TEST_OK_(bit < 4, "Bit capture index too high")  ?:
-        DO(report_capture_bits(result, bit));
-}
-
-
 /* *POSITIONS?
  *
  * Returns list of bit field names for each bit capture block. */
@@ -341,7 +327,6 @@ static const struct command_table_entry command_table_list[] = {
     { "CHANGES",    .get = get_changes, .allow_arg = true, .put = put_changes },
     { "DESC",       .get = get_desc, .allow_arg = true },
     { "CAPTURE",    .get = get_capture, .put = put_capture, },
-    { "BITS",       .get = get_bits, .allow_arg = true },
     { "POSITIONS",  .get = get_positions, },
     { "VERBOSE",    .put = put_verbose, },
     { "ENUMS",      .get = get_enums, .allow_arg = true, },

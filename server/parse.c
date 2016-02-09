@@ -159,6 +159,18 @@ error__t parse_eos(const char **string)
 }
 
 
+error__t parse_uint_array(
+    const char **line, unsigned int array[], size_t length)
+{
+    error__t error = ERROR_OK;
+    for (size_t i = 0; !error  &&  i < length; i ++)
+        error =
+            IF(i > 0,
+                parse_whitespace(line))  ?:
+            parse_uint(line, &array[i]);
+    return error;
+}
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Indented file parser. */

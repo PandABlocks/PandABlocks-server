@@ -52,15 +52,10 @@ enum capture_mode get_capture_mode(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Refresh methods used to bring cached _out values up to date with values read
- * from hardware. */
-
-void do_bit_out_refresh(uint64_t change_index);
-void do_pos_out_refresh(uint64_t change_index);
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Capture enumeration. */
+
+/* Update cached pos_out values up to date with values read from hardware. */
+void do_pos_out_refresh(uint64_t change_index);
 
 /* *CAPTURE? implementation: returns list of all captured fields. */
 void report_capture_list(struct connection_result *result);
@@ -68,18 +63,17 @@ void report_capture_list(struct connection_result *result);
 /* Resets all capture bits. */
 void reset_capture_list(void);
 
-/* *BITSn? implementation, reports bit names in specific capture block. */
-void report_capture_bits(struct connection_result *result, unsigned int group);
-
 /* *POSITIONS? implementation, reports all position names. */
 void report_capture_positions(struct connection_result *result);
 
 
-/* This call triggers writing of the hardware capture masks. */
-void write_capture_masks(void);
+/* Given an array of numbers uses format_field_name to add entries to the given
+ * enumeration. */
+error__t add_mux_indices(
+    struct enumeration *lookup, struct field *field,
+    const unsigned int array[], size_t length);
 
 
 /* Capture class api. */
-extern const struct class_methods bit_out_class_methods;
 extern const struct class_methods pos_out_class_methods;
 extern const struct class_methods ext_out_class_methods;

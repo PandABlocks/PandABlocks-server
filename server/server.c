@@ -19,6 +19,7 @@
 #include "system_command.h"
 #include "fields.h"
 #include "output.h"
+#include "bit_out.h"
 #include "time_position.h"
 #include "base64.h"
 #include "persistence.h"
@@ -156,6 +157,7 @@ int main(int argc, char *const argv[])
 
         initialise_fields()  ?:
         initialise_output()  ?:
+        initialise_bit_out()  ?:
         initialise_time_position()  ?:
         initialise_system_command()  ?:
 
@@ -199,6 +201,7 @@ int main(int argc, char *const argv[])
     terminate_system_command();
     terminate_hardware();
     terminate_time_position();
+    terminate_bit_out();
     terminate_output();
     terminate_fields();
 
