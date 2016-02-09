@@ -119,9 +119,6 @@ static const char *output_type_names[OUTPUT_TYPE_SIZE] = {
 };
 
 
-/* We share the output state between bit and position classes to help with
- * sharing code, but the capture configuration for positions is somewhat more
- * complex. */
 struct output_state {
     unsigned int count;             // Number of instances of this field
     enum output_type output_type;   // Selected output tupe
@@ -281,10 +278,17 @@ static const struct attr_methods output_attr_methods[] =
 
 
 enum capture_mode get_capture_mode(
-    const struct output *output,
+    const struct output *output, unsigned int number,
     enum framing_mode *framing_mode, struct scaling *scaling)
 {
     return CAPTURE_OFF;
+}
+
+
+void format_output_name(
+    const struct output *output, unsigned int number,
+    char *string, size_t length)
+{
 }
 
 

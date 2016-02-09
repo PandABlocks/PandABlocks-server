@@ -8,24 +8,18 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
 
 #include "error.h"
 #include "parse.h"
 #include "buffered_file.h"
 #include "config_server.h"
 #include "data_server.h"
-#include "classes.h"
 #include "output.h"
-#include "locking.h"
 #include "hardware.h"
+#include "prepare.h"
 
 #include "capture.h"
 
-
-/* This is a safe upper bound on the number of outputs, and is useful for a
- * number of temporary buffers. */
-#define MAX_OUTPUT_COUNT    64
 
 
 struct field_group {
@@ -41,7 +35,7 @@ struct data_capture {
     size_t raw_sample_words;
 
     /* Timestamp capture and offset control. */
-    enum ts_capture { TS_IGNORE, TS_CAPTURE, TS_OFFSET } ts_capture;
+    enum ts_capture ts_capture;
 
     /* Offsets of special fields into sample. */
     size_t timestamp_index;     // Raw 64-bit timestamp
@@ -58,10 +52,6 @@ struct data_capture {
 
     /* Scaling for timestamp. */
     double timestamp_scale;
-
-    /* Array of captured outputs for header reporting. */
-    size_t capture_count;
-    struct captured_output **captured_output;
 
     /* Arrays of constants for scaling. */
     struct scaling scaling[MAX_OUTPUT_COUNT];
@@ -378,17 +368,6 @@ size_t get_binary_sample_length(
 }
 
 
-bool send_data_header(
-    const struct data_capture *capture, struct data_options *options,
-    struct buffered_file *file, uint64_t lost_samples)
-{
-    write_formatted_string(
-        file, "header: lost %"PRIu64" samples\n", lost_samples);
-    write_string(file, "header\n", 7);
-    return flush_out_buf(file);
-}
-
-
 void convert_raw_data_to_binary(
     const struct data_capture *capture, struct data_options *options,
     unsigned int sample_count, const void *input, void *output)
@@ -507,169 +486,40 @@ bool send_binary_as_ascii(
 /* Data capture preparation. */
 
 
-struct captured_output {
-    /* The following fields are initialised at startup. */
-    const struct output *output;    // Source of this output
-    const char *name;               // Printable field name for header
-    enum output_class output_class; // Do we need this?
-    unsigned int capture_index[2];  // Lower and upper words for capture
-
-    /* The following fields are set up during output selection. */
-    enum capture_mode capture_mode;
-    enum framing_mode framing_mode;
-    struct scaling scaling;
-};
-
-
-/* Here are our registered outputs, including the special sources. */
-static struct captured_output outputs[MAX_OUTPUT_COUNT];
-static unsigned int output_count = 0;
-
-/* Offsets into outputs of the three special fields. */
-static struct captured_output *timestamp_output;
-static struct captured_output *offset_output;
-static struct captured_output *adc_count_output;
-
-
-
-void register_output(
-    const struct output *output, const char *name,
-    enum output_class output_class, unsigned int capture_index[2])
-{
-    ASSERT_OK(output_count < MAX_OUTPUT_COUNT);
-    outputs[output_count] = (struct captured_output) {
-        .output = output,
-        .name = name,
-        .output_class = output_class,
-        .capture_index = { capture_index[0], capture_index[1], },
-    };
-
-    switch (output_class)
-    {
-        case OUTPUT_CLASS_NORMAL:
-            break;
-        case OUTPUT_CLASS_TIMESTAMP:
-            timestamp_output = &outputs[output_count];
-            break;
-        case OUTPUT_CLASS_TS_OFFSET:
-            offset_output = &outputs[output_count];
-            break;
-        case OUTPUT_CLASS_ADC_COUNT:
-            adc_count_output = &outputs[output_count];
-            break;
-    }
-    output_count += 1;
-}
-
-
-/* This structure is used as we gather our outputs into four groups for the
- * different output processing steps. */
-struct capture_group {
-    unsigned int count;
-    struct captured_output *outputs[MAX_OUTPUT_COUNT];
-};
-
-
-/* Gather the four capture groups and any extra specials required. */
-static enum ts_capture gather_capture_groups(
-    struct capture_group *unscaled, struct capture_group *scaled32,
-    struct capture_group *scaled64, struct capture_group *adc_mean)
-{
-    unscaled->count = 0;
-    scaled32->count = 0;
-    scaled64->count = 0;
-    adc_mean->count = 0;
-    enum ts_capture ts_capture = TS_IGNORE;
-
-    /* Walk the list of outputs and gather them into their groups. */
-    for (unsigned int i = 0; i < output_count; i ++)
-    {
-        outputs[i].capture_mode = get_capture_mode(
-            outputs[i].output, &outputs[i].framing_mode, &outputs[i].scaling);
-
-        struct capture_group *capture = NULL;
-        switch (outputs[i].capture_mode)
-        {
-            case CAPTURE_OFF:       break;
-            case CAPTURE_UNSCALED:  capture = unscaled; break;
-            case CAPTURE_SCALED32:  capture = scaled32; break;
-            case CAPTURE_SCALED64:  capture = scaled64; break;
-            case CAPTURE_ADC_MEAN:  capture = adc_mean; break;
-
-            case CAPTURE_TS_NORMAL: ts_capture = TS_CAPTURE;    break;
-            case CAPTURE_TS_OFFSET: ts_capture = TS_OFFSET;     break;
-        }
-        if (capture)
-            capture->outputs[capture->count++] = &outputs[i];
-    }
-    return ts_capture;
-}
-
-
 /* Used to gather the final capture state. */
 struct gather {
     uint32_t framing_mask;          // Framing setup as request by output
     uint32_t framing_mode;
 
     unsigned int scaling_count;     // Number of entries written to scaling
+    struct data_capture *capture;   // Associated data capture area
+
     unsigned int capture_count;     // Number of entries to be captured
-
-    struct data_capture *capture;   // Data capture area (for scaling)
-
     unsigned int capture_index[MAX_OUTPUT_COUNT];   // List of capture indices
 };
 
 
 
-/* The table below shows how the capture mode controls the number of captured
- * fields and the scaling settings.
- *
- *      capture_mode    capture fields  scaling
- *      ------------    --------------  -------
- *      _OFF            0               -
- *      _UNSCALED       1               -
- *      _SCALED32       1               present
- *      _SCALED64       2               present
- *      _ADC_MEAN       2               present
- *      _TS_NORMAL      2               -
- *      _TS_OFFSET      2 (+offset)     -
- *
- * Note that the capture count for _OFF is fudged here so that emit_capture()
- * will work when adding an uncaptured output. */
-static const struct convert_capture_mode {
-    unsigned int count;
-    bool scaling;
-} convert_capture_mode[] = {
-    { 1, false, },      // CAPTURE_OFF.  We fudge the capture count here.
-    { 1, false, },      // CAPTURE_UNSCALED
-    { 1, true,  },      // CAPTURE_SCALED32
-    { 2, true,  },      // CAPTURE_SCALED64
-    { 2, true,  },      // CAPTURE_ADC_MEAN
-    { 2, false, },      // CAPTURE_TS_NORMAL
-    { 2, false, },      // CAPTURE_TS_OFFSET
-};
-
-
 /* Emits a single output, returns index of captured value. */
 static unsigned int emit_capture(
-    struct gather *gather, struct captured_output *output)
+    struct gather *gather, const struct output_field *output,
+    unsigned int index_count, bool scaled)
 {
-    /* From the capture mode work out what processing is needed. */
-    struct convert_capture_mode convert =
-        convert_capture_mode[output->capture_mode];
+    unsigned int capture_index = gather->capture_count;
+    enum framing_mode framing_mode = get_output_info(
+        output,
+        &gather->capture_index[capture_index],
+        &gather->capture->scaling[gather->scaling_count]);
+    /* Pick up frame identification bit if required from first capture index. */
+    uint32_t frame_bit = 1U << gather->capture_index[capture_index];
 
     /* Emit the capture index and any scaling if required. */
-    unsigned int capture_index = gather->capture_count;
-    for (unsigned int i = 0; i < convert.count; i ++)
-        gather->capture_index[gather->capture_count++] =
-            output->capture_index[i];
-    struct data_capture *capture = gather->capture;
-    if (convert.scaling)
-        capture->scaling[gather->scaling_count++] = output->scaling;
+    gather->capture_count += index_count;
+    if (scaled)
+        gather->scaling_count += 1;
 
     /* Set the framing masks as appropriate. */
-    uint32_t frame_bit = 1U << output->capture_index[0];
-    switch (output->framing_mode)
+    switch (framing_mode)
     {
         case FRAMING_TRIGGER:   break;
         case FRAMING_FRAME:
@@ -681,10 +531,6 @@ static unsigned int emit_capture(
             break;
     }
 
-    /* Unless fields is hidden add it to the set of captured outputs. */
-    if (output->capture_mode != CAPTURE_OFF)
-        capture->captured_output[capture->capture_count++] = output;
-
     return capture_index;
 }
 
@@ -695,7 +541,7 @@ static unsigned int emit_capture(
  * corrected afterwards. */
 static bool ensure_output_captured(
     struct gather *gather,
-    struct capture_group *group, struct captured_output *output,
+    const struct capture_group *group, const struct output_field *output,
     size_t *ix)
 {
     /* Search capture group for output. */
@@ -707,7 +553,7 @@ static bool ensure_output_captured(
         }
 
     /* Not present, so add to capture list. */
-    *ix = emit_capture(gather, output);
+    *ix = emit_capture(gather, output, 1, false);
     return false;
 }
 
@@ -715,27 +561,28 @@ static bool ensure_output_captured(
 /* The timestamp and adc capture counts need special treatment.  We need to
  * ensure that they're captured if required and place their capture indexes. */
 static void prepare_fixed_outputs(
-    struct gather *gather, enum ts_capture ts_capture,
-    struct capture_group *unscaled, bool adc_count_needed)
+    struct gather *gather, const struct captured_fields *fields)
 {
     struct data_capture *capture = gather->capture;
-    capture->ts_capture = ts_capture;
+    capture->ts_capture = fields->ts_capture;
 
     /* Timestamp and offset, if necessary. */
     bool fixup_ts_offset = false;
-    if (ts_capture != TS_IGNORE)
+    if (fields->ts_capture != TS_IGNORE)
     {
-        emit_capture(gather, timestamp_output);
-        if (ts_capture == TS_OFFSET)
+        emit_capture(gather, fields->timestamp, 2, false);
+        if (fields->ts_capture == TS_OFFSET)
             fixup_ts_offset = ensure_output_captured(
-                gather, unscaled, offset_output, &capture->ts_offset_index);
+                gather, &fields->unscaled, fields->offset,
+                &capture->ts_offset_index);
     }
 
     /* ADC count if any ADC mean fields. */
     bool fixup_adc_count = false;
-    if (adc_count_needed)
+    if (fields->adc_mean.count > 0)
         fixup_adc_count = ensure_output_captured(
-            gather, unscaled, adc_count_output, &capture->adc_count_index);
+            gather, &fields->unscaled, fields->adc_count,
+            &capture->adc_count_index);
 
     /* Fixup the ts_offset and adc_count fields if required by adding the offset
      * of the starting area of the unscaled area -- which we only just know now,
@@ -748,37 +595,32 @@ static void prepare_fixed_outputs(
 
 
 static void prepare_output_group(
-    struct gather *gather, struct capture_group *group,
-    struct field_group *fields)
+    struct gather *gather, const struct capture_group *group,
+    struct field_group *fields, unsigned int index_count, bool scaled)
 {
     fields->index = gather->capture_count;
     fields->scaling = gather->scaling_count;
     fields->count = group->count;
 
     for (unsigned int i = 0; i < group->count; i ++)
-        emit_capture(gather, group->outputs[i]);
+        emit_capture(gather, group->outputs[i], index_count, scaled);
 }
 
 
-static void gather_data_capture(struct gather *gather)
+static void gather_data_capture(
+    const struct captured_fields *fields, struct gather *gather)
 {
-    /* We need to start by grouping all the outputs into four capture groups. */
-    struct capture_group unscaled;
-    struct capture_group scaled32;
-    struct capture_group scaled64;
-    struct capture_group adc_mean;
-
-    /* Walk the output list and gather outputs into the main categories. */
-    enum ts_capture ts_capture = gather_capture_groups(
-        &unscaled, &scaled32, &scaled64, &adc_mean);
-
     /* Work through the fields. */
     struct data_capture *capture = gather->capture;
-    prepare_fixed_outputs(gather, ts_capture, &unscaled, adc_mean.count > 0);
-    prepare_output_group(gather, &unscaled, &capture->unscaled);
-    prepare_output_group(gather, &scaled32, &capture->scaled32);
-    prepare_output_group(gather, &scaled64, &capture->scaled64);
-    prepare_output_group(gather, &adc_mean, &capture->adc_mean);
+    prepare_fixed_outputs(gather, fields);
+    prepare_output_group(
+        gather, &fields->unscaled, &capture->unscaled, 1, false);
+    prepare_output_group(
+        gather, &fields->scaled32, &capture->scaled32, 1, true);
+    prepare_output_group(
+        gather, &fields->scaled64, &capture->scaled64, 2, true);
+    prepare_output_group(
+        gather, &fields->adc_mean, &capture->adc_mean, 2, true);
     capture->raw_sample_words = gather->capture_count;
 }
 
@@ -797,27 +639,25 @@ static void dump_data_capture(struct data_capture *capture)
         capture->scaled64.scaling,
         capture->adc_mean.index, capture->adc_mean.count,
         capture->adc_mean.scaling);
-    printf(" %f %zu\n", capture->timestamp_scale, capture->capture_count);
 }
 
 
-static struct captured_output *captured_output[MAX_OUTPUT_COUNT];
 static struct data_capture data_capture_state = {
-    .captured_output = captured_output,
     .timestamp_scale = 1.0 / CLOCK_FREQUENCY,
 };
 
 
-error__t prepare_data_capture(const struct data_capture **capture)
+error__t prepare_data_capture(
+    const struct captured_fields *fields,
+    const struct data_capture **capture)
 {
     struct gather gather = {
         .capture = &data_capture_state,
     };
-    data_capture_state.capture_count = 0;
 
-    gather_data_capture(&gather);
+    gather_data_capture(fields, &gather);
     error__t error =
-        TEST_OK_(data_capture_state.capture_count > 0,
+        TEST_OK_(gather.capture_count > 0,
             "Nothing configured for capture");
     if (!error)
     {

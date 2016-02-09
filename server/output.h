@@ -2,6 +2,8 @@
  * pos_mux types. */
 
 struct class;
+struct field;
+struct enumeration;
 
 
 error__t initialise_output(void);
@@ -47,8 +49,13 @@ struct scaling {
 /* This returns the basic information required to process the given output
  * source. */
 enum capture_mode get_capture_mode(
-    const struct output *output,
+    const struct output *output, unsigned int number,
     enum framing_mode *framing_mode, struct scaling *scaling);
+
+/* Formats name of requested output instance. */
+void format_output_name(
+    const struct output *output, unsigned int number,
+    char *string, size_t length);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
