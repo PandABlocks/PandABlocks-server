@@ -75,5 +75,6 @@ error__t add_mux_indices(
 
 
 /* Capture class api. */
+extern const struct type_methods pos_mux_type_methods;
 extern const struct class_methods pos_out_class_methods;
 extern const struct class_methods ext_out_class_methods;

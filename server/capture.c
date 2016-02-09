@@ -28,6 +28,13 @@
 #define MAX_OUTPUT_COUNT    64
 
 
+struct field_group {
+    size_t index;       // Index of first field in this group
+    size_t count;       // Number of (output) fields in this group
+    size_t scaling;     // Index of first scaling entry for this group
+};
+
+
 /* This structure defines the process for generating data capture. */
 struct data_capture {
     /* Number words in a single sample. */
@@ -44,17 +51,10 @@ struct data_capture {
     /* Counts, data indexes, and scaling indexes for fields with differing
      * process requirements.  For the 64-bit fields the index is in 32-bit words
      * but the count is in 64-bit words. */
-    size_t unscaled_index;      // 32-bit fields which have no processing
-    size_t unscaled_count;
-    size_t scaled32_index;     // 32-bit fields with scaling and offset
-    size_t scaled32_count;
-    size_t scaled32_scaling;
-    size_t scaled64_index;     // 64-bit fields with scaling and offset
-    size_t scaled64_count;
-    size_t scaled64_scaling;
-    size_t adc_mean_index;       // 64-bit accumulated ADC fields for averaging
-    size_t adc_mean_count;
-    size_t adc_mean_scaling;
+    struct field_group unscaled;    // 32-bit fields with no processing
+    struct field_group scaled32;    // 32-bit fields with scaling and offset
+    struct field_group scaled64;    // 64-bit fields with scaling and offset
+    struct field_group adc_mean;    // 64-bit accumulated ADC sums
 
     /* Scaling for timestamp. */
     double timestamp_scale;
@@ -201,10 +201,15 @@ static bool capture_raw_timestamp(
 }
 
 
-#define COPY_UNSCALED_FIELDS(capture, input, output, field, type) \
-    memcpy(output, &input[capture->field##_index], \
-        sizeof(type) * capture->field##_count); \
-    output += sizeof(type) * capture->field##_count
+/* Copies given fields unprocessed to output. */
+static size_t copy_unscaled_fields(
+    const struct field_group *fields, const uint32_t *input,
+    void *output, size_t field_size)
+{
+    memcpy(output, &input[fields->index], field_size * fields->count);
+    return field_size * fields->count;
+}
+
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -217,10 +222,10 @@ static size_t average_unscaled_adc(
     const struct data_capture *capture, const uint32_t *input, uint32_t *output)
 {
     uint32_t adc_sample_count = input[capture->adc_count_index];
-    const int64_t *adc_means = (const void *) &input[capture->adc_mean_index];
-    for (size_t i = 0; i < capture->adc_mean_count; i ++)
+    const int64_t *adc_means = (const void *) &input[capture->adc_mean.index];
+    for (size_t i = 0; i < capture->adc_mean.count; i ++)
         output[i] = (uint32_t) ((adc_means[i] << 8) / adc_sample_count);
-    return sizeof(uint32_t) * capture->adc_mean_count;
+    return sizeof(uint32_t) * capture->adc_mean.count;
 }
 
 
@@ -238,9 +243,12 @@ static void convert_unscaled_data(
             output += sizeof(uint64_t);
 
         /* Copy over the unscaled and scaled values. */
-        COPY_UNSCALED_FIELDS(capture, input, output, unscaled,  uint32_t);
-        COPY_UNSCALED_FIELDS(capture, input, output, scaled32, uint32_t);
-        COPY_UNSCALED_FIELDS(capture, input, output, scaled64, uint64_t);
+        output += copy_unscaled_fields(
+            &capture->unscaled, input, output, sizeof(uint32_t));
+        output += copy_unscaled_fields(
+            &capture->scaled32, input, output, sizeof(uint32_t));
+        output += copy_unscaled_fields(
+            &capture->scaled64, input, output, sizeof(uint64_t));
 
         /* Process the ADC values. */
         output += average_unscaled_adc(capture, input, output);
@@ -267,39 +275,39 @@ static bool capture_scaled_timestamp(
 static size_t convert_scaled32(
     const struct data_capture *capture, const uint32_t *input, double *output)
 {
-    const int32_t *input_32 = (const void *) &input[capture->scaled32_index];
+    const int32_t *input_32 = (const void *) &input[capture->scaled32.index];
     const struct scaling *scaling =
-        &capture->scaling[capture->scaled32_scaling];
-    for (size_t i = 0; i < capture->scaled32_count; i ++)
+        &capture->scaling[capture->scaled32.scaling];
+    for (size_t i = 0; i < capture->scaled32.count; i ++)
         output[i] = scaling[i].scale * input_32[i] + scaling[i].offset;
-    return sizeof(double) * capture->scaled32_count;
+    return sizeof(double) * capture->scaled32.count;
 }
 
 
 static size_t convert_scaled64(
     const struct data_capture *capture, const uint32_t *input, double *output)
 {
-    const int64_t *input_64 = (const void *) &input[capture->scaled64_index];
+    const int64_t *input_64 = (const void *) &input[capture->scaled64.index];
     const struct scaling *scaling =
-        &capture->scaling[capture->scaled64_scaling];
-    for (size_t i = 0; i < capture->scaled64_count; i ++)
+        &capture->scaling[capture->scaled64.scaling];
+    for (size_t i = 0; i < capture->scaled64.count; i ++)
         output[i] = scaling[i].scale * (double) input_64[i] + scaling[i].offset;
-    return sizeof(double) * capture->scaled64_count;
+    return sizeof(double) * capture->scaled64.count;
 }
 
 
 static size_t average_scaled_adc(
     const struct data_capture *capture, const uint32_t *input, double *output)
 {
-    const int64_t *input_64 = (const void *) &input[capture->adc_mean_index];
+    const int64_t *input_64 = (const void *) &input[capture->adc_mean.index];
     const struct scaling *scaling =
-        &capture->scaling[capture->adc_mean_scaling];
+        &capture->scaling[capture->adc_mean.scaling];
     uint32_t adc_sample_count = input[capture->adc_count_index];
-    for (size_t i = 0; i < capture->adc_mean_count; i ++)
+    for (size_t i = 0; i < capture->adc_mean.count; i ++)
         output[i] =
             scaling[i].scale * (double) input_64[i] / adc_sample_count +
             scaling[i].offset;
-    return sizeof(double) * capture->adc_mean_count;
+    return sizeof(double) * capture->adc_mean.count;
 }
 
 
@@ -314,7 +322,8 @@ static void convert_scaled_data(
             output += sizeof(double);
 
         /* Capture the unscaled values. */
-        COPY_UNSCALED_FIELDS(capture, input, output, unscaled, uint32_t);
+        output += copy_unscaled_fields(
+            &capture->unscaled, input, output, sizeof(uint32_t));
 
         /* Perform all the scaling. */
         output += convert_scaled32(capture, input, output);
@@ -349,18 +358,18 @@ size_t get_binary_sample_length(
         case DATA_PROCESS_UNSCALED:
             length =
                 sizeof(uint32_t) * (
-                    capture->unscaled_count + capture->scaled32_count +
-                    capture->adc_mean_count) +
-                sizeof(uint64_t) * capture->scaled64_count;
+                    capture->unscaled.count + capture->scaled32.count +
+                    capture->adc_mean.count) +
+                sizeof(uint64_t) * capture->scaled64.count;
             if (capture->ts_capture != TS_IGNORE)
                 length += sizeof(uint64_t);
             break;
         case DATA_PROCESS_SCALED:
             length =
-                sizeof(uint32_t) * capture->unscaled_count +
+                sizeof(uint32_t) * capture->unscaled.count +
                 sizeof(uint64_t) * (
-                    capture->scaled32_count + capture->scaled64_count +
-                    capture->adc_mean_count);
+                    capture->scaled32.count + capture->scaled64.count +
+                    capture->adc_mean.count);
             if (capture->ts_capture != TS_IGNORE)
                 length += sizeof(double);
             break;
@@ -421,14 +430,15 @@ static const void *send_raw_as_ascii(
     const struct data_capture *capture,
     struct buffered_file *file, const void *data)
 {
+    /* Note: unscaled.index here acts as a counter for the "hidden" fields. */
     data += FORMAT_ASCII(
-        capture->unscaled_index + capture->unscaled_count, data,
+        capture->unscaled.index + capture->unscaled.count, data,
         " %"PRIu32, uint32_t);
     data += FORMAT_ASCII(
-        capture->scaled32_count, data,
+        capture->scaled32.count, data,
         " %"PRIi32, int32_t);
     data += FORMAT_ASCII(
-        capture->scaled64_count + capture->adc_mean_count, data,
+        capture->scaled64.count + capture->adc_mean.count, data,
         " %"PRIi64, int64_t);
     return data;
 }
@@ -441,13 +451,13 @@ static const void *send_unscaled_as_ascii(
     if (capture->ts_capture != TS_IGNORE)
         data += FORMAT_ASCII(1, data, " %"PRIu64, uint64_t);
     data += FORMAT_ASCII(
-        capture->unscaled_count, data, " %"PRIu32, uint32_t);
+        capture->unscaled.count, data, " %"PRIu32, uint32_t);
     data += FORMAT_ASCII(
-        capture->scaled32_count, data, " %"PRIi32, int32_t);
+        capture->scaled32.count, data, " %"PRIi32, int32_t);
     data += FORMAT_ASCII(
-        capture->scaled64_count, data, " %"PRIi64, int64_t);
+        capture->scaled64.count, data, " %"PRIi64, int64_t);
     data += FORMAT_ASCII(
-        capture->adc_mean_count, data, " %"PRIi32, int32_t);
+        capture->adc_mean.count, data, " %"PRIi32, int32_t);
     return data;
 }
 
@@ -459,10 +469,10 @@ static const void *send_scaled_as_ascii(
     if (capture->ts_capture != TS_IGNORE)
         data += FORMAT_ASCII(1, data, PRIdouble, double);
     data += FORMAT_ASCII(
-        capture->unscaled_count, data, " %"PRIu32, uint32_t);
+        capture->unscaled.count, data, " %"PRIu32, uint32_t);
     data += FORMAT_ASCII(
-        capture->scaled32_count + capture->scaled64_count +
-        capture->adc_mean_count, data, PRIdouble, double);
+        capture->scaled32.count + capture->scaled64.count +
+        capture->adc_mean.count, data, PRIdouble, double);
     return data;
 }
 
@@ -739,12 +749,11 @@ static void prepare_fixed_outputs(
 
 static void prepare_output_group(
     struct gather *gather, struct capture_group *group,
-    size_t *start_index, size_t *count, size_t *scaling_index)
+    struct field_group *fields)
 {
-    *start_index = gather->capture_count;
-    if (scaling_index)
-        *scaling_index = gather->scaling_count;
-    *count = group->count;
+    fields->index = gather->capture_count;
+    fields->scaling = gather->scaling_count;
+    fields->count = group->count;
 
     for (unsigned int i = 0; i < group->count; i ++)
         emit_capture(gather, group->outputs[i]);
@@ -766,21 +775,10 @@ static void gather_data_capture(struct gather *gather)
     /* Work through the fields. */
     struct data_capture *capture = gather->capture;
     prepare_fixed_outputs(gather, ts_capture, &unscaled, adc_mean.count > 0);
-    prepare_output_group(
-        gather, &unscaled,
-        &capture->unscaled_index, &capture->unscaled_count, NULL);
-    prepare_output_group(
-        gather, &scaled32,
-        &capture->scaled32_index, &capture->scaled32_count,
-        &capture->scaled32_scaling);
-    prepare_output_group(
-        gather, &scaled64,
-        &capture->scaled64_index, &capture->scaled64_count,
-        &capture->scaled64_scaling);
-    prepare_output_group(
-        gather, &adc_mean,
-        &capture->adc_mean_index, &capture->adc_mean_count,
-        &capture->adc_mean_scaling);
+    prepare_output_group(gather, &unscaled, &capture->unscaled);
+    prepare_output_group(gather, &scaled32, &capture->scaled32);
+    prepare_output_group(gather, &scaled64, &capture->scaled64);
+    prepare_output_group(gather, &adc_mean, &capture->adc_mean);
     capture->raw_sample_words = gather->capture_count;
 }
 
@@ -792,13 +790,13 @@ static void dump_data_capture(struct data_capture *capture)
         capture->timestamp_index, capture->ts_offset_index,
         capture->adc_count_index);
     printf(" %zu %zu / %zu %zu %zu / %zu %zu %zu / %zu %zu %zu\n",
-        capture->unscaled_index, capture->unscaled_count,
-        capture->scaled32_index, capture->scaled32_count,
-        capture->scaled32_scaling,
-        capture->scaled64_index, capture->scaled64_count,
-        capture->scaled64_scaling,
-        capture->adc_mean_index, capture->adc_mean_count,
-        capture->adc_mean_scaling);
+        capture->unscaled.index, capture->unscaled.count,
+        capture->scaled32.index, capture->scaled32.count,
+        capture->scaled32.scaling,
+        capture->scaled64.index, capture->scaled64.count,
+        capture->scaled64.scaling,
+        capture->adc_mean.index, capture->adc_mean.count,
+        capture->adc_mean.scaling);
     printf(" %f %zu\n", capture->timestamp_scale, capture->capture_count);
 }
 

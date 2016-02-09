@@ -21,26 +21,16 @@
 #include "output.h"
 
 
-/* The global state consists of capture configuration and most recently read
- * values for bit and position fields.  All bits, and separately all positions,
- * are updated in a single operation, so access to this state is protected by a
- * mutex. */
+/* Interlock for position values and update indices. */
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/* Capture masks.  These encode the current capture selection for each output
- * field.  For bits there is a complication: although capture can be configured
- * for each bit output, capture actually occurs in blocks of 32 bits.  Thus the
- * hardware capture mask will be reduced from bit_capture[] when written. */
-static uint32_t pos_capture_mask;
-static uint32_t pos_framing_mask;
-static uint32_t pos_extension_mask;
-
-/* Current values for each output field. */
+/* Current values and update indices for each output field. */
 static uint32_t pos_value[POS_BUS_COUNT];
-
-/* Update indices for output fields. */
 static uint64_t pos_update_index[POS_BUS_COUNT];
 
+
+/* Map between field names and bit bus indexes. */
+static struct enumeration *pos_mux_lookup;
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -49,29 +39,31 @@ static uint64_t pos_update_index[POS_BUS_COUNT];
 
 void report_capture_list(struct connection_result *result)
 {
-    /* Position capture. */
-    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-        if (pos_capture_mask & (1U << i))
-            result->write_many(
-                result->write_context,
-                enum_index_to_name(pos_mux_lookup, i));
-
-    result->response = RESPONSE_MANY;
+    ASSERT_FAIL();
+//     /* Position capture. */
+//     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
+//         if (pos_capture_mask & (1U << i))
+//             result->write_many(
+//                 result->write_context,
+//                 enum_index_to_name(pos_mux_lookup, i));
+// 
+//     result->response = RESPONSE_MANY;
 }
 
 
 void report_capture_positions(struct connection_result *result)
 {
-    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-        result->write_many(result->write_context,
-            enum_index_to_name(pos_mux_lookup, i) ?: "");
-    result->response = RESPONSE_MANY;
+    ASSERT_FAIL();
+//     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
+//         result->write_many(result->write_context,
+//             enum_index_to_name(pos_mux_lookup, i) ?: "");
+//     result->response = RESPONSE_MANY;
 }
 
 
 void reset_capture_list(void)
 {
-    pos_capture_mask = 0;
+//     pos_capture_mask = 0;
 }
 
 
@@ -97,90 +89,6 @@ static void pos_out_refresh(void *class_data, unsigned int number)
 {
     do_pos_out_refresh(get_change_index());
 }
-
-
-/*****************************************************************************/
-/* Bit/Position specific interface methods. */
-
-
-/* This structure is used to help maintain a common implementation between
- * bit_out and pos_out classes. */
-struct output_class_methods {
-    void (*set_capture)(unsigned int ix, unsigned int value);
-    unsigned int (*get_capture)(unsigned int ix);
-    uint32_t (*get_value)(unsigned int ix);
-};
-
-
-static void update_bit(uint32_t *target, unsigned int ix, bool value)
-{
-    *target = (*target & ~(1U << ix)) | ((uint32_t) value << ix);
-}
-
-static uint32_t get_bit(uint32_t *target, unsigned int ix)
-{
-    return (*target >> ix) & 1;
-}
-
-
-
-/* position capture is controlled through the three capture masks, with the
- * corresponding bit numbers:
- *  0:  pos_capture_mask
- *  1:  pos_framing_mask
- *  2:  pos_extension_mask */
-
-static void pos_set_capture(unsigned int ix, unsigned int value)
-{
-    update_bit(&pos_capture_mask, ix, value & 1);
-    update_bit(&pos_framing_mask, ix, (value >> 1) & 1);
-    update_bit(&pos_extension_mask, ix, (value >> 2) & 1);
-}
-
-
-static unsigned int pos_get_capture(unsigned int ix)
-{
-    return
-        (get_bit(&pos_capture_mask, ix) << 0) |
-        (get_bit(&pos_framing_mask, ix) << 1) |
-        (get_bit(&pos_extension_mask, ix) << 2);
-}
-
-
-static uint32_t pos_get_value(unsigned int ix)
-{
-    return pos_value[ix];
-}
-
-
-static const struct output_class_methods pos_output_methods = {
-    .set_capture = pos_set_capture,
-    .get_capture = pos_get_capture,
-    .get_value = pos_get_value,
-};
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* ext methods. */
-
-/* Extension methods require special processing.  Only capture setup is
- * supported, nothing else. */
-static void ext_set_capture(unsigned int ix, unsigned int value)
-{
-    printf("ext_set_capture %ud %ud\n", ix, value);
-}
-
-
-static unsigned int ext_get_capture(unsigned int ix)
-{
-    return 0;
-}
-
-
-static const struct output_class_methods ext_output_methods = {
-    .set_capture = ext_set_capture,
-    .get_capture = ext_get_capture,
-};
 
 
 /******************************************************************************/
@@ -219,7 +127,6 @@ struct output_state {
     enum output_type output_type;   // Selected output tupe
     const struct enumeration *enumeration; // Enumeration for CAPTURE control
     struct type *type;              // Type adapter for rendering value
-    const struct output_class_methods *methods;   // Helper methods
     unsigned int index_array[];     // Field indices into global state
 };
 
@@ -233,7 +140,7 @@ static error__t register_read(
 {
     struct output_state *state = reg_data;
     LOCK(mutex);
-    *result = state->methods->get_value(state->index_array[number]);
+    *result = pos_value[state->index_array[number]];
     UNLOCK(mutex);
     return ERROR_OK;
 }
@@ -265,15 +172,10 @@ static void pos_out_change_set(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Attributes: CAPTURE and CAPTURE_INDEX. */
+/* CAPTURE attribute. */
 
 
 /* Differing capture enumeration tables. */
-
-static const struct enum_entry bit_capture_enums[] = {
-    { 0, "No", },
-    { 1, "Triggered", },
-};
 
 /* The position enumeration values are 3-bit masks corresponding to the
  * following fields (MSB to LSB):
@@ -310,13 +212,13 @@ static const struct enum_entry timestamp_capture_enums[] = {
 #define ENUM_ENTRY(type) \
     { type##_capture_enums, ARRAY_SIZE(type##_capture_enums) }
 static const struct enum_set capture_enum_sets[] = {
-    ENUM_ENTRY(bit),        // BIT
     ENUM_ENTRY(position),   // POSN
     ENUM_ENTRY(adc),        // ADC
     ENUM_ENTRY(encoder),    // ENCODER
     { NULL, 0 },            // CONST: no enums defined
     ENUM_ENTRY(timestamp),  // TIMESTAMP
-    ENUM_ENTRY(bit),        // EXTRA
+//     ENUM_ENTRY(bit),        // EXTRA
+    { NULL, 0 },            // EXTRA
     { NULL, 0 },            // (placeholder)
     { NULL, 0 },            // (placeholder)
     { NULL, 0 },            // (placeholder)
@@ -331,8 +233,8 @@ static error__t capture_format(
 {
     struct output_state *state = data;
     LOCK(mutex);
-    unsigned int capture =
-        state->methods->get_capture(state->index_array[number]);
+    unsigned int capture = 0;
+//         state->methods->get_capture(state->index_array[number]);
     UNLOCK(mutex);
 
     const char *string;
@@ -354,9 +256,9 @@ static error__t capture_put(
 
         /* Forbid any changes to the capture setup during capture. */
         IF_CAPTURE_DISABLED(
-            WITH_LOCK(mutex,
-                DO(state->methods->set_capture(
-                    state->index_array[number], capture))));
+            WITH_LOCK(mutex, DO()));
+//                 DO(state->methods->set_capture(
+//                     state->index_array[number], capture))));
 }
 
 
@@ -391,7 +293,7 @@ enum capture_mode get_capture_mode(
 
 
 static error__t output_init(
-    enum output_type output_type, const struct output_class_methods *methods,
+    enum output_type output_type,
     const char *type_name, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
@@ -401,7 +303,6 @@ static error__t output_init(
     *state = (struct output_state) {
         .count = count,
         .output_type = output_type,
-        .methods = methods,
         .enumeration = capture_enums[output_type],
     };
     *class_data = state;
@@ -453,9 +354,7 @@ static error__t pos_out_init(
     enum output_type output_type = 0;
     return
         parse_pos_out_type(line, &output_type)  ?:
-        output_init(
-            output_type, &pos_output_methods, "position",
-            count, attr_map, class_data);
+        output_init(output_type, "position", count, attr_map, class_data);
 }
 
 
@@ -499,9 +398,7 @@ static error__t ext_out_init(
         IF(**line,
             DO( printf("Ignoring extra ext_out text: \"%s\"\n", *line);
                 *line += strlen(*line)))  ?:
-        output_init(
-            output_type, &ext_output_methods, NULL,
-            count, attr_map, class_data);
+        output_init(output_type, NULL, count, attr_map, class_data);
 }
 
 
@@ -598,8 +495,29 @@ void terminate_output(void)
 }
 
 
+static error__t pos_mux_init(
+    const char **string, unsigned int count, void **type_data)
+{
+    *type_data = pos_mux_lookup;
+    return ERROR_OK;
+}
+
+static void pos_mux_destroy(void *type_data, unsigned int count)
+{
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Published class definitions. */
+
+const struct type_methods pos_mux_type_methods = {
+    "pos_mux",
+    .init = pos_mux_init,
+    .destroy = pos_mux_destroy,
+    .parse = enum_parse,
+    .format = enum_format,
+    .get_enumeration = enum_get_enumeration,
+};
 
 const struct class_methods pos_out_class_methods = {
     "pos_out",

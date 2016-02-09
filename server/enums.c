@@ -19,7 +19,7 @@
 
 /* Somewhere around this number it's quicker to use a hash table than to do a
  * linear search. */
-#define HASH_TABLE_THRESHOLD    4
+#define HASH_TABLE_THRESHOLD    3
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -349,34 +349,3 @@ const struct type_methods enum_type_methods = {
     },
     .attr_count = 1,
 };
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* bit_mux and pos_mux types. */
-
-struct enumeration *pos_mux_lookup;
-
-
-static error__t pos_mux_init(
-    const char **string, unsigned int count, void **type_data)
-{
-    *type_data = pos_mux_lookup;
-    return ERROR_OK;
-}
-
-static void mux_destroy(void *type_data, unsigned int count)
-{
-}
-
-
-#define MUX_METHODS(name) \
-    { \
-        #name, \
-        .init = name##_init, \
-        .destroy = mux_destroy, \
-        .parse = enum_parse, \
-        .format = enum_format, \
-        .get_enumeration = enum_get_enumeration, \
-    }
-
-const struct type_methods pos_mux_type_methods = MUX_METHODS(pos_mux);

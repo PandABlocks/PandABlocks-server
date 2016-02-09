@@ -17,8 +17,9 @@
 #include "parse_lut.h"
 #include "attributes.h"
 #include "enums.h"
-#include "bit_out.h"
 #include "fields.h"
+#include "output.h"
+#include "bit_out.h"
 #include "locking.h"
 #include "time_position.h"
 
