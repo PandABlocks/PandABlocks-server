@@ -167,10 +167,10 @@ void report_capture_positions(struct connection_result *result)
 }
 
 
-void reset_capture_list(void)
+void reset_output_capture(struct output *output, unsigned int number)
 {
-    ASSERT_FAIL();
-//     pos_capture_mask = 0;
+    output->values[number].capture_state = 0;
+printf("Need to let the attribute know it's changed!\n");
 }
 
 
@@ -417,7 +417,7 @@ static struct output_class ext_out_timestamp_output_class = {
     .enum_set = {
         .enums = (struct enum_entry[]) {
             { 0, "No", },
-            { 1, "Capture", },
+            { 1, "Trigger", },
             { 2, "Frame", },
         },
         .count = 3,
@@ -448,57 +448,57 @@ static const struct output_type_info {
     bool extra_values;
 } output_type_info[] = {
     [OUTPUT_POSN] = {
-        .description = "pos_out",
+        .description = NULL,
         .output_class = &pos_out_output_class,
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = true,
     },
     [OUTPUT_CONST] = {
-        .description = "pos_out const",
+        .description = "const",
         .output_class = NULL,
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = true,
     },
     [OUTPUT_POSN_ENCODER] = {
-        .description = "pos_out encoder",
+        .description = "encoder",
         .output_class = &pos_out_encoder_output_class,
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = true,
         .extra_values = true,
     },
     [OUTPUT_ADC] = {
-        .description = "pos_out adc",
+        .description = "adc",
         .output_class = &pos_out_adc_output_class,
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = true,
         .extra_values = true,
     },
     [OUTPUT_EXT] = {
-        .description = "ext_out",
+        .description = NULL,
         .output_class = &ext_out_output_class,
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = false,
     },
     [OUTPUT_TIMESTAMP] = {
-        .description = "ext_out timestamp",
+        .description = "timestamp",
         .output_class = &ext_out_timestamp_output_class,
         .prepare_class = PREPARE_CLASS_TIMESTAMP,
         .pos_type = false,
     },
     [OUTPUT_OFFSET] = {
-        .description = "ext_out offset",
+        .description = "offset",
         .output_class = &ext_out_output_class,
         .prepare_class = PREPARE_CLASS_TS_OFFSET,
         .pos_type = false,
     },
     [OUTPUT_ADC_COUNT] = {
-        .description = "ext_out adc_count",
+        .description = "adc_count",
         .output_class = &ext_out_output_class,
         .prepare_class = PREPARE_CLASS_ADC_COUNT,
         .pos_type = false,
     },
     [OUTPUT_BITS] = {
-        .description = "ext_out bits",
+        .description = "bits",
         .output_class = &ext_out_output_class,
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = false,
@@ -590,6 +590,17 @@ static error__t parse_registers(
 }
 
 
+static void register_bit_group(struct field *field, struct output *output)
+{
+    for (unsigned int i = 0; i < output->count; i ++)
+    {
+        char name[MAX_NAME_LENGTH];
+        format_field_name(name, sizeof(name), field, NULL, i, '\0');
+        set_bit_group_name(output->bit_group, name);
+    }
+}
+
+
 static error__t output_parse_register(
     void *class_data, struct field *field, unsigned int block_base,
     const char **line)
@@ -601,7 +612,9 @@ static error__t output_parse_register(
             parse_timestamp_register(line, output),
         //else
             parse_registers(line, output, field))  ?:
-        DO(register_this_output(output));
+        DO(register_this_output(output))  ?:
+        IF(output->output_type == OUTPUT_BITS,
+            DO(register_bit_group(field, output)));
 }
 
 

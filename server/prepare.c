@@ -28,7 +28,7 @@
 /* This structure is used to record a single registered output field. */
 struct output_field {
     /* The field is identified by the output and index number. */
-    const struct output *output;
+    struct output *output;
     unsigned int number;
 
     /* The field name is computed at output registration. */
@@ -77,7 +77,7 @@ static void process_special_field(
 
 
 void register_outputs(
-    const struct output *output, unsigned int count,
+    struct output *output, unsigned int count,
     enum prepare_class prepare_class, unsigned int capture_index[][2])
 {
     ASSERT_OK(output_field_count + count <= CAPTURE_BUS_COUNT);
@@ -115,6 +115,14 @@ void report_capture_list(struct connection_result *result)
             result->write_many(
                 result->write_context, output_fields[i]->field_name);
     result->response = RESPONSE_MANY;
+}
+
+
+void reset_capture_list(void)
+{
+    for (unsigned int i = 0; i < output_field_count; i ++)
+        reset_output_capture(
+            output_fields[i]->output, output_fields[i]->number);
 }
 
 

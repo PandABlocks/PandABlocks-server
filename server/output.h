@@ -59,15 +59,15 @@ void format_output_name(
     const struct output *output, unsigned int number,
     char string[], size_t length);
 
+/* Disables capture for the specified output. */
+void reset_output_capture(struct output *output, unsigned int number);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Capture enumeration. */
 
 /* Update cached pos_out values up to date with values read from hardware. */
 void do_pos_out_refresh(uint64_t change_index);
-
-/* Resets all capture bits. */
-void reset_capture_list(void);
 
 /* *POSITIONS? implementation, reports all pos_mux position names. */
 void report_capture_positions(struct connection_result *result);

@@ -147,12 +147,12 @@ static error__t bit_out_parse_register(
 /* Attributes. */
 
 
-static const char *group_name[BIT_BUS_COUNT/32];
+static char *group_name[BIT_BUS_COUNT/32];
 
 
 void set_bit_group_name(unsigned int group, const char *name)
 {
-    group_name[group] = name;
+    group_name[group] = strdup(name);
 }
 
 
@@ -191,6 +191,8 @@ void terminate_bit_out(void)
 {
     if (bit_mux_lookup)
         destroy_enumeration(bit_mux_lookup);
+    for (unsigned int i = 0; i < BIT_BUS_COUNT/32; i ++)
+        free(group_name[i]);
 }
 
 

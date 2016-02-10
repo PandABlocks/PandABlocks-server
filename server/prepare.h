@@ -24,8 +24,11 @@ enum prepare_class {
 /* This function is called during system startup to register output sources.  Up
  * to 2 separate capture indices can be registered for each source. */
 void register_outputs(
-    const struct output *output, unsigned int count,
+    struct output *output, unsigned int count,
     enum prepare_class prepare_class, unsigned int capture_index[][2]);
+
+/* *CAPTURE= implementation: resets all capture settings. */
+void reset_capture_list(void);
 
 /* *CAPTURE? implementation: returns list of all captured fields. */
 void report_capture_list(struct connection_result *result);
