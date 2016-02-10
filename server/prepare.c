@@ -32,7 +32,7 @@ struct output_field {
     unsigned int number;
 
     /* The field name is computed at output registration. */
-    const char *field_name;
+    char *field_name;
     /* The two capture index values for this field. */
     unsigned int capture_index[2];
 
@@ -100,13 +100,20 @@ void register_outputs(
 }
 
 
+static bool capture_enabled(struct output_field *output)
+{
+    return get_capture_mode(output->output, output->number) != CAPTURE_OFF;
+}
+
+
 /* Makes a best effor stab at returning a list of fields currently configured
  * for capture. */
 void report_capture_list(struct connection_result *result)
 {
     for (unsigned int i = 0; i < output_field_count; i ++)
-    {
-    }
+        if (capture_enabled(output_fields[i]))
+            result->write_many(
+                result->write_context, output_fields[i]->field_name);
     result->response = RESPONSE_MANY;
 }
 
@@ -201,4 +208,33 @@ const struct captured_fields *prepare_captured_fields(void)
     }
 
     return &captured_fields;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Initialisation and shutdown. */
+
+error__t initialise_prepare(void)
+{
+    /* Initialise the four capture groups with enough workspace. */
+    size_t output_size = sizeof(struct output_field *) * CAPTURE_BUS_COUNT;
+    captured_fields.unscaled.outputs = malloc(output_size);
+    captured_fields.scaled32.outputs = malloc(output_size);
+    captured_fields.scaled64.outputs = malloc(output_size);
+    captured_fields.adc_mean.outputs = malloc(output_size);
+    return ERROR_OK;
+}
+
+
+void terminate_prepare(void)
+{
+    free(captured_fields.unscaled.outputs);
+    free(captured_fields.scaled32.outputs);
+    free(captured_fields.scaled64.outputs);
+    free(captured_fields.adc_mean.outputs);
+    for (unsigned int i = 0; i < output_field_count; i ++)
+    {
+        free(output_fields[i]->field_name);
+        free(output_fields[i]);
+    }
 }

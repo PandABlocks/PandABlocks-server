@@ -509,3 +509,9 @@ error__t create_type(
             *type = create_type_block(methods, reg, reg_data, count, type_data);
             create_type_attributes(*type, attr_map));
 }
+
+
+void *get_type_state(struct type *type)
+{
+    return type->type_data;
+}

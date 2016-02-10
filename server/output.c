@@ -16,6 +16,7 @@
 #include "attributes.h"
 #include "types.h"
 #include "enums.h"
+#include "time_position.h"
 #include "bit_out.h"
 #include "prepare.h"
 #include "locking.h"
@@ -60,6 +61,7 @@ struct output {
     struct field *field;                // Needed for name formatting!
 
     struct type *type;                  // Only for pos_out
+    struct position_state *position;    // Also only for pos_out
     unsigned int bit_group;             // Only for ext_out bit <group>
 
     struct output_value {
@@ -176,7 +178,9 @@ static void get_output_scaling(
     const struct output *output, unsigned int number,
     struct scaling *scaling)
 {
-    ASSERT_FAIL();
+    const char *units;
+    get_position_info(
+        output->position, number, &scaling->scale, &scaling->offset, &units);
 }
 
 
@@ -608,14 +612,15 @@ static error__t output_parse_register(
 static struct output *create_output(
     unsigned int count, enum output_type output_type, unsigned int bit_group)
 {
-    struct output *output =
-        malloc(sizeof(struct output) + count * sizeof(struct output_value));
+    size_t value_size = count * sizeof(struct output_value);
+    struct output *output = malloc(sizeof(struct output) + value_size);
     *output = (struct output) {
         .output_class = output_type_info[output_type].output_class,
         .count = count,
         .output_type = output_type,
         .bit_group = bit_group,
     };
+    memset(output->values, 0, value_size);
     return output;
 }
 
@@ -675,6 +680,7 @@ static error__t pos_out_init(
         create_type(
             &empty_line, "position", count, &register_methods, output,
             attr_map, &output->type)  ?:
+        DO(output->position = get_type_state(output->type))  ?:
         complete_create_output(output, attr_map, class_data);
 }
 

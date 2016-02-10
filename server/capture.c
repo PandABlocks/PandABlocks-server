@@ -639,6 +639,12 @@ static void dump_data_capture(struct data_capture *capture)
         capture->scaled64.scaling,
         capture->adc_mean.index, capture->adc_mean.count,
         capture->adc_mean.scaling);
+    size_t scaling_count =
+        capture->adc_mean.scaling + capture->adc_mean.count;
+    for (unsigned int i = 0; i < scaling_count; i ++)
+        printf(" (%g %g)",
+            capture->scaling[i].scale, capture->scaling[i].offset);
+    printf("\n");
 }
 
 

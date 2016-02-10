@@ -23,6 +23,7 @@
 #include "time_position.h"
 #include "base64.h"
 #include "persistence.h"
+#include "prepare.h"
 #include "version.h"
 
 
@@ -170,6 +171,7 @@ int main(int argc, char *const argv[])
                 persistence_file,
                 persistence_poll, persistence_holdoff, persistence_backoff))  ?:
         initialise_data_server()  ?:
+        initialise_prepare()  ?:
         initialise_socket_server(config_port, data_port, reuse_addr)  ?:
 
         maybe_daemonise();
@@ -197,6 +199,7 @@ int main(int argc, char *const argv[])
     terminate_socket_server();
     terminate_persistence();
 
+    terminate_prepare();
     terminate_data_server();
     terminate_system_command();
     terminate_hardware();

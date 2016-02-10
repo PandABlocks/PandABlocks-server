@@ -1,5 +1,8 @@
 /* Data capture preparation. */
 
+error__t initialise_prepare(void);
+
+void terminate_prepare(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -69,7 +72,8 @@ enum ts_capture {
 };
 
 /* This contains all the information required to process the data capture
- * stream, and will be preprocessed by ??? ... */
+ * stream, is prepared by prepare_captured_fields() and finally processed by
+ * prepare_data_capture(). */
 struct captured_fields {
     /* Timestamp capture status, needs special handling. */
     enum ts_capture ts_capture;
