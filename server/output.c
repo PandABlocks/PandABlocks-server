@@ -538,7 +538,7 @@ static error__t assign_capture_values(
 }
 
 
-static void register_this_output(struct output *output)
+static error__t register_this_output(struct output *output)
 {
     unsigned int capture_index[output->count][2];
     for (unsigned int i = 0; i < output->count; i ++)
@@ -546,7 +546,8 @@ static void register_this_output(struct output *output)
             sizeof(capture_index[i]));
     enum prepare_class prepare_class =
         output_type_info[output->output_type].prepare_class;
-    register_outputs(output, output->count, prepare_class, capture_index);
+    return register_outputs(
+        output, output->count, prepare_class, capture_index);
 }
 
 
@@ -612,7 +613,7 @@ static error__t output_parse_register(
             parse_timestamp_register(line, output),
         //else
             parse_registers(line, output, field))  ?:
-        DO(register_this_output(output))  ?:
+        register_this_output(output)  ?:
         IF(output->output_type == OUTPUT_BITS,
             DO(register_bit_group(field, output)));
 }

@@ -670,6 +670,8 @@ error__t prepare_data_capture(
         /* Now we can let the hardware know. */
         hw_write_framing_mask(gather.framing_mask, gather.framing_mode);
         hw_write_capture_set(gather.capture_index, gather.capture_count);
+        hw_write_framing_enable(
+            fields->ts_capture == TS_OFFSET  ||  gather.framing_mask);
         *capture = gather.capture;
     }
 

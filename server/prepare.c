@@ -53,35 +53,42 @@ static struct output_field *adc_count_output;
 
 
 /* The three special fields need to be remembered separately. */
-static void process_special_field(
+static error__t process_special_field(
     enum prepare_class prepare_class, struct output_field *field)
 {
+    error__t error = ERROR_OK;
     switch (prepare_class)
     {
         case PREPARE_CLASS_NORMAL:
             break;
         case PREPARE_CLASS_TIMESTAMP:
-            ASSERT_OK(timestamp_output == NULL);
-            timestamp_output = output_fields[output_field_count];
+            error = TEST_OK_(timestamp_output == NULL,
+                "Timestamp already specified");
+            timestamp_output = field;
             break;
         case PREPARE_CLASS_TS_OFFSET:
-            ASSERT_OK(offset_output == NULL);
-            offset_output = output_fields[output_field_count];
+            error = TEST_OK_(offset_output == NULL,
+                "Timestamp already specified");
+            offset_output = field;
             break;
         case PREPARE_CLASS_ADC_COUNT:
-            ASSERT_OK(adc_count_output == NULL);
-            adc_count_output = output_fields[output_field_count];
+            error = TEST_OK_(adc_count_output == NULL,
+                "Timestamp already specified");
+            adc_count_output = field;
             break;
     }
+    return error;
 }
 
 
-void register_outputs(
+error__t register_outputs(
     struct output *output, unsigned int count,
     enum prepare_class prepare_class, unsigned int capture_index[][2])
 {
-    ASSERT_OK(output_field_count + count <= CAPTURE_BUS_COUNT);
-    for (unsigned int i = 0; i < count; i ++)
+    error__t error =
+        TEST_OK_(output_field_count + count <= CAPTURE_BUS_COUNT,
+            "Too many capture fields specified!");
+    for (unsigned int i = 0; !error  &&  i < count; i ++)
     {
         char field_name[MAX_NAME_LENGTH];
         format_output_name(output, i, field_name, sizeof(field_name));
@@ -95,8 +102,9 @@ void register_outputs(
         };
 
         output_fields[output_field_count++] = field;
-        process_special_field(prepare_class, field);
+        error = process_special_field(prepare_class, field);
     }
+    return error;
 }
 
 
@@ -230,7 +238,12 @@ error__t initialise_prepare(void)
     captured_fields.scaled32.outputs = malloc(output_size);
     captured_fields.scaled64.outputs = malloc(output_size);
     captured_fields.adc_mean.outputs = malloc(output_size);
-    return ERROR_OK;
+
+    return
+        /* Check that all of the fixed fields have been specified. */
+        TEST_OK_(timestamp_output, "Timestamp field not specified")  ?:
+        TEST_OK_(offset_output, "Timestamp offset field not specified")  ?:
+        TEST_OK_(adc_count_output, "ADC count field not specified");
 }
 
 
