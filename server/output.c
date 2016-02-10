@@ -178,9 +178,9 @@ static void get_output_scaling(
     const struct output *output, unsigned int number,
     struct scaling *scaling)
 {
-    const char *units;
     get_position_info(
-        output->position, number, &scaling->scale, &scaling->offset, &units);
+        output->position, number,
+        &scaling->scale, &scaling->offset, NULL, 0);
 }
 
 

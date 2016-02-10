@@ -19,6 +19,8 @@ extern const struct type_methods time_type_methods;
  * capture processing. */
 struct position_state;
 
-void get_position_info(
-    const struct position_state *position, unsigned int number,
-    double *scale, double *offset, const char **units);
+/* Retrieves scaling, offset and units string from position, returns the number
+ * of bytes that would have been copied had there been room. */
+size_t get_position_info(
+    struct position_state *position, unsigned int number,
+    double *scale, double *offset, char units[], size_t length);
