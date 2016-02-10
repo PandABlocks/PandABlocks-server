@@ -54,7 +54,7 @@ struct data_capture {
     double timestamp_scale;
 
     /* Arrays of constants for scaling. */
-    struct scaling scaling[MAX_OUTPUT_COUNT];
+    struct scaling scaling[CAPTURE_BUS_COUNT];
 };
 
 
@@ -495,7 +495,7 @@ struct gather {
     struct data_capture *capture;   // Associated data capture area
 
     unsigned int capture_count;     // Number of entries to be captured
-    unsigned int capture_index[MAX_OUTPUT_COUNT];   // List of capture indices
+    unsigned int capture_index[CAPTURE_BUS_COUNT];   // List of capture indices
 };
 
 

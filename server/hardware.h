@@ -1,7 +1,9 @@
 /* Hardware interface definitions. */
 
-#define BIT_BUS_COUNT   128
-#define POS_BUS_COUNT   32
+#define BIT_BUS_COUNT       128
+#define POS_BUS_COUNT       32
+#define CAPTURE_BUS_COUNT   64
+
 
 #define CLOCK_FREQUENCY 125000000       // 8ns per tick
 #define MAX_CLOCK_VALUE ((1ULL << 48) - 1)

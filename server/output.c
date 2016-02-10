@@ -15,8 +15,10 @@
 #include "classes.h"
 #include "attributes.h"
 #include "types.h"
-#include "locking.h"
 #include "enums.h"
+#include "bit_out.h"
+#include "prepare.h"
+#include "locking.h"
 
 #include "output.h"
 
@@ -28,47 +30,66 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t pos_value[POS_BUS_COUNT];
 static uint64_t pos_update_index[POS_BUS_COUNT];
 
-
 /* Map between field names and bit bus indexes. */
 static struct enumeration *pos_mux_lookup;
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Capture enumeration. */
+/* Defining structures. */
+
+/* This enumeration is used to manage the list of possible output types. */
+enum output_type {
+    OUTPUT_POSN,            // pos_out
+    OUTPUT_CONST,           // pos_out const
+    OUTPUT_POSN_ENCODER,    // pos_out encoder
+    OUTPUT_ADC,             // pos_out adc
+    OUTPUT_EXT,             // ext_out
+    OUTPUT_TIMESTAMP,       // ext_out timestamp
+    OUTPUT_OFFSET,          // ext_out offset
+    OUTPUT_ADC_COUNT,       // ext_out adc_count
+    OUTPUT_BITS,            // ext_out bits <n>
+};
 
 
-void report_capture_list(struct connection_result *result)
-{
-    ASSERT_FAIL();
-//     /* Position capture. */
-//     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-//         if (pos_capture_mask & (1U << i))
-//             result->write_many(
-//                 result->write_context,
-//                 enum_index_to_name(pos_mux_lookup, i));
-// 
-//     result->response = RESPONSE_MANY;
-}
+/* This structure is shared between pos_out and ext_out implementations and
+ * instances are registered with data capture. */
+struct output {
+    const struct output_class *output_class;    // Controlling structure
+    unsigned int count;                 // Number of instances
+    enum output_type output_type;
+    struct field *field;                // Needed for name formatting!
+
+    struct type *type;                  // Only for pos_out
+    unsigned int bit_group;             // Only for ext_out bit <group>
+
+    struct output_value {
+        unsigned int capture_index[2];  // Associated capture registers
+        unsigned int capture_state;     // Current capture selection
+    } values[];
+};
 
 
-void report_capture_positions(struct connection_result *result)
-{
-    ASSERT_FAIL();
-//     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-//         result->write_many(result->write_context,
-//             enum_index_to_name(pos_mux_lookup, i) ?: "");
-//     result->response = RESPONSE_MANY;
-}
+/* This structure is used to determine the core behaviour of the output
+ * instance. */
+struct output_class {
+    /* These fields determine the behaviour of the output field. */
+    const struct enum_set enum_set;
+    const struct output_options {
+        enum capture_mode capture_mode;
+        enum framing_mode framing_mode;
+        bool zero_offset;
+    } *output_options;
+    bool scaling;
 
+    /* This enumeration is filled in during initialisation. */
+    const struct enumeration *enumeration;
+};
 
-void reset_capture_list(void)
-{
-//     pos_capture_mask = 0;
-}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Value update. */
+/* Reading values. */
+
 
 /* The refresh methods are called when we need a fresh value.  We retrieve
  * values and changed bits from the hardware and update settings accordingly. */
@@ -85,59 +106,22 @@ void do_pos_out_refresh(uint64_t change_index)
 }
 
 
+/* Class method for value refresh. */
 static void pos_out_refresh(void *class_data, unsigned int number)
 {
     do_pos_out_refresh(get_change_index());
 }
 
 
-/******************************************************************************/
-/* Individual field control. */
-
-/* Bit and position outputs are read and managed through bit_out and pos_out
- * classes. */
-
-/* Differing outputs have differing output options, this value is read from the
- * configuration file. */
-enum output_type {
-    OUTPUT_POSN,        // Ordinary position
-    OUTPUT_ADC,         // ADC => may have extended values
-    OUTPUT_ENCODER,     // Encoders may have extended values
-    OUTPUT_CONST,       // Constant value, cannot be captured
-    OUTPUT_TIMESTAMP,   // Timestamp value (extra value with extension)
-    OUTPUT_EXTRA,       // Extra extension value
-    OUTPUT_OFFSET,      // Timestamp offset
-    OUTPUT_BITS,        // Bits array
-    OUTPUT_ADC_COUNT,   // Number of ADC samples
-
-    OUTPUT_TYPE_SIZE    // Number of output type entries
-};
-
-static const char *output_type_names[OUTPUT_TYPE_SIZE] = {
-    NULL, "adc", "encoder", "const", "timestamp",
-    NULL, "offset", "bits", "adc_count",
-};
-
-
-struct output_state {
-    unsigned int count;             // Number of instances of this field
-    enum output_type output_type;   // Selected output tupe
-    const struct enumeration *enumeration; // Enumeration for CAPTURE control
-    struct type *type;              // Type adapter for rendering value
-    unsigned int index_array[];     // Field indices into global state
-};
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Register access for type support: reads underlying value. */
-
-
+/* Single word read for type interface.  For pos_out values the first entry in
+ * the index array is the position bus offset. */
 static error__t register_read(
     void *reg_data, unsigned int number, uint32_t *result)
 {
-    struct output_state *state = reg_data;
+    struct output *output = reg_data;
     LOCK(mutex);
-    *result = pos_value[state->index_array[number]];
+    unsigned int capture_index = output->values[number].capture_index[0];
+    *result = pos_value[capture_index];
     UNLOCK(mutex);
     return ERROR_OK;
 }
@@ -151,8 +135,8 @@ static const struct register_methods register_methods = {
 static error__t output_get(
     void *class_data, unsigned int number, struct connection_result *result)
 {
-    struct output_state *state = class_data;
-    return type_get(state->type, number, result);
+    struct output *output = class_data;
+    return type_get(output->type, number, result);
 }
 
 
@@ -160,11 +144,83 @@ static error__t output_get(
 static void pos_out_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
-    struct output_state *state = class_data;
+    struct output *output = class_data;
     LOCK(mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = pos_update_index[state->index_array[i]] > report_index;
+    for (unsigned int i = 0; i < output->count; i ++)
+    {
+        unsigned int capture_index = output->values[i].capture_index[0];
+        changes[i] = pos_update_index[capture_index] > report_index;
+    }
     UNLOCK(mutex);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
+/* Capture enumeration. */
+void report_capture_positions(struct connection_result *result)
+{
+    write_enum_labels(pos_mux_lookup, result);
+}
+
+
+void reset_capture_list(void)
+{
+    ASSERT_FAIL();
+//     pos_capture_mask = 0;
+}
+
+
+static void get_output_scaling(
+    const struct output *output, unsigned int number,
+    struct scaling *scaling)
+{
+    ASSERT_FAIL();
+}
+
+
+void format_output_name(
+    const struct output *output, unsigned int number,
+    char string[], size_t length)
+{
+    format_field_name(string, length, output->field, NULL, number, '\0');
+}
+
+
+enum capture_mode get_capture_mode(
+    const struct output *output, unsigned int number)
+{
+    unsigned int capture_state = output->values[number].capture_state;
+    if (capture_state == 0)
+        return CAPTURE_OFF;
+    else
+    {
+        const struct output_options *options =
+            &output->output_class->output_options[capture_state - 1];
+        return options->capture_mode;
+    }
+}
+
+
+enum framing_mode get_capture_info(
+    const struct output *output, unsigned int number, struct scaling *scaling)
+{
+    unsigned int capture_state = output->values[number].capture_state;
+    /* !!!!!!!!!!!!!!!!!!!!!!!!!
+     * Need a lock to guard against this! */
+    ASSERT_OK(capture_state > 0);
+
+    const struct output_class *output_class = output->output_class;
+    const struct output_options *options =
+        &output_class->output_options[capture_state - 1];
+    if (output_class->scaling)
+    {
+        get_output_scaling(output, number, scaling);
+        if (options->zero_offset)
+            scaling->offset = 0.0;
+    }
+    return options->framing_mode;
 }
 
 
@@ -172,71 +228,15 @@ static void pos_out_change_set(
 /* CAPTURE attribute. */
 
 
-/* Differing capture enumeration tables. */
-
-/* The position enumeration values are 3-bit masks corresponding to the
- * following fields (MSB to LSB):
- *      extension_mask, framing_mask, capture_mask  */
-
-static const struct enum_entry position_capture_enums[] = {
-    { 0, "No", },           // capture=0
-    { 1, "Triggered", },    // capture=1 framing=0
-    { 3, "Difference", },   // capture=1 framing=1
-};
-
-static const struct enum_entry adc_capture_enums[] = {
-    { 0, "No", },           // capture=0
-    { 1, "Triggered", },    // capture=1 framing=0 extension=0
-    { 7, "Average", },      // capture=1 framing=1 extension=1
-};
-
-static const struct enum_entry encoder_capture_enums[] = {
-    { 0, "No", },           // capture=0
-    { 1, "Triggered", },    // capture=1 framing=0 extension=0
-    { 3, "Difference", },   // capture=1 framing=1 extension=0
-    { 5, "Extended", },     // capture=1 framing=0 extension=1
-    { 11, "Average", },     // capture=1 framing=1 extension=0 mode=1
-};
-
-static const struct enum_entry timestamp_capture_enums[] = {
-    { 0, "No", },
-    { 1, "Short", },
-    { 2, "Long", },
-};
-
-/* Array of enums indexed by output_type.  This must match the definitions of
- * output_type. */
-#define ENUM_ENTRY(type) \
-    { type##_capture_enums, ARRAY_SIZE(type##_capture_enums) }
-static const struct enum_set capture_enum_sets[] = {
-    ENUM_ENTRY(position),   // POSN
-    ENUM_ENTRY(adc),        // ADC
-    ENUM_ENTRY(encoder),    // ENCODER
-    { NULL, 0 },            // CONST: no enums defined
-    ENUM_ENTRY(timestamp),  // TIMESTAMP
-//     ENUM_ENTRY(bit),        // EXTRA
-    { NULL, 0 },            // EXTRA
-    { NULL, 0 },            // (placeholder)
-    { NULL, 0 },            // (placeholder)
-    { NULL, 0 },            // (placeholder)
-};
-
-static const struct enumeration *capture_enums[OUTPUT_TYPE_SIZE];
-
-
 static error__t capture_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
+    void *owner, void *data, unsigned int number, char result[], size_t length)
 {
-    struct output_state *state = data;
-    LOCK(mutex);
-    unsigned int capture = 0;
-//         state->methods->get_capture(state->index_array[number]);
-    UNLOCK(mutex);
-
+    struct output *output = data;
     const char *string;
     return
-        TEST_OK(string = enum_index_to_name(state->enumeration, capture))  ?:
+        TEST_OK(string = enum_index_to_name(
+            output->output_class->enumeration,
+            output->values[number].capture_state))  ?:
         format_string(result, length, "%s", string);
 }
 
@@ -244,83 +244,394 @@ static error__t capture_format(
 static error__t capture_put(
     void *owner, void *data, unsigned int number, const char *value)
 {
-    struct output_state *state = data;
-    unsigned int capture;
-    return
-        TEST_OK_(
-            enum_name_to_index(state->enumeration, value, &capture),
-            "Not a valid capture option")  ?:
-
-        /* Forbid any changes to the capture setup during capture. */
-        IF_CAPTURE_DISABLED(
-            WITH_LOCK(mutex, DO()));
-//                 DO(state->methods->set_capture(
-//                     state->index_array[number], capture))));
+    struct output *output = data;
+    return TEST_OK_(
+        enum_name_to_index(
+            output->output_class->enumeration, value,
+            &output->values[number].capture_state),
+        "Not a valid capture option");
 }
 
 
 static const struct enumeration *capture_get_enumeration(void *data)
 {
-    struct output_state *state = data;
-    return state->enumeration;
+    struct output *output = data;
+    return output->output_class->enumeration;
 }
 
 
-static const struct attr_methods output_attr_methods[] =
+static const struct attr_methods capture_attr_methods = {
+    "CAPTURE", "Configure capture for this field",
+    .in_change_set = true,
+    .format = capture_format,
+    .put = capture_put,
+    .get_enumeration = capture_get_enumeration,
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* BITS attribute, only meaningful for ext_out bits. */
+
+
+static error__t bits_get_many(
+    void *owner, void *data, unsigned int number,
+    struct connection_result *result)
 {
-    { "CAPTURE", "Configure capture for this field",
-        .in_change_set = true,
-        .format = capture_format,
-        .put = capture_put,
-        .get_enumeration = capture_get_enumeration,
+    struct output *output = data;
+    report_capture_bits(result, output->bit_group);
+    return ERROR_OK;
+}
+
+
+static const struct attr_methods bits_attr_methods = {
+    "BITS", "Enumerate bits captured in this word",
+    .get_many = bits_get_many,
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* CAPTURE options. */
+
+/* The field class and sub-class determine the possible capture enumerations and
+ * their possible meanings as returned by get_capture_mode.
+ *
+ *                      CAPTURE_                FRAMING_
+ *  pos_out
+ *      Triggered       SCALED32
+ *      Difference      SCALED32 (offset=0)     FRAME
+ *
+ *  pos_out encoder
+ *      Triggered       SCALED32
+ *      Difference      SCALED32 (offset=0)     FRAME
+ *      Average         SCALED32                SPECIAL
+ *      Extended        SCALED64
+ *
+ *  pos_out adc
+ *      Triggered       SCALED32
+ *      Average         ADC_MEAN                FRAME
+ *
+ *  pos_out const
+ *      (not capturable)
+ *
+ *  ext_out timestamp
+ *      Capture         TS_NORMAL
+ *      Frame           TS_OFFSET
+ *
+ *  ext_out
+ *  ext_out offset
+ *  ext_out adc_count
+ *  ext_out bits <group>
+ *      Capture         UNSCALED
+ *
+ * The following structures define output behaviour according to this table. */
+
+/*  pos_out
+ *      Triggered       SCALED32
+ *      Difference      SCALED32 (offset=0)     FRAME   */
+static struct output_class pos_out_output_class = {
+    .enum_set = {
+        .enums = (struct enum_entry[]) {
+            { 0, "No", },
+            { 1, "Triggered", },
+            { 2, "Difference", },
+        },
+        .count = 3,
+    },
+    .output_options = (struct output_options[]) {
+        { CAPTURE_SCALED32, },                      // Triggered
+        { CAPTURE_SCALED32, FRAMING_FRAME, true, }, // Average
+    },
+    .scaling = true,
+};
+
+/*  pos_out encoder
+ *      Triggered       SCALED32
+ *      Difference      SCALED32 (offset=0)     FRAME
+ *      Average         SCALED32                SPECIAL
+ *      Extended        SCALED64                        */
+static struct output_class pos_out_encoder_output_class = {
+    .enum_set = {
+        .enums = (struct enum_entry[]) {
+            { 0, "No", },
+            { 1, "Triggered", },
+            { 2, "Difference", },
+            { 3, "Average", },
+            { 4, "Extended", },
+        },
+        .count = 5,
+    },
+    .output_options = (struct output_options[]) {
+        { CAPTURE_SCALED32, },                      // Triggered
+        { CAPTURE_SCALED32, FRAMING_FRAME, true, }, // Difference
+        { CAPTURE_SCALED32, FRAMING_SPECIAL, },     // Average
+        { CAPTURE_SCALED64, },                      // Extended
+    },
+    .scaling = true,
+};
+
+/*  pos_out adc
+ *      Triggered       SCALED32
+ *      Average         ADC_MEAN                FRAME   */
+static struct output_class pos_out_adc_output_class = {
+    .enum_set = {
+        .enums = (struct enum_entry[]) {
+            { 0, "No", },
+            { 1, "Triggered", },
+            { 2, "Average", },
+        },
+        .count = 3,
+    },
+    .output_options = (struct output_options[]) {
+        { CAPTURE_SCALED32, },                      // Triggered
+        { CAPTURE_ADC_MEAN, FRAMING_FRAME, },       // Average
+    },
+    .scaling = true,
+};
+
+/*  ext_out
+ *  ext_out offset
+ *  ext_out adc_count
+ *  ext_out bits <group>
+ *      Capture         UNSCALED                        */
+static struct output_class ext_out_output_class = {
+    .enum_set = {
+        .enums = (struct enum_entry[]) {
+            { 0, "No", },
+            { 1, "Capture", },
+        },
+        .count = 2,
+    },
+    .output_options = (struct output_options[]) {
+        { CAPTURE_UNSCALED, },                     // Capture
+    },
+};
+
+/*  ext_out timestamp
+ *      Capture         TS_NORMAL
+ *      Frame           TS_OFFSET                       */
+static struct output_class ext_out_timestamp_output_class = {
+    .enum_set = {
+        .enums = (struct enum_entry[]) {
+            { 0, "No", },
+            { 1, "Capture", },
+            { 2, "Frame", },
+        },
+        .count = 3,
+    },
+    .output_options = (struct output_options[]) {
+        { CAPTURE_TS_NORMAL, },                     // Capture
+        { CAPTURE_TS_OFFSET, },                     // Frame
     },
 };
 
 
-enum capture_mode get_capture_mode(
-    const struct output *output, unsigned int number,
-    enum framing_mode *framing_mode, struct scaling *scaling)
+/* Gather all the output classes together to help with initialisation. */
+static struct output_class *output_classes[] = {
+    &pos_out_output_class,           // pos_out
+    &pos_out_encoder_output_class,   // pos_out encoder
+    &pos_out_adc_output_class,       // pos_out adc
+    &ext_out_output_class,           // ext_out [offset|adc_count|bits <n>]
+    &ext_out_timestamp_output_class, // ext_out timestamp
+};
+
+
+/* Mapping from output type to associated info. */
+static const struct output_type_info {
+    const char *description;
+    const struct output_class *output_class;
+    enum prepare_class prepare_class;
+    bool pos_type;
+    bool extra_values;
+} output_type_info[] = {
+    [OUTPUT_POSN] = {
+        .description = "pos_out",
+        .output_class = &pos_out_output_class,
+        .prepare_class = PREPARE_CLASS_NORMAL,
+        .pos_type = true,
+    },
+    [OUTPUT_CONST] = {
+        .description = "pos_out const",
+        .output_class = NULL,
+        .prepare_class = PREPARE_CLASS_NORMAL,
+        .pos_type = true,
+    },
+    [OUTPUT_POSN_ENCODER] = {
+        .description = "pos_out encoder",
+        .output_class = &pos_out_encoder_output_class,
+        .prepare_class = PREPARE_CLASS_NORMAL,
+        .pos_type = true,
+        .extra_values = true,
+    },
+    [OUTPUT_ADC] = {
+        .description = "pos_out adc",
+        .output_class = &pos_out_adc_output_class,
+        .prepare_class = PREPARE_CLASS_NORMAL,
+        .pos_type = true,
+        .extra_values = true,
+    },
+    [OUTPUT_EXT] = {
+        .description = "ext_out",
+        .output_class = &ext_out_output_class,
+        .prepare_class = PREPARE_CLASS_NORMAL,
+        .pos_type = false,
+    },
+    [OUTPUT_TIMESTAMP] = {
+        .description = "ext_out timestamp",
+        .output_class = &ext_out_timestamp_output_class,
+        .prepare_class = PREPARE_CLASS_TIMESTAMP,
+        .pos_type = false,
+    },
+    [OUTPUT_OFFSET] = {
+        .description = "ext_out offset",
+        .output_class = &ext_out_output_class,
+        .prepare_class = PREPARE_CLASS_TS_OFFSET,
+        .pos_type = false,
+    },
+    [OUTPUT_ADC_COUNT] = {
+        .description = "ext_out adc_count",
+        .output_class = &ext_out_output_class,
+        .prepare_class = PREPARE_CLASS_ADC_COUNT,
+        .pos_type = false,
+    },
+    [OUTPUT_BITS] = {
+        .description = "ext_out bits",
+        .output_class = &ext_out_output_class,
+        .prepare_class = PREPARE_CLASS_NORMAL,
+        .pos_type = false,
+    },
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Register parsing. */
+
+
+error__t add_mux_indices(
+    struct enumeration *lookup, struct field *field,
+    const unsigned int array[], size_t length)
 {
-    return CAPTURE_OFF;
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < length; i ++)
+    {
+        char name[MAX_NAME_LENGTH];
+        format_field_name(name, sizeof(name), field, NULL, i, '\0');
+        error = add_enumeration(lookup, name, array[i]);
+    }
+    return error;
 }
 
 
-void format_output_name(
-    const struct output *output, unsigned int number,
-    char *string, size_t length)
+static error__t assign_capture_values(
+    struct output *output,
+    unsigned int offset, unsigned int values[], unsigned int limit)
 {
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < output->count; i ++)
+        error =
+            TEST_OK_(values[i] < limit, "Capture index out of range")  ?:
+            DO(output->values[i].capture_index[offset] = values[i]);
+    return error;
 }
 
 
-/******************************************************************************/
+static void register_this_output(struct output *output)
+{
+    unsigned int capture_index[output->count][2];
+    for (unsigned int i = 0; i < output->count; i ++)
+        memcpy(capture_index[i], output->values[i].capture_index,
+            sizeof(capture_index[i]));
+    enum prepare_class prepare_class =
+        output_type_info[output->output_type].prepare_class;
+    register_outputs(output, output->count, prepare_class, capture_index);
+}
+
+
+static error__t parse_timestamp_register(
+    const char **line, struct output *output)
+{
+    return
+        parse_whitespace(line)  ?:
+        parse_uint_array(line, output->values[0].capture_index, 2);
+}
+
+
+static error__t parse_registers(
+    const char **line, struct output *output, struct field *field)
+{
+    const struct output_type_info *info =
+        &output_type_info[output->output_type];
+    unsigned int values[output->count];
+    unsigned int bus_limit =
+        info->pos_type ? POS_BUS_COUNT : CAPTURE_BUS_COUNT;
+    return
+        /* First parse a position bus or extension bus index for each
+         * instance and assign to our instances. */
+        parse_whitespace(line)  ?:
+        parse_uint_array(line, values, output->count)  ?:
+        assign_capture_values(output, 0, values, bus_limit)  ?:
+
+        /* If these are position bus indices then add to the lookup list. */
+        IF(info->pos_type,
+            add_mux_indices(
+                pos_mux_lookup, field, values, output->count))  ?:
+
+        /* Finally parse any extra values if requred.  These are separated
+         * by a / and fill in the second values of each instance. */
+        IF(info->extra_values,
+            parse_whitespace(line)  ?:
+            parse_char(line, '/')  ?:
+            parse_whitespace(line)  ?:
+            parse_uint_array(line, values, output->count)  ?:
+            assign_capture_values(output, 1, values, CAPTURE_BUS_COUNT));
+}
+
+
+static error__t output_parse_register(
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
+{
+    struct output *output = class_data;
+    output->field = field;
+    return
+        IF_ELSE(output->output_type == OUTPUT_TIMESTAMP,
+            parse_timestamp_register(line, output),
+        //else
+            parse_registers(line, output, field))  ?:
+        DO(register_this_output(output));
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Initialisation. */
 
 
-static error__t output_init(
-    enum output_type output_type,
-    const char *type_name, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+static struct output *create_output(
+    unsigned int count, enum output_type output_type, unsigned int bit_group)
 {
-    struct output_state *state =
-        malloc(sizeof(struct output_state) + count * sizeof(unsigned int));
-
-    *state = (struct output_state) {
+    struct output *output =
+        malloc(sizeof(struct output) + count * sizeof(struct output_value));
+    *output = (struct output) {
+        .output_class = output_type_info[output_type].output_class,
         .count = count,
         .output_type = output_type,
-        .enumeration = capture_enums[output_type],
+        .bit_group = bit_group,
     };
-    *class_data = state;
+    return output;
+}
 
-    const char *empty_line = "";
-    return
-        IF(type_name,
-            create_type(
-                &empty_line, type_name, count, &register_methods, state,
-                attr_map, &state->type))  ?:
-        IF(state->enumeration,
-            DO(create_attributes(
-                output_attr_methods, ARRAY_SIZE(output_attr_methods),
-                NULL, *class_data, count, attr_map)));
+
+static error__t complete_create_output(
+    struct output *output, struct hash_table *attr_map, void **class_data)
+{
+    *class_data = output;
+
+    if (output->output_type == OUTPUT_BITS)
+        create_attributes(
+            &bits_attr_methods, 1, NULL, output, output->count, attr_map);
+    if (output->output_type != OUTPUT_CONST)
+        create_attributes(
+            &capture_attr_methods, 1, NULL, output, output->count, attr_map);
+    return ERROR_OK;
 }
 
 
@@ -343,7 +654,7 @@ static error__t parse_pos_out_type(
         else if (strcmp(type_name, "const") == 0)
             *output_type = OUTPUT_CONST;
         else if (strcmp(type_name, "encoder") == 0)
-            *output_type = OUTPUT_ENCODER;
+            *output_type = OUTPUT_POSN_ENCODER;
         else
             return FAIL_("Unknown pos_out type");
     }
@@ -356,18 +667,24 @@ static error__t pos_out_init(
     struct hash_table *attr_map, void **class_data)
 {
     enum output_type output_type = 0;
+    const char *empty_line = "";
+    struct output *output;
     return
         parse_pos_out_type(line, &output_type)  ?:
-        output_init(output_type, "position", count, attr_map, class_data);
+        DO(output = create_output(count, output_type, 0))  ?:
+        create_type(
+            &empty_line, "position", count, &register_methods, output,
+            attr_map, &output->type)  ?:
+        complete_create_output(output, attr_map, class_data);
 }
 
 
-/* timestamp or blank. */
+/* Quite a few more options for an ext_out type! */
 static error__t parse_ext_out_type(
-    const char **line, enum output_type *output_type)
+    const char **line, enum output_type *output_type, unsigned int *bit_group)
 {
     if (**line == '\0')
-        *output_type = OUTPUT_EXTRA;
+        *output_type = OUTPUT_EXT;
     else
     {
         char type_name[MAX_NAME_LENGTH];
@@ -382,7 +699,12 @@ static error__t parse_ext_out_type(
         else if (strcmp(type_name, "offset") == 0)
             *output_type = OUTPUT_OFFSET;
         else if (strcmp(type_name, "bits") == 0)
+        {
             *output_type = OUTPUT_BITS;
+            error =
+                parse_whitespace(line)  ?:
+                parse_uint(line, bit_group);
+        }
         else if (strcmp(type_name, "adc_count") == 0)
             *output_type = OUTPUT_ADC_COUNT;
         else
@@ -397,75 +719,26 @@ static error__t ext_out_init(
     struct hash_table *attr_map, void **class_data)
 {
     enum output_type output_type = 0;
+    unsigned int bit_group = 0;
     return
-        parse_ext_out_type(line, &output_type)  ?:
-        IF(**line,
-            DO( printf("Ignoring extra ext_out text: \"%s\"\n", *line);
-                *line += strlen(*line)))  ?:
-        output_init(output_type, NULL, count, attr_map, class_data);
+        parse_ext_out_type(line, &output_type, &bit_group)  ?:
+        complete_create_output(
+            create_output(count, output_type, bit_group), attr_map, class_data);
 }
 
 
-static void output_destroy(void *class_data)
+static void pos_out_destroy(void *class_data)
 {
-    struct output_state *state = class_data;
-    destroy_type(state->type);
-    free(state);
+    struct output *output = class_data;
+    destroy_type(output->type);
+    free(output);
 }
 
 
 static const char *output_describe(void *class_data)
 {
-    struct output_state *state = class_data;
-    return output_type_names[state->output_type];
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Register initialisation. */
-
-
-error__t add_mux_indices(
-    struct enumeration *lookup, struct field *field,
-    const unsigned int array[], size_t length)
-{
-    error__t error = ERROR_OK;
-    for (unsigned int i = 0; !error  &&  i < length; i ++)
-    {
-        char name[MAX_NAME_LENGTH];
-        format_field_name(name, sizeof(name), field, NULL, i, '\0');
-        error = add_enumeration(lookup, name, array[i]);
-    }
-    return error;
-}
-
-
-static error__t pos_out_parse_register(
-    void *class_data, struct field *field, unsigned int block_base,
-    const char **line)
-{
-    struct output_state *state = class_data;
-    return
-        parse_whitespace(line)  ?:
-        parse_uint_array(line, state->index_array, state->count)  ?:
-        add_mux_indices(
-            pos_mux_lookup, field, state->index_array, state->count)  ?:
-        IF(**line,
-            DO(
-                printf("ignoring extra: \"%s\"\n", *line);
-                *line += strlen(*line)));
-}
-
-
-static error__t ext_out_parse_register(
-    void *class_data, struct field *field, unsigned int block_base,
-    const char **line)
-{
-    struct output_state *state = class_data;
-    printf("Ignoring ext register field: \"%s\"\n", *line);
-    state->index_array[0] = 0;
-    *line += strlen(*line);
-    return ERROR_OK;
+    struct output *output = class_data;
+    return output_type_info[output->output_type].description;
 }
 
 
@@ -477,13 +750,11 @@ error__t initialise_output(void)
 {
     pos_mux_lookup = create_dynamic_enumeration(POS_BUS_COUNT);
 
-    for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
+    for (unsigned int i = 0; i < ARRAY_SIZE(output_classes); i ++)
     {
-        const struct enum_set *enum_set = &capture_enum_sets[i];
-        if (enum_set->enums)
-            capture_enums[i] = create_static_enumeration(enum_set);
-        else
-            capture_enums[i] = NULL;
+        struct output_class *output_class = output_classes[i];
+        output_class->enumeration =
+            create_static_enumeration(&output_class->enum_set);
     }
     return ERROR_OK;
 }
@@ -491,13 +762,19 @@ error__t initialise_output(void)
 
 void terminate_output(void)
 {
-    for (unsigned int i = 0; i < OUTPUT_TYPE_SIZE; i ++)
-        if (capture_enums[i])
-            destroy_enumeration(capture_enums[i]);
+    for (unsigned int i = 0; i < ARRAY_SIZE(output_classes); i ++)
+    {
+        struct output_class *output_class = output_classes[i];
+        if (output_class->enumeration)
+            destroy_enumeration(output_class->enumeration);
+    }
     if (pos_mux_lookup)
         destroy_enumeration(pos_mux_lookup);
 }
 
+
+/* pos_mux type initialisation and destruction.  We only need the pos_mux
+ * destructor to protect the shared pos_mux_lookup from being deleted. */
 
 static error__t pos_mux_init(
     const char **string, unsigned int count, void **type_data)
@@ -526,8 +803,8 @@ const struct type_methods pos_mux_type_methods = {
 const struct class_methods pos_out_class_methods = {
     "pos_out",
     .init = pos_out_init,
-    .parse_register = pos_out_parse_register,
-    .destroy = output_destroy,
+    .parse_register = output_parse_register,
+    .destroy = pos_out_destroy,
     .get = output_get, .refresh = pos_out_refresh,
     .describe = output_describe,
     .change_set = pos_out_change_set,
@@ -537,7 +814,6 @@ const struct class_methods pos_out_class_methods = {
 const struct class_methods ext_out_class_methods = {
     "ext_out",
     .init = ext_out_init,
-    .parse_register = ext_out_parse_register,
-//     .destroy = output_destroy,
+    .parse_register = output_parse_register,
     .describe = output_describe,
 };

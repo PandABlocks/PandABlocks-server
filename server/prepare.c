@@ -15,6 +15,7 @@
 #include "config_server.h"
 #include "data_server.h"
 #include "output.h"
+#include "hardware.h"
 
 #include "prepare.h"
 
@@ -42,7 +43,7 @@ struct output_field {
 
 
 /* All registered outputs. */
-static struct output_field *output_fields[MAX_OUTPUT_COUNT];
+static struct output_field *output_fields[CAPTURE_BUS_COUNT];
 static unsigned int output_field_count;
 
 /* Offsets into outputs of the three special fields. */
@@ -53,21 +54,21 @@ static struct output_field *adc_count_output;
 
 /* The three special fields need to be remembered separately. */
 static void process_special_field(
-    enum output_class output_class, struct output_field *field)
+    enum prepare_class prepare_class, struct output_field *field)
 {
-    switch (output_class)
+    switch (prepare_class)
     {
-        case OUTPUT_CLASS_NORMAL:
+        case PREPARE_CLASS_NORMAL:
             break;
-        case OUTPUT_CLASS_TIMESTAMP:
+        case PREPARE_CLASS_TIMESTAMP:
             ASSERT_OK(timestamp_output == NULL);
             timestamp_output = output_fields[output_field_count];
             break;
-        case OUTPUT_CLASS_TS_OFFSET:
+        case PREPARE_CLASS_TS_OFFSET:
             ASSERT_OK(offset_output == NULL);
             offset_output = output_fields[output_field_count];
             break;
-        case OUTPUT_CLASS_ADC_COUNT:
+        case PREPARE_CLASS_ADC_COUNT:
             ASSERT_OK(adc_count_output == NULL);
             adc_count_output = output_fields[output_field_count];
             break;
@@ -77,9 +78,9 @@ static void process_special_field(
 
 void register_outputs(
     const struct output *output, unsigned int count,
-    enum output_class output_class, const unsigned int capture_index[][2])
+    enum prepare_class prepare_class, unsigned int capture_index[][2])
 {
-    ASSERT_OK(output_field_count + count <= MAX_OUTPUT_COUNT);
+    ASSERT_OK(output_field_count + count <= CAPTURE_BUS_COUNT);
     for (unsigned int i = 0; i < count; i ++)
     {
         char field_name[MAX_NAME_LENGTH];
@@ -94,8 +95,27 @@ void register_outputs(
         };
 
         output_fields[output_field_count++] = field;
-        process_special_field(output_class, field);
+        process_special_field(prepare_class, field);
     }
+}
+
+
+/* Makes a best effor stab at returning a list of fields currently configured
+ * for capture. */
+void report_capture_list(struct connection_result *result)
+{
+    for (unsigned int i = 0; i < output_field_count; i ++)
+    {
+    }
+    result->response = RESPONSE_MANY;
+}
+
+
+void report_capture_labels(struct connection_result *result)
+{
+    for (unsigned int i = 0; i < output_field_count; i ++)
+        result->write_many(result->write_context, output_fields[i]->field_name);
+    result->response = RESPONSE_MANY;
 }
 
 
@@ -153,9 +173,11 @@ const struct captured_fields *prepare_captured_fields(void)
         struct output_field *output = output_fields[i];
 
         /* Fetch and store the current capture settings for this field. */
-        enum capture_mode capture_mode = get_capture_mode(
-            output->output, output->number,
-            &output->framing_mode, &output->scaling);
+        enum capture_mode capture_mode =
+            get_capture_mode(output->output, output->number);
+        if (capture_mode != CAPTURE_OFF)
+            output->framing_mode = get_capture_info(
+                output->output, output->number, &output->scaling);
 
         /* Dispatch output into the appropriate group for processing. */
         struct capture_group *capture = NULL;

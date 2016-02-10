@@ -1,9 +1,5 @@
 /* Data capture preparation. */
 
-/* This is a safe upper bound on the number of outputs, and is useful for a
- * number of temporary buffers. */
-#define MAX_OUTPUT_COUNT    64
-
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -14,11 +10,11 @@ struct output;
 
 /* When registering output sources and preparing data capture we need to treat a
  * number of output sources specially. */
-enum output_class {
-    OUTPUT_CLASS_NORMAL,       // Normal output source
-    OUTPUT_CLASS_TIMESTAMP,    // Timestamp, may need special offset handling
-    OUTPUT_CLASS_TS_OFFSET,    // Timestamp offset
-    OUTPUT_CLASS_ADC_COUNT,    // ADC sample count for average calculations
+enum prepare_class {
+    PREPARE_CLASS_NORMAL,      // Normal output source
+    PREPARE_CLASS_TIMESTAMP,   // Timestamp, may need special offset handling
+    PREPARE_CLASS_TS_OFFSET,   // Timestamp offset
+    PREPARE_CLASS_ADC_COUNT,   // ADC sample count for average calculations
 };
 
 
@@ -26,7 +22,14 @@ enum output_class {
  * to 2 separate capture indices can be registered for each source. */
 void register_outputs(
     const struct output *output, unsigned int count,
-    enum output_class output_class, const unsigned int capture_index[][2]);
+    enum prepare_class prepare_class, unsigned int capture_index[][2]);
+
+/* *CAPTURE? implementation: returns list of all captured fields. */
+void report_capture_list(struct connection_result *result);
+
+/* *CAPTURE.LABELS? implementation: returns list of all fields which can be
+ * selected for capture. */
+void report_capture_labels(struct connection_result *result);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -35,6 +38,7 @@ void register_outputs(
 struct captured_fields;
 struct data_capture;
 struct data_options;
+struct buffered_file;
 
 
 /* Sends header describing current set of data options.  Returns false if

@@ -4,7 +4,6 @@
 void do_bit_out_refresh(uint64_t change_index);
 
 
-// !!!! Note: this will move from BIT system command to an attribute
 /* BITSn.BITS? implementation, reports bit names in specific capture block. */
 void report_capture_bits(struct connection_result *result, unsigned int group);
 

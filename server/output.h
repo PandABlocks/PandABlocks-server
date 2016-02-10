@@ -49,13 +49,15 @@ struct scaling {
 /* This returns the basic information required to process the given output
  * source. */
 enum capture_mode get_capture_mode(
-    const struct output *output, unsigned int number,
-    enum framing_mode *framing_mode, struct scaling *scaling);
+    const struct output *output, unsigned int number);
+
+enum framing_mode get_capture_info(
+    const struct output *output, unsigned int number, struct scaling *scaling);
 
 /* Formats name of requested output instance. */
 void format_output_name(
     const struct output *output, unsigned int number,
-    char *string, size_t length);
+    char string[], size_t length);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -64,13 +66,10 @@ void format_output_name(
 /* Update cached pos_out values up to date with values read from hardware. */
 void do_pos_out_refresh(uint64_t change_index);
 
-/* *CAPTURE? implementation: returns list of all captured fields. */
-void report_capture_list(struct connection_result *result);
-
 /* Resets all capture bits. */
 void reset_capture_list(void);
 
-/* *POSITIONS? implementation, reports all position names. */
+/* *POSITIONS? implementation, reports all pos_mux position names. */
 void report_capture_positions(struct connection_result *result);
 
 
