@@ -296,7 +296,7 @@ error__t initialise_persistence(
     log_message("Persistence: \"%s\" %u %u %u",
         file_name, poll_interval, holdoff_interval, backoff_interval);
 
-    asprintf(&backup_file_name, "%s.backup", file_name);
+    ASSERT_IO(asprintf(&backup_file_name, "%s.backup", file_name));
     thread_running = true;
 
     pwait_initialise(&psignal);
