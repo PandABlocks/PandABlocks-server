@@ -18,6 +18,8 @@
 #include "attributes.h"
 #include "enums.h"
 #include "fields.h"
+#include "output.h"
+#include "bit_out.h"
 #include "locking.h"
 #include "time_position.h"
 
@@ -506,4 +508,10 @@ error__t create_type(
         DO(
             *type = create_type_block(methods, reg, reg_data, count, type_data);
             create_type_attributes(*type, attr_map));
+}
+
+
+void *get_type_state(struct type *type)
+{
+    return type->type_data;
 }

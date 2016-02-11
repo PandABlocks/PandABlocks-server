@@ -90,7 +90,8 @@ struct connection_result {
     /* This can be passed to update_change_index() to get a change set. */
     struct change_set_context *change_set_context;
     /* To return a single result it should be formatted into this array and
-     * .response set to RESPONSE_ONE. */
+     * .response set to RESPONSE_ONE.  Note that this string can safely be used
+     * as a formatting buffer for write_many() instead. */
     char *string;
     size_t length;
     /* To return multiple results this function should be called for each result
@@ -104,6 +105,12 @@ struct connection_result {
 #define write_one_result(result, format...) \
     ( format_string(result->string, result->length, format)  ?: \
       DO(result->response = RESPONSE_ONE))
+
+#define format_many_result(result, format...) \
+    do { \
+        snprintf(result->string, result->length, format); \
+        result->write_many(result->write_context, result->string); \
+    } while (0)
 
 
 /* This is filled in by a successful call to put_table. */

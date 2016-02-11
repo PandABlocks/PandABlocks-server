@@ -49,19 +49,20 @@ error__t attr_get(
 }
 
 
+void attr_changed(struct attr *attr, unsigned int number)
+{
+    LOCK(attr->mutex);
+    attr->update_index[number] = get_change_index();
+    UNLOCK(attr->mutex);
+}
+
+
 error__t attr_put(struct attr *attr, unsigned int number, const char *value)
 {
-    error__t error =
+    return
         TEST_OK_(attr->methods->put, "Attribute not writeable")  ?:
-        attr->methods->put(attr->owner, attr->data, number, value);
-
-    if (!error)
-    {
-        LOCK(attr->mutex);
-        attr->update_index[number] = get_change_index();
-        UNLOCK(attr->mutex);
-    }
-    return error;
+        attr->methods->put(attr->owner, attr->data, number, value)  ?:
+        DO(attr_changed(attr, number));
 }
 
 
@@ -98,27 +99,35 @@ const char *get_attr_description(const struct attr *attr)
 }
 
 
+struct attr *create_attribute(
+    const struct attr_methods *methods,
+    void *owner, void *data, unsigned int count)
+{
+    struct attr *attr = malloc(sizeof(struct attr));
+    *attr = (struct attr) {
+        .methods = methods,
+        .owner = owner,
+        .data = data,
+        .count = count,
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .update_index = malloc(count * sizeof(uint64_t)),
+    };
+    /* Initialise change index to ensure initial state is recorded. */
+    for (unsigned int i = 0; i < count; i ++)
+        attr->update_index[i] = 1;
+    return attr;
+}
+
+
 void create_attributes(
     const struct attr_methods methods[], unsigned int attr_count,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map)
 {
     for (unsigned int i = 0; i < attr_count; i ++)
-    {
-        struct attr *attr = malloc(sizeof(struct attr));
-        *attr = (struct attr) {
-            .methods = &methods[i],
-            .owner = owner,
-            .data = data,
-            .count = count,
-            .mutex = PTHREAD_MUTEX_INITIALIZER,
-            .update_index = malloc(count * sizeof(uint64_t)),
-        };
-        /* Initialise change index to ensure initial state is recorded. */
-        for (unsigned int j = 0; j < count; j ++)
-            attr->update_index[j] = 1;
-        hash_table_insert(attr_map, methods[i].name, attr);
-    }
+        hash_table_insert(
+            attr_map, methods[i].name,
+            create_attribute(&methods[i], owner, data, count));
 }
 
 

@@ -16,6 +16,7 @@
 #include "attributes.h"
 #include "hardware.h"
 #include "output.h"
+#include "bit_out.h"
 #include "register.h"
 #include "time_position.h"
 #include "table.h"

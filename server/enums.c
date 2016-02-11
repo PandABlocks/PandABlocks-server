@@ -19,7 +19,7 @@
 
 /* Somewhere around this number it's quicker to use a hash table than to do a
  * linear search. */
-#define HASH_TABLE_THRESHOLD    4
+#define HASH_TABLE_THRESHOLD    3
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -300,7 +300,7 @@ static error__t enum_add_label(void *type_data, const char **string)
 
 
 /* Parses valid enumeration into corresponding value, otherwise error. */
-static error__t enum_parse(
+error__t enum_parse(
     void *type_data, unsigned int number,
     const char *string, unsigned int *value)
 {
@@ -310,7 +310,7 @@ static error__t enum_parse(
 
 
 /* Formats valid value into enumeration string, otherwise error. */
-static error__t enum_format(
+error__t enum_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
@@ -321,7 +321,7 @@ static error__t enum_format(
 }
 
 
-static const struct enumeration *enum_get_enumeration(void *type_data)
+const struct enumeration *enum_get_enumeration(void *type_data)
 {
     return type_data;
 }
@@ -349,43 +349,3 @@ const struct type_methods enum_type_methods = {
     },
     .attr_count = 1,
 };
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* bit_mux and pos_mux types. */
-
-struct enumeration *bit_mux_lookup;
-struct enumeration *pos_mux_lookup;
-
-
-static error__t bit_mux_init(
-    const char **string, unsigned int count, void **type_data)
-{
-    *type_data = bit_mux_lookup;
-    return ERROR_OK;
-}
-
-static error__t pos_mux_init(
-    const char **string, unsigned int count, void **type_data)
-{
-    *type_data = pos_mux_lookup;
-    return ERROR_OK;
-}
-
-static void mux_destroy(void *type_data, unsigned int count)
-{
-}
-
-
-#define MUX_METHODS(name) \
-    { \
-        #name, \
-        .init = name##_init, \
-        .destroy = mux_destroy, \
-        .parse = enum_parse, \
-        .format = enum_format, \
-        .get_enumeration = enum_get_enumeration, \
-    }
-
-const struct type_methods bit_mux_type_methods = MUX_METHODS(bit_mux);
-const struct type_methods pos_mux_type_methods = MUX_METHODS(pos_mux);

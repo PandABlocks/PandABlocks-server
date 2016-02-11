@@ -473,14 +473,29 @@ static error__t position_units_put(
 }
 
 
-void get_position_info(
-    const struct position_state *position, unsigned int number,
-    double *scale, double *offset, const char **units)
+/* Most annoying.  This function is missing from the C library, possibly best
+ * explained here: https://lwn.net/Articles/507319/
+ *    Never mind, it's easy to write. */
+static size_t strlcpy(char *dst, const char *src, size_t size)
 {
+    size_t src_len = strlen(src);
+    memcpy(dst, src, MIN(src_len + 1, size));
+    if (size > 0)  dst[size - 1] = '\0';
+    return src_len;
+}
+
+
+size_t get_position_info(
+    struct position_state *position, unsigned int number,
+    double *scale, double *offset, char units[], size_t length)
+{
+    LOCK(position->mutex);
     const struct position_field *field = &position->values[number];
     *scale = field->scale;
     *offset = field->offset;
-    *units = field->units;
+    size_t result = strlcpy(units, field->units, length);
+    UNLOCK(position->mutex);
+    return result;
 }
 
 

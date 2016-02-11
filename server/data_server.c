@@ -17,6 +17,7 @@
 #include "buffered_file.h"
 #include "config_server.h"
 #include "buffer.h"
+#include "prepare.h"
 #include "capture.h"
 #include "locking.h"
 #include "base64.h"
@@ -87,8 +88,9 @@ static volatile bool data_thread_running = true;
 
 /* Data capture buffer. */
 static struct capture_buffer *data_buffer;
-/* Structure used to define data capture in progress.  This is valid while data
- * capture is enabled, invalid otherwise. */
+/* Structures used to define data capture in progress.  This are valid while
+ * data capture is enabled, invalid otherwise. */
+static const struct captured_fields *captured_fields;
 static const struct data_capture *data_capture;
 
 
@@ -168,13 +170,17 @@ void unlock_capture_disabled(void)
 }
 
 
-static void start_data_capture(void)
+static error__t start_data_capture(void)
 {
-    data_capture = prepare_data_capture();
-    hw_write_arm(true);
-
-    data_capture_enabled = true;
+    captured_fields = prepare_captured_fields();
+    error__t error = prepare_data_capture(captured_fields, &data_capture);
+    if (!error)
+    {
+        hw_write_arm(true);
+        data_capture_enabled = true;
+    }
     SIGNAL(data_thread_event);
+    return error;
 }
 
 
@@ -187,7 +193,7 @@ error__t arm_capture(void)
          * status to be idle. */
         TEST_OK(!read_buffer_status(data_buffer, &readers, &active))  ?:
         TEST_OK_(active == 0, "Data clients still taking data")  ?:
-        DO(start_data_capture()));
+        start_data_capture());
 }
 
 
@@ -502,7 +508,7 @@ static bool send_data_stream(
     while (buffer = get_read_block(connection->reader, &timeout, &in_length),
            buffer  &&  check_connection(connection))
     {
-        if (skip_bytes)
+        if (unlikely(skip_bytes > 0))
         {
             size_t skipped = MIN(skip_bytes, in_length);
             skip_bytes -= skipped;
@@ -558,8 +564,8 @@ error__t process_data_socket(int scon)
         {
             if (!connection.options.omit_header)
                 ok = send_data_header(
-                    data_capture, &connection.options, connection.file,
-                    lost_samples);
+                    captured_fields, data_capture,
+                    &connection.options, connection.file, lost_samples);
             if (ok)
                 ok = send_data_stream(&connection, skip_bytes);
 

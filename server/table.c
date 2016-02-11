@@ -127,11 +127,7 @@ static error__t write_ascii(
     struct table_block *block, struct connection_result *result)
 {
     for (unsigned int i = 0; i < block->length; i ++)
-    {
-        char string[MAX_RESULT_LENGTH];
-        snprintf(string, sizeof(string), "%u", block->data[i]);
-        result->write_many(result->write_context, string);
-    }
+        format_many_result(result, "%u", block->data[i]);
     result->response = RESPONSE_MANY;
     return ERROR_OK;
 }

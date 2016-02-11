@@ -13,7 +13,6 @@
 #include "hardware.h"
 #include "parse.h"
 #include "hashtable.h"
-#include "output.h"
 #include "types.h"
 #include "attributes.h"
 #include "classes.h"
