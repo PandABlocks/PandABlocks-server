@@ -81,30 +81,33 @@ static error__t process_special_field(
 }
 
 
-error__t register_outputs(
-    struct output *output, unsigned int count,
-    enum prepare_class prepare_class, unsigned int capture_index[][2])
+static struct output_field *create_output_field(
+    struct output *output, unsigned int number, const char field_name[],
+    const unsigned int capture_index[2])
 {
-    error__t error =
-        TEST_OK_(output_field_count + count <= CAPTURE_BUS_COUNT,
-            "Too many capture fields specified!");
-    for (unsigned int i = 0; !error  &&  i < count; i ++)
-    {
-        char field_name[MAX_NAME_LENGTH];
-        format_output_name(output, i, field_name, sizeof(field_name));
+    struct output_field *field = malloc(sizeof(struct output_field));
+    *field = (struct output_field) {
+        .output = output,
+        .number = number,
+        .field_name = strdup(field_name),
+        .capture_index = { capture_index[0], capture_index[1], },
+    };
+    output_fields[output_field_count++] = field;
+    return field;
+}
 
-        struct output_field *field = malloc(sizeof(struct output_field));
-        *field = (struct output_field) {
-            .output = output,
-            .number = i,
-            .field_name = strdup(field_name),
-            .capture_index = { capture_index[i][0], capture_index[i][1], },
-        };
 
-        output_fields[output_field_count++] = field;
-        error = process_special_field(prepare_class, field);
-    }
-    return error;
+error__t register_output(
+    struct output *output, unsigned int number, const char field_name[],
+    enum prepare_class prepare_class, const unsigned int capture_index[2])
+{
+    struct output_field *field;
+    return
+        TEST_OK_(output_field_count < CAPTURE_BUS_COUNT,
+            "Too many capture fields specified!")  ?:
+        DO(field = create_output_field(
+            output, number, field_name, capture_index))  ?:
+        process_special_field(prepare_class, field);
 }
 
 

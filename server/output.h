@@ -53,11 +53,6 @@ enum capture_mode get_capture_mode(struct output *output, unsigned int number);
 enum framing_mode get_capture_info(
     struct output *output, unsigned int number, struct scaling *scaling);
 
-/* Formats name of requested output instance. */
-void format_output_name(
-    const struct output *output, unsigned int number,
-    char string[], size_t length);
-
 /* Disables capture for the specified output. */
 void reset_output_capture(struct output *output, unsigned int number);
 

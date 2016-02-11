@@ -59,7 +59,6 @@ struct output {
     const struct output_class *output_class;    // Controlling structure
     unsigned int count;                 // Number of instances
     enum output_type output_type;
-    struct field *field;                // Needed for name formatting!
 
     pthread_mutex_t capture_mutex;      // Mutex for capture
     struct attr *capture;               // Capture attribute
@@ -182,14 +181,6 @@ static void get_output_scaling(
     get_position_info(
         output->position, number,
         &scaling->scale, &scaling->offset, NULL, 0);
-}
-
-
-void format_output_name(
-    const struct output *output, unsigned int number,
-    char string[], size_t length)
-{
-    format_field_name(string, length, output->field, NULL, number, '\0');
 }
 
 
@@ -572,16 +563,22 @@ static error__t parse_register_list(
 }
 
 
-static error__t register_this_output(struct output *output)
+/* Registers all instances of this output with prepare.c for capture. */
+static error__t register_this_output(
+    struct output *output, struct field *field)
 {
-    unsigned int capture_index[output->count][2];
-    for (unsigned int i = 0; i < output->count; i ++)
-        memcpy(capture_index[i], output->values[i].capture_index,
-            sizeof(capture_index[i]));
     enum prepare_class prepare_class =
         output_type_info[output->output_type].prepare_class;
-    return register_outputs(
-        output, output->count, prepare_class, capture_index);
+
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < output->count; i ++)
+    {
+        char name[MAX_NAME_LENGTH];
+        format_field_name(name, sizeof(name), field, NULL, i, '\0');
+        error = register_output(
+            output, i, name, prepare_class, output->values[i].capture_index);
+    }
+    return error;
 }
 
 
@@ -628,11 +625,10 @@ static error__t output_parse_register(
     const char **line)
 {
     struct output *output = class_data;
-    output->field = field;
     return
         parse_registers(line, output, field)  ?:
         IF(output->capture,
-            register_this_output(output))  ?:
+            register_this_output(output, field))  ?:
         IF(output->output_type == OUTPUT_BITS,
             DO(register_bit_group(field, output)));
 }
