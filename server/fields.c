@@ -125,11 +125,7 @@ const char *get_field_description(struct field *field)
 error__t block_list_get(struct connection_result *result)
 {
     FOR_EACH_BLOCK(block)
-    {
-        char value[MAX_RESULT_LENGTH];
-        snprintf(value, sizeof(value), "%s %d", block->name, block->count);
-        result->write_many(result->write_context, value);
-    }
+        format_many_result(result, "%s %d", block->name, block->count);
     result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
@@ -140,14 +136,14 @@ error__t field_list_get(
 {
     FOR_EACH_FIELD(block->fields, field)
     {
-        char string[MAX_RESULT_LENGTH];
-        size_t length = (size_t) snprintf(string, sizeof(string), "%s %u ",
-            field->name, field->sequence);
+        size_t length = (size_t) snprintf(
+            result->string, result->length,
+            "%s %u ", field->name, field->sequence);
         error__t error = describe_class(
-            field->class, string + length, sizeof(string) - length);
+            field->class, result->string + length, result->length - length);
         ASSERT_OK(!error);
 
-        result->write_many(result->write_context, string);
+        result->write_many(result->write_context, result->string);
     }
     result->response = RESPONSE_MANY;
     return ERROR_OK;
