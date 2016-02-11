@@ -48,11 +48,10 @@ struct scaling {
 
 /* This returns the basic information required to process the given output
  * source. */
-enum capture_mode get_capture_mode(
-    const struct output *output, unsigned int number);
+enum capture_mode get_capture_mode(struct output *output, unsigned int number);
 
 enum framing_mode get_capture_info(
-    const struct output *output, unsigned int number, struct scaling *scaling);
+    struct output *output, unsigned int number, struct scaling *scaling);
 
 /* Formats name of requested output instance. */
 void format_output_name(

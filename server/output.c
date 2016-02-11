@@ -8,6 +8,7 @@
 
 #include "error.h"
 #include "hardware.h"
+#include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
 #include "data_server.h"
@@ -25,7 +26,7 @@
 
 
 /* Interlock for position values and update indices. */
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t update_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Current values and update indices for each output field. */
 static uint32_t pos_value[POS_BUS_COUNT];
@@ -60,6 +61,8 @@ struct output {
     enum output_type output_type;
     struct field *field;                // Needed for name formatting!
 
+    pthread_mutex_t capture_mutex;      // Mutex for capture
+    struct attr *capture;               // Capture attribute
     struct type *type;                  // Only for pos_out
     struct position_state *position;    // Also only for pos_out
     unsigned int bit_group;             // Only for ext_out bit <group>
@@ -98,13 +101,13 @@ struct output_class {
 
 void do_pos_out_refresh(uint64_t change_index)
 {
-    LOCK(mutex);
+    LOCK(update_mutex);
     bool changes[POS_BUS_COUNT];
     hw_read_positions(pos_value, changes);
     for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
         if (changes[i]  &&  change_index > pos_update_index[i])
             pos_update_index[i] = change_index;
-    UNLOCK(mutex);
+    UNLOCK(update_mutex);
 }
 
 
@@ -121,10 +124,10 @@ static error__t register_read(
     void *reg_data, unsigned int number, uint32_t *result)
 {
     struct output *output = reg_data;
-    LOCK(mutex);
+    LOCK(update_mutex);
     unsigned int capture_index = output->values[number].capture_index[0];
     *result = pos_value[capture_index];
-    UNLOCK(mutex);
+    UNLOCK(update_mutex);
     return ERROR_OK;
 }
 
@@ -147,30 +150,28 @@ static void pos_out_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct output *output = class_data;
-    LOCK(mutex);
+    LOCK(update_mutex);
     for (unsigned int i = 0; i < output->count; i ++)
     {
         unsigned int capture_index = output->values[i].capture_index[0];
         changes[i] = pos_update_index[capture_index] > report_index;
     }
-    UNLOCK(mutex);
+    UNLOCK(update_mutex);
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Capture control and state retrieval. */
 
 
-/* Capture enumeration. */
-void report_capture_positions(struct connection_result *result)
+/* Returns capture state after fetching it under a lock. */
+static unsigned int get_capture_state(
+    struct output *output, unsigned int number)
 {
-    write_enum_labels(pos_mux_lookup, result);
-}
-
-
-void reset_output_capture(struct output *output, unsigned int number)
-{
-    output->values[number].capture_state = 0;
-printf("Need to let the attribute know it's changed!\n");
+    LOCK(output->capture_mutex);
+    unsigned int capture_state = output->values[number].capture_state;
+    UNLOCK(output->capture_mutex);
+    return capture_state;
 }
 
 
@@ -192,10 +193,9 @@ void format_output_name(
 }
 
 
-enum capture_mode get_capture_mode(
-    const struct output *output, unsigned int number)
+enum capture_mode get_capture_mode(struct output *output, unsigned int number)
 {
-    unsigned int capture_state = output->values[number].capture_state;
+    unsigned int capture_state = get_capture_state(output, number);
     if (capture_state == 0)
         return CAPTURE_OFF;
     else
@@ -208,9 +208,9 @@ enum capture_mode get_capture_mode(
 
 
 enum framing_mode get_capture_info(
-    const struct output *output, unsigned int number, struct scaling *scaling)
+    struct output *output, unsigned int number, struct scaling *scaling)
 {
-    unsigned int capture_state = output->values[number].capture_state;
+    unsigned int capture_state = get_capture_state(output, number);
     /* !!!!!!!!!!!!!!!!!!!!!!!!!
      * Need a lock to guard against this! */
     ASSERT_OK(capture_state > 0);
@@ -232,15 +232,27 @@ enum framing_mode get_capture_info(
 /* CAPTURE attribute. */
 
 
+void reset_output_capture(struct output *output, unsigned int number)
+{
+    LOCK(output->capture_mutex);
+    if (output->values[number].capture_state != 0)
+    {
+        output->values[number].capture_state = 0;
+        attr_changed(output->capture, number);
+    }
+    UNLOCK(output->capture_mutex);
+}
+
+
 static error__t capture_format(
     void *owner, void *data, unsigned int number, char result[], size_t length)
 {
     struct output *output = data;
+    unsigned int capture_state = get_capture_state(output, number);
     const char *string;
     return
         TEST_OK(string = enum_index_to_name(
-            output->output_class->enumeration,
-            output->values[number].capture_state))  ?:
+            output->output_class->enumeration, capture_state))  ?:
         format_string(result, length, "%s", string);
 }
 
@@ -249,11 +261,14 @@ static error__t capture_put(
     void *owner, void *data, unsigned int number, const char *value)
 {
     struct output *output = data;
-    return TEST_OK_(
-        enum_name_to_index(
-            output->output_class->enumeration, value,
-            &output->values[number].capture_state),
-        "Not a valid capture option");
+    unsigned int capture_state;
+    return
+        TEST_OK_(
+            enum_name_to_index(
+                output->output_class->enumeration, value, &capture_state),
+            "Not a valid capture option")  ?:
+        WITH_LOCK(output->capture_mutex,
+            DO(output->values[number].capture_state = capture_state));
 }
 
 
@@ -616,7 +631,8 @@ static error__t output_parse_register(
     output->field = field;
     return
         parse_registers(line, output, field)  ?:
-        register_this_output(output)  ?:
+        IF(output->capture,
+            register_this_output(output))  ?:
         IF(output->output_type == OUTPUT_BITS,
             DO(register_bit_group(field, output)));
 }
@@ -636,6 +652,7 @@ static struct output *create_output(
         .count = count,
         .output_type = output_type,
         .bit_group = bit_group,
+        .capture_mutex = PTHREAD_MUTEX_INITIALIZER,
     };
     memset(output->values, 0, value_size);
     return output;
@@ -651,8 +668,11 @@ static error__t complete_create_output(
         create_attributes(
             &bits_attr_methods, 1, NULL, output, output->count, attr_map);
     if (output->output_type != OUTPUT_CONST)
-        create_attributes(
-            &capture_attr_methods, 1, NULL, output, output->count, attr_map);
+    {
+        output->capture = create_attribute(
+            &capture_attr_methods, NULL, output, output->count);
+        hash_table_insert(attr_map, capture_attr_methods.name, output->capture);
+    }
     return ERROR_OK;
 }
 
@@ -808,6 +828,13 @@ static error__t pos_mux_init(
 
 static void pos_mux_destroy(void *type_data, unsigned int count)
 {
+}
+
+
+/* Returns list of all position bus entries. */
+void report_capture_positions(struct connection_result *result)
+{
+    write_enum_labels(pos_mux_lookup, result);
 }
 
 
