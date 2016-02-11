@@ -16,6 +16,7 @@
 #include "data_server.h"
 #include "output.h"
 #include "hardware.h"
+#include "capture.h"
 
 #include "prepare.h"
 
@@ -142,18 +143,146 @@ void report_capture_labels(struct connection_result *result)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Data capture request parsing. */
+
+static error__t parse_one_option(
+    const char *option, struct data_options *options)
+{
+    /* Data formatting options. */
+    if (strcmp(option, "UNFRAMED") == 0)
+        options->data_format = DATA_FORMAT_UNFRAMED;
+    else if (strcmp(option, "FRAMED") == 0)
+        options->data_format = DATA_FORMAT_FRAMED;
+    else if (strcmp(option, "BASE64") == 0)
+        options->data_format = DATA_FORMAT_BASE64;
+    else if (strcmp(option, "ASCII") == 0)
+        options->data_format = DATA_FORMAT_ASCII;
+
+    /* Data processing options. */
+    else if (strcmp(option, "RAW") == 0)
+        options->data_process = DATA_PROCESS_RAW;
+    else if (strcmp(option, "UNSCALED") == 0)
+        options->data_process = DATA_PROCESS_UNSCALED;
+    else if (strcmp(option, "SCALED") == 0)
+        options->data_process = DATA_PROCESS_SCALED;
+
+    /* Reporting and control options. */
+    else if (strcmp(option, "NO_HEADER") == 0)
+        options->omit_header = true;
+    else if (strcmp(option, "NO_STATUS") == 0)
+        options->omit_status = true;
+    else if (strcmp(option, "ONE_SHOT") == 0)
+        options->one_shot = true;
+
+    /* Some compound options. */
+    else if (strcmp(option, "BARE") == 0)
+        *options = (struct data_options) {
+            .data_format = DATA_FORMAT_UNFRAMED,
+            .data_process = DATA_PROCESS_UNSCALED,
+            .omit_header = true,
+            .omit_status = true,
+            .one_shot = true,
+        };
+    else if (strcmp(option, "DEFAULT") == 0)
+        *options = (struct data_options) {
+            .data_format = DATA_FORMAT_ASCII,
+            .data_process = DATA_PROCESS_SCALED,
+        };
+
+    else
+        return FAIL_("Invalid data capture option");
+    return ERROR_OK;
+}
+
+
+error__t parse_data_options(const char *line, struct data_options *options)
+{
+    *options = (struct data_options) {
+        .data_format = DATA_FORMAT_ASCII,
+        .data_process = DATA_PROCESS_SCALED,
+    };
+
+    char option[MAX_NAME_LENGTH];
+    error__t error = ERROR_OK;
+    while (!error  &&  *line)
+        error =
+            DO(line = skip_whitespace(line))  ?:
+            parse_alphanum_name(&line, option, sizeof(option))  ?:
+            parse_one_option(option, options);
+    return
+        error  ?:
+        parse_eos(&line);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Header formatting. */
+
+
+static void send_capture_info(
+    struct buffered_file *file,
+    const struct data_capture *capture, const struct data_options *options,
+    uint64_t missed_samples)
+{
+    if (missed_samples)
+        write_formatted_string(
+            file, "Missed samples: %"PRIu64"\n", missed_samples);
+
+    static const char *data_format_strings[] = {
+        "Unframed", "Framed", "Base64", "ASCII", };
+    static const char *data_process_strings[] = {
+        "Raw", "Unscaled", "Scaled", };
+    const char *data_format = data_format_strings[options->data_format];
+    const char *data_process = data_process_strings[options->data_process];
+
+    write_formatted_string(file, "Process: %s\n", data_process);
+    write_formatted_string(file, "Transport: %s\n", data_format);
+    if (options->data_format != DATA_FORMAT_ASCII)
+        write_formatted_string(file, "Sample size (bytes): %zu\n",
+            get_binary_sample_length(capture, options));
+}
+
+
+static void send_field_info(
+    struct buffered_file *file, const struct output_field *field)
+{
+    write_formatted_string(file,
+        " %s %s", field->field_name, field->info.capture_string);
+    if (field->info.scaled)
+        write_formatted_string(file,
+            " Scaled: %.12g %.12g Units: %s",
+            field->info.scaling.scale, field->info.scaling.offset,
+            field->info.units);
+    write_char(file, '\n');
+}
+
+
+static void send_group_info(
+    struct buffered_file *file, const struct capture_group *group)
+{
+    for (unsigned int i = 0; i < group->count; i ++)
+        send_field_info(file, group->outputs[i]);
+}
 
 
 bool send_data_header(
     const struct captured_fields *fields,
     const struct data_capture *capture,
     const struct data_options *options,
-    struct buffered_file *file, uint64_t lost_samples)
+    struct buffered_file *file, uint64_t missed_samples)
 {
-    write_formatted_string(
-        file, "header: lost %"PRIu64" samples\n", lost_samples);
-    write_string(file, "header\n", 7);
+    send_capture_info(file, capture, options, missed_samples);
+
+    /* Format the field capture descriptions. */
+    write_formatted_string(file, "Fields:\n");
+    if (fields->ts_capture != TS_IGNORE)
+        send_field_info(file, fields->timestamp);
+    send_group_info(file, &fields->unscaled);
+    send_group_info(file, &fields->scaled32);
+    send_group_info(file, &fields->scaled64);
+    send_group_info(file, &fields->adc_mean);
+
+    write_char(file, '\n');
     return flush_out_buf(file);
 }
 
