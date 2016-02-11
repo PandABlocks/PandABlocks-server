@@ -46,12 +46,23 @@ struct scaling {
 };
 
 
-/* This returns the basic information required to process the given output
- * source. */
-enum capture_mode get_capture_mode(struct output *output, unsigned int number);
+struct capture_info {
+    bool scaled;
+    enum framing_mode framing_mode;
+    const char *capture_string;
+    struct scaling scaling;
+    char units[MAX_NAME_LENGTH];
+};
 
-enum framing_mode get_capture_info(
-    struct output *output, unsigned int number, struct scaling *scaling);
+/* Returns all current information about the selected output source: how it's
+ * configured for capture, any scaling settings, the units string, and the
+ * capture enumeration selection.
+ *     If the units buffer is too short, the units string will be silently
+ * truncated here.  If the returned capture_mode is CAPTURE_OFF then the
+ * remaiing fields are not filled in. */
+enum capture_mode get_capture_info(
+    struct output *output, unsigned int number, struct capture_info *info);
+
 
 /* Disables capture for the specified output. */
 void reset_output_capture(struct output *output, unsigned int number);

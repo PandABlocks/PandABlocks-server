@@ -174,48 +174,32 @@ static unsigned int get_capture_state(
 }
 
 
-static void get_output_scaling(
-    const struct output *output, unsigned int number,
-    struct scaling *scaling)
-{
-    get_position_info(
-        output->position, number,
-        &scaling->scale, &scaling->offset, NULL, 0);
-}
-
-
-enum capture_mode get_capture_mode(struct output *output, unsigned int number)
+enum capture_mode get_capture_info(
+    struct output *output, unsigned int number, struct capture_info *info)
 {
     unsigned int capture_state = get_capture_state(output, number);
     if (capture_state == 0)
         return CAPTURE_OFF;
     else
     {
+        const struct output_class *output_class = output->output_class;
         const struct output_options *options =
-            &output->output_class->output_options[capture_state - 1];
+            &output_class->output_options[capture_state - 1];
+
+        info->scaled = output_class->scaling;
+        if (output_class->scaling)
+        {
+            get_position_info(
+                output->position, number,
+                &info->scaling.scale, &info->scaling.offset,
+                info->units, sizeof(info->units));
+            if (options->zero_offset)
+                info->scaling.offset = 0.0;
+        }
+        info->capture_string = output_class->enum_set.enums[capture_state].name;
+        info->framing_mode = options->framing_mode;
         return options->capture_mode;
     }
-}
-
-
-enum framing_mode get_capture_info(
-    struct output *output, unsigned int number, struct scaling *scaling)
-{
-    unsigned int capture_state = get_capture_state(output, number);
-    /* !!!!!!!!!!!!!!!!!!!!!!!!!
-     * Need a lock to guard against this! */
-    ASSERT_OK(capture_state > 0);
-
-    const struct output_class *output_class = output->output_class;
-    const struct output_options *options =
-        &output_class->output_options[capture_state - 1];
-    if (output_class->scaling)
-    {
-        get_output_scaling(output, number, scaling);
-        if (options->zero_offset)
-            scaling->offset = 0.0;
-    }
-    return options->framing_mode;
 }
 
 
@@ -223,13 +207,8 @@ bool get_capture_enabled(
     struct output *output, unsigned int number, const char **capture)
 {
     unsigned int capture_state = get_capture_state(output, number);
-    if (capture_state == 0)
-        return false;
-    else
-    {
-        *capture = output->output_class->enum_set.enums[capture_state].name;
-        return true;
-    }
+    *capture = output->output_class->enum_set.enums[capture_state].name;
+    return capture_state > 0;
 }
 
 

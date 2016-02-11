@@ -37,8 +37,7 @@ struct output_field {
     unsigned int capture_index[2];
 
     /* The following fields are updated during capture preparation. */
-    enum framing_mode framing_mode;     // Used to configure hardware framing
-    struct scaling scaling;             // Scaling for fields with scaling
+    struct capture_info info;
 };
 
 
@@ -163,14 +162,16 @@ bool send_data_header(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Output preparation. */
 
+
+/* Called by data capture as part of initial preparation. */
 enum framing_mode get_output_info(
     const struct output_field *output,
     unsigned int capture_index[2], struct scaling *scaling)
 {
     capture_index[0] = output->capture_index[0];
     capture_index[1] = output->capture_index[1];
-    *scaling = output->scaling;
-    return output->framing_mode;
+    *scaling = output->info.scaling;
+    return output->info.framing_mode;
 }
 
 
@@ -196,11 +197,8 @@ const struct captured_fields *prepare_captured_fields(void)
         struct output_field *output = output_fields[i];
 
         /* Fetch and store the current capture settings for this field. */
-        enum capture_mode capture_mode =
-            get_capture_mode(output->output, output->number);
-        if (capture_mode != CAPTURE_OFF)
-            output->framing_mode = get_capture_info(
-                output->output, output->number, &output->scaling);
+        enum capture_mode capture_mode = get_capture_info(
+            output->output, output->number, &output->info);
 
         /* Dispatch output into the appropriate group for processing. */
         struct capture_group *capture = NULL;
