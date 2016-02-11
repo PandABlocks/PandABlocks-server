@@ -174,6 +174,9 @@ static error__t parse_one_option(
     else if (strcmp(option, "ONE_SHOT") == 0)
         options->one_shot = true;
 
+    else if (strcmp(option, "XML") == 0)
+        options->xml_header = true;
+
     /* Some compound options. */
     else if (strcmp(option, "BARE") == 0)
         *options = (struct data_options) {
@@ -219,14 +222,64 @@ error__t parse_data_options(const char *line, struct data_options *options)
 /* Header formatting. */
 
 
+/* Returns the string required to escape the given XML character. */
+static const char *escape_xml_character(char ch)
+{
+    switch (ch)
+    {
+        case '<':   return "&lt;";
+        case '&':   return "&amp;";
+        case '>':   return "&gt;";
+        case '"':   return "&quot;";
+        case '\'':  return "&apos;";
+        default:    return "";          // Mistake, don't do this
+    }
+}
+
+static void write_escaped_xml_string(
+    struct buffered_file *file, const char *string)
+{
+    write_char(file, '"');
+    while (*string)
+    {
+        /* Find length of segment up to any character which needs to be escaped.
+         * We can just write this segment as is. */
+        size_t accept = strcspn(string, "<&>\"'");
+        if (accept > 0)
+            write_string(file, string, accept);
+        string += accept;
+
+        /* Process the escape character if necessary. */
+        if (*string)
+        {
+            const char *escape = escape_xml_character(*string);
+            write_string(file, escape, strlen(escape));
+            string += 1;
+        }
+    }
+    write_char(file, '"');
+}
+
+
+static void write_attribute(
+    struct buffered_file *file, bool xml, const char *name, const char *value)
+{
+    if (xml)
+        write_formatted_string(file, " %s=\"%s\"", name, value);
+    else
+        write_formatted_string(file, "%s: %s\n", name, value);
+}
+
 static void send_capture_info(
     struct buffered_file *file,
     const struct data_capture *capture, const struct data_options *options,
     uint64_t missed_samples)
 {
-    if (missed_samples)
-        write_formatted_string(
-            file, "Missed samples: %"PRIu64"\n", missed_samples);
+    bool xml = options->xml_header;
+    if (xml)
+        write_formatted_string(file, " missed=\"%"PRIu64"\"", missed_samples);
+    else
+        write_formatted_string(file, "missed: %"PRIu64"\n", missed_samples);
 
     static const char *data_format_strings[] = {
         "Unframed", "Framed", "Base64", "ASCII", };
@@ -235,15 +288,21 @@ static void send_capture_info(
     const char *data_format = data_format_strings[options->data_format];
     const char *data_process = data_process_strings[options->data_process];
 
-    write_formatted_string(file, "Process: %s\n", data_process);
-    write_formatted_string(file, "Transport: %s\n", data_format);
+    write_attribute(file, xml, "process", data_process);
+    write_attribute(file, xml, "format", data_format);
     if (options->data_format != DATA_FORMAT_ASCII)
-        write_formatted_string(file, "Sample size (bytes): %zu\n",
-            get_binary_sample_length(capture, options));
+    {
+        if (xml)
+            write_formatted_string(file, " sample-bytes=\"%zu\"",
+                get_binary_sample_length(capture, options));
+        else
+            write_formatted_string(file, "sample-bytes: %zu\n",
+                get_binary_sample_length(capture, options));
+    }
 }
 
 
-static void send_field_info(
+static void send_plain_field_info(
     struct buffered_file *file, const struct output_field *field)
 {
     write_formatted_string(file,
@@ -256,12 +315,39 @@ static void send_field_info(
     write_char(file, '\n');
 }
 
+static void send_xml_field_info(
+    struct buffered_file *file, const struct output_field *field)
+{
+    write_formatted_string(file, "<field name=\"%s\" capture=\"%s\"",
+        field->field_name, field->info.capture_string);
+    if (field->info.scaled)
+    {
+        write_formatted_string(file,
+            " scale=\"%.12g\" offset=\"%.12g\" units=",
+            field->info.scaling.scale, field->info.scaling.offset);
+        write_escaped_xml_string(file, field->info.units);
+    }
+    write_formatted_string(file, " />\n");
+}
+
+
+static void send_field_info(
+    struct buffered_file *file, const struct data_options *options,
+    const struct output_field *field)
+{
+    if (options->xml_header)
+        send_xml_field_info(file, field);
+    else
+        send_plain_field_info(file, field);
+}
+
 
 static void send_group_info(
-    struct buffered_file *file, const struct capture_group *group)
+    struct buffered_file *file, const struct data_options *options,
+    const struct capture_group *group)
 {
     for (unsigned int i = 0; i < group->count; i ++)
-        send_field_info(file, group->outputs[i]);
+        send_field_info(file, options, group->outputs[i]);
 }
 
 
@@ -271,16 +357,26 @@ bool send_data_header(
     const struct data_options *options,
     struct buffered_file *file, uint64_t missed_samples)
 {
+    if (options->xml_header)
+        write_formatted_string(file, "<header>\n<data");
+
     send_capture_info(file, capture, options, missed_samples);
 
     /* Format the field capture descriptions. */
-    write_formatted_string(file, "Fields:\n");
+    if (options->xml_header)
+        write_formatted_string(file, "/>\n<fields>\n");
+    else
+        write_formatted_string(file, "Fields:\n");
+
     if (fields->ts_capture != TS_IGNORE)
-        send_field_info(file, fields->timestamp);
-    send_group_info(file, &fields->unscaled);
-    send_group_info(file, &fields->scaled32);
-    send_group_info(file, &fields->scaled64);
-    send_group_info(file, &fields->adc_mean);
+        send_field_info(file, options, fields->timestamp);
+    send_group_info(file, options, &fields->unscaled);
+    send_group_info(file, options, &fields->scaled32);
+    send_group_info(file, options, &fields->scaled64);
+    send_group_info(file, options, &fields->adc_mean);
+
+    if (options->xml_header)
+        write_formatted_string(file, "</fields>\n</header>\n");
 
     write_char(file, '\n');
     return flush_out_buf(file);

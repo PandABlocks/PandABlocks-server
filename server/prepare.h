@@ -23,11 +23,12 @@ enum data_process {
 
 /* Data capture and processing options. */
 struct data_options {
-    enum data_format data_format;
-    enum data_process data_process;
-    bool omit_header;
-    bool omit_status;
-    bool one_shot;
+    enum data_format data_format;   // How data is transported to the client
+    enum data_process data_process; // How data is processed
+    bool omit_header;       // With this option the header will be omitted
+    bool omit_status;       // This option will omit *all* status reports
+    bool one_shot;          // Connection is closed after one experiment
+    bool xml_header;        // Header is sent in XML format
 };
 
 
