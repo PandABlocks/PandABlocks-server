@@ -56,6 +56,11 @@ enum framing_mode get_capture_info(
 /* Disables capture for the specified output. */
 void reset_output_capture(struct output *output, unsigned int number);
 
+/* If this output is configured for capture returns true together with the
+ * capture enumeration selection. */
+bool get_capture_enabled(
+    struct output *output, unsigned int number, const char **capture);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Capture enumeration. */

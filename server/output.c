@@ -219,6 +219,20 @@ enum framing_mode get_capture_info(
 }
 
 
+bool get_capture_enabled(
+    struct output *output, unsigned int number, const char **capture)
+{
+    unsigned int capture_state = get_capture_state(output, number);
+    if (capture_state == 0)
+        return false;
+    else
+    {
+        *capture = output->output_class->enum_set.enums[capture_state].name;
+        return true;
+    }
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* CAPTURE attribute. */
 

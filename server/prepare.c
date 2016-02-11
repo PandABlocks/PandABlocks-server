@@ -111,20 +111,17 @@ error__t register_output(
 }
 
 
-static bool capture_enabled(struct output_field *output)
-{
-    return get_capture_mode(output->output, output->number) != CAPTURE_OFF;
-}
-
-
 /* Makes a best effor stab at returning a list of fields currently configured
  * for capture. */
 void report_capture_list(struct connection_result *result)
 {
     for (unsigned int i = 0; i < output_field_count; i ++)
-        if (capture_enabled(output_fields[i]))
-            result->write_many(
-                result->write_context, output_fields[i]->field_name);
+    {
+        struct output_field *field = output_fields[i];
+        const char *capture;
+        if (get_capture_enabled(field->output, field->number, &capture))
+            format_many_result(result, "%s %s", field->field_name, capture);
+    }
     result->response = RESPONSE_MANY;
 }
 
