@@ -46,6 +46,10 @@ error__t parse_bit(const char **string, bool *result);
 error__t parse_eos(const char **string);
 
 
+/* Parses an array of uints. */
+error__t parse_uint_array(
+    const char **line, unsigned int array[], size_t length);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Indented file parser. */

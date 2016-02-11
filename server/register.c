@@ -13,7 +13,6 @@
 #include "hardware.h"
 #include "parse.h"
 #include "hashtable.h"
-#include "output.h"
 #include "types.h"
 #include "attributes.h"
 #include "classes.h"
@@ -22,134 +21,23 @@
 #include "register.h"
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Base state, common to all three class implementations here. */
+
+
 /* Common shared state for all register functions. */
 struct base_state {
     struct type *type;              // Type implementation for value conversion
     unsigned int block_base;        // Base number for block
     unsigned int field_register;    // Register to be read or written
     bool slow;                      // Set if register is a slow register
-
-    const struct filter_methods *filter;  // Optional filter
-    void *filter_data;              // Context for filter
 };
 
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Register filter API. */
-
-/* A register filter is used to transform values being read and written. */
-
-/* All the fields of a filter are optional. */
-struct filter_methods {
-    const char *name;
-
-    /* Parses rest of line and creates context as appropriate. */
-    error__t (*init)(const char **line, void **context);
-
-    /* This transforms *value according to the filter rules, or returns an error
-     * if the value is unacceptable. */
-    error__t (*write)(void *context, uint32_t *value);
-
-    /* Transforms *value according to filter rules (should be inverse to rules
-     * applied by .write), or returns error if bad value read. */
-    error__t (*read)(void *context, uint32_t *value);
-};
-
-
-/* Minimum value: this excludes values in the range 0..minval-1, and applies
- * minval as an offset to non-zero values. */
-static error__t minval_init(const char **line, void **context)
-{
-    uint32_t *minval = malloc(sizeof(uint32_t));
-    *context = minval;
-    return
-        parse_whitespace(line)  ?:
-        parse_uint(line, minval);
-}
-
-static error__t minval_write(void *context, uint32_t *value)
-{
-    uint32_t *minval = context;
-    return
-        TEST_OK_(*value == 0  ||  *value > *minval, "Value too small")  ?:
-        IF(*value > 0, DO(*value -= *minval));
-}
-
-static error__t minval_read(void *context, uint32_t *value)
-{
-    uint32_t *minval = context;
-    return
-        TEST_OK_(*value < UINT32_MAX - *minval, "Value too large")  ?:
-        IF(*value > 0, DO(*value += *minval));
-}
-
-static const struct filter_methods filter_list[] = {
-    { "minval",
-        .init = minval_init,
-        .write = minval_write,
-        .read = minval_read, },
-};
-
-
-/* Helper for filter creation: searches filter_list for named filter. */
-static error__t lookup_filter(
-    const char *name, const struct filter_methods **filter)
-{
-    for (unsigned int i = 0; i < ARRAY_SIZE(filter_list); i ++)
-        if (strcmp(name, filter_list[i].name) == 0)
-        {
-            *filter = &filter_list[i];
-            return ERROR_OK;
-        }
-    return FAIL_("Register filter %s not found", name);
-}
-
-
-/* Creates filter object if appropriate. */
-static error__t create_filter(const char **line, struct base_state *state)
-{
-    if (**line == '\0')
-        return ERROR_OK;
-    else
-    {
-        char filter_name[MAX_NAME_LENGTH];
-        return
-            parse_whitespace(line)  ?:
-            parse_name(line, filter_name, sizeof(filter_name))  ?:
-            lookup_filter(filter_name, &state->filter)  ?:
-            IF(state->filter->init,
-                state->filter->init(line, &state->filter_data));
-    }
-}
-
-
-/* Both read and write filtering are optional, only invoked if the filter is
- * present. */
-
-static error__t filter_write(struct base_state *state, uint32_t *value)
-{
-    return
-        IF(state->filter  &&  state->filter->write,
-            state->filter->write(state->filter_data, value));
-}
-
-static error__t filter_read(struct base_state *state, uint32_t *value)
-{
-    return
-        IF(state->filter  &&  state->filter->read,
-            state->filter->read(state->filter_data, value));
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Base state, common to all three class implementations here. */
 
 static void base_destroy(void *class_data)
 {
     struct base_state *state = class_data;
     destroy_type(state->type);
-    free(state->filter_data);
     free(state);
 }
 
@@ -174,8 +62,7 @@ static error__t base_parse_register(
             DO( *line += 4;
                 state->slow = true)  ?:     // default state is false
             parse_whitespace(line))  ?:
-        parse_uint(line, &state->field_register)  ?:
-        create_filter(line, state);
+        parse_uint(line, &state->field_register);
 }
 
 
@@ -310,7 +197,7 @@ static error__t param_read(void *reg_data, unsigned int number, uint32_t *value)
 {
     struct simple_state *state = reg_data;
     *value = state->values[number].value;
-    return filter_read(&state->base, value);
+    return ERROR_OK;
 }
 
 
@@ -318,16 +205,12 @@ static error__t param_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct simple_state *state = reg_data;
 
-    error__t error = filter_write(&state->base, &value);
-    if (!error)
-    {
-        LOCK(state->mutex);
-        state->values[number].value = value;
-        state->values[number].update_index = get_change_index();
-        write_register(&state->base, number, value);
-        UNLOCK(state->mutex);
-    }
-    return error;
+    LOCK(state->mutex);
+    state->values[number].value = value;
+    state->values[number].update_index = get_change_index();
+    write_register(&state->base, number, value);
+    UNLOCK(state->mutex);
+    return ERROR_OK;
 }
 
 
@@ -395,7 +278,7 @@ static error__t read_read(void *reg_data, unsigned int number, uint32_t *value)
     LOCK(state->mutex);
     *value = unlocked_read_read(state, number);
     UNLOCK(state->mutex);
-    return filter_read(&state->base, value);
+    return ERROR_OK;
 }
 
 
@@ -446,9 +329,8 @@ const struct class_methods read_class_methods = {
 static error__t write_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct base_state *state = reg_data;
-    return
-        filter_write(state, &value)  ?:
-        DO(write_register(state, number, value));
+    write_register(state, number, value);
+    return ERROR_OK;
 }
 
 static struct register_methods write_methods = {

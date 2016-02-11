@@ -234,6 +234,8 @@ void vlog_message(int priority, const char *format, va_list args);
  * late enough to pass this form through. */
 #define BRACES(args...)                 { args }
 
+/* For ignoring return values even when warn_unused_result is in force. */
+#define IGNORE(e)       do if(e) {} while (0)
 
 /* A tricksy compile time bug checking macro modified from the kernel.  Causes a
  * compiler error if e doesn't evaluate to true (a non-zero value). */

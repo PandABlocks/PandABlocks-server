@@ -44,6 +44,9 @@ error__t attr_get(
 /* Writes value to attribute:  block<n>.field.attr=value  */
 error__t attr_put(struct attr *attr, unsigned int number, const char *value);
 
+/* Called to report that the attribute has changed. */
+void attr_changed(struct attr *attr, unsigned int number);
+
 /* Retrieves change set for attribute. */
 void get_attr_change_set(
     struct attr *attr, uint64_t report_index, bool change_set[]);
@@ -58,9 +61,13 @@ const struct enumeration *get_attr_enumeration(const struct attr *attr);
 const char *get_attr_description(const struct attr *attr);
 
 
-/* This function creates an attribute with the given ownder and data pointers
- * and inserts it into the given attr_map.  If an attribute with the same name
- * is already present it is silently replaced. */
+/* Creates a single attribute with the given owner and data pointers. */
+struct attr *create_attribute(
+    const struct attr_methods *methods,
+    void *owner, void *data, unsigned int count);
+
+/* Creates a list of attributes and adds them to the given attr_map.  If an
+ * attribute with the same name is already present it is silently replaced. */
 void create_attributes(
     const struct attr_methods methods[], unsigned int attr_count,
     void *owner, void *data, unsigned int count,

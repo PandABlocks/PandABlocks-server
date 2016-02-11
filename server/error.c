@@ -43,7 +43,7 @@ error__t _error_create(char *extra, const char *format, ...)
     va_list args;
     va_start(args, format);
     char *message;
-    vasprintf(&message, format, args);
+    ASSERT_IO(vasprintf(&message, format, args));
     va_end(args);
 
     __sync_add_and_fetch(&error_count, 1);
@@ -64,7 +64,7 @@ void error_extend(error__t error, const char *format, ...)
 
     va_list args;
     va_start(args, format);
-    vasprintf(&error->messages[error->count], format, args);
+    ASSERT_IO(vasprintf(&error->messages[error->count], format, args));
     va_end(args);
     error->count += 1;
 }
@@ -186,7 +186,7 @@ char *_error_extra_io_errno(int error)
     char str_error[256];
     const char *error_string = strerror_r(error, str_error, sizeof(str_error));
     char *result;
-    asprintf(&result, "(%d) %s", error, error_string);
+    ASSERT_IO(asprintf(&result, "(%d) %s", error, error_string));
     return result;
 }
 
@@ -212,7 +212,7 @@ void _error_panic(char *extra, const char *filename, int line)
     char last_line[128];
     int char_count = snprintf(last_line, sizeof(last_line),
         "End of backtrace: %d lines written\n", count);
-    write(STDERR_FILENO, last_line, (size_t) char_count);
+    IGNORE(write(STDERR_FILENO, last_line, (size_t) char_count));
 
     _exit(255);
 }

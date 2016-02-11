@@ -17,6 +17,7 @@
 #include "config_server.h"
 #include "data_server.h"
 #include "config_command.h"
+#include "prepare.h"
 #include "fields.h"
 #include "output.h"
 #include "classes.h"
@@ -169,13 +170,20 @@ static error__t get_desc(const char *command, struct connection_result *result)
 
 
 /* *CAPTURE?
+ * *CAPTURE.*?
  *
- * Returns list of captured fields in capture order. */
+ * Returns list of captured fields in capture order or list of fields that can
+ * be selected for capture. */
 static error__t get_capture(
     const char *command, struct connection_result *result)
 {
-    report_capture_list(result);
-    return ERROR_OK;
+    return
+        IF_ELSE(read_string(&command, ".*"),
+            parse_eos(&command)  ?:
+            DO(report_capture_labels(result)),
+        //else
+            parse_eos(&command)  ?:
+            DO(report_capture_list(result)));
 }
 
 /* *CAPTURE=
@@ -186,22 +194,9 @@ static error__t put_capture(
     const char *command, const char *value)
 {
     return
+        parse_eos(&command)  ?:
         parse_eos(&value)  ?:
         DO(reset_capture_list());
-}
-
-
-/* *BITSn?
- *
- * Returns list of bit field names for each bit capture block. */
-static error__t get_bits(const char *command, struct connection_result *result)
-{
-    unsigned int bit;
-    return
-        parse_uint(&command, &bit)  ?:
-        parse_eos(&command)  ?:
-        TEST_OK_(bit < 4, "Bit capture index too high")  ?:
-        DO(report_capture_bits(result, bit));
 }
 
 
@@ -340,8 +335,8 @@ static const struct command_table_entry command_table_list[] = {
     { "WHO",        .get = get_who, },
     { "CHANGES",    .get = get_changes, .allow_arg = true, .put = put_changes },
     { "DESC",       .get = get_desc, .allow_arg = true },
-    { "CAPTURE",    .get = get_capture, .put = put_capture, },
-    { "BITS",       .get = get_bits, .allow_arg = true },
+    { "CAPTURE",    .get = get_capture, .allow_arg = true,
+        .put = put_capture, },
     { "POSITIONS",  .get = get_positions, },
     { "VERBOSE",    .put = put_verbose, },
     { "ENUMS",      .get = get_enums, .allow_arg = true, },
