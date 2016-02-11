@@ -484,6 +484,7 @@ static const struct output_type_info {
         .output_class = &ext_out_timestamp_output_class,
         .prepare_class = PREPARE_CLASS_TIMESTAMP,
         .pos_type = false,
+        .extra_values = true,
     },
     [OUTPUT_OFFSET] = {
         .description = "offset",
@@ -510,6 +511,10 @@ static const struct output_type_info {
 /* Register parsing. */
 
 
+/* This array of booleans is used to detect overlapping capture bus indexes. */
+static bool bus_index_used[CAPTURE_BUS_COUNT];
+
+
 error__t add_mux_indices(
     struct enumeration *lookup, struct field *field,
     const unsigned int array[], size_t length)
@@ -533,8 +538,22 @@ static error__t assign_capture_values(
     for (unsigned int i = 0; !error  &&  i < output->count; i ++)
         error =
             TEST_OK_(values[i] < limit, "Capture index out of range")  ?:
-            DO(output->values[i].capture_index[offset] = values[i]);
+            TEST_OK_(!bus_index_used[values[i]],
+                "Capture index %u already used", values[i])  ?:
+            DO( output->values[i].capture_index[offset] = values[i];
+                bus_index_used[values[i]] = true);
     return error;
+}
+
+
+static error__t parse_register_list(
+    const char **line, struct output *output,
+    unsigned int values[], unsigned int offset, unsigned int bus_limit)
+{
+    return
+        parse_whitespace(line)  ?:
+        parse_uint_array(line, values, output->count)  ?:
+        assign_capture_values(output, offset, values, bus_limit);
 }
 
 
@@ -551,15 +570,6 @@ static error__t register_this_output(struct output *output)
 }
 
 
-static error__t parse_timestamp_register(
-    const char **line, struct output *output)
-{
-    return
-        parse_whitespace(line)  ?:
-        parse_uint_array(line, output->values[0].capture_index, 2);
-}
-
-
 static error__t parse_registers(
     const char **line, struct output *output, struct field *field)
 {
@@ -571,9 +581,7 @@ static error__t parse_registers(
     return
         /* First parse a position bus or extension bus index for each
          * instance and assign to our instances. */
-        parse_whitespace(line)  ?:
-        parse_uint_array(line, values, output->count)  ?:
-        assign_capture_values(output, 0, values, bus_limit)  ?:
+        parse_register_list(line, output, values, 0, bus_limit)  ?:
 
         /* If these are position bus indices then add to the lookup list. */
         IF(info->pos_type,
@@ -585,9 +593,7 @@ static error__t parse_registers(
         IF(info->extra_values,
             parse_whitespace(line)  ?:
             parse_char(line, '/')  ?:
-            parse_whitespace(line)  ?:
-            parse_uint_array(line, values, output->count)  ?:
-            assign_capture_values(output, 1, values, CAPTURE_BUS_COUNT));
+            parse_register_list(line, output, values, 1, CAPTURE_BUS_COUNT));
 }
 
 
@@ -609,10 +615,7 @@ static error__t output_parse_register(
     struct output *output = class_data;
     output->field = field;
     return
-        IF_ELSE(output->output_type == OUTPUT_TIMESTAMP,
-            parse_timestamp_register(line, output),
-        //else
-            parse_registers(line, output, field))  ?:
+        parse_registers(line, output, field)  ?:
         register_this_output(output)  ?:
         IF(output->output_type == OUTPUT_BITS,
             DO(register_bit_group(field, output)));
