@@ -464,12 +464,16 @@ static error__t position_units_put(
     struct position_state *state = data;
     struct position_field *field = &state->values[number];
 
-    LOCK(state->mutex);
-    free(field->units);
-    field->units = strdup(value);
-    UNLOCK(state->mutex);
-
-    return ERROR_OK;
+    const char *units;
+    error__t error = parse_to_eos(&value, &units);
+    if (!error)
+    {
+        LOCK(state->mutex);
+        free(field->units);
+        field->units = strdup(units);
+        UNLOCK(state->mutex);
+    }
+    return error;
 }
 
 

@@ -159,6 +159,18 @@ error__t parse_eos(const char **string)
 }
 
 
+error__t parse_to_eos(const char **string, const char **result)
+{
+    *result = *string;
+    error__t error = ERROR_OK;
+    for ( ; !error  &&  **string; *string += 1)
+        /* Check that the character is not a control character, ie not in the
+         * range 0..31 or 128..159. */
+        error = TEST_OK_(**string & 0x60, "Unexpected control code in string");
+    return error;
+}
+
+
 error__t parse_uint_array(
     const char **line, unsigned int array[], size_t length)
 {
