@@ -135,9 +135,9 @@ void initialise_base64(void)
 const char *base64_error_string(enum base64_status status)
 {
     const char *error_messages[] = {
-        "OK",
-        "Malformed base64 string",
-        "Input string too long for output buffer",
+        [BASE64_STATUS_OK]        = "OK",
+        [BASE64_STATUS_MALFORMED] = "Malformed base64 string",
+        [BASE64_STATUS_OVERRUN]   = "Input string too long for output buffer",
     };
     unsigned int count = sizeof(error_messages) / sizeof(error_messages[0]);
     if (status < count)

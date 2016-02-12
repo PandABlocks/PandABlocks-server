@@ -282,9 +282,16 @@ static void send_capture_info(
         write_formatted_string(file, "missed: %"PRIu64"\n", missed_samples);
 
     static const char *data_format_strings[] = {
-        "Unframed", "Framed", "Base64", "ASCII", };
+        [DATA_FORMAT_UNFRAMED] = "Unframed",
+        [DATA_FORMAT_FRAMED]   = "Framed",
+        [DATA_FORMAT_BASE64]   = "Base64",
+        [DATA_FORMAT_ASCII]    = "ASCII",
+    };
     static const char *data_process_strings[] = {
-        "Raw", "Unscaled", "Scaled", };
+        [DATA_PROCESS_RAW]      = "Raw",
+        [DATA_PROCESS_UNSCALED] = "Unscaled",
+        [DATA_PROCESS_SCALED]   = "Scaled",
+    };
     const char *data_format = data_format_strings[options->data_format];
     const char *data_process = data_process_strings[options->data_process];
 
