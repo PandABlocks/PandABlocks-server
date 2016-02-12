@@ -176,7 +176,7 @@ static error__t parse_field_name(
     char field[MAX_NAME_LENGTH];
     return
         /* Process the field. */
-        parse_name(input, field, MAX_NAME_LENGTH)  ?:
+        parse_alphanum_name(input, field, MAX_NAME_LENGTH)  ?:
         lookup_field(context->block, field, &context->field);
 }
 

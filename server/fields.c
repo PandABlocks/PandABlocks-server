@@ -508,7 +508,7 @@ error__t create_field(
 {
     char field_name[MAX_NAME_LENGTH];
     return
-        parse_name(line, field_name, sizeof(field_name))  ?:
+        parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         parse_whitespace(line)  ?:
         DO(*field = create_field_block(block, field_name))  ?:
         TRY_CATCH(
