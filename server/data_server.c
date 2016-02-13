@@ -153,23 +153,6 @@ static void stop_data_thread(void)
 /* User interface and control. */
 
 
-/* Note that if this function returns ERROR_OK then the mutex remains held. */
-error__t lock_capture_disabled(void)
-{
-    LOCK(data_thread_mutex);
-    error__t error = TEST_OK_(!data_capture_enabled,
-        "Data capture in progress");
-    if (error)
-        UNLOCK(data_thread_mutex);
-    return error;
-}
-
-void unlock_capture_disabled(void)
-{
-    UNLOCK(data_thread_mutex);
-}
-
-
 static error__t start_data_capture(void)
 {
     captured_fields = prepare_captured_fields();
