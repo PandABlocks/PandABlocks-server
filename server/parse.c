@@ -164,9 +164,15 @@ error__t parse_to_eos(const char **string, const char **result)
     *result = *string;
     error__t error = ERROR_OK;
     for ( ; !error  &&  **string; *string += 1)
-        /* Check that the character is not a control character, ie not in the
-         * range 0..31 or 128..159. */
-        error = TEST_OK_(**string & 0x60, "Unexpected control code in string");
+    {
+        unsigned char ch = (unsigned char) **string;
+        /* Check that the character is not a control character, ie in the range
+         * range 0..31 (C0 character) or DEL (7F).  I would have liked to
+         * exclude the C1 range (128..159), but that would prevent the use of
+         * UTF-8 strings, and that would seem rather unreasonable! */
+        error = TEST_OK_(ch >= ' '  &&  ch != 0x7F,
+            "Unexpected control code in string");
+    }
     return error;
 }
 
