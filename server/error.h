@@ -114,7 +114,8 @@ void _error_panic(char *extra, const char *filename, int line)
 error__t _error_create(char *extra, const char *format, ...)
     __attribute__((format(printf, 2, 3)));
 
-/* Mechanism for reporting extra error information from errno. */
+/* Mechanism for reporting extra error information from errno.  The string
+ * returned must be released by the caller. */
 char *_error_extra_io(void);
 /* Same mechanism, but taking specific error code. */
 char *_error_extra_io_errno(int error);

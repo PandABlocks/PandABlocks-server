@@ -153,7 +153,7 @@ struct config_command_set {
 
 struct table_read_line {
     void *context;
-    bool (*read_line)(void *context, char *line, size_t length);
+    bool (*read_line)(void *context, char line[], size_t length);
 };
 
 error__t process_put_table_command(

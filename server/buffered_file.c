@@ -153,9 +153,10 @@ bool read_block(struct buffered_file *file, char data[], size_t length)
 }
 
 
-/* Writes a string to the output buffer, flushing it to make room if needed. */
+/* Writes a character array to the output buffer, flushing it to make room if
+ * needed. */
 bool write_string(
-    struct buffered_file *file, const char *string, size_t length)
+    struct buffered_file *file, const char string[], size_t length)
 {
     while (!file->error  &&  length > 0)
     {

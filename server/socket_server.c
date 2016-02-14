@@ -251,7 +251,7 @@ void kill_socket_server(void)
 
 
 /* Converts connected socket to a printable identification string. */
-static error__t get_client_name(int sock, char *client_name)
+static error__t get_client_name(int sock, char client_name[])
 {
     struct sockaddr_in name;
     socklen_t namelen = sizeof(name);

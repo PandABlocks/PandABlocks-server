@@ -28,8 +28,7 @@ struct attr_methods {
 
     /* Writes attribute value. */
     error__t (*put)(
-        void *owner, void *data, unsigned int number,
-        const char *value);
+        void *owner, void *data, unsigned int number, const char *value);
 
     /* Returns enumeration assocated with type, if appropriate. */
     const struct enumeration *(*get_enumeration)(void *data);

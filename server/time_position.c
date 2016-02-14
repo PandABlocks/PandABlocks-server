@@ -480,7 +480,7 @@ static error__t position_units_put(
 /* Most annoying.  This function is missing from the C library, possibly best
  * explained here: https://lwn.net/Articles/507319/
  *    Never mind, it's easy to write. */
-static size_t strlcpy(char *dst, const char *src, size_t size)
+static size_t strlcpy(char dst[], const char *src, size_t size)
 {
     size_t src_len = strlen(src);
     memcpy(dst, src, MIN(src_len + 1, size));

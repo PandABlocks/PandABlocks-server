@@ -56,7 +56,7 @@ enum prepare_class {
  * to 2 separate capture indices can be registered for each source. */
 error__t register_output(
     struct output *output, unsigned int number,
-    const char field_name[],
+    const char *field_name,
     enum prepare_class prepare_class, const unsigned int capture_index[2]);
 
 /* *CAPTURE= implementation: resets all capture settings. */

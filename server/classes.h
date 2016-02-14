@@ -99,7 +99,7 @@ void get_class_change_set(
     const uint64_t report_index[], bool changes[]);
 
 /* Returns description of class including any type. */
-error__t describe_class(struct class *class, char *string, size_t length);
+error__t describe_class(struct class *class, char string[], size_t length);
 
 /* Associated enumeration or NULL. */
 const struct enumeration *get_class_enumeration(const struct class *class);

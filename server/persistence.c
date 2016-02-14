@@ -41,7 +41,7 @@ struct read_line_context {
     FILE *file;
 };
 
-static bool do_read_line(void *context, char *line, size_t max_length)
+static bool do_read_line(void *context, char line[], size_t max_length)
 {
     struct read_line_context *read_context = context;
     if (fgets(line, (int) max_length, read_context->file))
@@ -72,7 +72,7 @@ static bool do_read_line(void *context, char *line, size_t max_length)
 /* Handles one value definition read from the file.  Each line should either be
  * an assignment or a table entry, we invoke the appropriate handler.  The table
  * handler needs a bit of help. */
-static error__t load_one_value(struct read_line_context *read_line, char *line)
+static error__t load_one_value(struct read_line_context *read_line, char line[])
 {
     size_t name_length = strcspn(line, "=<");
     char action = line[name_length];

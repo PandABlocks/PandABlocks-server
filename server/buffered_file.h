@@ -15,9 +15,9 @@ bool read_line(
  * before block filled. */
 bool read_block(struct buffered_file *file, char data[], size_t length);
 
-/* Writes given string to output. */
+/* Writes given character array to output. */
 bool write_string(
-    struct buffered_file *file, const char *string, size_t length);
+    struct buffered_file *file, const char string[], size_t length);
 
 /* Writes formatted string to output. */
 bool __attribute__((format(printf, 2, 3))) write_formatted_string(

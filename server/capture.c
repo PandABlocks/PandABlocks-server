@@ -101,7 +101,8 @@ struct data_capture {
 
 
 static bool capture_raw_timestamp(
-    const struct data_capture *capture, const uint32_t *input, uint64_t *output)
+    const struct data_capture *capture,
+    const uint32_t input[], uint64_t *output)
 {
     const uint64_t *timestamp = (const void *) &input[capture->timestamp_index];
     switch (capture->ts_capture)
@@ -120,7 +121,7 @@ static bool capture_raw_timestamp(
 
 /* Copies given fields unprocessed to output. */
 static size_t copy_unscaled_fields(
-    const struct field_group *fields, const uint32_t *input,
+    const struct field_group *fields, const uint32_t input[],
     void *output, size_t field_size)
 {
     memcpy(output, &input[fields->index], field_size * fields->count);
@@ -136,7 +137,8 @@ static size_t copy_unscaled_fields(
 /* Averaged ADC samples are scaled by 2^8 to avoid losing precision.  This will
  * work safely for up to 24 bit ADCs. */
 static size_t average_unscaled_adc(
-    const struct data_capture *capture, const uint32_t *input, uint32_t *output)
+    const struct data_capture *capture,
+    const uint32_t input[], uint32_t output[])
 {
     uint32_t adc_sample_count = input[capture->adc_count_index];
     const int64_t *adc_means = (const void *) &input[capture->adc_mean.index];
@@ -151,7 +153,7 @@ static size_t average_unscaled_adc(
  * values are copied unchanged. */
 static void convert_unscaled_data(
     const struct data_capture *capture,
-    unsigned int sample_count, const uint32_t *input, void *output)
+    unsigned int sample_count, const uint32_t input[], void *output)
 {
     for (unsigned int i = 0; i < sample_count; i ++)
     {
@@ -179,7 +181,7 @@ static void convert_unscaled_data(
 /* Scaled conversion. */
 
 static bool capture_scaled_timestamp(
-    const struct data_capture *capture, const uint32_t *input, double *output)
+    const struct data_capture *capture, const uint32_t input[], double *output)
 {
     uint64_t timestamp;
     bool ts_present = capture_raw_timestamp(capture, input, &timestamp);
@@ -190,7 +192,7 @@ static bool capture_scaled_timestamp(
 
 
 static size_t convert_scaled32(
-    const struct data_capture *capture, const uint32_t *input, double *output)
+    const struct data_capture *capture, const uint32_t input[], double output[])
 {
     const int32_t *input_32 = (const void *) &input[capture->scaled32.index];
     const struct scaling *scaling =
@@ -202,7 +204,7 @@ static size_t convert_scaled32(
 
 
 static size_t convert_scaled64(
-    const struct data_capture *capture, const uint32_t *input, double *output)
+    const struct data_capture *capture, const uint32_t input[], double output[])
 {
     const int64_t *input_64 = (const void *) &input[capture->scaled64.index];
     const struct scaling *scaling =
@@ -214,7 +216,7 @@ static size_t convert_scaled64(
 
 
 static size_t average_scaled_adc(
-    const struct data_capture *capture, const uint32_t *input, double *output)
+    const struct data_capture *capture, const uint32_t input[], double output[])
 {
     const int64_t *input_64 = (const void *) &input[capture->adc_mean.index];
     const struct scaling *scaling =
@@ -230,7 +232,7 @@ static size_t average_scaled_adc(
 
 static void convert_scaled_data(
     const struct data_capture *capture,
-    unsigned int sample_count, const uint32_t *input, void *output)
+    unsigned int sample_count, const uint32_t input[], void *output)
 {
     for (unsigned int i = 0; i < sample_count; i ++)
     {

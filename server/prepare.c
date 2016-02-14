@@ -82,7 +82,7 @@ static error__t process_special_field(
 
 
 static struct output_field *create_output_field(
-    struct output *output, unsigned int number, const char field_name[],
+    struct output *output, unsigned int number, const char *field_name,
     const unsigned int capture_index[2])
 {
     struct output_field *field = malloc(sizeof(struct output_field));
@@ -98,7 +98,7 @@ static struct output_field *create_output_field(
 
 
 error__t register_output(
-    struct output *output, unsigned int number, const char field_name[],
+    struct output *output, unsigned int number, const char *field_name,
     enum prepare_class prepare_class, const unsigned int capture_index[2])
 {
     struct output_field *field;
