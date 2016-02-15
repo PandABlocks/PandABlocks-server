@@ -79,9 +79,10 @@ struct output_type_info {
     const char *description;            // Extra description string
     const struct output_capture *capture;   // Capture enumeration
     enum prepare_class prepare_class;   // Output class for prepare
-    bool pos_type;                      //
+    bool pos_type;                      // If available on position bus
     bool extra_values;                  // If second group of registers used
     bool bit_group;                     // If bit group processing needed
+    bool create_type;                   // If type helper wanted
 };
 
 
@@ -144,13 +145,21 @@ static const struct register_methods pos_register_methods = {
     .read = register_read,
 };
 
+static const struct register_methods ext_register_methods = {
+};
+
 
 /* When reading just return the current value from our static state. */
 static error__t output_get(
     void *class_data, unsigned int number, struct connection_result *result)
 {
     struct output *output = class_data;
-    return type_get(output->type, number, result);
+    if (output->type)
+        return type_get(output->type, number, result);
+    else
+        /* This is something of a hack.  Stricly speaking we should raise an
+         * error, but in practice this will be the right result! */
+        return write_one_result(result, "0");
 }
 
 
@@ -320,6 +329,7 @@ static const struct attr_methods bits_attr_methods = {
  *      Extended        SCALED64
  *
  *  pos_out adc
+ *  ext_out adc
  *      Triggered       SCALED32
  *      Average         ADC_MEAN                FRAME
  *
@@ -456,6 +466,7 @@ static const struct output_type_info output_type_info[] = {
         .capture = &pos_out_output_capture,
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = true,
+        .create_type = true,
     },
     [OUTPUT_CONST] = {
         .description = "const",
@@ -469,6 +480,7 @@ static const struct output_type_info output_type_info[] = {
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = true,
         .extra_values = true,
+        .create_type = true,
     },
     [OUTPUT_ADC] = {
         .description = "adc",
@@ -476,6 +488,7 @@ static const struct output_type_info output_type_info[] = {
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = true,
         .extra_values = true,
+        .create_type = true,
     },
     [OUTPUT_EXT] = {
         .description = NULL,
@@ -508,6 +521,14 @@ static const struct output_type_info output_type_info[] = {
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = false,
         .bit_group = true,
+    },
+    [OUTPUT_EXT_ADC] = {
+        .description = "adc",
+        .capture = &pos_out_adc_output_capture,
+        .prepare_class = PREPARE_CLASS_NORMAL,
+        .pos_type = false,
+        .extra_values = true,
+        .create_type = true,
     },
 };
 
@@ -652,8 +673,11 @@ static struct output *create_output(
 
 
 static error__t complete_create_output(
-    struct output *output, struct hash_table *attr_map, void **class_data)
+    unsigned int count, enum output_type output_type, unsigned int bit_group,
+    const struct register_methods *register_methods,
+    struct hash_table *attr_map, void **class_data)
 {
+    struct output *output = create_output(count, output_type, bit_group);
     *class_data = output;
 
     if (output->info->bit_group)
@@ -665,7 +689,14 @@ static error__t complete_create_output(
             &capture_attr_methods, NULL, output, output->count);
         hash_table_insert(attr_map, capture_attr_methods.name, output->capture);
     }
-    return ERROR_OK;
+
+    const char *empty_line = "";
+    return
+        IF(output->info->create_type,
+            create_type(
+                &empty_line, "position", count, register_methods, output,
+                attr_map, &output->type)  ?:
+            DO(output->position = get_type_state(output->type)));
 }
 
 
@@ -701,16 +732,10 @@ static error__t pos_out_init(
     struct hash_table *attr_map, void **class_data)
 {
     enum output_type output_type = 0;
-    const char *empty_line = "";
-    struct output *output;
     return
         parse_pos_out_type(line, &output_type)  ?:
-        DO(output = create_output(count, output_type, 0))  ?:
-        create_type(
-            &empty_line, "position", count, &pos_register_methods, output,
-            attr_map, &output->type)  ?:
-        DO(output->position = get_type_state(output->type))  ?:
-        complete_create_output(output, attr_map, class_data);
+        complete_create_output(
+            count, output_type, 0, &pos_register_methods, attr_map, class_data);
 }
 
 
@@ -742,6 +767,8 @@ static error__t parse_ext_out_type(
         }
         else if (strcmp(type_name, "adc_count") == 0)
             *output_type = OUTPUT_ADC_COUNT;
+        else if (strcmp(type_name, "adc") == 0)
+            *output_type = OUTPUT_EXT_ADC;
         else
             return FAIL_("Unknown ext_out type");
     }
@@ -758,14 +785,16 @@ static error__t ext_out_init(
     return
         parse_ext_out_type(line, &output_type, &bit_group)  ?:
         complete_create_output(
-            create_output(count, output_type, bit_group), attr_map, class_data);
+            count, output_type, bit_group,
+            &ext_register_methods, attr_map, class_data);
 }
 
 
-static void pos_out_destroy(void *class_data)
+static void output_destroy(void *class_data)
 {
     struct output *output = class_data;
-    destroy_type(output->type);
+    if (output->type)
+        destroy_type(output->type);
     free(output);
 }
 
@@ -845,7 +874,7 @@ const struct class_methods pos_out_class_methods = {
     "pos_out",
     .init = pos_out_init,
     .parse_register = output_parse_register,
-    .destroy = pos_out_destroy,
+    .destroy = output_destroy,
     .get = output_get, .refresh = pos_out_refresh,
     .describe = output_describe,
     .change_set = pos_out_change_set,
@@ -856,5 +885,6 @@ const struct class_methods ext_out_class_methods = {
     "ext_out",
     .init = ext_out_init,
     .parse_register = output_parse_register,
+    .destroy = output_destroy,
     .describe = output_describe,
 };
