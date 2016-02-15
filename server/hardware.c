@@ -403,16 +403,16 @@ static error__t hw_long_table_allocate(
     unsigned int order, size_t *block_size,
     uint32_t **data, uint32_t *phy_address, unsigned int *block_id)
 {
-    struct panda_block panda_block;
+    struct panda_block block = { .order = order, };
     error__t error = TEST_IO_(
-        ioctl(map_file, PANDA_BLOCK_CREATE, &panda_block),
+        ioctl(map_file, PANDA_BLOCK_CREATE, &block),
         "Unable to allocate 2^%u pages for table", order);
     if (!error)
     {
-        *block_size = panda_block.block_size;
-        *data = panda_block.block;
-        *phy_address = panda_block.phy_address;
-        *block_id = panda_block.block_id;
+        *block_size = block.block_size;
+        *data = block.block;
+        *phy_address = block.phy_address;
+        *block_id = block.block_id;
     }
     return error;
 }
