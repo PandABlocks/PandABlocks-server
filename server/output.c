@@ -159,7 +159,7 @@ static error__t output_get(
     else
         /* This is something of a hack.  Stricly speaking we should raise an
          * error, but in practice this will be the right result! */
-        return write_one_result(result, "0");
+        return format_one_result(result, "0");
 }
 
 

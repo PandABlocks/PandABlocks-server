@@ -201,7 +201,7 @@ error__t capture_status(struct connection_result *result)
 {
     unsigned int readers, active;
     bool status = read_buffer_status(data_buffer, &readers, &active);
-    return write_one_result(
+    return format_one_result(
         result, "%s %u %u", status ? "Busy" : "Idle", readers, active);
 }
 

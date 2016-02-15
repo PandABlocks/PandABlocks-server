@@ -38,7 +38,7 @@
  * Returns simple system identification. */
 static error__t get_idn(const char *command, struct connection_result *result)
 {
-    return write_one_result(result, "%s %s", server_name, server_version);
+    return format_one_result(result, "%s %s", server_name, server_version);
 }
 
 
@@ -59,7 +59,7 @@ static error__t get_echo(const char *command, struct connection_result *result)
 {
     return
         parse_char(&command, ' ') ?:
-        write_one_result(result, "%s", command);
+        format_one_result(result, "%s", command);
 }
 
 
@@ -165,7 +165,7 @@ static error__t get_desc(const char *command, struct connection_result *result)
                 /* Just a block: *DESC.block? */
                 TEST_OK_(string = get_block_description(parse.block),
                     "No description set for block")))  ?:
-        write_one_result(result, "%s", string);
+        format_one_result(result, "%s", string);
 }
 
 
