@@ -31,6 +31,8 @@
 
 #ifndef SIM_HARDWARE
 
+static int map_file = -1;
+
 static volatile uint32_t *register_map;
 static uint32_t register_map_size;
 
@@ -332,7 +334,7 @@ struct short_table {
 struct long_table {
     unsigned int base_reg;      // Physical base address
     unsigned int length_reg;    // Sets memory area length
-    void **table_ids;           // Id for table
+    unsigned int *block_ids;           // Id for table
 };
 
 
@@ -398,50 +400,62 @@ static void write_short_table(
 
 #ifndef SIM_HARDWARE
 static error__t hw_long_table_allocate(
-    unsigned int order,
-    uint32_t **data, uint32_t *physical_addr, void **table_id)
+    unsigned int order, size_t *block_size,
+    uint32_t **data, uint32_t *phy_address, unsigned int *block_id)
 {
-    // Use ioctl on device to allocate block
-    size_t length = 1U << order;
-    *data = malloc(length * sizeof(uint32_t));
-    *physical_addr = 0;
-    *table_id = NULL;
-    return FAIL_("Not implemented");
+    struct panda_block panda_block;
+    error__t error = TEST_IO_(
+        ioctl(map_file, PANDA_BLOCK_CREATE, &panda_block),
+        "Unable to allocate 2^%u pages for table", order);
+    if (!error)
+    {
+        *block_size = panda_block.block_size;
+        *data = panda_block.block;
+        *phy_address = panda_block.phy_address;
+        *block_id = panda_block.block_id;
+    }
+    return error;
 }
 
-static void hw_long_table_release(void *table_id)
+
+static void hw_long_table_release(unsigned int block_id)
 {
-    // Use ioctl on device to release table
+    ioctl(map_file, PANDA_BLOCK_RELEASE, block_id);
 }
+
 
 static void hw_long_table_flush(
-    void *table_id, size_t length,
+    unsigned int block_id, size_t length,
     unsigned int block_base, unsigned int number)
 {
-    // Use ioctl on device to flush cache
+    ioctl(map_file, PANDA_BLOCK_FLUSH, block_id);
 }
 #endif
 
 
 static error__t create_long_table(
-    struct hw_table *table, unsigned int order,
+    struct hw_table *table, unsigned int order, size_t block_length,
     unsigned int base_reg, unsigned int length_reg)
 {
     table->long_table = (struct long_table) {
         .base_reg = base_reg,
         .length_reg = length_reg,
-        .table_ids = malloc(table->count * sizeof(void *)),
+        .block_ids = malloc(table->count * sizeof(unsigned int)),
     };
+    memset(table->long_table.block_ids, 0, table->count * sizeof(unsigned int));
 
     error__t error = ERROR_OK;
     for (unsigned int i = 0; !error  &&  i < table->count; i ++)
     {
         uint32_t physical_addr;
-        error = hw_long_table_allocate(
-            order, &table->data[i], &physical_addr,
-            &table->long_table.table_ids[i]);
-        if (!error)
-            hw_write_register(table->block_base, i, base_reg, physical_addr);
+        size_t block_size;
+        error =
+            hw_long_table_allocate(
+                order, &block_size, &table->data[i], &physical_addr,
+                &table->long_table.block_ids[i])  ?:
+            TEST_OK(block_size == sizeof(uint32_t) * block_length)  ?:
+            DO(hw_write_register(
+                table->block_base, i, base_reg, physical_addr));
     }
     return error;
 }
@@ -450,8 +464,8 @@ static error__t create_long_table(
 static void destroy_long_table(struct hw_table *table)
 {
     for (unsigned int i = 0; i < table->count; i ++)
-        hw_long_table_release(table->long_table.table_ids[i]);
-    free(table->long_table.table_ids);
+        hw_long_table_release(table->long_table.block_ids[i]);
+    free(table->long_table.block_ids);
 }
 
 
@@ -467,7 +481,7 @@ static void complete_long_table_write(
 {
     /* Flush cache and update length register. */
     hw_long_table_flush(
-        table->long_table.table_ids[number], length, table->block_base, number);
+        table->long_table.block_ids[number], length, table->block_base, number);
     hw_write_register(
         table->block_base, number, table->long_table.length_reg,
         (uint32_t) length);
@@ -508,9 +522,12 @@ error__t hw_open_long_table(
     unsigned int base_reg, unsigned int length_reg,
     struct hw_table **table, size_t *length)
 {
-    *length = 1U << order;
+    /* The order is log2 number of pages, so the corresponding length in words
+     * uses 1024 words per page (we're happy to hard-wire the page size of 4096
+     * here). */
+    *length = 1024U << order;
     *table = create_hw_table(block_base, block_count, LONG_TABLE);
-    return create_long_table(*table, order, base_reg, length_reg);
+    return create_long_table(*table, order, *length, base_reg, length_reg);
 }
 
 
@@ -560,17 +577,15 @@ void hw_close_table(struct hw_table *table)
 
 #ifndef SIM_HARDWARE
 
-static int map = -1;
-
 error__t initialise_hardware(void)
 {
     return
-        TEST_IO_(map = open("/dev/panda.map", O_RDWR | O_SYNC),
+        TEST_IO_(map_file = open("/dev/panda.map", O_RDWR | O_SYNC),
             "Unable to open PandA device /dev/panda.map")  ?:
-        TEST_IO(ioctl(map, PANDA_MAP_SIZE, &register_map_size))  ?:
+        TEST_IO(ioctl(map_file, PANDA_MAP_SIZE, &register_map_size))  ?:
         TEST_IO(register_map = mmap(
             0, register_map_size,
-            PROT_READ | PROT_WRITE, MAP_SHARED, map, 0))  ?:
+            PROT_READ | PROT_WRITE, MAP_SHARED, map_file, 0))  ?:
 
         TEST_IO_(stream = open("/dev/panda.stream", O_RDONLY),
             "Unable to open PandA device /dev/panda.stream");
@@ -584,7 +599,7 @@ void terminate_hardware(void)
             TEST_IO(munmap(
                 CAST_FROM_TO(volatile uint32_t *, void *, register_map),
                 register_map_size)))  ?:
-        IF(map >= 0, TEST_IO(close(map)))  ?:
+        IF(map_file >= 0, TEST_IO(close(map_file)))  ?:
         IF(stream >= 0, TEST_IO(close(stream))),
         "Calling terminate_hardware");
 }

@@ -97,7 +97,7 @@ struct table_block {
 struct table_state {
     unsigned int block_count;   // Number of block instances
     struct field_set field_set; // Set of fields in table
-    size_t max_length;          // Maximum block length
+    size_t max_length;          // Maximum block length in words
     struct hw_table *table;     // Hardware interface to tables
 
     struct table_block blocks[];    // Individual table blocks
