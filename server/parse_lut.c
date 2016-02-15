@@ -343,15 +343,15 @@ const char *parse_lut_error_string(enum parse_lut_status status)
     /* Note that this table of strings must match the entries in the declaration
      * of enum parse_lut_status in parse_lut.h. */
     const char *error_messages[] = {
-        "OK",
-        "Invalid token",
-        "Expression too complex",
-        "Missing operator between values",
-        "Missing open bracket",
-        "Missing close bracket",
-        "Missing value",
-        "Missing ? before :",
-        "Missing : after ?",
+        [LUT_PARSE_OK]          = "OK",
+        [LUT_PARSE_TOKEN_ERROR] = "Invalid token",
+        [LUT_PARSE_TOO_COMPLEX] = "Expression too complex",
+        [LUT_PARSE_NO_OPERATOR] = "Missing operator between values",
+        [LUT_PARSE_NO_OPEN]     = "Missing open bracket",
+        [LUT_PARSE_NO_CLOSE]    = "Missing close bracket",
+        [LUT_PARSE_NO_VALUE]    = "Missing value",
+        [LUT_PARSE_NO_IF]       = "Missing ? before :",
+        [LUT_PARSE_NO_ELSE]     = "Missing : after ?",
     };
     unsigned int count = sizeof(error_messages) / sizeof(error_messages[0]);
     if (status < count)

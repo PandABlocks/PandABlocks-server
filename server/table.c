@@ -54,11 +54,11 @@ static error__t field_set_parse_attribute(
      * necessary. */
     set->field_count += 1;
     set->fields = realloc(set->fields, set->field_count * sizeof(char *));
-    set->fields[set->field_count - 1] = strdup(*line);
 
-    /* Consume the line we just parsed. */
-    *line += strlen(*line);
-    return ERROR_OK;
+    const char *description;
+    return
+        parse_to_eos(line, &description)  ?:
+        DO(set->fields[set->field_count - 1] = strdup(description));
 }
 
 

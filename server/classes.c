@@ -93,7 +93,7 @@ void get_class_change_set(
 }
 
 
-error__t describe_class(struct class *class, char *string, size_t length)
+error__t describe_class(struct class *class, char string[], size_t length)
 {
     const char *extra = class->methods->describe ?
         class->methods->describe(class->class_data) : NULL;

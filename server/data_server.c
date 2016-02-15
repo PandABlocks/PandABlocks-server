@@ -153,23 +153,6 @@ static void stop_data_thread(void)
 /* User interface and control. */
 
 
-/* Note that if this function returns ERROR_OK then the mutex remains held. */
-error__t lock_capture_disabled(void)
-{
-    LOCK(data_thread_mutex);
-    error__t error = TEST_OK_(!data_capture_enabled,
-        "Data capture in progress");
-    if (error)
-        UNLOCK(data_thread_mutex);
-    return error;
-}
-
-void unlock_capture_disabled(void)
-{
-    UNLOCK(data_thread_mutex);
-}
-
-
 static error__t start_data_capture(void)
 {
     captured_fields = prepare_captured_fields();
@@ -532,10 +515,10 @@ static bool send_data_completion(
     /* This list of completion strings must match the definition of the
      * reader_status enumeration in buffer.h. */
     static const char *completions[] = {
-        "OK\n",
-        "ERR Early disconnect\n",   // Hard to see how this gets to the user!
-        "ERR Data overrun\n",
-        "ERR Connection reset\n",
+        [READER_STATUS_ALL_READ] = "OK\n",
+        [READER_STATUS_CLOSED]   = "ERR Early disconnect\n",
+        [READER_STATUS_OVERRUN]  = "ERR Data overrun\n",
+        [READER_STATUS_RESET]    = "ERR Connection reset\n",
     };
     const char *message = completions[status];
     write_string(connection->file, message, strlen(message));

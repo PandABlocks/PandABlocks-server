@@ -153,7 +153,7 @@ static error__t register_parse_normal_field(
     char field_name[MAX_NAME_LENGTH];
     struct field *field;
     return
-        parse_name(line, field_name, sizeof(field_name))  ?:
+        parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         lookup_field(block, field_name, &field)  ?:
         field_parse_register(field, line);
 }
@@ -213,12 +213,13 @@ static error__t description_parse_field_line(
     struct block *block = context;
     char field_name[MAX_NAME_LENGTH];
     struct field *field;
+    const char *description;
     return
-        parse_name(line, field_name, sizeof(field_name))  ?:
+        parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         lookup_field(block, field_name, &field)  ?:
         parse_whitespace(line)  ?:
-        field_set_description(field, *line)  ?:
-        DO(*line += strlen(*line));
+        parse_to_eos(line, &description)  ?:
+        field_set_description(field, description);
 }
 
 
@@ -228,13 +229,14 @@ static error__t description_parse_block_line(
     parser->parse_line = description_parse_field_line;
     char block_name[MAX_NAME_LENGTH];
     struct block *block;
+    const char *description;
     return
         parse_name(line, block_name, sizeof(block_name))  ?:
         lookup_block(block_name, &block, NULL)  ?:
         DO(parser->context = block)  ?:
         parse_whitespace(line)  ?:
-        block_set_description(block, *line)  ?:
-        DO(*line += strlen(*line));
+        parse_to_eos(line, &description)  ?:
+        block_set_description(block, description);
 }
 
 

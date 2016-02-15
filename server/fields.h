@@ -36,7 +36,7 @@ const char *get_field_description(struct field *field);
 /* Formats field name into given string.  The target string *must* be long
  * enough, and the resulting length is returned. */
 size_t format_field_name(
-    char *string, size_t length,
+    char string[], size_t length,
     const struct field *field, const struct attr *attr,
     unsigned int number, char suffix);
 

@@ -200,7 +200,7 @@ static pthread_mutex_t change_mutex = PTHREAD_MUTEX_INITIALIZER;
  * generating a change report.  If this occurs we back up over the value being
  * written and write an error mark instead. */
 static void handle_error_report(
-    char *string, size_t length, size_t prefix, error__t error)
+    char string[], size_t length, size_t prefix, error__t error)
 {
     if (error)
     {
@@ -213,7 +213,7 @@ static void handle_error_report(
 
 
 size_t format_field_name(
-    char *string, size_t length,
+    char string[], size_t length,
     const struct field *field, const struct attr *attr,
     unsigned int number, char suffix)
 {
@@ -508,7 +508,7 @@ error__t create_field(
 {
     char field_name[MAX_NAME_LENGTH];
     return
-        parse_name(line, field_name, sizeof(field_name))  ?:
+        parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         parse_whitespace(line)  ?:
         DO(*field = create_field_block(block, field_name))  ?:
         TRY_CATCH(

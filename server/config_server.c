@@ -347,7 +347,7 @@ error__t process_put_table_command(
 }
 
 
-static bool wrap_read_line(void *context, char *line, size_t length)
+static bool wrap_read_line(void *context, char line[], size_t length)
 {
     return read_line(context, line, length, false);
 }

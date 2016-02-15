@@ -45,6 +45,10 @@ error__t parse_bit(const char **string, bool *result);
 /* Checks for end of input string. */
 error__t parse_eos(const char **string);
 
+/* Assigns *string to *result and skips *string to end after checking the rest
+ * of the string to ensure it only contains valid printable characters. */
+error__t parse_to_eos(const char **string, const char **result);
+
 
 /* Parses an array of uints. */
 error__t parse_uint_array(
