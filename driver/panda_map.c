@@ -98,17 +98,17 @@ static long create_block(
 
     /* Ensure we haven't already allocated our quota of blocks. */
     unsigned int block_id = find_free_block_id(open);
-    TEST_(block_id >= MAX_BLOCK_COUNT,
+    TEST_(block_id < MAX_BLOCK_COUNT,
         rc = -ENOSPC, no_free, "Too many blocks");
 
     /* Read the requested order. */
     struct panda_block block;
-    TEST_(copy_from_user(&block, user_block, sizeof(block)),
+    TEST_(!copy_from_user(&block, user_block, sizeof(block)),
         rc = -EFAULT, no_copy_from, "Unable to read ioctl block");
 
     /* Allocate the requested number of pages. */
     struct page *pages = alloc_pages(GFP_KERNEL, block.order);
-    TEST_(!pages, rc = -ENOMEM, no_pages, "Unable to allocate pages");
+    TEST_(pages, rc = -ENOMEM, no_pages, "Unable to allocate pages");
 
     /* The caller wants to know how many bytes have been allocated, the
      * "logical" or virtual address of the block, the corresponding physical
@@ -151,10 +151,10 @@ static long release_block(struct file *file, unsigned int block_id)
     int rc = down_interruptible(&open->lock);
     TEST_RC(rc, no_lock, "Interrupted during lock");
 
-    TEST_(block_id >= MAX_BLOCK_COUNT,
+    TEST_(block_id < MAX_BLOCK_COUNT,
         rc = -EINVAL, bad_id, "Invalid block id");
     struct block_info *block = &open->blocks[block_id];
-    TEST_(block->pages == NULL,
+    TEST_(block->pages,
         rc = -EINVAL, bad_id, "Invalid block id");
 
     __free_pages(block->pages, block->order);
