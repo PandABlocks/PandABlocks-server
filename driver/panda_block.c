@@ -9,6 +9,7 @@
 #include <linux/slab.h>
 #include <linux/semaphore.h>
 #include <linux/vmalloc.h>
+#include <linux/dma-mapping.h>
 #include <asm/atomic.h>
 
 #include "error.h"
@@ -20,10 +21,11 @@
 /* Information associated with an open file. */
 struct block_open {
     struct semaphore lock;
-    unsigned int order;
-    size_t block_size;
-    struct page *pages;
-    struct vm_area_struct *vma;
+    unsigned int order;         // log2 number of pages in block
+    size_t block_size;          // Bytes in block
+    unsigned long block;        // Kernel address of allocated block
+    dma_addr_t dma;             // DMA address of block
+    struct vm_area_struct *vma; // Virtual memory area associated with block
 };
 
 
@@ -35,7 +37,7 @@ static int panda_block_mmap(struct file *file, struct vm_area_struct *vma)
     TEST_RC(rc, no_lock, "Interrupted during lock");
 
     /* Check that we've allocated our pages and haven't already been mapped. */
-    TEST_(open->pages, rc = -ENXIO, bad_request, "No pages allocated");
+    TEST_(open->block, rc = -ENXIO, bad_request, "No block allocated");
     TEST_(!open->vma, rc = -EBUSY, bad_request, "Block already mapped");
 
     /* Check the mapped area is in range. */
@@ -47,7 +49,7 @@ static int panda_block_mmap(struct file *file, struct vm_area_struct *vma)
     /* Let remap_pfn_range do all the work. */
     open->vma = vma;
     rc = remap_pfn_range(
-        vma, vma->vm_start, page_to_phys(open->pages) + vma->vm_pgoff, size,
+        vma, vma->vm_start, open->block + vma->vm_pgoff, size,
         vma->vm_page_prot);
 
 bad_request:
@@ -67,22 +69,28 @@ static long create_block(struct file *file, unsigned long order)
     long result = down_interruptible(&open->lock);
     TEST_RC(result, no_lock, "Interrupted during lock");
 
-    /* Allocate the requested number of pages. */
-    open->pages = alloc_pages(GFP_KERNEL, order);
-    TEST_(open->pages, result = -ENOMEM, no_pages, "Unable to allocate pages");
-
-    /* Record everything relevant. */
+    /* Record the block size. */
     open->order = order;
     open->block_size = 1U << (order + PAGE_SHIFT);
 
-    /* Caller wants the physical page address. */
-    result = page_to_phys(open->pages);
+    /* Allocate the requested block and map it for DMA. */
+    open->block = __get_free_pages(GFP_KERNEL, order);
+    TEST_(open->block, result = -ENOMEM, no_block, "Unable to allocate block");
+    open->dma = dma_map_single(
+        NULL, (void *) open->block, open->block_size, DMA_TO_DEVICE);
+    TEST_(!dma_mapping_error(NULL, open->dma),
+        result = -EIO, no_dma, "Unable to map DMA area");
 
-no_pages:
+    /* Caller wants the physical page address. */
+    up(&open->lock);
+    return open->dma;
+
+no_dma:
+    free_pages((unsigned long) open->block, order);
+    open->block = 0;
+no_block:
     up(&open->lock);
 no_lock:
-printk(KERN_INFO "returning block: %u %zu %08lx\n",
-open->order, open->block_size, result);
     return result;
 }
 
@@ -99,8 +107,8 @@ static long flush_block(struct file *file)
     /* Check we have a mapped area to flush. */
     TEST_(open->vma, rc = -ENXIO, no_vma, "No mapping for block");
 
-    /* Flush the entire range. */
-    flush_cache_range(open->vma, open->vma->vm_start, open->vma->vm_end);
+    dma_sync_single_for_device(
+        NULL, open->dma, open->block_size, DMA_FROM_DEVICE);
 
 no_vma:
     up(&open->lock);
@@ -147,8 +155,11 @@ no_open:
 static int panda_block_release(struct inode *inode, struct file *file)
 {
     struct block_open *open = file->private_data;
-    if (open->pages)
-        __free_pages(open->pages, open->order);
+    if (open->block)
+    {
+        dma_unmap_single(NULL, open->dma, open->block_size, DMA_TO_DEVICE);
+        free_pages(open->block, open->order);
+    }
     kfree(open);
     return 0;
 }

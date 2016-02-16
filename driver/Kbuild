@@ -7,6 +7,7 @@ EXTRA_CFLAGS += -Wno-missing-field-initializers
 
 # Suppress some kernel error messages
 EXTRA_CFLAGS += -Wno-empty-body
+EXTRA_CFLAGS += -Wno-sign-compare
 
 obj-m := panda.o
 

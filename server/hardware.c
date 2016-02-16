@@ -334,7 +334,7 @@ struct short_table {
 struct long_table {
     unsigned int base_reg;      // Physical base address
     unsigned int length_reg;    // Sets memory area length
-    unsigned int *block_ids;           // Id for table
+    int *block_ids;             // Id for table
 };
 
 
@@ -401,34 +401,31 @@ static void write_short_table(
 #ifndef SIM_HARDWARE
 static error__t hw_long_table_allocate(
     unsigned int order, size_t *block_size,
-    uint32_t **data, uint32_t *phy_address, unsigned int *block_id)
+    uint32_t **data, uint32_t *phy_address, int *block_id)
 {
-    struct panda_block block = { .order = order, };
-    error__t error = TEST_IO_(
-        ioctl(map_file, PANDA_BLOCK_CREATE, &block),
-        "Unable to allocate 2^%u pages for table", order);
-    if (!error)
-    {
-        *block_size = block.block_size;
-        *data = block.block;
-        *phy_address = block.phy_address;
-        *block_id = block.block_id;
-    }
-    return error;
+    *block_size = 4096U << order;
+    return
+        TEST_IO_(*block_id = open("/dev/panda.block", O_RDWR | O_SYNC),
+            "Unable to open PandA device /dev/panda.block")  ?:
+        TEST_IO(
+            *phy_address = (uint32_t) ioctl(
+                *block_id, PANDA_BLOCK_CREATE, order))  ?:
+        TEST_IO(*data = mmap(0, *block_size,
+            PROT_READ | PROT_WRITE, MAP_SHARED, *block_id, 0));
 }
 
 
-static void hw_long_table_release(unsigned int block_id)
+static void hw_long_table_release(int block_id)
 {
-    ioctl(map_file, PANDA_BLOCK_RELEASE, block_id);
+    close(block_id);
 }
 
 
 static void hw_long_table_flush(
-    unsigned int block_id, size_t length,
+    int block_id, size_t length,
     unsigned int block_base, unsigned int number)
 {
-    ioctl(map_file, PANDA_BLOCK_FLUSH, block_id);
+    ioctl(block_id, PANDA_BLOCK_FLUSH);
 }
 #endif
 
