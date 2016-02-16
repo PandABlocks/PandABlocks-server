@@ -239,9 +239,8 @@ static struct file_operations panda_map_fops = {
 };
 
 
-int panda_map_init(struct file_operations **fops, const char **name)
+int panda_map_init(struct file_operations **fops)
 {
     *fops = &panda_map_fops;
-    *name = "map";
     return 0;
 }

@@ -16,19 +16,20 @@ MODULE_SUPPORTED_DEVICE("panda");
 MODULE_VERSION("0");
 
 
-#define PANDA_MINORS    2           // We have 2 sub devices
+#define PANDA_MINORS    3           // We have 3 sub devices
 
 
 /* The fops and name fields of this structure are filled in by the appropriate
  * subcomponents of this module. */
 struct panda_info {
-    struct file_operations *fops;
     const char *name;
-    int (*init)(struct file_operations **fops, const char **name);
+    int (*init)(struct file_operations **fops);
+    struct file_operations *fops;
 };
 static struct panda_info panda_info[PANDA_MINORS] = {
-    { .init = panda_map_init },
-    { .init = panda_stream_init },
+    { .name = "map",    .init = panda_map_init, },
+    { .name = "block",  .init = panda_block_init, },
+    { .name = "stream", .init = panda_stream_init, },
 };
 
 
@@ -67,7 +68,7 @@ static int __init panda_init(void)
     for (int i = 0; rc == 0  &&  i < PANDA_MINORS; i ++)
     {
         struct panda_info *info = &panda_info[i];
-        rc = info->init(&info->fops, &info->name);
+        rc = info->init(&info->fops);
     }
     TEST_RC(rc, no_panda, "Unable to initialise PandA");
 
