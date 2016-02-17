@@ -185,32 +185,47 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 /* Long table support. */
 
 
+#define MAX_BLOCK_ID        256     // Arbitrary large enough limit
+static void *block_id_table[MAX_BLOCK_ID];
+static unsigned int block_id_count = 0;
+
+
 error__t hw_long_table_allocate(
-    unsigned int order,
-    uint32_t **data, uint32_t *physical_addr, void **table_id)
+    unsigned int order, size_t *block_size,
+    uint32_t **data, uint32_t *physical_addr, unsigned int *block_id)
 {
-    size_t length = 1U << order;
-    *data = malloc(length * sizeof(uint32_t));
-    *physical_addr = 0;
-    *table_id = *data;
-    return ERROR_OK;
+    if (block_id_count < MAX_BLOCK_ID)
+    {
+        *block_size = 4096U << order;
+        *data = malloc(*block_size);
+        *physical_addr = 0;
+
+        block_id_table[block_id_count] = *data;
+        *block_id = block_id_count;
+        block_id_count += 1;
+        return ERROR_OK;
+    }
+    else
+        return FAIL_("Too many long table blocks");
 }
 
 
-void hw_long_table_release(void *table_id)
+void hw_long_table_release(unsigned int block_id)
 {
-    free(table_id);
+    ASSERT_OK(block_id < block_id_count);
+    free(block_id_table[block_id]);
 }
 
 
 void hw_long_table_flush(
-    void *table_id, size_t length,
+    unsigned int block_id, size_t length,
     unsigned int block_base, unsigned int number)
 {
+    ASSERT_OK(block_id < block_id_count);
     LOCK();
     handle_error(
         write_command_int('T', block_base, number, 0, (uint32_t) length)  ?:
-        write_all(table_id, length * sizeof(uint32_t)));
+        write_all(block_id_table[block_id], length * sizeof(uint32_t)));
     UNLOCK();
 }
 

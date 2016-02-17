@@ -101,7 +101,7 @@ static error__t bit_out_get(
 {
     struct bit_out_state *state = class_data;
     bool bit = bit_value[state->index_array[number]];
-    return write_one_result(result, "%d", bit);
+    return format_one_result(result, "%d", bit);
 }
 
 

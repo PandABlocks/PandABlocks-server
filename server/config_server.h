@@ -102,7 +102,7 @@ struct connection_result {
 };
 
 
-#define write_one_result(result, format...) \
+#define format_one_result(result, format...) \
     ( format_string(result->string, result->length, format)  ?: \
       DO(result->response = RESPONSE_ONE))
 
