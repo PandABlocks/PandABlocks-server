@@ -1,7 +1,7 @@
 /* This header file is designed to be shared with userspace. */
 
 /* Returns size of register area as an unsigned 32-bit integer. */
-#define PANDA_MAP_SIZE      _IOR('P', 0, uint32_t)
+#define PANDA_MAP_SIZE      _IO('P', 0)
 
 /* Each open panda.block file must have its block size set by calling the
  * PANDA_BLOCK_CREATE ioctl to set the block order.  The physical address is

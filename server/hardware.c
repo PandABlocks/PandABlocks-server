@@ -34,7 +34,7 @@
 static int map_file = -1;
 
 static volatile uint32_t *register_map;
-static uint32_t register_map_size;
+static size_t register_map_size;
 
 
 static unsigned int make_offset(
@@ -579,7 +579,8 @@ error__t initialise_hardware(void)
     return
         TEST_IO_(map_file = open("/dev/panda.map", O_RDWR | O_SYNC),
             "Unable to open PandA device /dev/panda.map")  ?:
-        TEST_IO(ioctl(map_file, PANDA_MAP_SIZE, &register_map_size))  ?:
+        TEST_IO(register_map_size =
+            (size_t) ioctl(map_file, PANDA_MAP_SIZE))  ?:
         TEST_IO(register_map = mmap(
             0, register_map_size,
             PROT_READ | PROT_WRITE, MAP_SHARED, map_file, 0))  ?:
