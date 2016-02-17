@@ -59,6 +59,10 @@ void hw_read_bits(bool bits[BIT_BUS_COUNT], bool changes[BIT_BUS_COUNT]);
 void hw_read_positions(
     uint32_t positions[POS_BUS_COUNT], bool changes[POS_BUS_COUNT]);
 
+/* Reads the three version registers. */
+void hw_read_versions(
+    uint32_t *fpga_version, uint32_t *fpga_build, uint32_t *slow_version);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table API. */

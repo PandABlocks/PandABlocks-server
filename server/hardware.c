@@ -249,6 +249,15 @@ void hw_read_positions(
 }
 
 
+void hw_read_versions(
+    uint32_t *fpga_version, uint32_t *fpga_build, uint32_t *slow_version)
+{
+    *fpga_version = read_named_register(FPGA_VERSION);
+    *fpga_build   = read_named_register(FPGA_BUILD);
+    *slow_version = read_named_register(SLOW_VERSION);
+}
+
+
 /******************************************************************************/
 /* Data capture. */
 
