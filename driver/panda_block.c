@@ -171,6 +171,7 @@ bad_request:
 
 static loff_t panda_block_seek(struct file *file, loff_t offset, int whence)
 {
+    file->f_pos = offset;
     return offset;
 }
 
