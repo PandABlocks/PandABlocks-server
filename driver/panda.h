@@ -12,6 +12,7 @@ int panda_stream_init(struct file_operations **fops);
 
 /* PandA Platform Capabilities. */
 struct panda_pcap {
+    struct platform_device *pdev;   // Platform device
     struct cdev cdev;               // Associated character device
 
     unsigned long reg_base;         // Physical base of register area

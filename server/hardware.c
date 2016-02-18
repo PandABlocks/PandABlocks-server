@@ -341,8 +341,6 @@ struct short_table {
 
 
 struct long_table {
-    unsigned int base_reg;      // Physical base address
-    unsigned int length_reg;    // Sets memory area length
     int *block_ids;             // Id for table
 };
 
@@ -409,18 +407,21 @@ static void write_short_table(
 
 #ifndef SIM_HARDWARE
 static error__t hw_long_table_allocate(
-    unsigned int order, size_t *block_size,
-    uint32_t **data, uint32_t *phy_address, int *block_id)
+    unsigned int order, unsigned int base_reg, unsigned int length_reg,
+    size_t *block_size, uint32_t **data, int *block_id)
 {
-    *block_size = 4096U << order;
+    struct panda_block block = {
+        .order = order,
+        .block_base   = sizeof(uint32_t) * base_reg,
+        .block_length = sizeof(uint32_t) * length_reg,
+    };
     return
         TEST_IO_(*block_id = open("/dev/panda.block", O_RDWR | O_SYNC),
             "Unable to open PandA device /dev/panda.block")  ?:
-        TEST_IO(
-            *phy_address = (uint32_t) ioctl(
-                *block_id, PANDA_BLOCK_CREATE, order))  ?:
-        TEST_IO(*data = mmap(0, *block_size,
-            PROT_READ | PROT_WRITE, MAP_SHARED, *block_id, 0));
+        TEST_IO(*block_size = (uint32_t) ioctl(
+            *block_id, PANDA_BLOCK_CREATE, &block))  ?:
+        TEST_IO(*data = mmap(
+            0, *block_size, PROT_READ, MAP_SHARED, *block_id, 0));
 }
 
 
@@ -430,39 +431,37 @@ static void hw_long_table_release(int block_id)
 }
 
 
-static void hw_long_table_flush(
-    int block_id, size_t length,
-    unsigned int block_base, unsigned int number)
+static void hw_long_table_write(
+    int block_id, const void *data, size_t length, size_t offset)
 {
-    ioctl(block_id, PANDA_BLOCK_FLUSH);
+    ASSERT_OK_IO(lseek(block_id, (off_t) offset, SEEK_SET) == (off_t) offset);
+    ASSERT_OK_IO(write(block_id, data, length) == (ssize_t) length);
 }
 #endif
 
 
 static error__t create_long_table(
-    struct hw_table *table, unsigned int order, size_t block_length,
+    struct hw_table *table, unsigned int order, size_t *block_length,
     unsigned int base_reg, unsigned int length_reg)
 {
     table->long_table = (struct long_table) {
-        .base_reg = base_reg,
-        .length_reg = length_reg,
         .block_ids = malloc(table->count * sizeof(unsigned int)),
     };
     memset(table->long_table.block_ids, 0, table->count * sizeof(unsigned int));
 
+    size_t block_size = 0;
     error__t error = ERROR_OK;
     for (unsigned int i = 0; !error  &&  i < table->count; i ++)
     {
-        uint32_t physical_addr;
-        size_t block_size;
         error =
             hw_long_table_allocate(
-                order, &block_size, &table->data[i], &physical_addr,
-                &table->long_table.block_ids[i])  ?:
-            TEST_OK(block_size == sizeof(uint32_t) * block_length)  ?:
-            DO(hw_write_register(
-                table->block_base, i, base_reg, physical_addr));
+                order,
+                make_offset(table->block_base, i, base_reg),
+                make_offset(table->block_base, i, length_reg),
+                &block_size, &table->data[i],
+                &table->long_table.block_ids[i]);
     }
+    *block_length = block_size / sizeof(uint32_t);
     return error;
 }
 
@@ -472,25 +471,6 @@ static void destroy_long_table(struct hw_table *table)
     for (unsigned int i = 0; i < table->count; i ++)
         hw_long_table_release(table->long_table.block_ids[i]);
     free(table->long_table.block_ids);
-}
-
-
-static void start_long_table_write(struct hw_table *table, unsigned int number)
-{
-    /* Invalidate entire data area. */
-    hw_write_register(
-        table->block_base, number, table->long_table.length_reg, 0);
-}
-
-static void complete_long_table_write(
-    struct hw_table *table, unsigned int number, size_t length)
-{
-    /* Flush cache and update length register. */
-    hw_long_table_flush(
-        table->long_table.block_ids[number], length, table->block_base, number);
-    hw_write_register(
-        table->block_base, number, table->long_table.length_reg,
-        (uint32_t) length);
 }
 
 
@@ -531,9 +511,8 @@ error__t hw_open_long_table(
     /* The order is log2 number of pages, so the corresponding length in words
      * uses 1024 words per page (we're happy to hard-wire the page size of 4096
      * here). */
-    *length = 1024U << order;
     *table = create_hw_table(block_base, block_count, LONG_TABLE);
-    return create_long_table(*table, order, *length, base_reg, length_reg);
+    return create_long_table(*table, order, length, base_reg, length_reg);
 }
 
 
@@ -547,19 +526,17 @@ void hw_write_table(
     struct hw_table *table, unsigned int number,
     size_t offset, const uint32_t data[], size_t length)
 {
-    if (table->table_type == LONG_TABLE)
-        start_long_table_write(table, number);
-
-    memcpy(table->data[number] + offset, data, length * sizeof(uint32_t));
-
-    /* Now inform the hardware as appropriate. */
     switch (table->table_type)
     {
         case SHORT_TABLE:
+            memcpy(table->data[number] + offset,
+                data, length * sizeof(uint32_t));
             write_short_table(table, number, offset + length);
             break;
         case LONG_TABLE:
-            complete_long_table_write(table, number, offset + length);
+            hw_long_table_write(
+                table->long_table.block_ids[number], data,
+                length * sizeof(uint32_t), offset + sizeof(uint32_t));
             break;
     }
 }
