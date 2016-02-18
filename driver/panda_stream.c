@@ -50,9 +50,8 @@ static struct file_operations panda_stream_fops = {
 };
 
 
-int panda_stream_init(struct file_operations **fops, const char **name)
+int panda_stream_init(struct file_operations **fops)
 {
     *fops = &panda_stream_fops;
-    *name = "stream";
     return 0;
 }

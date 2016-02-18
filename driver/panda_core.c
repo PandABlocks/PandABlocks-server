@@ -4,6 +4,9 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/platform_device.h>
+#include <linux/io.h>
 
 #include "error.h"
 #include "panda.h"
@@ -16,25 +19,25 @@ MODULE_SUPPORTED_DEVICE("panda");
 MODULE_VERSION("0");
 
 
-#define PANDA_MINORS    2           // We have 2 sub devices
+#define PANDA_MINORS    ARRAY_SIZE(panda_info)
 
 
 /* The fops and name fields of this structure are filled in by the appropriate
  * subcomponents of this module. */
 struct panda_info {
-    struct file_operations *fops;
     const char *name;
-    int (*init)(struct file_operations **fops, const char **name);
+    int (*init)(struct file_operations **fops);
+    struct file_operations *fops;
 };
-static struct panda_info panda_info[PANDA_MINORS] = {
-    { .init = panda_map_init },
-    { .init = panda_stream_init },
+static struct panda_info panda_info[] = {
+    { .name = "map",    .init = panda_map_init, },
+    { .name = "block",  .init = panda_block_init, },
+    { .name = "stream", .init = panda_stream_init, },
 };
 
 
 /* Kernel file and device interface state. */
 static dev_t panda_dev;             // Major device for PandA support
-static struct cdev panda_cdev;      // Top level file functions
 static struct class *panda_class;   // Sysfs class support
 
 
@@ -58,16 +61,87 @@ static struct file_operations base_fops = {
 };
 
 
+static int panda_probe(struct platform_device *pdev)
+{
+    int rc = 0;
+
+    /* Allocate global platform capability structure. */
+    struct panda_pcap *pcap = kmalloc(sizeof(struct panda_pcap), GFP_KERNEL);
+    TEST_PTR(pcap, rc, no_pcap, "Unable to allocate pcap");
+    platform_set_drvdata(pdev, pcap);
+
+    /* Pick up the register area and assigned IRQ from the device tree. */
+    struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    pcap->reg_base = res->start;
+    pcap->length = resource_size(res);
+    pcap->base_addr = devm_ioremap_resource(&pdev->dev, res);
+    TEST_PTR(pcap->base_addr, rc, no_res, "Unable to map resource");
+
+    rc = platform_get_irq(pdev, 0);
+    TEST_RC(rc, no_irq, "Unable to read irq");
+    pcap->irq = rc;
+
+    /* Create character device support. */
+    cdev_init(&pcap->cdev, &base_fops);
+    pcap->cdev.owner = THIS_MODULE;
+    rc = cdev_add(&pcap->cdev, panda_dev, PANDA_MINORS);
+    TEST_RC(rc, no_cdev, "unable to add device");
+
+    /* Create the device nodes. */
+    int major = MAJOR(panda_dev);
+    for (int i = 0; i < PANDA_MINORS; i ++)
+        device_create(
+            panda_class, &pdev->dev, MKDEV(major, i), NULL,
+            "panda.%s", panda_info[i].name);
+
+    return 0;
+
+no_cdev:
+no_irq:
+no_res:
+    kfree(pcap);
+no_pcap:
+    return rc;
+}
+
+
+static int panda_remove(struct platform_device *pdev)
+{
+    struct panda_pcap *pcap = platform_get_drvdata(pdev);
+    int major = MAJOR(panda_dev);
+    for (int i = 0; i < PANDA_MINORS; i ++)
+        device_destroy(panda_class, MKDEV(major, i));
+    cdev_del(&pcap->cdev);
+    kfree(pcap);
+    printk(KERN_INFO "PandA removed\n");
+    return 0;
+}
+
+
+static struct platform_driver panda_driver = {
+    .probe = panda_probe,
+    .remove = panda_remove,
+    .driver = {
+        .name = "panda",
+        .owner = THIS_MODULE,
+        .of_match_table = (struct of_device_id[]) {
+            { .compatible = "xlnx,panda-pcap-1.0", },
+            { /* End of table. */ },
+        },
+    },
+};
+
+
 static int __init panda_init(void)
 {
     printk(KERN_INFO "Loading PandA driver\n");
-    int rc = 0;
 
     /* First initialise the three PandA subcomponents. */
+    int rc = 0;
     for (int i = 0; rc == 0  &&  i < PANDA_MINORS; i ++)
     {
         struct panda_info *info = &panda_info[i];
-        rc = info->init(&info->fops, &info->name);
+        rc = info->init(&info->fops);
     }
     TEST_RC(rc, no_panda, "Unable to initialise PandA");
 
@@ -75,29 +149,22 @@ static int __init panda_init(void)
     rc = alloc_chrdev_region(&panda_dev, 0, PANDA_MINORS, "panda");
     TEST_RC(rc, no_chrdev, "unable to allocate dev region");
 
-    /* Create character device support. */
-    cdev_init(&panda_cdev, &base_fops);
-    panda_cdev.owner = THIS_MODULE;
-    rc = cdev_add(&panda_cdev, panda_dev, PANDA_MINORS);
-    TEST_RC(rc, no_cdev, "unable to add device");
-
     /* Publish devices in sysfs. */
     panda_class = class_create(THIS_MODULE, "panda");
     TEST_PTR(panda_class, rc, no_class, "unable to create class");
-    for (int i = 0; i < PANDA_MINORS; i ++)
-        device_create(
-            panda_class, NULL, panda_dev + i, NULL,
-            "panda.%s", panda_info[i].name);
+
+    /* Register the platform driver. */
+    rc = platform_driver_register(&panda_driver);
+    TEST_RC(rc, no_platform, "Unable to register platform");
 
     return 0;
 
-
-no_panda:
+no_platform:
 no_class:
-    cdev_del(&panda_cdev);
-no_cdev:
     unregister_chrdev_region(panda_dev, PANDA_MINORS);
 no_chrdev:
+no_panda:
+    platform_driver_unregister(&panda_driver);
 
     return rc;
 }
@@ -106,11 +173,9 @@ no_chrdev:
 static void __exit panda_exit(void)
 {
     printk(KERN_INFO "Unloading PandA driver\n");
-    for (int i = 0; i < PANDA_MINORS; i ++)
-        device_destroy(panda_class, panda_dev + i);
-    class_destroy(panda_class);
 
-    cdev_del(&panda_cdev);
+    platform_driver_unregister(&panda_driver);
+    class_destroy(panda_class);
     unregister_chrdev_region(panda_dev, PANDA_MINORS);
 }
 

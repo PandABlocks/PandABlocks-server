@@ -13,6 +13,7 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "hardware.h"
 #include "socket_server.h"
 #include "config_server.h"
 #include "data_server.h"
@@ -38,7 +39,10 @@
  * Returns simple system identification. */
 static error__t get_idn(const char *command, struct connection_result *result)
 {
-    return format_one_result(result, "%s %s", server_name, server_version);
+    uint32_t fpga_version, fpga_build, slow_version;
+    hw_read_versions(&fpga_version, &fpga_build, &slow_version);
+    return format_one_result(result, "%s %s %08x %08x %08x",
+        server_name, server_version, fpga_version, fpga_build, slow_version);
 }
 
 
