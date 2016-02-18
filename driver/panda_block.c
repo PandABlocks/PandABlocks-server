@@ -37,10 +37,10 @@ static int panda_block_mmap(struct file *file, struct vm_area_struct *vma)
 {
     struct block_open *open = file->private_data;
 
-    int rc = down_interruptible(&open->lock);
-    TEST_RC(rc, no_lock, "Interrupted during lock");
+    down(&open->lock);
 
     /* Check that we've allocated our pages and haven't already been mapped. */
+    int rc = 0;
     TEST_(open->block_addr, rc = -ENXIO, bad_request, "No block allocated");
     TEST_(!open->vma, rc = -EBUSY, bad_request, "Block already mapped");
 
@@ -58,8 +58,6 @@ static int panda_block_mmap(struct file *file, struct vm_area_struct *vma)
 
 bad_request:
     up(&open->lock);
-
-no_lock:
     return rc;
 }
 
@@ -73,23 +71,24 @@ static int create_block(
     struct device *dev = &pcap->pdev->dev;
 
     /* Lock while we allocate. */
-    int rc = down_interruptible(&open->lock);
-    TEST_RC(rc, no_lock, "Interrupted during lock");
+    down(&open->lock);
 
     /* Check the block isn't already allocated. */
-    TEST_(!open->block_addr, rc = -EBUSY, busy, "Block already allocated");
+    int rc = 0;
+    TEST_(!open->block_addr,
+        rc = -EBUSY, bad_request, "Block already allocated");
 
     /* Try to retrieve the ioctl arguments and validate them. */
     TEST_(!copy_from_user(&open->block, block, sizeof(struct panda_block)),
-        rc = -EFAULT, no_copy, "Error copying block");
+        rc = -EFAULT, bad_request, "Error copying block");
     TEST_(
         open->block.block_base < pcap->length - 4  &&
         open->block.block_length < pcap->length - 4,
-        rc = -EINVAL, bad_block, "Invalid register argument for block");
+        rc = -EINVAL, bad_request, "Invalid register argument for block");
 
     /* Ok, all in order.  Allocate the requested block and map it for DMA. */
     open->block_addr = (void *) __get_free_pages(GFP_KERNEL, open->block.order);
-    TEST_(open->block_addr, rc = -ENOMEM, no_block,
+    TEST_(open->block_addr, rc = -ENOMEM, bad_request,
         "Unable to allocate block");
     open->dma = dma_map_single(
         dev, open->block_addr, open->block_size, DMA_TO_DEVICE);
@@ -110,12 +109,8 @@ static int create_block(
 no_dma:
     free_pages((unsigned long) open->block_addr, open->block.order);
     open->block_addr = NULL;
-no_block:
-bad_block:
-no_copy:
-busy:
+bad_request:
     up(&open->lock);
-no_lock:
     return rc;
 }
 
@@ -141,14 +136,15 @@ static ssize_t panda_block_write(
     struct device *dev = &pcap->pdev->dev;
 
     /* Lock while we write. */
-    int rc = down_interruptible(&open->lock);
-    TEST_RC(rc, no_lock, "Interrupted during lock");
+    down(&open->lock);
 
     /* Check the block is allocated. */
-    TEST_(open->block_addr, rc = -EBUSY, no_block, "No block allocated");
+    int rc = 0;
+    TEST_(open->block_addr,
+        rc = -EBUSY, bad_request, "No block allocated");
     /* Check the requested length is valid. */
     TEST_(*offset + length <= open->block_size,
-        rc = -EFBIG, too_long, "Write segment too long");
+        rc = -EFBIG, bad_request, "Write segment too long");
 
     /* Good.  Tell the hardware, switch into CPU mode, copy the data, switch
      * back into device mode, tell the hardware. */
@@ -167,10 +163,8 @@ static ssize_t panda_block_write(
 bad_copy:
     dma_sync_single_for_device(
         dev, open->dma, open->block_size, DMA_TO_DEVICE);
-too_long:
-no_block:
+bad_request:
     up(&open->lock);
-no_lock:
     return rc;
 }
 
