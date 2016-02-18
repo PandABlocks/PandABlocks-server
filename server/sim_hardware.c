@@ -234,8 +234,6 @@ void hw_long_table_write(
 {
     ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
     struct table_block *block = &block_id_table[block_id];
-printf("hw_long_table_write %d [%u %u] %zu %zu\n",
-block_id, block->block_base, block->number, length, offset);
 
     memcpy(block->data + offset, data, length);
 

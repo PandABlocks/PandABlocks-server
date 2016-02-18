@@ -30,7 +30,7 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Position and update indices for the bits. */
 static bool bit_value[BIT_BUS_COUNT];
-static uint64_t bit_update_index[BIT_BUS_COUNT] = { [0 ... BIT_BUS_COUNT-1] = 1 };
+static uint64_t bit_update_index[] = { [0 ... BIT_BUS_COUNT-1] = 1 };
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

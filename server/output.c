@@ -30,7 +30,7 @@ static pthread_mutex_t update_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Current values and update indices for each output field. */
 static uint32_t pos_value[POS_BUS_COUNT];
-static uint64_t pos_update_index[POS_BUS_COUNT] = { [0 ... POS_BUS_COUNT-1] = 1 };
+static uint64_t pos_update_index[] = { [0 ... POS_BUS_COUNT-1] = 1 };
 
 /* Map between field names and bit bus indexes. */
 static struct enumeration *pos_mux_lookup;
