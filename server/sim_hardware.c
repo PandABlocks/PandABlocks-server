@@ -192,7 +192,7 @@ static unsigned int block_id_count = 0;
 
 error__t hw_long_table_allocate(
     unsigned int order, size_t *block_size,
-    uint32_t **data, uint32_t *physical_addr, unsigned int *block_id)
+    uint32_t **data, uint32_t *physical_addr, int *block_id)
 {
     if (block_id_count < MAX_BLOCK_ID)
     {
@@ -201,7 +201,7 @@ error__t hw_long_table_allocate(
         *physical_addr = 0;
 
         block_id_table[block_id_count] = *data;
-        *block_id = block_id_count;
+        *block_id = (int) block_id_count;
         block_id_count += 1;
         return ERROR_OK;
     }
@@ -210,18 +210,18 @@ error__t hw_long_table_allocate(
 }
 
 
-void hw_long_table_release(unsigned int block_id)
+void hw_long_table_release(int block_id)
 {
-    ASSERT_OK(block_id < block_id_count);
+    ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
     free(block_id_table[block_id]);
 }
 
 
 void hw_long_table_flush(
-    unsigned int block_id, size_t length,
+    int block_id, size_t length,
     unsigned int block_base, unsigned int number)
 {
-    ASSERT_OK(block_id < block_id_count);
+    ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
     LOCK();
     handle_error(
         write_command_int('T', block_base, number, 0, (uint32_t) length)  ?:

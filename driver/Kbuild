@@ -7,11 +7,13 @@ EXTRA_CFLAGS += -Wno-missing-field-initializers
 
 # Suppress some kernel error messages
 EXTRA_CFLAGS += -Wno-empty-body
+EXTRA_CFLAGS += -Wno-sign-compare
 
 obj-m := panda.o
 
 panda-objs += panda_core.o
 panda-objs += panda_map.o
+panda-objs += panda_block.o
 panda-objs += panda_stream.o
 
 # vim: set filetype=make:
