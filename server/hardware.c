@@ -58,8 +58,7 @@ void hw_write_register(
 uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
-    uint32_t result = register_map[make_offset(block_base, block_number, reg)];
-    return result;
+    return register_map[make_offset(block_base, block_number, reg)];
 }
 
 #endif

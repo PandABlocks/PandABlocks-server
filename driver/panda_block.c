@@ -51,11 +51,10 @@ static int panda_block_mmap(struct file *file, struct vm_area_struct *vma)
         rc = -EINVAL, bad_request, "Requested area out of range");
 
     /* Let remap_pfn_range do all the work. */
-    open->vma = vma;
-    unsigned long base_page = (unsigned long) open->block_addr >> PAGE_SHIFT;
+    unsigned long base_page = virt_to_phys(open->block_addr) >> PAGE_SHIFT;
     rc = remap_pfn_range(
-        vma, vma->vm_start, base_page + vma->vm_pgoff, size,
-        vma->vm_page_prot);
+        vma, vma->vm_start, base_page + vma->vm_pgoff, size, vma->vm_page_prot);
+    open->vma = vma;
 
 bad_request:
     up(&open->lock);
@@ -148,8 +147,8 @@ static ssize_t panda_block_write(
     /* Check the block is allocated. */
     TEST_(open->block_addr, rc = -EBUSY, no_block, "No block allocated");
     /* Check the requested length is valid. */
-    TEST_(*offset + length <= open->block_size, rc = -EFBIG,
-        too_long, "Write segment too long");
+    TEST_(*offset + length <= open->block_size,
+        rc = -EFBIG, too_long, "Write segment too long");
 
     /* Good.  Tell the hardware, switch into CPU mode, copy the data, switch
      * back into device mode, tell the hardware. */
@@ -158,7 +157,6 @@ static ssize_t panda_block_write(
         dev, open->dma, open->block_size, DMA_TO_DEVICE);
     TEST_(!copy_from_user(open->block_addr + *offset, data, length),
         rc = -EFAULT, bad_copy, "Fault copying data from user");
-
     dma_sync_single_for_device(
         dev, open->dma, open->block_size, DMA_TO_DEVICE);
     writel((*offset + length) / 4, pcap->base_addr + open->block.block_length);
