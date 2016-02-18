@@ -185,24 +185,35 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 /* Long table support. */
 
 
-#define MAX_BLOCK_ID        256     // Arbitrary large enough limit
-static void *block_id_table[MAX_BLOCK_ID];
+#define MAX_BLOCK_ID        16      // Arbitrary large enough limit
+struct table_block {
+    void *data;
+    unsigned int block_base;
+    unsigned int number;
+};
+static struct table_block block_id_table[MAX_BLOCK_ID];
 static unsigned int block_id_count = 0;
 
 
 error__t hw_long_table_allocate(
-    unsigned int order, size_t *block_size,
-    uint32_t **data, uint32_t *physical_addr, int *block_id)
+    unsigned int block_base, unsigned int number,
+    unsigned int base_reg, unsigned int length_reg,
+    unsigned int order,
+    size_t *block_size, uint32_t **data, int *block_id)
 {
     if (block_id_count < MAX_BLOCK_ID)
     {
         *block_size = 4096U << order;
         *data = malloc(*block_size);
-        *physical_addr = 0;
-
-        block_id_table[block_id_count] = *data;
         *block_id = (int) block_id_count;
         block_id_count += 1;
+
+        struct table_block *block = &block_id_table[*block_id];
+        *block = (struct table_block) {
+            .data = *data,
+            .block_base = block_base,
+            .number = number,
+        };
         return ERROR_OK;
     }
     else
@@ -213,19 +224,27 @@ error__t hw_long_table_allocate(
 void hw_long_table_release(int block_id)
 {
     ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
-    free(block_id_table[block_id]);
+    struct table_block *block = &block_id_table[block_id];
+    free(block->data);
 }
 
 
-void hw_long_table_flush(
-    int block_id, size_t length,
-    unsigned int block_base, unsigned int number)
+void hw_long_table_write(
+    int block_id, const void *data, size_t length, size_t offset)
 {
     ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
+    struct table_block *block = &block_id_table[block_id];
+printf("hw_long_table_write %d [%u %u] %zu %zu\n",
+block_id, block->block_base, block->number, length, offset);
+
+    memcpy(block->data + offset, data, length);
+
+    uint32_t words = (uint32_t) (offset + length) / sizeof(uint32_t);
     LOCK();
     handle_error(
-        write_command_int('T', block_base, number, 0, (uint32_t) length)  ?:
-        write_all(block_id_table[block_id], length * sizeof(uint32_t)));
+        write_command_int('T',
+            block->block_base, block->number, 0, words)  ?:
+        write_all(block->data, offset + length));
     UNLOCK();
 }
 

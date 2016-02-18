@@ -406,13 +406,17 @@ static void write_short_table(
 
 #ifndef SIM_HARDWARE
 static error__t hw_long_table_allocate(
-    unsigned int order, unsigned int base_reg, unsigned int length_reg,
-    size_t *block_size, uint32_t **data, int *block_id)
+    unsigned int block_base, unsigned int number,
+    unsigned int base_reg, unsigned int length_reg,
+    unsigned int order, size_t *block_size,
+    uint32_t **data, int *block_id)
 {
     struct panda_block block = {
         .order = order,
-        .block_base   = sizeof(uint32_t) * base_reg,
-        .block_length = sizeof(uint32_t) * length_reg,
+        .block_base   =
+            sizeof(uint32_t) * make_offset(block_base, number, base_reg),
+        .block_length =
+            sizeof(uint32_t) * make_offset(block_base, number, length_reg),
     };
     return
         TEST_IO_(*block_id = open("/dev/panda.block", O_RDWR | O_SYNC),
@@ -451,15 +455,10 @@ static error__t create_long_table(
     size_t block_size = 0;
     error__t error = ERROR_OK;
     for (unsigned int i = 0; !error  &&  i < table->count; i ++)
-    {
-        error =
-            hw_long_table_allocate(
-                order,
-                make_offset(table->block_base, i, base_reg),
-                make_offset(table->block_base, i, length_reg),
-                &block_size, &table->data[i],
-                &table->long_table.block_ids[i]);
-    }
+        error = hw_long_table_allocate(
+            table->block_base, i, base_reg, length_reg,
+            order, &block_size,
+            &table->data[i], &table->long_table.block_ids[i]);
     *block_length = block_size / sizeof(uint32_t);
     return error;
 }
@@ -535,7 +534,7 @@ void hw_write_table(
         case LONG_TABLE:
             hw_long_table_write(
                 table->long_table.block_ids[number], data,
-                length * sizeof(uint32_t), offset + sizeof(uint32_t));
+                length * sizeof(uint32_t), offset * sizeof(uint32_t));
             break;
     }
 }
