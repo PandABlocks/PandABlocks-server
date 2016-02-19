@@ -429,8 +429,8 @@ const struct captured_fields *prepare_captured_fields(void)
         struct output_field *output = output_fields[i];
 
         /* Fetch and store the current capture settings for this field. */
-        enum capture_mode capture_mode = get_capture_info(
-            output->output, output->number, &output->info);
+        enum capture_mode capture_mode =
+            get_capture_info(output->output, output->number, &output->info);
 
         /* Dispatch output into the appropriate group for processing. */
         struct capture_group *capture = NULL;

@@ -554,29 +554,6 @@ static void gather_data_capture(
 }
 
 
-static void dump_data_capture(struct data_capture *capture)
-{
-    printf("capture: %zu %d %zu %zu %zu\n",
-        capture->raw_sample_words, capture->ts_capture,
-        capture->timestamp_index, capture->ts_offset_index,
-        capture->adc_count_index);
-    printf(" %zu %zu / %zu %zu %zu / %zu %zu %zu / %zu %zu %zu\n",
-        capture->unscaled.index, capture->unscaled.count,
-        capture->scaled32.index, capture->scaled32.count,
-        capture->scaled32.scaling,
-        capture->scaled64.index, capture->scaled64.count,
-        capture->scaled64.scaling,
-        capture->adc_mean.index, capture->adc_mean.count,
-        capture->adc_mean.scaling);
-    size_t scaling_count =
-        capture->adc_mean.scaling + capture->adc_mean.count;
-    for (unsigned int i = 0; i < scaling_count; i ++)
-        printf(" (%g %g)",
-            capture->scaling[i].scale, capture->scaling[i].offset);
-    printf("\n");
-}
-
-
 static struct data_capture data_capture_state = {
     .timestamp_scale = 1.0 / CLOCK_FREQUENCY,
 };
@@ -603,7 +580,5 @@ error__t prepare_data_capture(
             fields->ts_capture == TS_OFFSET  ||  gather.framing_mask);
         *capture = gather.capture;
     }
-
-    dump_data_capture(gather.capture);
     return error;
 }
