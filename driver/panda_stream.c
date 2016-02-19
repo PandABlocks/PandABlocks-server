@@ -17,9 +17,8 @@
 #include "panda.h"
 
 #include "panda_device.h"
+#include "panda_drv.h"          // *DRV register definitions
 
-
-#define PCAP_IRQ_STATUS ((25<<12) | (4 << 2))
 
 
 static atomic_t device_open = ATOMIC_INIT(0);
