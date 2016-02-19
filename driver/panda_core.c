@@ -44,9 +44,6 @@ static struct class *panda_class;   // Sysfs class support
 
 static int panda_open(struct inode *inode, struct file *file)
 {
-    printk(KERN_INFO "Opening panda device: %d:%d\n",
-        imajor(inode), iminor(inode));
-
     file->f_op = panda_info[iminor(inode)].fops;
     if (file->f_op->open)
         return file->f_op->open(inode, file);
@@ -69,6 +66,7 @@ static int panda_probe(struct platform_device *pdev)
     struct panda_pcap *pcap = kmalloc(sizeof(struct panda_pcap), GFP_KERNEL);
     TEST_PTR(pcap, rc, no_pcap, "Unable to allocate pcap");
     platform_set_drvdata(pdev, pcap);
+    pcap->pdev = pdev;
 
     /* Pick up the register area and assigned IRQ from the device tree. */
     struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);

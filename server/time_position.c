@@ -497,7 +497,7 @@ size_t get_position_info(
     const struct position_field *field = &position->values[number];
     *scale = field->scale;
     *offset = field->offset;
-    size_t result = strlcpy(units, field->units, length);
+    size_t result = strlcpy(units, field->units ?: "", length);
     UNLOCK(position->mutex);
     return result;
 }

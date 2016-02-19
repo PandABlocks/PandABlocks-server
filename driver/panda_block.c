@@ -10,6 +10,7 @@
 #include <linux/semaphore.h>
 #include <linux/vmalloc.h>
 #include <linux/dma-mapping.h>
+#include <linux/platform_device.h>
 #include <asm/atomic.h>
 
 #include "error.h"
@@ -21,11 +22,14 @@
 /* Information associated with an open file. */
 struct block_open {
     struct semaphore lock;
-    unsigned int order;         // log2 number of pages in block
+
     size_t block_size;          // Bytes in block
-    unsigned long block;        // Kernel address of allocated block
+    void *block_addr;           // Kernel address of allocated block
     dma_addr_t dma;             // DMA address of block
     struct vm_area_struct *vma; // Virtual memory area associated with block
+
+    struct panda_pcap *pcap;    // Device capabilites
+    struct panda_block block;   // Block specification
 };
 
 
@@ -33,11 +37,11 @@ static int panda_block_mmap(struct file *file, struct vm_area_struct *vma)
 {
     struct block_open *open = file->private_data;
 
-    int rc = down_interruptible(&open->lock);
-    TEST_RC(rc, no_lock, "Interrupted during lock");
+    down(&open->lock);
 
     /* Check that we've allocated our pages and haven't already been mapped. */
-    TEST_(open->block, rc = -ENXIO, bad_request, "No block allocated");
+    int rc = 0;
+    TEST_(open->block_addr, rc = -ENXIO, bad_request, "No block allocated");
     TEST_(!open->vma, rc = -EBUSY, bad_request, "Block already mapped");
 
     /* Check the mapped area is in range. */
@@ -47,72 +51,66 @@ static int panda_block_mmap(struct file *file, struct vm_area_struct *vma)
         rc = -EINVAL, bad_request, "Requested area out of range");
 
     /* Let remap_pfn_range do all the work. */
-    open->vma = vma;
+    unsigned long base_page = virt_to_phys(open->block_addr) >> PAGE_SHIFT;
     rc = remap_pfn_range(
-        vma, vma->vm_start, open->block + vma->vm_pgoff, size,
-        vma->vm_page_prot);
+        vma, vma->vm_start, base_page + vma->vm_pgoff, size, vma->vm_page_prot);
+    open->vma = vma;
 
 bad_request:
     up(&open->lock);
-
-no_lock:
     return rc;
 }
 
 
-static long create_block(struct file *file, unsigned long order)
+/* Prepares the backing memory as a fixed block. */
+static int create_block(
+    struct file *file, const struct panda_block __user *block)
 {
     struct block_open *open = file->private_data;
+    struct panda_pcap *pcap = open->pcap;
+    struct device *dev = &pcap->pdev->dev;
 
-    /* Lock while we allocate.  Need to do this first so that the block count
-     * test is valid. */
-    long result = down_interruptible(&open->lock);
-    TEST_RC(result, no_lock, "Interrupted during lock");
+    /* Lock while we allocate. */
+    down(&open->lock);
 
-    /* Record the block size. */
-    open->order = order;
-    open->block_size = 1U << (order + PAGE_SHIFT);
+    /* Check the block isn't already allocated. */
+    int rc = 0;
+    TEST_(!open->block_addr,
+        rc = -EBUSY, bad_request, "Block already allocated");
 
-    /* Allocate the requested block and map it for DMA. */
-    open->block = __get_free_pages(GFP_KERNEL, order);
-    TEST_(open->block, result = -ENOMEM, no_block, "Unable to allocate block");
+    /* Try to retrieve the ioctl arguments and validate them. */
+    TEST_(!copy_from_user(&open->block, block, sizeof(struct panda_block)),
+        rc = -EFAULT, bad_request, "Error copying block");
+    TEST_(
+        open->block.block_base < pcap->length - 4  &&
+        open->block.block_length < pcap->length - 4,
+        rc = -EINVAL, bad_request, "Invalid register argument for block");
+
+    /* Ok, all in order.  Allocate the requested block and map it for DMA. */
+    open->block_addr = (void *) __get_free_pages(GFP_KERNEL, open->block.order);
+    TEST_(open->block_addr, rc = -ENOMEM, bad_request,
+        "Unable to allocate block");
     open->dma = dma_map_single(
-        NULL, (void *) open->block, open->block_size, DMA_TO_DEVICE);
-    TEST_(!dma_mapping_error(NULL, open->dma),
-        result = -EIO, no_dma, "Unable to map DMA area");
+        dev, open->block_addr, open->block_size, DMA_TO_DEVICE);
+    TEST_(!dma_mapping_error(dev, open->dma),
+        rc = -EIO, no_dma, "Unable to map DMA area");
 
-    /* Caller wants the physical page address. */
+    /* Inform the hardware via the register we were given. */
+    writel(open->dma, pcap->base_addr + open->block.block_base);
+
+    /* Start the block in device mode. */
+    open->block_size = 1U << (open->block.order + PAGE_SHIFT);
+    dma_sync_single_for_device(
+        dev, open->dma, open->block_size, DMA_TO_DEVICE);
+
     up(&open->lock);
-    return open->dma;
+    return (int) open->block_size;
 
 no_dma:
-    free_pages((unsigned long) open->block, order);
-    open->block = 0;
-no_block:
+    free_pages((unsigned long) open->block_addr, open->block.order);
+    open->block_addr = NULL;
+bad_request:
     up(&open->lock);
-no_lock:
-    return result;
-}
-
-
-static long flush_block(struct file *file)
-{
-    struct block_open *open = file->private_data;
-
-    /* Lock while we allocate.  Need to do this first so that the block count
-     * test is valid. */
-    long rc = down_interruptible(&open->lock);
-    TEST_RC(rc, no_lock, "Interrupted during lock");
-
-    /* Check we have a mapped area to flush. */
-    TEST_(open->vma, rc = -ENXIO, no_vma, "No mapping for block");
-
-    dma_sync_single_for_device(
-        NULL, open->dma, open->block_size, DMA_FROM_DEVICE);
-
-no_vma:
-    up(&open->lock);
-no_lock:
     return rc;
 }
 
@@ -120,19 +118,61 @@ no_lock:
 static long panda_block_ioctl(
     struct file *file, unsigned int cmd, unsigned long arg)
 {
-    printk(KERN_INFO "panda.block ioctl %u %08lx\n", cmd, arg);
-
     switch (cmd)
     {
         case PANDA_BLOCK_CREATE:
-            return create_block(file, arg);
-
-        case PANDA_BLOCK_FLUSH:
-            return flush_block(file);
-
+            return create_block(file, (void __user *) arg);
         default:
             return -EINVAL;
     }
+}
+
+
+static ssize_t panda_block_write(
+    struct file *file, const char __user *data, size_t length, loff_t *offset)
+{
+    struct block_open *open = file->private_data;
+    struct panda_pcap *pcap = open->pcap;
+    struct device *dev = &pcap->pdev->dev;
+
+    /* Lock while we write. */
+    down(&open->lock);
+
+    /* Check the block is allocated. */
+    int rc = 0;
+    TEST_(open->block_addr,
+        rc = -EBUSY, bad_request, "No block allocated");
+    /* Check the requested length is valid. */
+    TEST_(*offset + length <= open->block_size,
+        rc = -EFBIG, bad_request, "Write segment too long");
+
+    /* Good.  Tell the hardware, switch into CPU mode, copy the data, switch
+     * back into device mode, tell the hardware. */
+    writel(0, pcap->base_addr + open->block.block_length);
+    dma_sync_single_for_cpu(
+        dev, open->dma, open->block_size, DMA_TO_DEVICE);
+    TEST_(!copy_from_user(open->block_addr + *offset, data, length),
+        rc = -EFAULT, bad_copy, "Fault copying data from user");
+    dma_sync_single_for_device(
+        dev, open->dma, open->block_size, DMA_TO_DEVICE);
+    writel(*offset + length, pcap->base_addr + open->block.block_length);
+
+    up(&open->lock);
+    return (ssize_t) length;
+
+bad_copy:
+    dma_sync_single_for_device(
+        dev, open->dma, open->block_size, DMA_TO_DEVICE);
+bad_request:
+    up(&open->lock);
+    return rc;
+}
+
+
+static loff_t panda_block_seek(struct file *file, loff_t offset, int whence)
+{
+    file->f_pos = offset;
+    return offset;
 }
 
 
@@ -141,11 +181,12 @@ static int panda_block_open(struct inode *inode, struct file *file)
     int rc = 0;
     struct block_open *open = kmalloc(sizeof(*open), GFP_KERNEL);
     TEST_PTR(open, rc, no_open, "Unable to allocate open structure");
-    file->private_data = open;
 
     *open = (struct block_open) {
+        .pcap = container_of(inode->i_cdev, struct panda_pcap, cdev),
     };
     sema_init(&open->lock, 1);
+    file->private_data = open;
 
 no_open:
     return rc;
@@ -155,10 +196,15 @@ no_open:
 static int panda_block_release(struct inode *inode, struct file *file)
 {
     struct block_open *open = file->private_data;
-    if (open->block)
+    struct panda_pcap *pcap = open->pcap;
+    struct device *dev = &pcap->pdev->dev;
+
+    if (open->block_addr)
     {
-        dma_unmap_single(NULL, open->dma, open->block_size, DMA_TO_DEVICE);
-        free_pages(open->block, open->order);
+        /* Disable hardware access to memory. */
+        writel(0, pcap->base_addr + open->block.block_length);
+        dma_unmap_single(dev, open->dma, open->block_size, DMA_TO_DEVICE);
+        free_pages((unsigned long) open->block_addr, open->block.order);
     }
     kfree(open);
     return 0;
@@ -169,6 +215,8 @@ static struct file_operations panda_block_fops = {
     .owner = THIS_MODULE,
     .open = panda_block_open,
     .release = panda_block_release,
+    .write = panda_block_write,
+    .llseek = panda_block_seek,
     .mmap = panda_block_mmap,
     .unlocked_ioctl = panda_block_ioctl,
 };

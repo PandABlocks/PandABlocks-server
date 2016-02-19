@@ -2,16 +2,16 @@
 
 /* Special support for long tables. */
 
-/* Allocates a block of physically mappable memory of the specified size and
- * returns both virtual and physical addresses. */
+/* Allocates a block of physically mappable memory of the specified size. */
 error__t hw_long_table_allocate(
-    unsigned int order, size_t *block_size,
-    uint32_t **data, uint32_t *physical_addr, int *block_id);
+    unsigned int block_base, unsigned int number,
+    unsigned int base_reg, unsigned int length_reg,
+    unsigned int order,
+    size_t *block_size, uint32_t **data, int *block_id);
 
 /* Releases previously allocated table memory area. */
 void hw_long_table_release(int block_id);
 
-/* Flushes cache for specified area. */
-void hw_long_table_flush(
-    int block_id, size_t length,
-    unsigned int block_base, unsigned int number);
+/* Performs write for long table. */
+void hw_long_table_write(
+    int block_id, const void *data, size_t length, size_t offset);

@@ -300,9 +300,10 @@ error__t initialise_persistence(
     thread_running = true;
 
     pwait_initialise(&psignal);
+    load_persistent_state();
+
     return
-        /* Load state and start the monitor thread. */
-        DO(load_persistent_state())  ?:
+        /* Start the monitor thread. */
         TRY_CATCH(
             TEST_PTHREAD(pthread_create(
                 &persistence_thread_id, NULL, persistence_thread, NULL)),
