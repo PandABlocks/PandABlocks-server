@@ -155,7 +155,7 @@ static ssize_t panda_block_write(
         rc = -EFAULT, bad_copy, "Fault copying data from user");
     dma_sync_single_for_device(
         dev, open->dma, open->block_size, DMA_TO_DEVICE);
-    writel((*offset + length) / 4, pcap->base_addr + open->block.block_length);
+    writel(*offset + length, pcap->base_addr + open->block.block_length);
 
     up(&open->lock);
     return (ssize_t) length;
@@ -201,6 +201,8 @@ static int panda_block_release(struct inode *inode, struct file *file)
 
     if (open->block_addr)
     {
+        /* Disable hardware access to memory. */
+        writel(0, pcap->base_addr + open->block.block_length);
         dma_unmap_single(dev, open->dma, open->block_size, DMA_TO_DEVICE);
         free_pages((unsigned long) open->block_addr, open->block.order);
     }
