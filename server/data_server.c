@@ -93,6 +93,9 @@ static struct capture_buffer *data_buffer;
 static const struct captured_fields *captured_fields;
 static const struct data_capture *data_capture;
 
+/* Data completion code at end of experiment. */
+static uint32_t completion_code;
+
 
 /* Performs a complete experiment capture: start data buffer, process the data
  * stream until hardware is complete, stop data buffer.. */
@@ -111,6 +114,7 @@ static void capture_experiment(void)
         if (count > 0)
             release_write_block(data_buffer, count);
     }
+    completion_code = hw_read_streamed_completion();
 
     end_write(data_buffer);
 }

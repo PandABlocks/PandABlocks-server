@@ -268,7 +268,7 @@ static int stream = -1;
 size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 {
     ssize_t count = read(stream, buffer, length);
-    if (count == EAGAIN)
+    if (count < 0  &&  errno == EAGAIN)
     {
         /* Read timed out at hardware level (this is normal). */
         *data_end = false;
@@ -281,7 +281,7 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
         *data_end = true;
         return 0;
     }
-    else if (ERROR_REPORT(TEST_OK(count), "Error reading /dev/panda.stream"))
+    else if (error_report(TEST_OK(count)))
     {
         /* Well, that was unexpected.  Presume there's no more data. */
         *data_end = true;
@@ -293,6 +293,15 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
         *data_end = false;
         return (size_t) count;
     }
+}
+
+
+uint32_t hw_read_streamed_completion(void)
+{
+    uint32_t completion = 0;
+    /* This really isn't supposed to fail, you know! */
+    error_report(TEST_IO(ioctl(stream, PANDA_COMPLETION, &completion)));
+    return completion;
 }
 
 #endif

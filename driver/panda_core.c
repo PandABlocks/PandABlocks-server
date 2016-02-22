@@ -26,13 +26,12 @@ MODULE_VERSION("0");
  * subcomponents of this module. */
 struct panda_info {
     const char *name;
-    int (*init)(struct file_operations **fops);
     struct file_operations *fops;
 };
 static struct panda_info panda_info[] = {
-    { .name = "map",    .init = panda_map_init, },
-    { .name = "block",  .init = panda_block_init, },
-    { .name = "stream", .init = panda_stream_init, },
+    { .name = "map",    .fops = &panda_map_fops, },
+    { .name = "block",  .fops = &panda_block_fops, },
+    { .name = "stream", .fops = &panda_stream_fops, },
 };
 
 
@@ -70,10 +69,9 @@ static int panda_probe(struct platform_device *pdev)
 
     /* Pick up the register area and assigned IRQ from the device tree. */
     struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-    pcap->reg_base = res->start;
     pcap->length = resource_size(res);
-    pcap->base_addr = devm_ioremap_resource(&pdev->dev, res);
-    TEST_PTR(pcap->base_addr, rc, no_res, "Unable to map resource");
+    pcap->reg_base = devm_ioremap_resource(&pdev->dev, res);
+    TEST_PTR(pcap->reg_base, rc, no_res, "Unable to map resource");
 
     rc = platform_get_irq(pdev, 0);
     TEST_RC(rc, no_irq, "Unable to read irq");
@@ -134,17 +132,8 @@ static int __init panda_init(void)
 {
     printk(KERN_INFO "Loading PandA driver\n");
 
-    /* First initialise the three PandA subcomponents. */
-    int rc = 0;
-    for (int i = 0; rc == 0  &&  i < PANDA_MINORS; i ++)
-    {
-        struct panda_info *info = &panda_info[i];
-        rc = info->init(&info->fops);
-    }
-    TEST_RC(rc, no_panda, "Unable to initialise PandA");
-
     /* Allocate device number for this function. */
-    rc = alloc_chrdev_region(&panda_dev, 0, PANDA_MINORS, "panda");
+    int rc = alloc_chrdev_region(&panda_dev, 0, PANDA_MINORS, "panda");
     TEST_RC(rc, no_chrdev, "unable to allocate dev region");
 
     /* Publish devices in sysfs. */
@@ -161,7 +150,6 @@ no_platform:
 no_class:
     unregister_chrdev_region(panda_dev, PANDA_MINORS);
 no_chrdev:
-no_panda:
     platform_driver_unregister(&panda_driver);
 
     return rc;

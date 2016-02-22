@@ -39,7 +39,7 @@ static int panda_map_mmap(struct file *file, struct vm_area_struct *vma)
     /* Good advice and examples on using this function here:
      *  http://www.makelinux.net/ldd3/chp-15-sect-2
      * Also see drivers/char/mem.c in kernel sources for guidelines. */
-    unsigned long base_page = virt_to_phys(pcap->base_addr) >> PAGE_SHIFT;
+    unsigned long base_page = virt_to_phys(pcap->reg_base) >> PAGE_SHIFT;
     return io_remap_pfn_range(
         vma, vma->vm_start, base_page + vma->vm_pgoff, size,
         pgprot_noncached(vma->vm_page_prot));
@@ -80,17 +80,10 @@ static int panda_map_release(struct inode *inode, struct file *file)
 }
 
 
-static struct file_operations panda_map_fops = {
+struct file_operations panda_map_fops = {
     .owner = THIS_MODULE,
     .open = panda_map_open,
     .release = panda_map_release,
     .mmap = panda_map_mmap,
     .unlocked_ioctl = panda_map_ioctl,
 };
-
-
-int panda_map_init(struct file_operations **fops)
-{
-    *fops = &panda_map_fops;
-    return 0;
-}

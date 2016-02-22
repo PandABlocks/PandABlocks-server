@@ -115,6 +115,11 @@ void hw_close_table(struct hw_table *table);
  * communication with the hardware then the server might as well die. */
 size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end);
 
+/* This must be called after hw_read_streamed_data has returned a data_end
+ * status.  The hardware completion status is returned and the driver is enabled
+ * for further data capture. */
+uint32_t hw_read_streamed_completion(void);
+
 /* This function controls the arm/disarm state of data capture.  Data capture is
  * armed by writing true with this function, after which hw_read_streamed_data()
  * should start returning calls with *data_end set to false.  Data streaming is

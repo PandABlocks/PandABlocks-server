@@ -17,3 +17,7 @@ struct panda_block {
  * PANDA_BLOCK_CREATE ioctl to set the block order.  The physical address is
  * returned if successful. */
 #define PANDA_BLOCK_CREATE  _IOR('P', 1, struct panda_block)
+
+/* After the stream device has returned end of stream the completion code must
+ * be read before restarting. */
+#define PANDA_COMPLETION    _IOW('P', 2, uint32_t *)

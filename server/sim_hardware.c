@@ -181,6 +181,12 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 }
 
 
+uint32_t hw_read_streamed_completion(void)
+{
+    return 0;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Long table support. */
 
