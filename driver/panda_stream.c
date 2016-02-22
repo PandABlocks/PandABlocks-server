@@ -139,17 +139,26 @@ static inline int step_index(int ix)
 #define IRQ_STATUS_COMPLETE(status)     ((status) & 0x01)
 #define IRQ_STATUS_TIMEOUT(status)      ((status) & 0x20)
 #define IRQ_STATUS_FULL(status)         ((status) & 0x40)
-#define IRQ_STATUS_LENGTH(status)       ((status) >> 16)
+#define IRQ_STATUS_LENGTH(status)       (((status) >> 8) << 2)
 
 
 static void advance_isr_block(struct stream_open *open)
 {
+    struct panda_pcap *pcap = open->pcap;
+    struct device *dev = &pcap->pdev->dev;
+
     /* Prepare for next interrupt. */
     open->isr_block_index = step_index(open->isr_block_index);
     int next_ix = step_index(open->isr_block_index);
     struct block *block = &open->blocks[next_ix];
+
+    smp_rmb();  // Guards copy_to_user for free block.
     if (block->state == BLOCK_FREE)
+    {
+        dma_sync_single_for_device(
+            dev, block->dma, BLOCK_SIZE, DMA_FROM_DEVICE);
         assign_buffer(open, next_ix);
+    }
     else
         /* Whoops.  Next buffer isn't free. */
         printk(KERN_DEBUG "Data buffer overrun\n");
@@ -159,9 +168,11 @@ static void advance_isr_block(struct stream_open *open)
 static irqreturn_t stream_isr(int irq, void *dev_id)
 {
     struct stream_open *open = dev_id;
+    struct panda_pcap *pcap = open->pcap;
+    struct device *dev = &pcap->pdev->dev;
     void *reg_base = open->pcap->reg_base;
+
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
-    printk(KERN_INFO "IRQ received: %08x\n", status);
 
     open->completion = status;
     open->end_of_stream = IRQ_STATUS_COMPLETE(status);
@@ -169,6 +180,8 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     /* Update the block we've just completed. */
     struct block *block = &open->blocks[open->isr_block_index];
     block->length = IRQ_STATUS_LENGTH(status);
+    dma_sync_single_for_cpu(dev, block->dma, BLOCK_SIZE, DMA_FROM_DEVICE);
+    smp_wmb();  // Guards DMA transfer for block we've just read
     block->state = BLOCK_DATA;
 
     if (open->shutdown)
@@ -344,9 +357,9 @@ static ssize_t read_one_block(
     struct stream_open *open, char __user *buf, size_t count)
 {
     struct block *block = &open->blocks[open->read_block_index];
+    smp_rmb();  // Guards DMA transfer for new data block
     if (block->length > 0)
     {
-        smp_rmb();  // Guards DMA transfer for new data block
         size_t read_offset = open->read_offset;
         size_t copy_count = block->length - read_offset;
         if (copy_count > count)  copy_count = count;
@@ -380,6 +393,9 @@ static ssize_t panda_stream_read(
     struct file *file, char __user *buf, size_t count, loff_t *f_pos)
 {
     struct stream_open *open = file->private_data;
+
+    if (open->end_of_stream)
+        return 0;
 
     /* Wait for data to arrive in the current block or timeout. */
     int rc = wait_for_block(open);
