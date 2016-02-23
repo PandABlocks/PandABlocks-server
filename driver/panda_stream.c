@@ -63,7 +63,10 @@ module_param(block_timeout, int, S_IRUGO);
 enum block_state {
     BLOCK_FREE,                 // Not in use
     BLOCK_DMA,                  // Allocated to DMA
+    /* Note that these two states must be at the end in this order, as we check
+     * for data by testing for state >= BLOCK_DATA. */
     BLOCK_DATA,                 // Contains useful data.
+    BLOCK_EOS,                  // Block marks end of data stream
 };
 
 
@@ -173,24 +176,27 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     void *reg_base = open->pcap->reg_base;
 
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
-
+    bool end_of_stream = IRQ_STATUS_COMPLETE(status);
+    size_t length = IRQ_STATUS_LENGTH(status);
     open->completion = status;
-    open->end_of_stream = IRQ_STATUS_COMPLETE(status);
 
     /* Update the block we've just completed. */
     struct block *block = &open->blocks[open->isr_block_index];
-    block->length = IRQ_STATUS_LENGTH(status);
+    block->length = length;
     dma_sync_single_for_cpu(dev, block->dma, BLOCK_SIZE, DMA_FROM_DEVICE);
     smp_wmb();  // Guards DMA transfer for block we've just read
-    block->state = BLOCK_DATA;
+    block->state = end_of_stream ? BLOCK_EOS : BLOCK_DATA;
 
     if (open->shutdown)
     {
-        if (open->end_of_stream)
+        if (end_of_stream)
             complete(&open->isr_done);
     }
     else
         advance_isr_block(open);
+
+    printk(KERN_INFO "IRQ received: %08x\n", status);
+    printk(KERN_INFO "EOS = %d\n", end_of_stream);
 
     wake_up_interruptible(&open->wait_queue);
     return IRQ_HANDLED;
@@ -343,7 +349,7 @@ static int wait_for_block(struct stream_open *open)
 {
     struct block *block = &open->blocks[open->read_block_index];
     int rc = wait_event_interruptible_timeout(open->wait_queue,
-        block->state == BLOCK_DATA, HZ);
+        block->state >= BLOCK_DATA, HZ);
     if (rc == 0)
         /* Normal timeout.  Tell caller they can try again. */
         return -EAGAIN;
@@ -384,6 +390,8 @@ static struct block *advance_block(struct stream_open *open)
     open->read_offset = 0;
     open->read_block_index = step_index(open->read_block_index);
     smp_wmb();  // Guards copy_to_user for block we're freeing
+    if (block->state == BLOCK_EOS)
+        open->end_of_stream = true;
     block->state = BLOCK_FREE;
     return &open->blocks[open->read_block_index];
 }
@@ -407,7 +415,7 @@ static ssize_t panda_stream_read(
      * as far as buffering allows. */
     ssize_t copied = 0;
     struct block *block = &open->blocks[open->read_block_index];
-    while (count > 0  &&  block->state == BLOCK_DATA)
+    while (count > 0  &&  block->state >= BLOCK_DATA  &&  !open->end_of_stream)
     {
         ssize_t copy_count = read_one_block(open, buf, count);
         if (copy_count < 0)
@@ -444,7 +452,7 @@ static long stream_completion(
     struct stream_open *open, uint32_t __user *completion)
 {
     *completion = open->completion;
-    open->end_of_stream = true;
+    open->end_of_stream = false;
     return 0;
 }
 
