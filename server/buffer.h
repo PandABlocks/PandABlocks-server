@@ -37,9 +37,6 @@ bool read_buffer_status(
     struct capture_buffer *buffer,
     unsigned int *readers, unsigned int *active_readers);
 
-/* Resets the buffer to empty.  Any active readers will fail. */
-void reset_buffer(struct capture_buffer *buffer);
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Reading from the buffer */
@@ -52,7 +49,6 @@ enum reader_status {
     READER_STATUS_ALL_READ, // Valid buffer data
     READER_STATUS_CLOSED,   // Close called early while data still available
     READER_STATUS_OVERRUN,  // Input data overrun
-    READER_STATUS_RESET,    // Buffer forcibly reset
 };
 
 /* Creates a reader connected to the buffer. */

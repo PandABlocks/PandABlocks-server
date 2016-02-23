@@ -193,11 +193,7 @@ error__t disarm_capture(void)
 
 error__t reset_capture(void)
 {
-    /* For reset we just make a best effort.  This may silently do nothing if
-     * called at the wrong time.  Too bad. */
-    hw_write_arm(false);
-    reset_buffer(data_buffer);
-    return ERROR_OK;
+    return FAIL_("Not implemented");
 }
 
 
@@ -522,7 +518,6 @@ static bool send_data_completion(
         [READER_STATUS_ALL_READ] = "OK\n",
         [READER_STATUS_CLOSED]   = "ERR Early disconnect\n",
         [READER_STATUS_OVERRUN]  = "ERR Data overrun\n",
-        [READER_STATUS_RESET]    = "ERR Connection reset\n",
     };
     const char *message = completions[status];
     write_string(connection->file, message, strlen(message));
