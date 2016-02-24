@@ -268,7 +268,7 @@ static int stream = -1;
 size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 {
     ssize_t count = read(stream, buffer, length);
-    if (count == EAGAIN)
+    if (count < 0  &&  errno == EAGAIN)
     {
         /* Read timed out at hardware level (this is normal). */
         *data_end = false;
@@ -281,7 +281,7 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
         *data_end = true;
         return 0;
     }
-    else if (ERROR_REPORT(TEST_OK(count), "Error reading /dev/panda.stream"))
+    else if (error_report(TEST_IO(count)))
     {
         /* Well, that was unexpected.  Presume there's no more data. */
         *data_end = true;
@@ -295,7 +295,37 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
     }
 }
 
+
+void hw_write_arm_streamed_data(void)
+{
+    error_report(TEST_IO(ioctl(stream, PANDA_DMA_ARM)));
+}
+
+
+unsigned int hw_read_streamed_completion(void)
+{
+    uint32_t completion = 0;
+    error_report(TEST_IO(ioctl(stream, PANDA_COMPLETION, &completion)));
+    return completion;
+}
+
 #endif
+
+
+const char *hw_decode_completion(unsigned int completion)
+{
+    static const char *completion_strings[] = {
+        [PANDA_COMPLETION_OK]       = "Ok",
+        [PANDA_COMPLETION_DISARM]   = "Disarmed",
+        [PANDA_COMPLETION_FRAMING]  = "Framing error",
+        [PANDA_COMPLETION_DMA]      = "DMA data error",
+        [PANDA_COMPLETION_OVERRUN]  = "Driver data overrun",
+    };
+    const char *result =
+        completion < ARRAY_SIZE(completion_strings) ?
+        completion_strings[completion] : NULL;
+    return result ?: "Unexpected completion error";
+}
 
 
 void hw_write_arm(bool enable)

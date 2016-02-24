@@ -28,11 +28,16 @@ struct capture_buffer {
      * having to keep track of clients.  If the client and buffer capture_cycle
      * don't agree then the client has been reset, and the buffer_cycle is used
      * to check whether the client's buffer has been overwritten. */
+
     unsigned int capture_cycle; // Counts data capture cycles
     unsigned int buffer_cycle;  // Counts buffer cycles, for overrun detection
 
     bool shutdown;          // Set to true to force shutdown
-    bool active;            // True if data currently being captured
+    enum buffer_state {
+        STATE_IDLE,         // No data, no clients
+        STATE_ACTIVE,       // Taking data
+        STATE_CLEARING,     // Data capture complete, clients still taking data
+    } state;
     unsigned int reader_count;  // Number of connected readers
     unsigned int active_count;  // Number of connected active readers
 
@@ -48,15 +53,17 @@ struct capture_buffer {
 
 void start_write(struct capture_buffer *buffer)
 {
-    ASSERT_OK(!buffer->active);
+    ASSERT_OK(buffer->state == STATE_IDLE);
     ASSERT_OK(!buffer->active_count);
 
     LOCK(buffer->mutex);
     buffer->buffer_cycle = 0;
-    buffer->active = true;
+    buffer->active_count = buffer->reader_count;
+    buffer->state = STATE_ACTIVE;
     buffer->in_ptr = 0;
     buffer->lost_bytes = 0;
     memset(buffer->written, 0, buffer->block_count * sizeof(size_t));
+    BROADCAST(buffer->signal);
     UNLOCK(buffer->mutex);
 }
 
@@ -69,14 +76,14 @@ static void *get_buffer(struct capture_buffer *buffer, size_t ix)
 
 void *get_write_block(struct capture_buffer *buffer)
 {
-    ASSERT_OK(buffer->active);
+    ASSERT_OK(buffer->state == STATE_ACTIVE);
     return get_buffer(buffer, buffer->in_ptr);
 }
 
 
 void release_write_block(struct capture_buffer *buffer, size_t written)
 {
-    ASSERT_OK(buffer->active);
+    ASSERT_OK(buffer->state == STATE_ACTIVE);
     ASSERT_OK(written);
 
     LOCK(buffer->mutex);
@@ -100,42 +107,70 @@ void release_write_block(struct capture_buffer *buffer, size_t written)
 }
 
 
+/* Go idle and step on to the next capture cycle.  Can only be called when there
+ * are no active clients. */
+static void advance_capture(struct capture_buffer *buffer)
+{
+    ASSERT_OK(buffer->active_count == 0);
+    buffer->state = STATE_IDLE;
+    buffer->capture_cycle += 1;
+}
+
+
 void end_write(struct capture_buffer *buffer)
 {
-    ASSERT_OK(buffer->active);
-
+    ASSERT_OK(buffer->state == STATE_ACTIVE);
     LOCK(buffer->mutex);
-    buffer->active = false;
-    /* Only advance the capture count on a normal end when there are no more
-     * readers. */
-    if (buffer->active_count == 0)
-        buffer->capture_cycle += 1;
-    else
-        /* Let clients know there's something to deal with. */
+    /* If there are active readers we need to go into the clearing state, and
+     * let them know that we've read the end of the capture. */
+    if (buffer->active_count > 0)
+    {
+        buffer->state = STATE_CLEARING;
         BROADCAST(buffer->signal);
+    }
+    else
+        advance_capture(buffer);
     UNLOCK(buffer->mutex);
 }
 
 
-/* This is called when a reader disconnects, but ONLY if the capture_cycle
- * fields agree. */
-static void disconnect_client(struct capture_buffer *buffer)
+/* This is called when a reader completes a capture, either through normal
+ * closing or by premature destruction. */
+static void complete_capture(struct capture_buffer *buffer)
 {
+    ASSERT_OK(buffer->state != STATE_IDLE);
     buffer->active_count -= 1;
-    if (!buffer->active  &&  buffer->active_count == 0)
-        buffer->capture_cycle += 1;
+    if (buffer->active_count == 0  &&  buffer->state == STATE_CLEARING)
+        advance_capture(buffer);
 }
 
 
-void reset_buffer(struct capture_buffer *buffer)
+/* Adds a new reader.  Because of the way we do connection and state management,
+ * we need to treat this reader as active unless we're idle.  Returns the
+ * current capture cycle so the reader can get started right away. */
+static unsigned int add_reader(struct capture_buffer *buffer)
 {
     LOCK(buffer->mutex);
-    if (!buffer->active  &&  buffer->active_count > 0)
-    {
-        buffer->active_count = 0;
-        buffer->capture_cycle += 1;
-        BROADCAST(buffer->signal);
-    }
+    unsigned int cycle = buffer->capture_cycle;
+    buffer->reader_count += 1;
+    if (buffer->state != STATE_IDLE)
+        buffer->active_count += 1;
+    UNLOCK(buffer->mutex);
+    return cycle;
+}
+
+
+/* Removes a reader.  Again, state management is a trifle involved.  We pass the
+ * capture cycle of the disconnecting reader. */
+static void remove_reader(struct capture_buffer *buffer, unsigned int cycle)
+{
+    LOCK(buffer->mutex);
+    buffer->reader_count -= 1;
+    /* If we are nominally in a capture cycle, but we haven't actually started
+     * it, then we need to count ourself off.  That we haven't started is
+     * evident because close_reader() would have advanced our capture cycle. */
+    if (buffer->state != STATE_IDLE  &&  buffer->capture_cycle == cycle)
+        complete_capture(buffer);
     UNLOCK(buffer->mutex);
 }
 
@@ -154,11 +189,11 @@ bool read_buffer_status(
     unsigned int *readers, unsigned int *active_readers)
 {
     LOCK(buffer->mutex);
-    bool active = buffer->active;
+    enum buffer_state state = buffer->state;
     *readers = buffer->reader_count;
     *active_readers = buffer->active_count;
     UNLOCK(buffer->mutex);
-    return active;
+    return state != STATE_IDLE;
 }
 
 
@@ -168,7 +203,7 @@ bool read_buffer_status(
 
 struct reader_state {
     struct capture_buffer *buffer;      // Buffer we're reading from
-    unsigned int capture_cycle; // Checks whether we've been reset
+    unsigned int capture_cycle;
     unsigned int buffer_cycle;
     size_t out_ptr;             // Index of our current block
     enum reader_status status;  // Return code
@@ -178,23 +213,17 @@ struct reader_state {
 struct reader_state *create_reader(struct capture_buffer *buffer)
 {
     struct reader_state *reader = malloc(sizeof(struct reader_state));
-    LOCK(buffer->mutex);
     *reader = (struct reader_state) {
         .buffer = buffer,
-        .capture_cycle = buffer->capture_cycle,
+        .capture_cycle = add_reader(buffer),
     };
-    buffer->reader_count += 1;
-    UNLOCK(buffer->mutex);
     return reader;
 }
 
 
 void destroy_reader(struct reader_state *reader)
 {
-    struct capture_buffer *buffer = reader->buffer;
-    LOCK(buffer->mutex);
-    buffer->reader_count -= 1;
-    UNLOCK(buffer->mutex);
+    remove_reader(reader->buffer, reader->capture_cycle);
     free(reader);
 }
 
@@ -266,7 +295,8 @@ static bool wait_for_buffer_ready(
         if (buffer->shutdown)
             /* Shutdown forced. */
             return false;
-        if (buffer->active  &&  buffer->capture_cycle >= reader->capture_cycle)
+        if (buffer->state != STATE_IDLE  &&
+            buffer->capture_cycle == reader->capture_cycle)
             /* New capture cycle ready for us. */
             return true;
         if (!pwait_deadline(&buffer->mutex, &buffer->signal, &deadline))
@@ -287,14 +317,13 @@ bool open_reader(
     bool active = wait_for_buffer_ready(reader, timeout);
     if (active)
     {
-        /* Add ourself to the client count and prepare capture.. */
-        buffer->active_count += 1;
+        /* Start taking data. */
         reader->capture_cycle = buffer->capture_cycle;
         compute_reader_start(reader, read_margin, lost_bytes);
-        reader->status = READER_STATUS_CLOSED;
+        reader->status = READER_STATUS_CLOSED;  // Default, not true yet!
     }
-    UNLOCK(buffer->mutex);
 
+    UNLOCK(buffer->mutex);
     return active;
 }
 
@@ -303,9 +332,7 @@ enum reader_status close_reader(struct reader_state *reader)
 {
     struct capture_buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
-    /* If we can, count ourself off. */
-    if (reader->capture_cycle == buffer->capture_cycle)
-        disconnect_client(buffer);
+    complete_capture(buffer);
     UNLOCK(buffer->mutex);
 
     reader->capture_cycle += 1;
@@ -345,25 +372,15 @@ static bool check_block_status(
 
     struct capture_buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
-    unsigned int capture_cycle = buffer->capture_cycle;
     unsigned int buffer_cycle = buffer->buffer_cycle;
     size_t in_ptr = buffer->in_ptr;
     UNLOCK(buffer->mutex);
 
-    if (reader->capture_cycle != capture_cycle)
-    {
-        /* We're now in the wrong capture cycle, let's call this a reset. */
-        reader->status = READER_STATUS_RESET;
-        return false;
-    }
-    else if (!check_overrun_ok(
-        buffer_cycle, reader_buffer_cycle, in_ptr, out_ptr))
-    {
+    bool ok = check_overrun_ok(
+        buffer_cycle, reader_buffer_cycle, in_ptr, out_ptr);
+    if (!ok)
         reader->status = READER_STATUS_OVERRUN;
-        return false;
-    }
-    else
-        return true;
+    return ok;
 }
 
 
@@ -396,15 +413,18 @@ static void wait_for_block_ready(
     struct capture_buffer *buffer = reader->buffer;
     while (!buffer->shutdown)
     {
-        bool waiting =
+        ASSERT_OK(
             buffer->capture_cycle == reader->capture_cycle  &&
+            buffer->state != STATE_IDLE);
+
+        bool waiting =
             buffer->buffer_cycle == reader->buffer_cycle  &&
             buffer->in_ptr == reader->out_ptr;
         if (!waiting)
             /* No longer waiting, things have moved on. */
             return;
 
-        if (!buffer->active)
+        if (buffer->state == STATE_CLEARING)
         {
             /* Still in waiting condition but no longer active.  This is the
              * data completion state. */
@@ -466,7 +486,9 @@ const void *get_read_block(
             return get_buffer(buffer, out_ptr);
         }
         else
+{printf("Buffer overrun?\n");
             return NULL;
+}
     }
 }
 
