@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -94,7 +95,9 @@ static const struct captured_fields *captured_fields;
 static const struct data_capture *data_capture;
 
 /* Data completion code at end of experiment. */
-static uint32_t completion_code;
+static unsigned int completion_code;
+/* Sample count at end of experiment. */
+static uint64_t experiment_sample_count;
 
 
 /* Performs a complete experiment capture: start data buffer, process the data
@@ -103,7 +106,11 @@ static void capture_experiment(void)
 {
     start_write(data_buffer);
 
-uint64_t total = 0;
+    uint64_t total_bytes = 0;
+    experiment_sample_count = 0;
+    size_t sample_length = get_raw_sample_length(data_capture);
+    completion_code = 0;
+
     bool at_eof = false;
     while (data_thread_running  &&  !at_eof)
     {
@@ -114,10 +121,14 @@ uint64_t total = 0;
         while (data_thread_running  &&  count == 0  &&  !at_eof);
         if (count > 0)
             release_write_block(data_buffer, count);
-total += count;
+
+        total_bytes += count;
+        experiment_sample_count = total_bytes / sample_length;
     }
     completion_code = hw_read_streamed_completion();
-printf("completion_code: %08x, count: %llu\n", completion_code, total);
+printf("Capture complete: %"PRIu64" (%"PRIu64") %s (%u)\n",
+experiment_sample_count, total_bytes,
+hw_decode_completion(completion_code), completion_code);
 
     end_write(data_buffer);
 }

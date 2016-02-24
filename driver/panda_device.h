@@ -29,4 +29,4 @@ struct panda_block {
 #define PANDA_COMPLETION_DISARM     1
 #define PANDA_COMPLETION_FRAMING    2
 #define PANDA_COMPLETION_DMA        4
-#define PANDA_COMPLETION_UNDERRUN   8
+#define PANDA_COMPLETION_OVERRUN    8

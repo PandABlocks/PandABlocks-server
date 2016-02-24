@@ -302,7 +302,7 @@ void hw_write_arm_streamed_data(void)
 }
 
 
-uint32_t hw_read_streamed_completion(void)
+unsigned int hw_read_streamed_completion(void)
 {
     uint32_t completion = 0;
     error_report(TEST_IO(ioctl(stream, PANDA_COMPLETION, &completion)));
@@ -310,6 +310,22 @@ uint32_t hw_read_streamed_completion(void)
 }
 
 #endif
+
+
+const char *hw_decode_completion(unsigned int completion)
+{
+    static const char *completion_strings[] = {
+        [PANDA_COMPLETION_OK]       = "Ok",
+        [PANDA_COMPLETION_DISARM]   = "Disarmed",
+        [PANDA_COMPLETION_FRAMING]  = "Framing error",
+        [PANDA_COMPLETION_DMA]      = "DMA data error",
+        [PANDA_COMPLETION_OVERRUN]  = "Driver data overrun",
+    };
+    const char *result =
+        completion < ARRAY_SIZE(completion_strings) ?
+        completion_strings[completion] : NULL;
+    return result ?: "Unexpected completion error";
+}
 
 
 void hw_write_arm(bool enable)
