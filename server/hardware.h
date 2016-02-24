@@ -106,6 +106,9 @@ void hw_close_table(struct hw_table *table);
 /* The format of streamed data capture is determined by the configured capture
  * masks, set by hw_write_{bit,position}_capture() and internal format rules. */
 
+/* This function must be called before starting to read captured data. */
+void hw_write_arm_streamed_data(void);
+
 /* This function should be called repeatedly in a dedicated thread to consume
  * streamed data captured by the hardware.  The number of bytes read into buffer
  * are returned.  If a capture sequence is complete then *data_end is set to
@@ -114,6 +117,12 @@ void hw_close_table(struct hw_table *table);
  *     This function is not expected to fail, and if there is an IO error in
  * communication with the hardware then the server might as well die. */
 size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end);
+
+/* This returns the completion code after hw_read_streamed_data has returned
+ * data_end. */
+unsigned int hw_read_streamed_completion(void);
+/* Converts the completion code into a printable string. */
+const char *hw_decode_completion(unsigned int completion);
 
 /* This function controls the arm/disarm state of data capture.  Data capture is
  * armed by writing true with this function, after which hw_read_streamed_data()

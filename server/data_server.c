@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -46,10 +47,10 @@
 /* Connection and read block polling intervals.  These determine how long it
  * takes for a socket disconnect to be detected. */
 #define CONNECTION_POLL_SECS    0
-#define CONNECTION_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
+#define CONNECTION_POLL_NSECS   ((unsigned long) (0.2 * NSECS))  // 200 ms
 
 #define READ_BLOCK_POLL_SECS    0
-#define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
+#define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.2 * NSECS))  // 200 ms
 
 /* Allow this many data blocks between the reader and the writer on startup. */
 #define BUFFER_READ_MARGIN      2
@@ -93,12 +94,22 @@ static struct capture_buffer *data_buffer;
 static const struct captured_fields *captured_fields;
 static const struct data_capture *data_capture;
 
+/* Data completion code at end of experiment. */
+static unsigned int completion_code;
+/* Sample count at end of experiment. */
+static uint64_t experiment_sample_count;
+
 
 /* Performs a complete experiment capture: start data buffer, process the data
  * stream until hardware is complete, stop data buffer.. */
 static void capture_experiment(void)
 {
     start_write(data_buffer);
+
+    uint64_t total_bytes = 0;
+    experiment_sample_count = 0;
+    size_t sample_length = get_raw_sample_length(data_capture);
+    completion_code = 0;
 
     bool at_eof = false;
     while (data_thread_running  &&  !at_eof)
@@ -110,7 +121,14 @@ static void capture_experiment(void)
         while (data_thread_running  &&  count == 0  &&  !at_eof);
         if (count > 0)
             release_write_block(data_buffer, count);
+
+        total_bytes += count;
+        experiment_sample_count = total_bytes / sample_length;
     }
+    completion_code = hw_read_streamed_completion();
+printf("Capture complete: %"PRIu64" (%"PRIu64") %s (%u)\n",
+experiment_sample_count, total_bytes,
+hw_decode_completion(completion_code), completion_code);
 
     end_write(data_buffer);
 }
@@ -159,6 +177,7 @@ static error__t start_data_capture(void)
     error__t error = prepare_data_capture(captured_fields, &data_capture);
     if (!error)
     {
+        hw_write_arm_streamed_data();
         hw_write_arm(true);
         data_capture_enabled = true;
     }
@@ -189,11 +208,7 @@ error__t disarm_capture(void)
 
 error__t reset_capture(void)
 {
-    /* For reset we just make a best effort.  This may silently do nothing if
-     * called at the wrong time.  Too bad. */
-    hw_write_arm(false);
-    reset_buffer(data_buffer);
-    return ERROR_OK;
+    return FAIL_("Not implemented");
 }
 
 
@@ -518,7 +533,6 @@ static bool send_data_completion(
         [READER_STATUS_ALL_READ] = "OK\n",
         [READER_STATUS_CLOSED]   = "ERR Early disconnect\n",
         [READER_STATUS_OVERRUN]  = "ERR Data overrun\n",
-        [READER_STATUS_RESET]    = "ERR Connection reset\n",
     };
     const char *message = completions[status];
     write_string(connection->file, message, strlen(message));
