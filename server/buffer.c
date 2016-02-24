@@ -322,8 +322,8 @@ bool open_reader(
         compute_reader_start(reader, read_margin, lost_bytes);
         reader->status = READER_STATUS_CLOSED;  // Default, not true yet!
     }
-    UNLOCK(buffer->mutex);
 
+    UNLOCK(buffer->mutex);
     return active;
 }
 
@@ -486,7 +486,9 @@ const void *get_read_block(
             return get_buffer(buffer, out_ptr);
         }
         else
+{printf("Buffer overrun?\n");
             return NULL;
+}
     }
 }
 

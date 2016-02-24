@@ -181,10 +181,8 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 }
 
 
-uint32_t hw_read_streamed_completion(void)
-{
-    return 0;
-}
+void hw_write_arm_streamed_data(void) { }
+uint32_t hw_read_streamed_completion(void) { return 0; }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

@@ -281,7 +281,7 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
         *data_end = true;
         return 0;
     }
-    else if (error_report(TEST_OK(count)))
+    else if (error_report(TEST_IO(count)))
     {
         /* Well, that was unexpected.  Presume there's no more data. */
         *data_end = true;
@@ -296,10 +296,15 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 }
 
 
+void hw_write_arm_streamed_data(void)
+{
+    error_report(TEST_IO(ioctl(stream, PANDA_DMA_ARM)));
+}
+
+
 uint32_t hw_read_streamed_completion(void)
 {
     uint32_t completion = 0;
-    /* This really isn't supposed to fail, you know! */
     error_report(TEST_IO(ioctl(stream, PANDA_COMPLETION, &completion)));
     return completion;
 }

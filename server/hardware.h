@@ -106,6 +106,9 @@ void hw_close_table(struct hw_table *table);
 /* The format of streamed data capture is determined by the configured capture
  * masks, set by hw_write_{bit,position}_capture() and internal format rules. */
 
+/* This function must be called before starting to read captured data. */
+void hw_write_arm_streamed_data(void);
+
 /* This function should be called repeatedly in a dedicated thread to consume
  * streamed data captured by the hardware.  The number of bytes read into buffer
  * are returned.  If a capture sequence is complete then *data_end is set to

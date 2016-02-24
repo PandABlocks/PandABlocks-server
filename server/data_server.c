@@ -46,10 +46,10 @@
 /* Connection and read block polling intervals.  These determine how long it
  * takes for a socket disconnect to be detected. */
 #define CONNECTION_POLL_SECS    0
-#define CONNECTION_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
+#define CONNECTION_POLL_NSECS   ((unsigned long) (0.2 * NSECS))  // 200 ms
 
 #define READ_BLOCK_POLL_SECS    0
-#define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
+#define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.2 * NSECS))  // 200 ms
 
 /* Allow this many data blocks between the reader and the writer on startup. */
 #define BUFFER_READ_MARGIN      2
@@ -103,6 +103,7 @@ static void capture_experiment(void)
 {
     start_write(data_buffer);
 
+uint64_t total = 0;
     bool at_eof = false;
     while (data_thread_running  &&  !at_eof)
     {
@@ -113,8 +114,10 @@ static void capture_experiment(void)
         while (data_thread_running  &&  count == 0  &&  !at_eof);
         if (count > 0)
             release_write_block(data_buffer, count);
+total += count;
     }
     completion_code = hw_read_streamed_completion();
+printf("completion_code: %08x, count: %llu\n", completion_code, total);
 
     end_write(data_buffer);
 }
@@ -163,6 +166,7 @@ static error__t start_data_capture(void)
     error__t error = prepare_data_capture(captured_fields, &data_capture);
     if (!error)
     {
+        hw_write_arm_streamed_data();
         hw_write_arm(true);
         data_capture_enabled = true;
     }

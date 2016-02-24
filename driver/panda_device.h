@@ -18,6 +18,9 @@ struct panda_block {
  * returned if successful. */
 #define PANDA_BLOCK_CREATE  _IOR('P', 1, struct panda_block)
 
+/* The DMA engine must be armed before each experiment. */
+#define PANDA_DMA_ARM       _IO('P', 2)
+
 /* After the stream device has returned end of stream the completion code must
  * be read before restarting. */
-#define PANDA_COMPLETION    _IOW('P', 2, uint32_t *)
+#define PANDA_COMPLETION    _IOW('P', 3, uint32_t *)

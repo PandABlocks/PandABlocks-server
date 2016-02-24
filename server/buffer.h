@@ -20,7 +20,8 @@ void shutdown_buffer(struct capture_buffer *buffer);
 /* Initiates a write cycle. */
 void start_write(struct capture_buffer *buffer);
 
-/* Completes a write cycle. */
+/* Completes a write cycle.  The buffer will remain busy until all readers have
+ * completed or disconnected. */
 void end_write(struct capture_buffer *buffer);
 
 /* Reserves the next slot in the buffer for writing. An entire contiguous
@@ -30,7 +31,6 @@ void *get_write_block(struct capture_buffer *buffer);
 
 /* Releases the write block, specifies number of bytes written. */
 void release_write_block(struct capture_buffer *buffer, size_t written);
-
 
 /* Returns true if buffer is taking data, and count of active clients. */
 bool read_buffer_status(

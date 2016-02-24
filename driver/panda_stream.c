@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
+#include <linux/delay.h>
 #include <asm/atomic.h>
 
 #include "error.h"
@@ -63,10 +64,7 @@ module_param(block_timeout, int, S_IRUGO);
 enum block_state {
     BLOCK_FREE,                 // Not in use
     BLOCK_DMA,                  // Allocated to DMA
-    /* Note that these two states must be at the end in this order, as we check
-     * for data by testing for state >= BLOCK_DATA. */
     BLOCK_DATA,                 // Contains useful data.
-    BLOCK_EOS,                  // Block marks end of data stream
 };
 
 
@@ -75,12 +73,9 @@ struct stream_open {
 
     /* Communication with interrupt routine. */
     wait_queue_head_t wait_queue;   // Used by read to wait for data ready
-    struct completion isr_done; // Used on close to sync with final interrupt
     int isr_block_index;        // Block currently being written by hardware
-
-    bool shutdown;              // Set when shutdown requested
-    bool end_of_stream;         // Set by ISR on completion
-    uint32_t completion;        // Copy of interrupt status register
+    bool stream_active;         // If not set, any interrupts are unexpected
+    uint32_t completion;        // Copy of final interrupt status register
 
     /* Reader status. */
     int read_block_index;       // Block being read
@@ -125,37 +120,36 @@ static inline int step_index(int ix)
  * timeout, or because data transfer is (currently) complete.
  *    The interrupt status register records the following information:
  *
- *   31           16     6 5 4 3 2 1 0
- *  +---------------+---+-+-+-+-+-+-+-+
- *  | sample count  | 0 | | | | | | | |
- *  +---------------+---+-+-+-+-+-+-+-+
- *                       | | | | | | +-- Transfer complete, no more interrupts
- *                       | | | | | +---- Experiment disarmed
- *                       | | | | +------ Capture framing error
- *                       | | | +-------- DMA error
- *                       | | +---------- DMA address not written in time
- *                       | +------------ Timeout
- *                       +-------------- Block complete
+ *   31              8 7 6 5 4 3 2 1 0
+ *  +-----------------+-+-+-+-+-+-+-+-+
+ *  | sample count    | | | | | | | | |
+ *  +-----------------+-+-+-+-+-+-+-+-+
+ *                     | | | | | | | +-- Transfer complete, no more interrupts
+ *                     | | | | | | +---- Experiment disarmed
+ *                     | | | | | +------ Capture framing error
+ *                     | | | | +-------- DMA error
+ *                     | | | +---------- DMA address not written in time
+ *                     | | +------------ Timeout
+ *                     | +-------------- Block complete
+ *                     +---------------- Ongoing DMA (used to validate unload)
  * Bits 4:1 are used to record the completion reason (when bit 0 is set).
  * Otherwise one of bits 0, 5, 6 is set.  The sample count is in 4-byte
  * transfers. */
-#define IRQ_STATUS_COMPLETE(status)     ((status) & 0x01)
-#define IRQ_STATUS_TIMEOUT(status)      ((status) & 0x20)
-#define IRQ_STATUS_FULL(status)         ((status) & 0x40)
-#define IRQ_STATUS_LENGTH(status)       (((status) >> 8) << 2)
+#define IRQ_STATUS_COMPLETE(status)     ((bool) ((status) & 0x01))
+#define IRQ_STATUS_LENGTH(status)       ((size_t) (((status) >> 8) << 2))
+#define IRQ_DMA_ERROR(status)           ((bool) ((status) & 0x18))
+#define IRQ_STATUS_DMA_ACTIVE(status)   ((bool) ((status) & 0x80))
 
 
 static void advance_isr_block(struct stream_open *open)
 {
-    struct panda_pcap *pcap = open->pcap;
-    struct device *dev = &pcap->pdev->dev;
+    struct device *dev = &open->pcap->pdev->dev;
 
     /* Prepare for next interrupt. */
     open->isr_block_index = step_index(open->isr_block_index);
     int next_ix = step_index(open->isr_block_index);
     struct block *block = &open->blocks[next_ix];
 
-    smp_rmb();  // Guards copy_to_user for free block.
     if (block->state == BLOCK_FREE)
     {
         dma_sync_single_for_device(
@@ -168,37 +162,41 @@ static void advance_isr_block(struct stream_open *open)
 }
 
 
+/* Hand block just read over to userspace. */
+static void receive_isr_block(
+    struct stream_open *open, struct block *block, size_t length)
+{
+    struct device *dev = &open->pcap->pdev->dev;
+    block->length = length;
+    dma_sync_single_for_cpu(dev, block->dma, BLOCK_SIZE, DMA_FROM_DEVICE);
+
+    smp_wmb();
+    block->state = BLOCK_DATA;
+    wake_up_interruptible(&open->wait_queue);
+}
+
+
 static irqreturn_t stream_isr(int irq, void *dev_id)
 {
     struct stream_open *open = dev_id;
-    struct panda_pcap *pcap = open->pcap;
-    struct device *dev = &pcap->pdev->dev;
     void *reg_base = open->pcap->reg_base;
 
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
-    bool end_of_stream = IRQ_STATUS_COMPLETE(status);
-    size_t length = IRQ_STATUS_LENGTH(status);
-    open->completion = status;
+    printk(KERN_INFO "ISR: %08x\n", status);
 
-    /* Update the block we've just completed. */
-    struct block *block = &open->blocks[open->isr_block_index];
-    block->length = length;
-    dma_sync_single_for_cpu(dev, block->dma, BLOCK_SIZE, DMA_FROM_DEVICE);
-    smp_wmb();  // Guards DMA transfer for block we've just read
-    block->state = end_of_stream ? BLOCK_EOS : BLOCK_DATA;
-
-    if (open->shutdown)
+    smp_rmb();
+    if (open->stream_active)
     {
-        if (end_of_stream)
-            complete(&open->isr_done);
+        struct block *block = &open->blocks[open->isr_block_index];
+        open->stream_active = !IRQ_STATUS_COMPLETE(status);
+        if (open->stream_active)
+            advance_isr_block(open);
+        else
+            open->completion = status;
+        receive_isr_block(open, block, IRQ_STATUS_LENGTH(status));
     }
     else
-        advance_isr_block(open);
-
-    printk(KERN_INFO "IRQ received: %08x\n", status);
-    printk(KERN_INFO "EOS = %d\n", end_of_stream);
-
-    wake_up_interruptible(&open->wait_queue);
+        printk(KERN_ERR "Panda: Unexpected interrupt %08x\n", status);
     return IRQ_HANDLED;
 }
 
@@ -261,8 +259,24 @@ static void free_blocks(struct stream_open *open)
 static void start_hardware(struct stream_open *open)
 {
     void *reg_base = open->pcap->reg_base;
+
+    /* Force the DMA engine into a safe known state. */
+    writel(0, reg_base + PCAP_DMA_RESET);
     writel(block_timeout, reg_base + PCAP_TIMEOUT);
     writel(BUF_BLOCK_SIZE, reg_base + PCAP_BLOCK_SIZE);
+
+    /* Initialise both sides of the data stream. */
+    for (unsigned int i = 0; i < block_count; i ++)
+        open->blocks[i].state = BLOCK_FREE;
+    open->isr_block_index = 0;
+    open->read_block_index = 0;
+    open->read_offset = 0;
+    /* After this point we can allow interrupts, they can potentially start as
+     * soon as a DMA buffer is assigned. */
+    smp_wmb();
+    open->stream_active = true;
+
+    /* Assign the first pair of DMA buffers, off we go. */
     assign_buffer(open, 0);
     writel(1, reg_base + PCAP_DMA_START);
     assign_buffer(open, 1);
@@ -271,16 +285,12 @@ static void start_hardware(struct stream_open *open)
 
 static int panda_stream_open(struct inode *inode, struct file *file)
 {
-printk(KERN_INFO "Opening stream: %u\n", BUF_BLOCK_SIZE);
     struct panda_pcap *pcap =
         container_of(inode->i_cdev, struct panda_pcap, cdev);
 
     /* Only permit one user. */
     if (!atomic_add_unless(&device_open, 1, 1))
         return -EBUSY;
-
-    /* Stop the hardware, just in case it's still going. */
-    writel(0, pcap->reg_base + PCAP_DMA_RESET);
 
     int rc = 0;
     struct stream_open *open = kmalloc(
@@ -294,7 +304,6 @@ printk(KERN_INFO "Opening stream: %u\n", BUF_BLOCK_SIZE);
 
     /* Initialise the ISR and read fields. */
     init_waitqueue_head(&open->wait_queue);
-    init_completion(&open->isr_done);
 
     rc = allocate_blocks(open);
     if (rc) goto no_blocks;
@@ -304,8 +313,6 @@ printk(KERN_INFO "Opening stream: %u\n", BUF_BLOCK_SIZE);
         &pcap->pdev->dev, pcap->irq, stream_isr, 0, pcap->pdev->name, open);
     TEST_RC(rc, no_irq, "Unable to request irq");
 
-    /* Start the hardware going. */
-    start_hardware(open);
     return 0;
 
 no_irq:
@@ -319,23 +326,26 @@ no_open:
 
 static int panda_stream_release(struct inode *inode, struct file *file)
 {
-printk(KERN_INFO "Closing stream\n");
     struct stream_open *open = file->private_data;
-    struct panda_pcap *pcap = open->pcap;
-    struct device *dev = &pcap->pdev->dev;
 
-    /* Ensure we shutdown. */
-    open->shutdown = true;      // Really want a reset ISR status instead
-    writel(0, pcap->reg_base + PCAP_DMA_RESET);
-    if (wait_for_completion_timeout(&open->isr_done, HZ) == 0)
-        /* Whoops.  If this happens we're in trouble, because we don't know what
-         * blocks are being written to. */
-        printk(KERN_EMERG "PandA interrupt routine did not complete\n");
+    /* Make sure the hardware is inactive.  Reset the DMA engine and wait a few
+     * microseconds for any writes in transit to complete.  Finally we can do a
+     * sanity check. */
+    void *reg_base = open->pcap->reg_base;
+    writel(0, reg_base + PCAP_DMA_RESET);
+    udelay(10);                 // Hard to know just *how* long!
+    uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
+    if (IRQ_STATUS_DMA_ACTIVE(status))
+        printk(KERN_EMERG "PandA DMA still apparently active: %08x\n", status);
 
-    devm_free_irq(dev, pcap->irq, open);
+    /* All clear, release everything. */
+    struct device *dev = &open->pcap->pdev->dev;
+    unsigned int irq = open->pcap->irq;
+    devm_free_irq(dev, irq, open);
     free_blocks(open);
     kfree(open);
     atomic_dec(&device_open);
+
     return 0;
 }
 
@@ -344,12 +354,13 @@ printk(KERN_INFO "Closing stream\n");
 /* Reading. */
 
 
-/* Blocks caller until the current block becomes ready. */
+/* Blocks caller until the current block becomes ready, or failing that, until
+ * the stream becomes inactive. */
 static int wait_for_block(struct stream_open *open)
 {
     struct block *block = &open->blocks[open->read_block_index];
     int rc = wait_event_interruptible_timeout(open->wait_queue,
-        block->state >= BLOCK_DATA, HZ);
+        block->state == BLOCK_DATA  ||  !open->stream_active, HZ);
     if (rc == 0)
         /* Normal timeout.  Tell caller they can try again. */
         return -EAGAIN;
@@ -390,8 +401,6 @@ static struct block *advance_block(struct stream_open *open)
     open->read_offset = 0;
     open->read_block_index = step_index(open->read_block_index);
     smp_wmb();  // Guards copy_to_user for block we're freeing
-    if (block->state == BLOCK_EOS)
-        open->end_of_stream = true;
     block->state = BLOCK_FREE;
     return &open->blocks[open->read_block_index];
 }
@@ -401,9 +410,6 @@ static ssize_t panda_stream_read(
     struct file *file, char __user *buf, size_t count, loff_t *f_pos)
 {
     struct stream_open *open = file->private_data;
-
-    if (open->end_of_stream)
-        return 0;
 
     /* Wait for data to arrive in the current block or timeout. */
     int rc = wait_for_block(open);
@@ -415,7 +421,7 @@ static ssize_t panda_stream_read(
      * as far as buffering allows. */
     ssize_t copied = 0;
     struct block *block = &open->blocks[open->read_block_index];
-    while (count > 0  &&  block->state >= BLOCK_DATA  &&  !open->end_of_stream)
+    while (count > 0  &&  block->state == BLOCK_DATA)
     {
         ssize_t copy_count = read_one_block(open, buf, count);
         if (copy_count < 0)
@@ -437,7 +443,7 @@ static ssize_t panda_stream_read(
      * normal states. */
     if (copied > 0)
         return copied;              // Normal data flow
-    else if (open->end_of_stream)
+    else if (!open->stream_active)
         return 0;                   // End of data stream
     else
         return -EAGAIN;             // No data yet, try again
@@ -448,12 +454,18 @@ static ssize_t panda_stream_read(
 /* Completion ioctl. */
 
 
-static long stream_completion(
+static void arm_stream(struct stream_open *open)
+{
+    printk(KERN_INFO "Arming stream\n");
+    /* Start the hardware going. */
+    start_hardware(open);
+}
+
+
+static void stream_completion(
     struct stream_open *open, uint32_t __user *completion)
 {
     *completion = open->completion;
-    open->end_of_stream = false;
-    return 0;
 }
 
 
@@ -463,8 +475,12 @@ static long panda_stream_ioctl(
     struct stream_open *open = file->private_data;
     switch (cmd)
     {
+        case PANDA_DMA_ARM:
+            arm_stream(open);
+            return 0;
         case PANDA_COMPLETION:
-            return stream_completion(open, (void __user *) arg);
+            stream_completion(open, (void __user *) arg);
+            return 0;
         default:
             return -EINVAL;
     }
