@@ -9,7 +9,7 @@ struct panda_pcap {
     struct platform_device *pdev;   // Platform device
     struct cdev cdev;               // Associated character device
 
-    void __iomem *reg_base;        // Register area mapped into kernel memory
+    void __iomem *reg_base;         // Register area mapped into kernel memory
     unsigned int length;            // Length of register area
 
     unsigned int irq;

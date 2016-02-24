@@ -24,3 +24,9 @@ struct panda_block {
 /* After the stream device has returned end of stream the completion code must
  * be read before restarting. */
 #define PANDA_COMPLETION    _IOW('P', 3, uint32_t *)
+/* One of the following completions can be expected: */
+#define PANDA_COMPLETION_OK         0
+#define PANDA_COMPLETION_DISARM     1
+#define PANDA_COMPLETION_FRAMING    2
+#define PANDA_COMPLETION_DMA        4
+#define PANDA_COMPLETION_UNDERRUN   8

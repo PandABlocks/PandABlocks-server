@@ -132,13 +132,14 @@ static inline int step_index(int ix)
  *                     | | +------------ Timeout
  *                     | +-------------- Block complete
  *                     +---------------- Ongoing DMA (used to validate unload)
- * Bits 4:1 are used to record the completion reason (when bit 0 is set).
- * Otherwise one of bits 0, 5, 6 is set.  The sample count is in 4-byte
- * transfers. */
-#define IRQ_STATUS_COMPLETE(status)     ((bool) ((status) & 0x01))
+ * Bit 1 records whether further interrupts are to be expected.  If this bit is
+ * set then one of bits 4:1 is set to record the completion reason, unless the
+ * experiment completed normally, in which case they're all set to zero.  The
+ * sample count is in 4-byte transfers. */
+#define IRQ_STATUS_DONE(status)         ((bool) ((status) & 0x01))
 #define IRQ_STATUS_LENGTH(status)       ((size_t) (((status) >> 8) << 2))
-#define IRQ_DMA_ERROR(status)           ((bool) ((status) & 0x18))
 #define IRQ_STATUS_DMA_ACTIVE(status)   ((bool) ((status) & 0x80))
+#define IRQ_STATUS_COMPLETION(status)   ((size_t) (((status) >> 1) & 0x0F))
 
 
 static void advance_isr_block(struct stream_open *open)
@@ -153,7 +154,7 @@ static void advance_isr_block(struct stream_open *open)
     if (block->state == BLOCK_FREE)
     {
         dma_sync_single_for_device(
-            dev, block->dma, BLOCK_SIZE, DMA_FROM_DEVICE);
+            dev, block->dma, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
         assign_buffer(open, next_ix);
     }
     else
@@ -168,7 +169,7 @@ static void receive_isr_block(
 {
     struct device *dev = &open->pcap->pdev->dev;
     block->length = length;
-    dma_sync_single_for_cpu(dev, block->dma, BLOCK_SIZE, DMA_FROM_DEVICE);
+    dma_sync_single_for_cpu(dev, block->dma, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
 
     smp_wmb();
     block->state = BLOCK_DATA;
@@ -182,17 +183,16 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     void *reg_base = open->pcap->reg_base;
 
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
-    printk(KERN_INFO "ISR: %08x\n", status);
 
     smp_rmb();
     if (open->stream_active)
     {
         struct block *block = &open->blocks[open->isr_block_index];
-        open->stream_active = !IRQ_STATUS_COMPLETE(status);
+        open->stream_active = !IRQ_STATUS_DONE(status);
         if (open->stream_active)
             advance_isr_block(open);
         else
-            open->completion = status;
+            open->completion = IRQ_STATUS_COMPLETION(status);
         receive_isr_block(open, block, IRQ_STATUS_LENGTH(status));
     }
     else
@@ -333,8 +333,10 @@ static int panda_stream_release(struct inode *inode, struct file *file)
      * sanity check. */
     void *reg_base = open->pcap->reg_base;
     writel(0, reg_base + PCAP_DMA_RESET);
-    udelay(10);                 // Hard to know just *how* long!
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
+    if (IRQ_STATUS_DMA_ACTIVE(status))
+        udelay(10);                 // Hard to know just *how* long!
+    status = readl(reg_base + PCAP_IRQ_STATUS);
     if (IRQ_STATUS_DMA_ACTIVE(status))
         printk(KERN_EMERG "PandA DMA still apparently active: %08x\n", status);
 
@@ -456,7 +458,6 @@ static ssize_t panda_stream_read(
 
 static void arm_stream(struct stream_open *open)
 {
-    printk(KERN_INFO "Arming stream\n");
     /* Start the hardware going. */
     start_hardware(open);
 }
