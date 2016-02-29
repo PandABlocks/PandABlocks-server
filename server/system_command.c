@@ -260,22 +260,22 @@ static error__t get_enums(const char *command, struct connection_result *result)
  * *PCAP.DISARM=
  * *PCAP.RESET=
  * *PCAP.STATUS?
- * *PCAP.WAITING?
+ * *PCAP.CAPTURED?
+ * *PCAP.COMPLETION?
  *
  * Manages and interrogates capture interface. */
 
-static error__t lookup_pcap_put_action(
-    const char *name, error__t (**action)(void))
+static error__t lookup_pcap_put_action(const char *name)
 {
     return
         IF_ELSE(strcmp(name, "ARM") == 0,
-            DO(*action = arm_capture),
+            arm_capture(),
         //else
         IF_ELSE(strcmp(name, "DISARM") == 0,
-            DO(*action = disarm_capture),
+            disarm_capture(),
         //else
         IF_ELSE(strcmp(name, "RESET") == 0,
-            DO(*action = reset_capture),
+            reset_capture(),
         //else
             FAIL_("Invalid *PCAP field"))));
 }
@@ -285,37 +285,37 @@ static error__t put_pcap(
     const char *command, const char *value)
 {
     char action_name[MAX_NAME_LENGTH];
-    error__t (*action)(void) = NULL;
     return
         parse_char(&command, '.')  ?:
         parse_name(&command, action_name, sizeof(action_name))  ?:
         parse_eos(&value)  ?:
 
-        lookup_pcap_put_action(action_name, &action)  ?:
-        action();
+        lookup_pcap_put_action(action_name);
 }
 
 
 static error__t lookup_pcap_get_action(
-    const char *name, error__t (**action)(struct connection_result *))
+    const char *name, struct connection_result *result)
 {
     return
         IF_ELSE(strcmp(name, "STATUS") == 0,
-            DO(*action = capture_status),
+            get_capture_status(result),
+        IF_ELSE(strcmp(name, "CAPTURED") == 0,
+            get_capture_count(result),
+        IF_ELSE(strcmp(name, "COMPLETION") == 0,
+            get_capture_completion(result),
         //else
-            FAIL_("Invalid *PCAP field"));
+            FAIL_("Invalid *PCAP field"))));
 }
 
 static error__t get_pcap(const char *command, struct connection_result *result)
 {
     char action_name[MAX_NAME_LENGTH];
-    error__t (*action)(struct connection_result *) = NULL;
     return
         parse_char(&command, '.')  ?:
         parse_name(&command, action_name, sizeof(action_name))  ?:
 
-        lookup_pcap_get_action(action_name, &action)  ?:
-        action(result);
+        lookup_pcap_get_action(action_name, result);
 }
 
 

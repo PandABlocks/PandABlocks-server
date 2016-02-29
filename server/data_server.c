@@ -126,11 +126,10 @@ static void capture_experiment(void)
         experiment_sample_count = total_bytes / sample_length;
     }
     completion_code = hw_read_streamed_completion();
-printf("Capture complete: %"PRIu64" (%"PRIu64") %s (%u)\n",
-experiment_sample_count, total_bytes,
-hw_decode_completion(completion_code), completion_code);
 
     end_write(data_buffer);
+    log_message("Captured %"PRIu64" samples: %s",
+        experiment_sample_count, hw_decode_completion(completion_code));
 }
 
 
@@ -212,12 +211,26 @@ error__t reset_capture(void)
 }
 
 
-error__t capture_status(struct connection_result *result)
+error__t get_capture_status(struct connection_result *result)
 {
     unsigned int readers, active;
     bool status = read_buffer_status(data_buffer, &readers, &active);
     return format_one_result(
         result, "%s %u %u", status ? "Busy" : "Idle", readers, active);
+}
+
+
+error__t get_capture_count(struct connection_result *result)
+{
+    return format_one_result(result, "%"PRIu64, experiment_sample_count);
+}
+
+
+error__t get_capture_completion(struct connection_result *result)
+{
+    return WITH_LOCK(data_thread_mutex,
+        format_one_result(result, "%s", data_capture_enabled ? "Busy" :
+            hw_decode_completion(completion_code)));
 }
 
 
@@ -424,6 +437,11 @@ static bool write_block_base64(
 static bool send_output_buffer(
     struct data_capture_state *state, unsigned int samples)
 {
+    /* Check for buffer overrun while we were processing the block -- if so,
+     * fail immediately. */
+    if (!check_read_block(state->connection->reader))
+        return false;
+
     if (state->connection->options.data_format == DATA_FORMAT_FRAMED)
     {
         /* Update the first four bytes of the buffer with a header followed by a
@@ -452,7 +470,8 @@ static bool send_output_buffer(
 
 
 static bool process_capture_block(
-    struct data_capture_state *state, const void *buffer, size_t length)
+    struct data_capture_state *state, const void *buffer, size_t length,
+    uint64_t *sent_samples)
 {
     /* Ensure output buffer is ready for a fresh transmission. */
     prepare_output_buffer(state);
@@ -474,6 +493,7 @@ static bool process_capture_block(
 
             /* In case there's more to come, reinitialise the output. */
             prepare_output_buffer(state);
+            *sent_samples += samples;
             samples = 0;
         }
     } while (length >= state->raw_sample_length);
@@ -487,7 +507,8 @@ static bool process_capture_block(
 /* Sends the data stream until end of stream or there's a problem with the
  * client connection.  Returns false if there's a client connection problem. */
 static bool send_data_stream(
-    struct data_connection *connection, size_t skip_bytes)
+    struct data_connection *connection, size_t skip_bytes,
+    uint64_t *sent_samples)
 {
     struct data_capture_state state = {
         .connection = connection,
@@ -515,7 +536,7 @@ static bool send_data_stream(
         }
 
         if (in_length > 0)
-            if (!process_capture_block(&state, buffer, in_length))
+            if (!process_capture_block(&state, buffer, in_length, sent_samples))
                 break;
         if (!flush_out_buf(connection->file))
             break;
@@ -525,17 +546,21 @@ static bool send_data_stream(
 
 
 static bool send_data_completion(
-    struct data_connection *connection, enum reader_status status)
+    struct data_connection *connection,
+    uint64_t sent_samples, uint64_t lost_samples,
+    enum reader_status status, unsigned int completion)
 {
     /* This list of completion strings must match the definition of the
      * reader_status enumeration in buffer.h. */
     static const char *completions[] = {
-        [READER_STATUS_ALL_READ] = "OK\n",
-        [READER_STATUS_CLOSED]   = "ERR Early disconnect\n",
-        [READER_STATUS_OVERRUN]  = "ERR Data overrun\n",
+        [READER_STATUS_CLOSED]   = "Early disconnect",
+        [READER_STATUS_OVERRUN]  = "Data overrun",
     };
     const char *message = completions[status];
-    write_string(connection->file, message, strlen(message));
+    if (!status)
+        message = hw_decode_completion(completion);
+    write_formatted_string(connection->file,
+        "END %"PRIu64" (+%"PRIu64") %s\n", sent_samples, lost_samples, message);
     return flush_out_buf(connection->file);
 }
 
@@ -563,12 +588,19 @@ error__t process_data_socket(int scon)
                 ok = send_data_header(
                     captured_fields, data_capture,
                     &connection.options, connection.file, lost_samples);
-            if (ok)
-                ok = send_data_stream(&connection, skip_bytes);
 
-            enum reader_status status = close_reader(connection.reader);
-            if (ok  &&  !connection.options.omit_status)
-                ok = send_data_completion(&connection, status);
+            if (ok)
+            {
+                uint64_t sent_samples = 0;
+                ok = send_data_stream(&connection, skip_bytes, &sent_samples);
+
+                unsigned int completion = completion_code;
+                enum reader_status status = close_reader(connection.reader);
+                if (!connection.options.omit_status)
+                    ok = send_data_completion(
+                        &connection, sent_samples, lost_samples,
+                        status, completion)  &&  ok;
+            }
 
             if (connection.options.one_shot)
                 break;

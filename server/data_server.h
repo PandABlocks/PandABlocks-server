@@ -29,4 +29,7 @@ void terminate_data_server(void);
 error__t arm_capture(void);
 error__t disarm_capture(void);
 error__t reset_capture(void);
-error__t capture_status(struct connection_result *result);
+
+error__t get_capture_status(struct connection_result *result);
+error__t get_capture_count(struct connection_result *result);
+error__t get_capture_completion(struct connection_result *result);
