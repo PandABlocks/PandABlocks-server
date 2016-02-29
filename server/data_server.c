@@ -437,11 +437,6 @@ static bool write_block_base64(
 static bool send_output_buffer(
     struct data_capture_state *state, unsigned int samples)
 {
-    /* Check for buffer overrun while we were processing the block -- if so,
-     * fail immediately. */
-    if (!check_read_block(state->connection->reader))
-        return false;
-
     if (state->connection->options.data_format == DATA_FORMAT_FRAMED)
     {
         /* Update the first four bytes of the buffer with a header followed by a
@@ -469,9 +464,11 @@ static bool send_output_buffer(
 }
 
 
+/* Returns false if unable to send data, returns true otherwise.  *data_ok is
+ * set to false and data processing is abandoned if buffer overrun is seen. */
 static bool process_capture_block(
     struct data_capture_state *state, const void *buffer, size_t length,
-    uint64_t *sent_samples)
+    uint64_t *sent_samples, bool *data_ok)
 {
     /* Ensure output buffer is ready for a fresh transmission. */
     prepare_output_buffer(state);
@@ -486,6 +483,12 @@ static bool process_capture_block(
         samples += process_samples(state, &buffer, &length);
         if (samples > 0)
         {
+            /* Check for buffer overrun while preparing this block.  On failure
+             * just bail out early, but don't report communication error. */
+            *data_ok = check_read_block(state->connection->reader);
+            if (!*data_ok)
+                return true;
+
             /* Transmit the output buffer, if we can.  If this fails, just
              * bail out. */
             if (!send_output_buffer(state, samples))
@@ -522,11 +525,16 @@ static bool send_data_stream(
         .tv_nsec = READ_BLOCK_POLL_NSECS, };
 
     /* Read and process buffers. */
-    size_t in_length;
-    const void *buffer;
-    while (buffer = get_read_block(connection->reader, &timeout, &in_length),
-           buffer  &&  check_connection(connection))
+    bool ok = true;
+    bool data_ok = true;
+    while (ok  &&  data_ok)
     {
+        size_t in_length;
+        const void *buffer =
+            get_read_block(connection->reader, &timeout, &in_length);
+        if (buffer == NULL  ||  !check_connection(connection))
+            break;
+
         if (unlikely(skip_bytes > 0))
         {
             size_t skipped = MIN(skip_bytes, in_length);
@@ -536,12 +544,13 @@ static bool send_data_stream(
         }
 
         if (in_length > 0)
-            if (!process_capture_block(&state, buffer, in_length, sent_samples))
-                break;
-        if (!flush_out_buf(connection->file))
-            break;
+            ok = process_capture_block(
+                &state, buffer, in_length, sent_samples, &data_ok);
+        if (ok)
+            ok = flush_out_buf(connection->file);
+        // Do I need to do this flushing???
     }
-    return buffer == NULL;
+    return ok;
 }
 
 
@@ -599,7 +608,7 @@ error__t process_data_socket(int scon)
                 if (!connection.options.omit_status)
                     ok = send_data_completion(
                         &connection, sent_samples, lost_samples,
-                        status, completion)  &&  ok;
+                        status, completion);
             }
 
             if (connection.options.one_shot)
