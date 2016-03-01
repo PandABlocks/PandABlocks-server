@@ -153,12 +153,13 @@ void vlog_message(int priority, const char *format, va_list args);
 
 /* An assert for tests that really really should not fail!  The program will
  * terminate immediately. */
-#define _ASSERT(COND, EXTRA, expr)  \
+#define _id_ASSERT(result, COND, EXTRA, expr)  \
     do { \
-        typeof(expr) __result__ = (expr); \
-        if (unlikely(!COND(__result__))) \
-            _error_panic(EXTRA(__result__), __FILE__, __LINE__); \
+        typeof(expr) result = (expr); \
+        if (unlikely(!COND(result))) \
+            _error_panic(EXTRA(result), __FILE__, __LINE__); \
     } while (0)
+#define _ASSERT(args...)    _id_ASSERT(UNIQUE_ID(), args)
 
 
 /* Default error message for unexpected errors. */
