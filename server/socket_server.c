@@ -23,7 +23,7 @@
 
 
 /* We have socket timeout on sending to avoid blocking for too long. */
-#define TRANSMIT_TIMEOUT    2       // May be too short
+#define TRANSMIT_TIMEOUT    10
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

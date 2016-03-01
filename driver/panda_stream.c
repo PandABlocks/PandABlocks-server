@@ -23,7 +23,7 @@
 
 
 /* Module parameters for buffer blocks. */
-static int block_shift = 6;     // In log2 pages, default is 256KB
+static int block_shift = 8;     // In log2 pages, default is 1MB
 static int block_count = 3;     // Number of buffers in circular buffer
 static int block_timeout = 12500000;    // 100ms in 125MHz FPGA clock ticks
 

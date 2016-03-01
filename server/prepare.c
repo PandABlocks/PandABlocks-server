@@ -316,7 +316,7 @@ static void send_plain_field_info(
         " %s %s", field->field_name, field->info.capture_string);
     if (field->info.scaled)
         write_formatted_string(file,
-            " Scaled: %.12g %.12g Units: %s",
+            " scale: %.12g offset: %.12g units: %s",
             field->info.scaling.scale, field->info.scaling.offset,
             field->info.units);
     write_char(file, '\n');
@@ -373,7 +373,7 @@ bool send_data_header(
     if (options->xml_header)
         write_formatted_string(file, "/>\n<fields>\n");
     else
-        write_formatted_string(file, "Fields:\n");
+        write_formatted_string(file, "fields:\n");
 
     if (fields->ts_capture != TS_IGNORE)
         send_field_info(file, options, fields->timestamp);
