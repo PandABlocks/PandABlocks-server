@@ -233,10 +233,10 @@ static int allocate_blocks(struct stream_open *open)
      * we allocated, in reverse order. */
     do {
         blk -= 1;
-        dma_unmap_single(
-            dev, open->blocks[blk].dma, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
+        struct block *block = &open->blocks[blk];
+        dma_unmap_single(dev, block->dma, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
 no_dma_map:
-        free_pages((unsigned long) open->blocks[blk].block, block_shift);
+        free_pages((unsigned long) block->block, block_shift);
 no_block:
         ;
     } while (blk > 0);
