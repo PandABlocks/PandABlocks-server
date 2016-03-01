@@ -26,16 +26,17 @@
 #include "data_server.h"
 
 
-/* Central circular data buffer. */
+/* Central circular data buffer.  The block size is chosen to match the driver
+ * block size, and we choose a reasonably large number of blocks. */
 #define DATA_BLOCK_SIZE         (1U << 18)
-#define DATA_BLOCK_COUNT        16
+#define DATA_BLOCK_COUNT        128
 
 /* File buffers.  These are only used for text buffered text communication on
  * the data channel. */
 #define IN_BUF_SIZE             4096
-#define OUT_BUF_SIZE            4096
+#define OUT_BUF_SIZE            16384
 /* Proper network buffer.  All data communication uses this buffer size. */
-#define NET_BUF_SIZE            16384
+#define NET_BUF_SIZE            65536
 
 /* Should be large enough for the largest single raw sample. */
 #define MAX_RAW_SAMPLE_LENGTH   256
@@ -53,7 +54,7 @@
 #define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.2 * NSECS))  // 200 ms
 
 /* Allow this many data blocks between the reader and the writer on startup. */
-#define BUFFER_READ_MARGIN      2
+#define BUFFER_READ_MARGIN      (DATA_BLOCK_COUNT / 4)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -546,9 +547,11 @@ static bool send_data_stream(
         if (in_length > 0)
             ok = process_capture_block(
                 &state, buffer, in_length, sent_samples, &data_ok);
+
+        /* We flush the output buffer at this stage in case we're running slowly
+         * so that the client will see progress. */
         if (ok)
             ok = flush_out_buf(connection->file);
-        // Do I need to do this flushing???
     }
     return ok;
 }
