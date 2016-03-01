@@ -486,9 +486,7 @@ const void *get_read_block(
             return get_buffer(buffer, out_ptr);
         }
         else
-{printf("Buffer overrun?\n");
             return NULL;
-}
     }
 }
 
