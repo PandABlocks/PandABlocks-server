@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -25,16 +26,17 @@
 #include "data_server.h"
 
 
-/* Central circular data buffer. */
+/* Central circular data buffer.  The block size is chosen to match the driver
+ * block size, and we choose a reasonably large number of blocks. */
 #define DATA_BLOCK_SIZE         (1U << 18)
-#define DATA_BLOCK_COUNT        16
+#define DATA_BLOCK_COUNT        128
 
 /* File buffers.  These are only used for text buffered text communication on
  * the data channel. */
 #define IN_BUF_SIZE             4096
-#define OUT_BUF_SIZE            4096
+#define OUT_BUF_SIZE            16384
 /* Proper network buffer.  All data communication uses this buffer size. */
-#define NET_BUF_SIZE            16384
+#define NET_BUF_SIZE            65536
 
 /* Should be large enough for the largest single raw sample. */
 #define MAX_RAW_SAMPLE_LENGTH   256
@@ -46,13 +48,13 @@
 /* Connection and read block polling intervals.  These determine how long it
  * takes for a socket disconnect to be detected. */
 #define CONNECTION_POLL_SECS    0
-#define CONNECTION_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
+#define CONNECTION_POLL_NSECS   ((unsigned long) (0.2 * NSECS))  // 200 ms
 
 #define READ_BLOCK_POLL_SECS    0
-#define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.1 * NSECS))  // 100 ms
+#define READ_BLOCK_POLL_NSECS   ((unsigned long) (0.2 * NSECS))  // 200 ms
 
 /* Allow this many data blocks between the reader and the writer on startup. */
-#define BUFFER_READ_MARGIN      2
+#define BUFFER_READ_MARGIN      (DATA_BLOCK_COUNT / 4)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -93,12 +95,22 @@ static struct capture_buffer *data_buffer;
 static const struct captured_fields *captured_fields;
 static const struct data_capture *data_capture;
 
+/* Data completion code at end of experiment. */
+static unsigned int completion_code;
+/* Sample count at end of experiment. */
+static uint64_t experiment_sample_count;
+
 
 /* Performs a complete experiment capture: start data buffer, process the data
  * stream until hardware is complete, stop data buffer.. */
 static void capture_experiment(void)
 {
     start_write(data_buffer);
+
+    uint64_t total_bytes = 0;
+    experiment_sample_count = 0;
+    size_t sample_length = get_raw_sample_length(data_capture);
+    completion_code = 0;
 
     bool at_eof = false;
     while (data_thread_running  &&  !at_eof)
@@ -110,9 +122,15 @@ static void capture_experiment(void)
         while (data_thread_running  &&  count == 0  &&  !at_eof);
         if (count > 0)
             release_write_block(data_buffer, count);
+
+        total_bytes += count;
+        experiment_sample_count = total_bytes / sample_length;
     }
+    completion_code = hw_read_streamed_completion();
 
     end_write(data_buffer);
+    log_message("Captured %"PRIu64" samples: %s",
+        experiment_sample_count, hw_decode_completion(completion_code));
 }
 
 
@@ -159,6 +177,7 @@ static error__t start_data_capture(void)
     error__t error = prepare_data_capture(captured_fields, &data_capture);
     if (!error)
     {
+        hw_write_arm_streamed_data();
         hw_write_arm(true);
         data_capture_enabled = true;
     }
@@ -189,20 +208,30 @@ error__t disarm_capture(void)
 
 error__t reset_capture(void)
 {
-    /* For reset we just make a best effort.  This may silently do nothing if
-     * called at the wrong time.  Too bad. */
-    hw_write_arm(false);
-    reset_buffer(data_buffer);
-    return ERROR_OK;
+    return FAIL_("Not implemented");
 }
 
 
-error__t capture_status(struct connection_result *result)
+error__t get_capture_status(struct connection_result *result)
 {
     unsigned int readers, active;
     bool status = read_buffer_status(data_buffer, &readers, &active);
     return format_one_result(
         result, "%s %u %u", status ? "Busy" : "Idle", readers, active);
+}
+
+
+error__t get_capture_count(struct connection_result *result)
+{
+    return format_one_result(result, "%"PRIu64, experiment_sample_count);
+}
+
+
+error__t get_capture_completion(struct connection_result *result)
+{
+    return WITH_LOCK(data_thread_mutex,
+        format_one_result(result, "%s", data_capture_enabled ? "Busy" :
+            hw_decode_completion(completion_code)));
 }
 
 
@@ -436,8 +465,11 @@ static bool send_output_buffer(
 }
 
 
+/* Returns false if unable to send data, returns true otherwise.  *data_ok is
+ * set to false and data processing is abandoned if buffer overrun is seen. */
 static bool process_capture_block(
-    struct data_capture_state *state, const void *buffer, size_t length)
+    struct data_capture_state *state, const void *buffer, size_t length,
+    uint64_t *sent_samples, bool *data_ok)
 {
     /* Ensure output buffer is ready for a fresh transmission. */
     prepare_output_buffer(state);
@@ -452,6 +484,12 @@ static bool process_capture_block(
         samples += process_samples(state, &buffer, &length);
         if (samples > 0)
         {
+            /* Check for buffer overrun while preparing this block.  On failure
+             * just bail out early, but don't report communication error. */
+            *data_ok = check_read_block(state->connection->reader);
+            if (!*data_ok)
+                return true;
+
             /* Transmit the output buffer, if we can.  If this fails, just
              * bail out. */
             if (!send_output_buffer(state, samples))
@@ -459,6 +497,7 @@ static bool process_capture_block(
 
             /* In case there's more to come, reinitialise the output. */
             prepare_output_buffer(state);
+            *sent_samples += samples;
             samples = 0;
         }
     } while (length >= state->raw_sample_length);
@@ -472,7 +511,8 @@ static bool process_capture_block(
 /* Sends the data stream until end of stream or there's a problem with the
  * client connection.  Returns false if there's a client connection problem. */
 static bool send_data_stream(
-    struct data_connection *connection, size_t skip_bytes)
+    struct data_connection *connection, size_t skip_bytes,
+    uint64_t *sent_samples)
 {
     struct data_capture_state state = {
         .connection = connection,
@@ -486,11 +526,16 @@ static bool send_data_stream(
         .tv_nsec = READ_BLOCK_POLL_NSECS, };
 
     /* Read and process buffers. */
-    size_t in_length;
-    const void *buffer;
-    while (buffer = get_read_block(connection->reader, &timeout, &in_length),
-           buffer  &&  check_connection(connection))
+    bool ok = true;
+    bool data_ok = true;
+    while (ok  &&  data_ok)
     {
+        size_t in_length;
+        const void *buffer =
+            get_read_block(connection->reader, &timeout, &in_length);
+        if (buffer == NULL  ||  !check_connection(connection))
+            break;
+
         if (unlikely(skip_bytes > 0))
         {
             size_t skipped = MIN(skip_bytes, in_length);
@@ -500,28 +545,34 @@ static bool send_data_stream(
         }
 
         if (in_length > 0)
-            if (!process_capture_block(&state, buffer, in_length))
-                break;
-        if (!flush_out_buf(connection->file))
-            break;
+            ok = process_capture_block(
+                &state, buffer, in_length, sent_samples, &data_ok);
+
+        /* We flush the output buffer at this stage in case we're running slowly
+         * so that the client will see progress. */
+        if (ok)
+            ok = flush_out_buf(connection->file);
     }
-    return buffer == NULL;
+    return ok;
 }
 
 
 static bool send_data_completion(
-    struct data_connection *connection, enum reader_status status)
+    struct data_connection *connection,
+    uint64_t sent_samples, uint64_t lost_samples,
+    enum reader_status status, unsigned int completion)
 {
     /* This list of completion strings must match the definition of the
      * reader_status enumeration in buffer.h. */
     static const char *completions[] = {
-        [READER_STATUS_ALL_READ] = "OK\n",
-        [READER_STATUS_CLOSED]   = "ERR Early disconnect\n",
-        [READER_STATUS_OVERRUN]  = "ERR Data overrun\n",
-        [READER_STATUS_RESET]    = "ERR Connection reset\n",
+        [READER_STATUS_CLOSED]   = "Early disconnect",
+        [READER_STATUS_OVERRUN]  = "Data overrun",
     };
     const char *message = completions[status];
-    write_string(connection->file, message, strlen(message));
+    if (!status)
+        message = hw_decode_completion(completion);
+    write_formatted_string(connection->file,
+        "END %"PRIu64" (+%"PRIu64") %s\n", sent_samples, lost_samples, message);
     return flush_out_buf(connection->file);
 }
 
@@ -549,12 +600,19 @@ error__t process_data_socket(int scon)
                 ok = send_data_header(
                     captured_fields, data_capture,
                     &connection.options, connection.file, lost_samples);
-            if (ok)
-                ok = send_data_stream(&connection, skip_bytes);
 
-            enum reader_status status = close_reader(connection.reader);
-            if (ok  &&  !connection.options.omit_status)
-                ok = send_data_completion(&connection, status);
+            if (ok)
+            {
+                uint64_t sent_samples = 0;
+                ok = send_data_stream(&connection, skip_bytes, &sent_samples);
+
+                unsigned int completion = completion_code;
+                enum reader_status status = close_reader(connection.reader);
+                if (!connection.options.omit_status)
+                    ok = send_data_completion(
+                        &connection, sent_samples, lost_samples,
+                        status, completion);
+            }
 
             if (connection.options.one_shot)
                 break;

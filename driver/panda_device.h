@@ -17,3 +17,16 @@ struct panda_block {
  * PANDA_BLOCK_CREATE ioctl to set the block order.  The physical address is
  * returned if successful. */
 #define PANDA_BLOCK_CREATE  _IOR('P', 1, struct panda_block)
+
+/* The DMA engine must be armed before each experiment. */
+#define PANDA_DMA_ARM       _IO('P', 2)
+
+/* After the stream device has returned end of stream the completion code must
+ * be read before restarting. */
+#define PANDA_COMPLETION    _IOW('P', 3, uint32_t *)
+/* One of the following completions can be expected: */
+#define PANDA_COMPLETION_OK         0
+#define PANDA_COMPLETION_DISARM     1
+#define PANDA_COMPLETION_FRAMING    2
+#define PANDA_COMPLETION_DMA        4
+#define PANDA_COMPLETION_OVERRUN    8

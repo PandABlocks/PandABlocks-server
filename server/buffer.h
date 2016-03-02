@@ -20,7 +20,8 @@ void shutdown_buffer(struct capture_buffer *buffer);
 /* Initiates a write cycle. */
 void start_write(struct capture_buffer *buffer);
 
-/* Completes a write cycle. */
+/* Completes a write cycle.  The buffer will remain busy until all readers have
+ * completed or disconnected. */
 void end_write(struct capture_buffer *buffer);
 
 /* Reserves the next slot in the buffer for writing. An entire contiguous
@@ -31,14 +32,10 @@ void *get_write_block(struct capture_buffer *buffer);
 /* Releases the write block, specifies number of bytes written. */
 void release_write_block(struct capture_buffer *buffer, size_t written);
 
-
 /* Returns true if buffer is taking data, and count of active clients. */
 bool read_buffer_status(
     struct capture_buffer *buffer,
     unsigned int *readers, unsigned int *active_readers);
-
-/* Resets the buffer to empty.  Any active readers will fail. */
-void reset_buffer(struct capture_buffer *buffer);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -52,7 +49,6 @@ enum reader_status {
     READER_STATUS_ALL_READ, // Valid buffer data
     READER_STATUS_CLOSED,   // Close called early while data still available
     READER_STATUS_OVERRUN,  // Input data overrun
-    READER_STATUS_RESET,    // Buffer forcibly reset
 };
 
 /* Creates a reader connected to the buffer. */

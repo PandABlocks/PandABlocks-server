@@ -64,9 +64,8 @@ bad_request:
 
 /* Prepares the backing memory as a fixed block. */
 static int create_block(
-    struct file *file, const struct panda_block __user *block)
+    struct block_open *open, const struct panda_block __user *block)
 {
-    struct block_open *open = file->private_data;
     struct panda_pcap *pcap = open->pcap;
     struct device *dev = &pcap->pdev->dev;
 
@@ -96,7 +95,7 @@ static int create_block(
         rc = -EIO, no_dma, "Unable to map DMA area");
 
     /* Inform the hardware via the register we were given. */
-    writel(open->dma, pcap->base_addr + open->block.block_base);
+    writel(open->dma, pcap->reg_base + open->block.block_base);
 
     /* Start the block in device mode. */
     open->block_size = 1U << (open->block.order + PAGE_SHIFT);
@@ -118,10 +117,11 @@ bad_request:
 static long panda_block_ioctl(
     struct file *file, unsigned int cmd, unsigned long arg)
 {
+    struct block_open *open = file->private_data;
     switch (cmd)
     {
         case PANDA_BLOCK_CREATE:
-            return create_block(file, (void __user *) arg);
+            return create_block(open, (const void __user *) arg);
         default:
             return -EINVAL;
     }
@@ -148,14 +148,14 @@ static ssize_t panda_block_write(
 
     /* Good.  Tell the hardware, switch into CPU mode, copy the data, switch
      * back into device mode, tell the hardware. */
-    writel(0, pcap->base_addr + open->block.block_length);
+    writel(0, pcap->reg_base + open->block.block_length);
     dma_sync_single_for_cpu(
         dev, open->dma, open->block_size, DMA_TO_DEVICE);
     TEST_(!copy_from_user(open->block_addr + *offset, data, length),
         rc = -EFAULT, bad_copy, "Fault copying data from user");
     dma_sync_single_for_device(
         dev, open->dma, open->block_size, DMA_TO_DEVICE);
-    writel(*offset + length, pcap->base_addr + open->block.block_length);
+    writel(*offset + length, pcap->reg_base + open->block.block_length);
 
     up(&open->lock);
     return (ssize_t) length;
@@ -202,7 +202,7 @@ static int panda_block_release(struct inode *inode, struct file *file)
     if (open->block_addr)
     {
         /* Disable hardware access to memory. */
-        writel(0, pcap->base_addr + open->block.block_length);
+        writel(0, pcap->reg_base + open->block.block_length);
         dma_unmap_single(dev, open->dma, open->block_size, DMA_TO_DEVICE);
         free_pages((unsigned long) open->block_addr, open->block.order);
     }
@@ -211,7 +211,7 @@ static int panda_block_release(struct inode *inode, struct file *file)
 }
 
 
-static struct file_operations panda_block_fops = {
+struct file_operations panda_block_fops = {
     .owner = THIS_MODULE,
     .open = panda_block_open,
     .release = panda_block_release,
@@ -220,10 +220,3 @@ static struct file_operations panda_block_fops = {
     .mmap = panda_block_mmap,
     .unlocked_ioctl = panda_block_ioctl,
 };
-
-
-int panda_block_init(struct file_operations **fops)
-{
-    *fops = &panda_block_fops;
-    return 0;
-}
