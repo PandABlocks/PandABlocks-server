@@ -47,15 +47,15 @@ module_param(block_timeout, int, S_IRUGO);
  *
  * Buffers transition through the following sequence of states:
  *
- *  +-> block_free       Block is currently unassigned
+ *  +-> BLOCK_FREE       Block is currently unassigned
  *  |       |
  *  |       | ISR assigns block to hardware
  *  |       v
- *  |   block_dma        Block is assigned to hardware for DMA
+ *  |   BLOCK_DMA        Block is assigned to hardware for DMA
  *  |       |
  *  |       | ISR marks block as complete
  *  |       v
- *  |   block_data       Block contains valid data to be read
+ *  |   BLOCK_DATA       Block contains valid data to be read
  *  |       |
  *  |       | read() completes, marks block as free
  *  +-------+
@@ -65,6 +65,7 @@ enum block_state {
     BLOCK_FREE,                 // Not in use
     BLOCK_DMA,                  // Allocated to DMA
     BLOCK_DATA,                 // Contains useful data.
+    BLOCK_DATA_END,             // Last block in data stream
 };
 
 
@@ -172,7 +173,10 @@ static void receive_isr_block(
     dma_sync_single_for_cpu(dev, block->dma, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
 
     smp_wmb();
-    block->state = BLOCK_DATA;
+    if (open->stream_active)
+        block->state = BLOCK_DATA;
+    else
+        block->state = BLOCK_DATA_END;
     wake_up_interruptible(&open->wait_queue);
 }
 
@@ -183,6 +187,7 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     void *reg_base = open->pcap->reg_base;
 
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
+printk(KERN_INFO "IRQ status: %08x\n", status);
 
     smp_rmb();
     if (open->stream_active)
@@ -356,13 +361,12 @@ static int panda_stream_release(struct inode *inode, struct file *file)
 /* Reading. */
 
 
-/* Blocks caller until the current block becomes ready, or failing that, until
- * the stream becomes inactive. */
+/* Blocks caller until the current block becomes ready. */
 static int wait_for_block(struct stream_open *open)
 {
     struct block *block = &open->blocks[open->read_block_index];
     int rc = wait_event_interruptible_timeout(open->wait_queue,
-        block->state == BLOCK_DATA  ||  !open->stream_active, HZ);
+        block->state != BLOCK_DMA, HZ);
     if (rc == 0)
         /* Normal timeout.  Tell caller they can try again. */
         return -EAGAIN;
@@ -376,10 +380,11 @@ static ssize_t read_one_block(
     struct stream_open *open, char __user *buf, size_t count)
 {
     struct block *block = &open->blocks[open->read_block_index];
+    size_t read_offset = open->read_offset;
+
     smp_rmb();  // Guards DMA transfer for new data block
-    if (block->length > 0)
+    if (block->length > read_offset)
     {
-        size_t read_offset = open->read_offset;
         size_t copy_count = block->length - read_offset;
         if (copy_count > count)  copy_count = count;
         copy_count -= copy_to_user(buf, block->block + read_offset, copy_count);
@@ -423,7 +428,7 @@ static ssize_t panda_stream_read(
      * as far as buffering allows. */
     ssize_t copied = 0;
     struct block *block = &open->blocks[open->read_block_index];
-    while (count > 0  &&  block->state == BLOCK_DATA)
+    while (count > 0  &&  block->state != BLOCK_DMA)
     {
         ssize_t copy_count = read_one_block(open, buf, count);
         if (copy_count < 0)
@@ -438,14 +443,18 @@ static ssize_t panda_stream_read(
         }
 
         if (open->read_offset >= block->length)
+        {
+            if (block->state == BLOCK_DATA_END)
+                break;
             block = advance_block(open);
+        }
     }
 
     /* At this point there is no error condition, so just decode the three
      * normal states. */
     if (copied > 0)
         return copied;              // Normal data flow
-    else if (!open->stream_active)
+    else if (block->state == BLOCK_DATA_END)
         return 0;                   // End of data stream
     else
         return -EAGAIN;             // No data yet, try again
