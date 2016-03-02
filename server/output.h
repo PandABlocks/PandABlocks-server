@@ -27,6 +27,8 @@ enum capture_mode {
     CAPTURE_ADC_MEAN,       // 64-bit value with mean and scaling
     CAPTURE_TS_NORMAL,      // 64-bit timestamp without offset
     CAPTURE_TS_OFFSET,      // 64-bit timestamp with offset correction
+
+    CAPTURE_MODE_COUNT,     // Number of capture mode enum values
 };
 
 
@@ -49,6 +51,7 @@ struct scaling {
 struct capture_info {
     bool scaled;
     enum framing_mode framing_mode;
+    enum capture_mode capture_mode;
     const char *capture_string;
     struct scaling scaling;
     char units[MAX_NAME_LENGTH];
@@ -59,7 +62,7 @@ struct capture_info {
  * capture enumeration selection.
  *     If the units buffer is too short, the units string will be silently
  * truncated here.  If the returned capture_mode is CAPTURE_OFF then the
- * remaiing fields are not filled in. */
+ * remaining fields are not filled in. */
 enum capture_mode get_capture_info(
     struct output *output, unsigned int number, struct capture_info *info);
 

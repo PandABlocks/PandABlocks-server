@@ -217,6 +217,7 @@ enum capture_mode get_capture_info(
         }
         info->capture_string = capture->enum_set.enums[capture_state].name;
         info->framing_mode = options->framing_mode;
+        info->capture_mode = options->capture_mode;
         return options->capture_mode;
     }
 }

@@ -219,7 +219,15 @@ error__t parse_data_options(const char *line, struct data_options *options)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Header formatting. */
+/* XML formatting support. */
+
+struct xml_element {
+    struct buffered_file *file;     // Destination for fields
+    const char *name;               // Name of this element
+    bool xml;                       // Whether to use XML format
+    bool nested;                    // Determines <x></x> vs <x ... /x>
+    bool hidden;                    // Makes outer parts hidden in text mode
+};
 
 
 /* Returns the string required to escape the given XML character. */
@@ -236,6 +244,9 @@ static const char *escape_xml_character(char ch)
     }
 }
 
+
+/* Used for writing unconstrained strings whcy may contain any of the above
+ * reserved XML characters. */
 static void write_escaped_xml_string(
     struct buffered_file *file, const char *string)
 {
@@ -261,26 +272,127 @@ static void write_escaped_xml_string(
 }
 
 
-static void write_attribute(
-    struct buffered_file *file, bool xml, const char *name, const char *value)
+static void __attribute__((format(printf, 4, 5))) format_attribute_opt(
+    struct xml_element *element, bool use_name,
+    const char *name, const char *format, ...)
 {
-    if (xml)
-        write_formatted_string(file, " %s=\"%s\"", name, value);
+    char value[MAX_RESULT_LENGTH];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(value, sizeof(value), format, args);
+    va_end(args);
+
+    if (element->xml)
+        write_formatted_string(element->file, " %s=\"%s\"", name, value);
     else
-        write_formatted_string(file, "%s: %s\n", name, value);
+    {
+        if (!element->hidden)
+            write_char(element->file, ' ');
+        if (use_name)
+            write_formatted_string(element->file, "%s: %s", name, value);
+        else
+            write_formatted_string(element->file, "%s", value);
+        if (element->hidden)
+            write_char(element->file, '\n');
+    }
 }
+
+#define format_attribute(element, name, format...) \
+    format_attribute_opt(element, true, name, format)
+
+
+static void format_attribute_string(
+    struct xml_element *element, const char *name, const char *value)
+{
+    if (element->xml)
+    {
+        write_formatted_string(element->file, " %s=", name);
+        write_escaped_xml_string(element->file, value);
+    }
+    else
+        write_formatted_string(element->file, " %s: %s", name, value);
+}
+
+
+static struct xml_element start_element(
+    struct buffered_file *file, const char *name,
+    bool xml, bool nested, bool hidden)
+{
+    struct xml_element element = {
+        .file = file,
+        .name = name,
+        .xml = xml,
+        .nested = nested,
+        .hidden = hidden,
+    };
+    if (xml)
+    {
+        write_formatted_string(file, "<%s", name);
+        if (nested)
+            write_formatted_string(file, ">\n");
+    }
+    else if (!hidden  &&  nested)
+        write_formatted_string(file, "%s:\n", name);
+    return element;
+}
+
+
+static void end_element(struct xml_element *element)
+{
+    if (element->xml)
+    {
+        if (element->nested)
+            write_formatted_string(element->file, "</%s>\n", element->name);
+        else
+            write_formatted_string(element->file, " />\n");
+    }
+    else if (!element->hidden  &&  !element->nested)
+        write_char(element->file, '\n');
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Header formatting. */
+
+
+/* Returns string specifying formatting of given field. */
+static const char *field_type_name(
+    const struct output_field *field, const struct data_options *options)
+{
+    static const char *field_type_names[][CAPTURE_MODE_COUNT] = {
+        [DATA_PROCESS_RAW] = {
+            [CAPTURE_UNSCALED] = "uint32",
+            [CAPTURE_SCALED32] = "int32",
+            [CAPTURE_SCALED64] = "int64",
+            [CAPTURE_ADC_MEAN] = "int64",
+            [CAPTURE_TS_NORMAL ... CAPTURE_TS_OFFSET] = "uint64",
+        },
+        [DATA_PROCESS_UNSCALED] = {
+            [CAPTURE_UNSCALED] = "uint32",
+            [CAPTURE_SCALED32] = "int32",
+            [CAPTURE_SCALED64] = "int32",
+            [CAPTURE_ADC_MEAN] = "int32",
+            [CAPTURE_TS_NORMAL ... CAPTURE_TS_OFFSET] = "uint64",
+        },
+        [DATA_PROCESS_SCALED] = {
+            [CAPTURE_UNSCALED] = "uint32",
+            [CAPTURE_SCALED32] = "double",
+            [CAPTURE_SCALED64] = "double",
+            [CAPTURE_ADC_MEAN] = "double",
+            [CAPTURE_TS_NORMAL ... CAPTURE_TS_OFFSET] = "double",
+        },
+    };
+    enum data_process process = options->data_process;
+    enum capture_mode capture = field->info.capture_mode;
+    return field_type_names[process][capture];
+}
+
 
 static void send_capture_info(
     struct buffered_file *file,
     const struct data_capture *capture, const struct data_options *options,
     uint64_t missed_samples)
 {
-    bool xml = options->xml_header;
-    if (xml)
-        write_formatted_string(file, " missed=\"%"PRIu64"\"", missed_samples);
-    else
-        write_formatted_string(file, "missed: %"PRIu64"\n", missed_samples);
-
     static const char *data_format_strings[] = {
         [DATA_FORMAT_UNFRAMED] = "Unframed",
         [DATA_FORMAT_FRAMED]   = "Framed",
@@ -295,46 +407,15 @@ static void send_capture_info(
     const char *data_format = data_format_strings[options->data_format];
     const char *data_process = data_process_strings[options->data_process];
 
-    write_attribute(file, xml, "process", data_process);
-    write_attribute(file, xml, "format", data_format);
+    struct xml_element element =
+        start_element(file, "data", options->xml_header, false, true);
+    format_attribute(&element, "missed", "%"PRIu64, missed_samples);
+    format_attribute(&element, "process", "%s", data_process);
+    format_attribute(&element, "format", "%s", data_format);
     if (options->data_format != DATA_FORMAT_ASCII)
-    {
-        if (xml)
-            write_formatted_string(file, " sample-bytes=\"%zu\"",
-                get_binary_sample_length(capture, options));
-        else
-            write_formatted_string(file, "sample-bytes: %zu\n",
-                get_binary_sample_length(capture, options));
-    }
-}
-
-
-static void send_plain_field_info(
-    struct buffered_file *file, const struct output_field *field)
-{
-    write_formatted_string(file,
-        " %s %s", field->field_name, field->info.capture_string);
-    if (field->info.scaled)
-        write_formatted_string(file,
-            " Scaled: %.12g %.12g Units: %s",
-            field->info.scaling.scale, field->info.scaling.offset,
-            field->info.units);
-    write_char(file, '\n');
-}
-
-static void send_xml_field_info(
-    struct buffered_file *file, const struct output_field *field)
-{
-    write_formatted_string(file, "<field name=\"%s\" capture=\"%s\"",
-        field->field_name, field->info.capture_string);
-    if (field->info.scaled)
-    {
-        write_formatted_string(file,
-            " scale=\"%.12g\" offset=\"%.12g\" units=",
-            field->info.scaling.scale, field->info.scaling.offset);
-        write_escaped_xml_string(file, field->info.units);
-    }
-    write_formatted_string(file, " />\n");
+        format_attribute(&element, "sample_bytes", "%zu",
+            get_binary_sample_length(capture, options));
+    end_element(&element);
 }
 
 
@@ -342,10 +423,27 @@ static void send_field_info(
     struct buffered_file *file, const struct data_options *options,
     const struct output_field *field)
 {
-    if (options->xml_header)
-        send_xml_field_info(file, field);
-    else
-        send_plain_field_info(file, field);
+    struct xml_element element =
+        start_element(file, "field", options->xml_header, false, false);
+
+    format_attribute_opt(&element, false,
+        "name", "%s", field->field_name);
+    format_attribute_opt(&element, false,
+        "type", "%s", field_type_name(field, options));
+    format_attribute_opt(&element, false,
+        "capture", "%s", field->info.capture_string);
+
+    if (field->info.scaled)
+    {
+        format_attribute(&element,
+            "scale", "%.12g", field->info.scaling.scale);
+        format_attribute(&element,
+            "offset", "%.12g", field->info.scaling.offset);
+        format_attribute_string(&element,
+            "units", field->info.units);
+    }
+
+    end_element(&element);
 }
 
 
@@ -364,16 +462,14 @@ bool send_data_header(
     const struct data_options *options,
     struct buffered_file *file, uint64_t missed_samples)
 {
-    if (options->xml_header)
-        write_formatted_string(file, "<header>\n<data");
+    struct xml_element header =
+        start_element(file, "header", options->xml_header, true, true);
 
     send_capture_info(file, capture, options, missed_samples);
 
     /* Format the field capture descriptions. */
-    if (options->xml_header)
-        write_formatted_string(file, "/>\n<fields>\n");
-    else
-        write_formatted_string(file, "Fields:\n");
+    struct xml_element field_group =
+        start_element(file, "fields", options->xml_header, true, false);
 
     if (fields->ts_capture != TS_IGNORE)
         send_field_info(file, options, fields->timestamp);
@@ -382,8 +478,8 @@ bool send_data_header(
     send_group_info(file, options, &fields->scaled64);
     send_group_info(file, options, &fields->adc_mean);
 
-    if (options->xml_header)
-        write_formatted_string(file, "</fields>\n</header>\n");
+    end_element(&field_group);
+    end_element(&header);
 
     write_char(file, '\n');
     return flush_out_buf(file);
@@ -436,6 +532,7 @@ const struct captured_fields *prepare_captured_fields(void)
         struct capture_group *capture = NULL;
         switch (capture_mode)
         {
+            default:
             case CAPTURE_OFF:       break;
             case CAPTURE_UNSCALED:  capture = &captured_fields.unscaled; break;
             case CAPTURE_SCALED32:  capture = &captured_fields.scaled32; break;

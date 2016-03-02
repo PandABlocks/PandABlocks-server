@@ -106,10 +106,11 @@ static uint64_t experiment_sample_count;
 static void capture_experiment(void)
 {
     start_write(data_buffer);
+    size_t sample_length = get_raw_sample_length(data_capture);
+    log_message("Starting capture: %zu bytes/sample", sample_length);
 
     uint64_t total_bytes = 0;
     experiment_sample_count = 0;
-    size_t sample_length = get_raw_sample_length(data_capture);
     completion_code = 0;
 
     bool at_eof = false;
@@ -568,11 +569,14 @@ static bool send_data_completion(
         [READER_STATUS_CLOSED]   = "Early disconnect",
         [READER_STATUS_OVERRUN]  = "Data overrun",
     };
-    const char *message = completions[status];
-    if (!status)
-        message = hw_decode_completion(completion);
-    write_formatted_string(connection->file,
-        "END %"PRIu64" (+%"PRIu64") %s\n", sent_samples, lost_samples, message);
+    const char *message = status ?
+        completions[status] : hw_decode_completion(completion);
+
+    if (!connection->options.omit_status)
+        write_formatted_string(connection->file,
+            "END %"PRIu64" %s\n", sent_samples, message);
+    log_message("Sent %"PRIu64" (+%"PRIu64") %s",
+        sent_samples, lost_samples, message);
     return flush_out_buf(connection->file);
 }
 
@@ -601,18 +605,18 @@ error__t process_data_socket(int scon)
                     captured_fields, data_capture,
                     &connection.options, connection.file, lost_samples);
 
+            uint64_t sent_samples = 0;
             if (ok)
-            {
-                uint64_t sent_samples = 0;
                 ok = send_data_stream(&connection, skip_bytes, &sent_samples);
 
-                unsigned int completion = completion_code;
-                enum reader_status status = close_reader(connection.reader);
-                if (!connection.options.omit_status)
-                    ok = send_data_completion(
-                        &connection, sent_samples, lost_samples,
-                        status, completion);
-            }
+            /* Ensure we always close the reader, even if sending the stream
+             * failed.  Note that we pick up the completion code before closing
+             * the reader, as in principle it can change immediately after the
+             * last reader has closed. */
+            unsigned int completion = completion_code;
+            enum reader_status status = close_reader(connection.reader);
+            ok = send_data_completion(
+                &connection, sent_samples, lost_samples, status, completion);
 
             if (connection.options.one_shot)
                 break;
