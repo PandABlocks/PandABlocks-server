@@ -574,8 +574,7 @@ static bool send_data_completion(
 
     if (!connection->options.omit_status)
         write_formatted_string(connection->file,
-            "END %"PRIu64" (+%"PRIu64") %s\n",
-            sent_samples, lost_samples, message);
+            "END %"PRIu64" %s\n", sent_samples, message);
     log_message("Sent %"PRIu64" (+%"PRIu64") %s",
         sent_samples, lost_samples, message);
     return flush_out_buf(connection->file);
