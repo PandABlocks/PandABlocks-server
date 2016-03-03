@@ -187,7 +187,6 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     void *reg_base = open->pcap->reg_base;
 
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
-printk(KERN_INFO "IRQ status: %08x\n", status);
 
     smp_rmb();
     if (open->stream_active)
