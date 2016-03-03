@@ -16,6 +16,7 @@
 
 #include "error.h"
 #include "socket_server.h"
+#include "locking.h"
 #include "hardware.h"
 
 #include "sim_hardware.h"
@@ -32,9 +33,7 @@ static int sock = -1;
 static bool socket_ok = true;
 
 /* Need to make sure our communications are atomic. */
-static pthread_mutex_t session_lock = PTHREAD_MUTEX_INITIALIZER;
-#define LOCK()      ASSERT_PTHREAD(pthread_mutex_lock(&session_lock))
-#define UNLOCK()    ASSERT_PTHREAD(pthread_mutex_unlock(&session_lock))
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 static error__t write_all(const void *data, size_t length)
@@ -128,22 +127,22 @@ void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value)
 {
-    LOCK();
+    LOCK(mutex);
     handle_error(
         write_command_int('W', block_base, block_number, reg, value));
-    UNLOCK();
+    UNLOCK(mutex);
 }
 
 
 uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
-    LOCK();
+    LOCK(mutex);
     uint32_t result = 0;
     handle_error(
         write_command('R', block_base, block_number, reg)  ?:
         read_all(&result, 4));
-    UNLOCK();
+    UNLOCK(mutex);
 
     return result;
 }
@@ -155,14 +154,14 @@ uint32_t hw_read_register(
 size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 {
     int32_t result = -1;
-    LOCK();
+    LOCK(mutex);
     bool failed = handle_error(
         write_command_int('D', 0, 0, 0, (uint32_t) length)  ?:
         read_all(&result, 4)  ?:
         IF(result > 0,
             TEST_OK((size_t) result <= length)  ?:
             read_all(buffer, (size_t) result)));
-    UNLOCK();
+    UNLOCK(mutex);
 
     if (failed  ||  result < 0)
     {
@@ -242,12 +241,12 @@ void hw_long_table_write(
     memcpy(block->data + offset, data, length);
 
     uint32_t words = (uint32_t) (offset + length) / sizeof(uint32_t);
-    LOCK();
+    LOCK(mutex);
     handle_error(
         write_command_int('T',
             block->block_base, block->number, 0, words)  ?:
         write_all(block->data, offset + length));
-    UNLOCK();
+    UNLOCK(mutex);
 }
 
 
