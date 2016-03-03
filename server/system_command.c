@@ -41,8 +41,18 @@ static error__t get_idn(const char *command, struct connection_result *result)
 {
     uint32_t fpga_version, fpga_build, slow_version;
     hw_read_versions(&fpga_version, &fpga_build, &slow_version);
-    return format_one_result(result, "%s %s %08x %08x %08x",
-        server_name, server_version, fpga_version, fpga_build, slow_version);
+    /* Convert fpga version into a string.  The format is four bytes:
+     *      customer.major.minor.point
+     * where the customer version is only printed if non-zero, and is printed
+     * last. */
+    char fpga_string[MAX_NAME_LENGTH];
+    int len = sprintf(fpga_string, "%u.%u.%u",
+        (fpga_version >> 16) & 0xFF, (fpga_version >> 8) & 0xFF,
+        fpga_version & 0xFF);
+    if (fpga_version >> 24)
+        sprintf(fpga_string + len, "C%u", fpga_version >> 24);
+    return format_one_result(result, "%s SW: %s FPGA: %s %08x %08x",
+        server_name, server_version, fpga_string, fpga_build, slow_version);
 }
 
 
