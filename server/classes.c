@@ -44,9 +44,14 @@ error__t class_get(
 {
     if (refresh  &&  class->methods->refresh)
         class->methods->refresh(class->class_data, number);
-    return
-        TEST_OK_(class->methods->get, "Field not readable")  ?:
-        class->methods->get(class->class_data, number, result);
+
+    if (class->methods->get)
+        return class->methods->get(
+            class->class_data, number, result->string, result->length);
+    else if (class->methods->get_many)
+        return class->methods->get_many(class->class_data, number, result);
+    else
+        return FAIL_("Field not readable");
 }
 
 

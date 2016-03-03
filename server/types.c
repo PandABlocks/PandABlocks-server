@@ -357,16 +357,14 @@ static const struct type_methods lut_type_methods = {
 
 /* Implements block[n].field=value */
 error__t type_get(
-    struct type *type, unsigned int number, struct connection_result *result)
+    struct type *type, unsigned int number, char result[], size_t length)
 {
     uint32_t value;
     return
         TEST_OK_(type->methods->format,
             "Cannot read %s value", type->methods->name)  ?:
         read_type_register(type, number, &value)  ?:
-        type->methods->format(
-            type->type_data, number, value, result->string, result->length)  ?:
-        DO(result->response = RESPONSE_ONE);
+        type->methods->format(type->type_data, number, value, result, length);
 }
 
 

@@ -125,7 +125,7 @@ static error__t time_class_format(
 
 
 static error__t time_get(
-    void *class_data, unsigned int number, struct connection_result *result)
+    void *class_data, unsigned int number, char result[], size_t length)
 {
     struct time_class_state *state = class_data;
     struct time_field *field = &state->values[number];
@@ -133,10 +133,7 @@ static error__t time_get(
     LOCK(state->mutex);
     uint64_t value = field->value;
     UNLOCK(state->mutex);
-    return
-        time_class_format(
-            value, field->time_scale, result->string, result->length)  ?:
-        DO(result->response = RESPONSE_ONE);
+    return time_class_format(value, field->time_scale, result, length);
 }
 
 

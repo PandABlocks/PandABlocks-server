@@ -34,8 +34,12 @@ struct class_methods {
     /* Called during shutdown to release all class resources. */
     void (*destroy)(void *class_data);
 
-    /* Implements  block.field? */
+    /* Implements  block.field? for a single value. */
     error__t (*get)(
+        void *class_data, unsigned int number, char result[], size_t length);
+    /* Implements  block.field? for multiple values.  Will only be called if
+     * .get is not defined. */
+    error__t (*get_many)(
         void *class_data, unsigned int number,
         struct connection_result *result);
     /* Implements  block.field=value */

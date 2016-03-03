@@ -97,11 +97,11 @@ struct bit_out_state {
 
 
 static error__t bit_out_get(
-    void *class_data, unsigned int number, struct connection_result *result)
+    void *class_data, unsigned int number, char result[], size_t length)
 {
     struct bit_out_state *state = class_data;
     bool bit = bit_value[state->index_array[number]];
-    return format_one_result(result, "%d", bit);
+    return format_string(result, length, "%d", bit);
 }
 
 

@@ -73,7 +73,7 @@ error__t raw_put_int(
 /* Reads value from associated register and formats for presentation into the
  * given result.  Implements  block.field?  method. */
 error__t type_get(
-    struct type *type, unsigned int number, struct connection_result *result);
+    struct type *type, unsigned int number, char result[], size_t length);
 
 /* Parses given string and writes result into associated register.  Implements
  * block.field=value  method. */

@@ -90,10 +90,10 @@ static const struct enumeration *base_get_enumeration(void *class_data)
 
 
 static error__t base_get(
-    void *class_data, unsigned int number, struct connection_result *result)
+    void *class_data, unsigned int number, char result[], size_t length)
 {
     struct base_state *state = class_data;
-    return type_get(state->type, number, result);
+    return type_get(state->type, number, result, length);
 }
 
 

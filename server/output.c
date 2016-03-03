@@ -151,15 +151,15 @@ static const struct register_methods ext_register_methods = {
 
 /* When reading just return the current value from our static state. */
 static error__t output_get(
-    void *class_data, unsigned int number, struct connection_result *result)
+    void *class_data, unsigned int number, char result[], size_t length)
 {
     struct output *output = class_data;
     if (output->type)
-        return type_get(output->type, number, result);
+        return type_get(output->type, number, result, length);
     else
         /* This is something of a hack.  Stricly speaking we should raise an
          * error, but in practice this will be the right result! */
-        return format_one_result(result, "0");
+        return format_string(result, length, "0");
 }
 
 
