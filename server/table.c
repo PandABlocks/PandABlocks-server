@@ -67,7 +67,6 @@ static error__t field_set_fields_get_many(
 {
     for (unsigned int i = 0; i < set->field_count; i ++)
         result->write_many(result->write_context, set->fields[i]);
-    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 
@@ -128,7 +127,6 @@ static error__t write_ascii(
 {
     for (unsigned int i = 0; i < block->length; i ++)
         format_many_result(result, "%u", block->data[i]);
-    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 
@@ -147,7 +145,6 @@ static error__t write_base_64(
         length -= to_write;
         data += to_write;
     }
-    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 

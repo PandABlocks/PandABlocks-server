@@ -36,14 +36,15 @@ error__t attr_get(
      * If the .format field is available then we use that by preference. */
     if (attr->methods->format)
     {
-        return
-            attr->methods->format(
-                attr->owner, attr->data, number,
-                result->string, result->length)  ?:
-            DO(result->response = RESPONSE_ONE);
+        result->response = RESPONSE_ONE;
+        return attr->methods->format(
+            attr->owner, attr->data, number, result->string, result->length);
     }
     else if (attr->methods->get_many)
+    {
+        result->response = RESPONSE_MANY;
         return attr->methods->get_many(attr->owner, attr->data, number, result);
+    }
     else
         return FAIL_("Attribute not readable");
 }

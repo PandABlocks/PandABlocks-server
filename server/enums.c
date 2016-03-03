@@ -259,7 +259,6 @@ void write_enum_labels(
     size_t ix = 0;
     while (walk_enumerations(enumeration, &ix, &entry))
         result->write_many(result->write_context, entry.name);
-    result->response = RESPONSE_MANY;
 }
 
 

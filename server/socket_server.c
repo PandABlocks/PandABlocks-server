@@ -230,8 +230,6 @@ void generate_connection_list(struct connection_result *result)
         copy_head = copy_head->next;
         free(copy);
     }
-
-    result->response = RESPONSE_MANY;
 }
 
 

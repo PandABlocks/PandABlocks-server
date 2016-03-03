@@ -41,6 +41,7 @@ static error__t do_field_list_get(
     const struct entity_context *context,
     struct connection_result *result)
 {
+    result->response = RESPONSE_MANY;
     return field_list_get(context->block, result);
 }
 
@@ -76,6 +77,7 @@ static error__t do_attr_list_get(
     const struct entity_context *context,
     struct connection_result *result)
 {
+    result->response = RESPONSE_MANY;
     return attr_list_get(context->field, result);
 }
 

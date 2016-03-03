@@ -122,7 +122,6 @@ void report_capture_list(struct connection_result *result)
         if (get_capture_enabled(field->output, field->number, &capture))
             format_many_result(result, "%s %s", field->field_name, capture);
     }
-    result->response = RESPONSE_MANY;
 }
 
 
@@ -138,7 +137,6 @@ void report_capture_labels(struct connection_result *result)
 {
     for (unsigned int i = 0; i < output_field_count; i ++)
         result->write_many(result->write_context, output_fields[i]->field_name);
-    result->response = RESPONSE_MANY;
 }
 
 

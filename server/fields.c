@@ -126,7 +126,6 @@ error__t block_list_get(struct connection_result *result)
 {
     FOR_EACH_BLOCK(block)
         format_many_result(result, "%s %d", block->name, block->count);
-    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 
@@ -145,7 +144,6 @@ error__t field_list_get(
 
         result->write_many(result->write_context, result->string);
     }
-    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 
@@ -156,7 +154,6 @@ error__t attr_list_get(struct field *field, struct connection_result *result)
     const void *key;
     while (hash_table_walk(field->attrs, &ix, &key, NULL))
         result->write_many(result->write_context, key);
-    result->response = RESPONSE_MANY;
     return ERROR_OK;
 }
 
@@ -356,7 +353,6 @@ void generate_change_sets(
                     result, field, report_index[CHANGE_IX_ATTR]);
         }
     }
-    result->response = RESPONSE_MANY;
 }
 
 

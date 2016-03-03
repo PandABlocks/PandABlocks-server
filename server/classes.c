@@ -46,10 +46,16 @@ error__t class_get(
         class->methods->refresh(class->class_data, number);
 
     if (class->methods->get)
+    {
+        result->response = RESPONSE_ONE;
         return class->methods->get(
             class->class_data, number, result->string, result->length);
+    }
     else if (class->methods->get_many)
+    {
+        result->response = RESPONSE_MANY;
         return class->methods->get_many(class->class_data, number, result);
+    }
     else
         return FAIL_("Field not readable");
 }

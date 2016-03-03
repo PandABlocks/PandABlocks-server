@@ -162,22 +162,22 @@ static void do_read_command(
             .response = RESPONSE_ERROR,
         };
         error__t error = command_set->get(command, &result);
-        /* Ensure error return and result response are consistent. */
-        ASSERT_OK((error != ERROR_OK) == (result.response == RESPONSE_ERROR));
-        switch (result.response)
-        {
-            case RESPONSE_ERROR:
-                report_error(connection, error);
-                break;
-            case RESPONSE_ONE:
-                write_string(connection->file, "OK =", 4);
-                write_string(connection->file, string, strlen(string));
-                write_char(connection->file, '\n');
-                break;
-            case RESPONSE_MANY:
-                write_string(connection->file, ".\n", 2);
-                break;
-        }
+        if (error)
+            report_error(connection, error);
+        else
+            switch (result.response)
+            {
+                case RESPONSE_ONE:
+                    write_string(connection->file, "OK =", 4);
+                    write_string(connection->file, string, strlen(string));
+                    write_char(connection->file, '\n');
+                    break;
+                case RESPONSE_MANY:
+                    write_string(connection->file, ".\n", 2);
+                    break;
+                default:
+                    ASSERT_FAIL();      // oops
+            }
     }
     else
         report_error(connection, FAIL_("Unexpected text after command"));

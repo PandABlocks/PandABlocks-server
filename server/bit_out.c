@@ -61,12 +61,12 @@ static void bit_out_refresh(void *class_data, unsigned int number)
 static struct enumeration *bit_mux_lookup;
 
 
+/* Implements .BITS attribute for bit group capture fields. */
 void report_capture_bits(struct connection_result *result, unsigned int group)
 {
     for (unsigned int i = 0; i < 32; i ++)
         result->write_many(result->write_context,
             enum_index_to_name(bit_mux_lookup, 32*group + i) ?: "");
-    result->response = RESPONSE_MANY;
 }
 
 

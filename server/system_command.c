@@ -62,6 +62,7 @@ static error__t get_idn(const char *command, struct connection_result *result)
 static error__t get_blocks(
     const char *command, struct connection_result *result)
 {
+    result->response = RESPONSE_MANY;
     return block_list_get(result);
 }
 
@@ -82,6 +83,7 @@ static error__t get_echo(const char *command, struct connection_result *result)
  * Returns list of connections. */
 static error__t get_who(const char *command, struct connection_result *result)
 {
+    result->response = RESPONSE_MANY;
     generate_connection_list(result);
     return ERROR_OK;
 }
@@ -127,6 +129,7 @@ static error__t get_changes(
     const char *command, struct connection_result *result)
 {
     enum change_set change_set;
+    result->response = RESPONSE_MANY;
     return
         parse_change_set(&command, &change_set)  ?:
         DO(generate_change_sets(result, change_set));
@@ -191,6 +194,7 @@ static error__t get_desc(const char *command, struct connection_result *result)
 static error__t get_capture(
     const char *command, struct connection_result *result)
 {
+    result->response = RESPONSE_MANY;
     return
         IF_ELSE(read_string(&command, ".*"),
             parse_eos(&command)  ?:
@@ -220,6 +224,7 @@ static error__t put_capture(
 static error__t get_positions(
     const char *command, struct connection_result *result)
 {
+    result->response = RESPONSE_MANY;
     report_capture_positions(result);
     return ERROR_OK;
 }
@@ -248,6 +253,7 @@ static error__t get_enums(const char *command, struct connection_result *result)
 {
     struct entity_context parse;
     const struct enumeration *enumeration;
+    result->response = RESPONSE_MANY;
     return
         parse_char(&command, '.')  ?:
         parse_block_entity(&command, &parse, NULL, NULL)  ?:
