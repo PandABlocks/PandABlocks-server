@@ -26,10 +26,12 @@
 static int block_shift = 8;     // In log2 pages, default is 1MB
 static int block_count = 3;     // Number of buffers in circular buffer
 static int block_timeout = 12500000;    // 100ms in 125MHz FPGA clock ticks
+static int verbose = 0;
 
 module_param(block_shift, int, S_IRUGO);
 module_param(block_count, int, S_IRUGO);
 module_param(block_timeout, int, S_IRUGO);
+module_param(verbose, int, S_IRUGO);
 
 #define BUF_BLOCK_SIZE      (1U << (block_shift + PAGE_SHIFT))
 
@@ -187,6 +189,8 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     void *reg_base = open->pcap->reg_base;
 
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
+    if (verbose)
+        printk(KERN_INFO "ISR status: %08x\n", status);
 
     smp_rmb();
     if (open->stream_active)
