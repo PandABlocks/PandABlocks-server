@@ -462,7 +462,7 @@ static error__t position_units_put(
     struct position_field *field = &state->values[number];
 
     const char *units;
-    error__t error = parse_to_eos(&value, &units);
+    error__t error = parse_utf8_string(&value, &units);
     if (!error)
     {
         LOCK(state->mutex);

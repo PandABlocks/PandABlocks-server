@@ -218,7 +218,7 @@ static error__t description_parse_field_line(
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         lookup_field(block, field_name, &field)  ?:
         parse_whitespace(line)  ?:
-        parse_to_eos(line, &description)  ?:
+        parse_utf8_string(line, &description)  ?:
         field_set_description(field, description);
 }
 
@@ -235,7 +235,7 @@ static error__t description_parse_block_line(
         lookup_block(block_name, &block, NULL)  ?:
         DO(parser->context = block)  ?:
         parse_whitespace(line)  ?:
-        parse_to_eos(line, &description)  ?:
+        parse_utf8_string(line, &description)  ?:
         block_set_description(block, description);
 }
 

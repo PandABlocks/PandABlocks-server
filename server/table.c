@@ -57,7 +57,7 @@ static error__t field_set_parse_attribute(
 
     const char *description;
     return
-        parse_to_eos(line, &description)  ?:
+        parse_utf8_string(line, &description)  ?:
         DO(set->fields[set->field_count - 1] = strdup(description));
 }
 

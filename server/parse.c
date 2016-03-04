@@ -159,24 +159,6 @@ error__t parse_eos(const char **string)
 }
 
 
-error__t parse_to_eos(const char **string, const char **result)
-{
-    *result = *string;
-    error__t error = ERROR_OK;
-    for ( ; !error  &&  **string; *string += 1)
-    {
-        unsigned char ch = (unsigned char) **string;
-        /* Check that the character is not a control character, ie in the range
-         * range 0..31 (C0 character) or DEL (7F).  I would have liked to
-         * exclude the C1 range (128..159), but that would prevent the use of
-         * UTF-8 strings, and that would seem rather unreasonable! */
-        error = TEST_OK_(ch >= ' '  &&  ch != 0x7F,
-            "Unexpected control code in string");
-    }
-    return error;
-}
-
-
 error__t parse_uint_array(
     const char **line, unsigned int array[], size_t length)
 {
@@ -187,6 +169,118 @@ error__t parse_uint_array(
                 parse_whitespace(line))  ?:
             parse_uint(line, &array[i]);
     return error;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Simple UTF-8 validation. */
+
+enum utf8_decode_status {
+    UTF8_DECODE_OK,
+    UTF8_DECODE_MALFORMED,
+    UTF8_DECODE_NONCANONICAL,
+    UTF8_DECODE_SURROGATE,
+    UTF8_DECODE_TOO_LARGE,
+};
+
+
+/* A valid UTF-8 sequence representing a single Unicode code point is one of the
+ * following:
+ *  0xxxxxxx                                7 bit characters
+ *  110xxxxx 10xxxxxx                       8 to 11 bit characters
+ *  1110xxxx 10xxxxxx 10xxxxxx              12 to 16 bit characters
+ *  11110xxx 10xxxxxx 10xxxxxx 10xxxxxx     21 to 17 bit characters
+ * To ensure the UTF-8 representation is unique no code point can be represented
+ * by a longer sequence of bytes.  Also no code point can be more than 0x10FFFF,
+ * and finally the "surrogate" characters 0xD800-DFFF cannot be used.
+ *    This function returns either the number of UTF-8 bytes successfully read,
+ * or a negative utf8_decode_status value. */
+static int check_utf8_char(const uint8_t *utf8)
+{
+    uint8_t ch = utf8[0];
+    if (ch < 0x80)                      // 0xxxxxxx
+        return 1;
+    else if (ch < 0xC0)                 // 10xxxxxx
+        return -UTF8_DECODE_MALFORMED;
+    else if (ch < 0xE0)                 // 110xxxxx
+    {
+        uint8_t ch2 = utf8[1];
+        if ((ch2 & 0xC0) != 0x80)
+            return -UTF8_DECODE_MALFORMED;
+        else if (ch < 0xC2)
+            return -UTF8_DECODE_NONCANONICAL;
+        else
+            return 2;
+    }
+    else if (ch < 0xF0)                 // 1110xxxx
+    {
+        uint8_t ch2 = utf8[1];
+        if ((ch2 & 0xC0) != 0x80)
+            return -UTF8_DECODE_MALFORMED;
+        uint8_t ch3 = utf8[2];
+        if ((ch3 & 0xC0) != 0x80)
+            return -UTF8_DECODE_MALFORMED;
+        unsigned int unicode =
+            ((ch & 0x0Fu) << 12) | ((ch2 & 0x3Fu) << 6) | (ch3 & 0x3Fu);
+        if (unicode < 0x800)
+            return -UTF8_DECODE_NONCANONICAL;
+        else if ((unicode & 0xF800) == 0xD800)
+            return -UTF8_DECODE_SURROGATE;
+        else
+            return 3;
+    }
+    else if (ch < 0xF8)                 // 11110xxx
+    {
+        uint8_t ch2 = utf8[1];
+        if ((ch2 & 0xC0) != 0x80)
+            return -UTF8_DECODE_MALFORMED;
+        uint8_t ch3 = utf8[2];
+        if ((ch3 & 0xC0) != 0x80)
+            return -UTF8_DECODE_MALFORMED;
+        uint8_t ch4 = utf8[3];
+        if ((ch4 & 0xC0) != 0x80)
+            return -UTF8_DECODE_MALFORMED;
+        unsigned int unicode =
+            ((ch & 0x07u) << 18) | ((ch2 & 0x3Fu) << 12) |
+            ((ch3 & 0x3Fu) << 6) | (ch4 & 0x3Fu);
+        if (unicode < 0x1000)
+            return -UTF8_DECODE_NONCANONICAL;
+        else if (unicode < 0x110000)
+            return 4;
+        else
+            return -UTF8_DECODE_TOO_LARGE;
+    }
+    else                                // 11111xxx
+        return -UTF8_DECODE_MALFORMED;
+}
+
+error__t parse_utf8_string(const char **input, const char **result)
+{
+    static const char *error_strings[] = {
+        [UTF8_DECODE_MALFORMED]     = "Malformed UTF-8 encoding",
+        [UTF8_DECODE_NONCANONICAL]  = "Non-canonical UTF-8 encoding",
+        [UTF8_DECODE_SURROGATE]     = "Unicode surrogate characters disallowed",
+        [UTF8_DECODE_TOO_LARGE]     = "UTF-8 value too large for Unicode",
+    };
+
+    *result = *input;
+    const uint8_t *utf8 = (const uint8_t *) *input;
+    while (*utf8 != 0x00)
+    {
+        if (*utf8 < 0x20)
+            return FAIL_("Unexpected control code in string");
+        else if (*utf8 < 0x80)
+            utf8 += 1;
+        else
+        {
+            int check = check_utf8_char(utf8);
+            if (check < 0)
+                return FAIL_(error_strings[-check]);
+            utf8 += check;
+        }
+    }
+    *input = (const char *) utf8;
+    return ERROR_OK;
 }
 
 
