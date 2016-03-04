@@ -15,6 +15,6 @@ error__t initialise_bit_out(void);
 void terminate_bit_out(void);
 
 
-/* Type and class definitions. */
-extern const struct type_methods bit_mux_type_methods;
+/* Class definitions. */
+extern const struct class_methods bit_mux_class_methods;
 extern const struct class_methods bit_out_class_methods;

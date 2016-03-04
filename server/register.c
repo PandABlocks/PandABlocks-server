@@ -231,7 +231,7 @@ static error__t param_init(
 
 
 static void param_change_set(
-    void *class_data, const uint64_t report_index, bool changes[])
+    void *class_data, uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
     LOCK(state->mutex);
