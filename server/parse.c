@@ -148,7 +148,7 @@ DEFINE_PARSE_NUM(parse_double, double,       strtod)
 error__t parse_bit(const char **string, bool *result)
 {
     return
-        TEST_OK_(strchr("01", **string), "Invalid bit value")  ?:
+        TEST_OK_(**string == '0'  ||  **string == '1', "Invalid bit value")  ?:
         DO(*result = *(*string)++ == '1');
 }
 
