@@ -837,18 +837,95 @@ void terminate_output(void)
 }
 
 
-/* pos_mux type initialisation and destruction.  We only need the pos_mux
- * destructor to protect the shared pos_mux_lookup from being deleted. */
+/*****************************************************************************/
+/* pos_mux class. */
+
+struct pos_mux_state {
+    pthread_mutex_t mutex;
+    unsigned int block_base;
+    unsigned int mux_reg;
+    unsigned int count;
+    struct pos_mux_value {
+        unsigned int value;
+        uint64_t update_index;
+    } values[];
+};
+
 
 static error__t pos_mux_init(
-    const char **string, unsigned int count, void **type_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
-    *type_data = pos_mux_lookup;
+    struct pos_mux_state *state = malloc(
+        sizeof(struct pos_mux_state) + count * sizeof(struct pos_mux_value));
+    *state = (struct pos_mux_state) {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .count = count,
+    };
+    for (unsigned int i = 0; i < count; i ++)
+        state->values[i] = (struct pos_mux_value) {
+            .update_index = 1,
+        };
+    *class_data = state;
+
     return ERROR_OK;
 }
 
-static void pos_mux_destroy(void *type_data, unsigned int count)
+
+static error__t pos_mux_parse_register(
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
 {
+    struct pos_mux_state *state = class_data;
+    state->block_base = block_base;
+    return
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->mux_reg);
+}
+
+
+static error__t pos_mux_get(
+    void *class_data, unsigned int number, char result[], size_t length)
+{
+    struct pos_mux_state *state = class_data;
+    return enum_format(
+        pos_mux_lookup, number, state->values[number].value, result, length);
+}
+
+
+static error__t pos_mux_put(
+    void *class_data, unsigned int number, const char *string)
+{
+    struct pos_mux_state *state = class_data;
+    unsigned int mux_value;
+    error__t error = enum_parse(pos_mux_lookup, number, string, &mux_value);
+    if (!error)
+    {
+        struct pos_mux_value *value = &state->values[number];
+        LOCK(state->mutex);
+        value->value = mux_value;
+        value->update_index = get_change_index();
+        hw_write_register(state->block_base, number, state->mux_reg, mux_value);
+        UNLOCK(state->mutex);
+    }
+    return error;
+}
+
+
+static void pos_mux_change_set(
+    void *class_data, const uint64_t report_index, bool changes[])
+{
+    struct pos_mux_state *state = class_data;
+    LOCK(state->mutex);
+    for (unsigned int i = 0; i < state->count; i ++)
+        changes[i] = state->values[i].update_index > report_index;
+    UNLOCK(state->mutex);
+}
+
+
+static const struct enumeration *pos_mux_get_enumeration(void *class_data)
+{
+    return pos_mux_lookup;
 }
 
 
@@ -859,16 +936,18 @@ void report_capture_positions(struct connection_result *result)
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*****************************************************************************/
 /* Published class definitions. */
 
-const struct type_methods pos_mux_type_methods = {
+const struct class_methods pos_mux_class_methods = {
     "pos_mux",
     .init = pos_mux_init,
-    .destroy = pos_mux_destroy,
-    .parse = enum_parse,
-    .format = enum_format,
-    .get_enumeration = enum_get_enumeration,
+    .parse_register = pos_mux_parse_register,
+    .get = pos_mux_get,
+    .put = pos_mux_put,
+    .get_enumeration = pos_mux_get_enumeration,
+    .change_set = pos_mux_change_set,
+    .change_set_index = CHANGE_IX_CONFIG,
 };
 
 const struct class_methods pos_out_class_methods = {

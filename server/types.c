@@ -433,8 +433,6 @@ static const struct type_methods *types_table[] = {
     &position_type_methods,         // position
     &time_type_methods,             // time
 
-    &pos_mux_type_methods,          // pos_mux
-
     &enum_type_methods,             // enum
 };
 
