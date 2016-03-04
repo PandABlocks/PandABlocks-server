@@ -24,6 +24,10 @@
 #include "bit_out.h"
 
 
+/* Maximum valid delay, defined by hardware. */
+#define MAX_BIT_MUX_DELAY   63
+
+
 /* Protects updating of bits. */
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -33,29 +37,22 @@ static bool bit_value[BIT_BUS_COUNT];
 static uint64_t bit_update_index[] = { [0 ... BIT_BUS_COUNT-1] = 1 };
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*****************************************************************************/
+/* bit_mux lookup and associated class methods. */
 
 
-void do_bit_out_refresh(uint64_t change_index)
-{
-    LOCK(mutex);
-    bool changes[BIT_BUS_COUNT];
-    hw_read_bits(bit_value, changes);
-    for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
-        if (changes[i]  &&  change_index > bit_update_index[i])
-            bit_update_index[i] = change_index;
-    UNLOCK(mutex);
-}
-
-
-static void bit_out_refresh(void *class_data, unsigned int number)
-{
-    do_bit_out_refresh(get_change_index());
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* bit_mux lookup and associated type methods. */
+struct bit_mux_state {
+    pthread_mutex_t mutex;
+    unsigned int block_base;
+    unsigned int mux_reg;
+    unsigned int delay_reg;
+    unsigned int count;
+    struct bit_mux_value {
+        unsigned int value;
+        unsigned int delay;
+        uint64_t update_index;
+    } values[];
+};
 
 
 static struct enumeration *bit_mux_lookup;
@@ -71,22 +68,120 @@ void report_capture_bits(struct connection_result *result, unsigned int group)
 
 
 static error__t bit_mux_init(
-    const char **string, unsigned int count, void **type_data)
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
 {
-    *type_data = bit_mux_lookup;
+    struct bit_mux_state *state = malloc(
+        sizeof(struct bit_mux_state) + count * sizeof(struct bit_mux_value));
+    *state = (struct bit_mux_state) {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .count = count,
+    };
+    for (unsigned int i = 0; i < count; i ++)
+        state->values[i] = (struct bit_mux_value) {
+            .update_index = 1,
+        };
+    *class_data = state;
+
     return ERROR_OK;
 }
 
 
-/* We need a dummy type destroy method to ensure that the associated
- * bit_mux_lookup is not destroyed. */
-static void bit_mux_destroy(void *type_data, unsigned int count)
+static error__t bit_mux_parse_register(
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
 {
+    struct bit_mux_state *state = class_data;
+    state->block_base = block_base;
+    return
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->mux_reg) ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &state->delay_reg);
+}
+
+
+static error__t bit_mux_get(
+    void *class_data, unsigned int number, char result[], size_t length)
+{
+    struct bit_mux_state *state = class_data;
+    return enum_format(
+        bit_mux_lookup, number, state->values[number].value, result, length);
+}
+
+
+static error__t bit_mux_put(
+    void *class_data, unsigned int number, const char *string)
+{
+    struct bit_mux_state *state = class_data;
+    unsigned int mux_value;
+    error__t error = enum_parse(bit_mux_lookup, number, string, &mux_value);
+    if (!error)
+    {
+        struct bit_mux_value *value = &state->values[number];
+        LOCK(state->mutex);
+        value->value = mux_value;
+        value->update_index = get_change_index();
+        hw_write_register(state->block_base, number, state->mux_reg, mux_value);
+        UNLOCK(state->mutex);
+    }
+    return error;
+}
+
+
+static void bit_mux_change_set(
+    void *class_data, const uint64_t report_index, bool changes[])
+{
+    struct bit_mux_state *state = class_data;
+    LOCK(state->mutex);
+    for (unsigned int i = 0; i < state->count; i ++)
+        changes[i] = state->values[i].update_index > report_index;
+    UNLOCK(state->mutex);
+}
+
+
+static const struct enumeration *bit_mux_get_enumeration(void *class_data)
+{
+    return bit_mux_lookup;
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Field specific state. */
+/* DELAY and MAX_DELAY attributes. */
+
+static error__t bit_mux_delay_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct bit_mux_state *state = data;
+    return format_string(result, length, "%u", state->values[number].delay);
+}
+
+
+static error__t bit_mux_delay_put(
+    void *owner, void *data, unsigned int number, const char *value)
+{
+    struct bit_mux_state *state = data;
+    unsigned int delay;
+    return
+        parse_uint(&value, &delay)  ?:
+        TEST_OK_(delay <= MAX_BIT_MUX_DELAY, "Delay too long")  ?:
+        DO( state->values[number].delay = delay;
+            hw_write_register(
+                state->block_base, number, state->delay_reg, delay));
+}
+
+
+static error__t bit_mux_max_delay_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    return format_string(result, length, "%u", MAX_BIT_MUX_DELAY);
+}
+
+
+/*****************************************************************************/
+/* bit_out class. */
 
 
 struct bit_out_state {
@@ -196,17 +291,48 @@ void terminate_bit_out(void)
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Type and class definitions. */
+void do_bit_out_refresh(uint64_t change_index)
+{
+    LOCK(mutex);
+    bool changes[BIT_BUS_COUNT];
+    hw_read_bits(bit_value, changes);
+    for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
+        if (changes[i]  &&  change_index > bit_update_index[i])
+            bit_update_index[i] = change_index;
+    UNLOCK(mutex);
+}
 
 
-const struct type_methods bit_mux_type_methods = {
+static void bit_out_refresh(void *class_data, unsigned int number)
+{
+    do_bit_out_refresh(get_change_index());
+}
+
+
+/*****************************************************************************/
+/* Class definitions. */
+
+
+const struct class_methods bit_mux_class_methods = {
     "bit_mux",
     .init = bit_mux_init,
-    .destroy = bit_mux_destroy,
-    .parse = enum_parse,
-    .format = enum_format,
-    .get_enumeration = enum_get_enumeration,
+    .parse_register = bit_mux_parse_register,
+    .get = bit_mux_get,
+    .put = bit_mux_put,
+    .get_enumeration = bit_mux_get_enumeration,
+    .change_set = bit_mux_change_set,
+    .change_set_index = CHANGE_IX_CONFIG,
+    .attrs = (struct attr_methods[]) {
+        { "DELAY", "Clock delay on input",
+            .in_change_set = true,
+            .format = bit_mux_delay_format,
+            .put = bit_mux_delay_put,
+        },
+        { "MAX_DELAY", "Maximum valid input delay",
+            .format = bit_mux_max_delay_format,
+        },
+    },
+    .attr_count = 2,
 };
 
 
