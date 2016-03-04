@@ -368,7 +368,7 @@ static const char *field_type_name(
         [DATA_PROCESS_UNSCALED] = {
             [CAPTURE_UNSCALED] = "uint32",
             [CAPTURE_SCALED32] = "int32",
-            [CAPTURE_SCALED64] = "int32",
+            [CAPTURE_SCALED64] = "int64",
             [CAPTURE_ADC_MEAN] = "int32",
             [CAPTURE_TS_NORMAL ... CAPTURE_TS_OFFSET] = "uint64",
         },
