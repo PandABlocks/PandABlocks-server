@@ -326,25 +326,10 @@ const struct enumeration *enum_get_enumeration(void *type_data)
 }
 
 
-/* Returns list of enumeration values and strings. */
-static error__t enum_labels_get(
-    void *owner, void *type_data, unsigned int number,
-    struct connection_result *result)
-{
-    write_enum_labels(type_data, result);
-    return ERROR_OK;
-}
-
-
 const struct type_methods enum_type_methods = {
     "enum",
     .init = enum_init, .destroy = enum_destroy,
     .add_attribute_line = enum_add_label,
     .parse = enum_parse, .format = enum_format,
     .get_enumeration = enum_get_enumeration,
-    .attrs = (struct attr_methods[]) {
-        { "LABELS", "List of possible enumeration values",
-          .get_many = enum_labels_get, },
-    },
-    .attr_count = 1,
 };
