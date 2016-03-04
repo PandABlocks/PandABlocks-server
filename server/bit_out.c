@@ -42,6 +42,7 @@ static uint64_t bit_update_index[] = { [0 ... BIT_BUS_COUNT-1] = 1 };
 
 
 struct bit_mux_state {
+    pthread_mutex_t mutex;
     unsigned int block_base;
     unsigned int mux_reg;
     unsigned int delay_reg;
@@ -73,6 +74,7 @@ static error__t bit_mux_init(
     struct bit_mux_state *state = malloc(
         sizeof(struct bit_mux_state) + count * sizeof(struct bit_mux_value));
     *state = (struct bit_mux_state) {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
         .count = count,
     };
     for (unsigned int i = 0; i < count; i ++)
@@ -109,15 +111,21 @@ static error__t bit_mux_get(
 
 
 static error__t bit_mux_put(
-    void *class_data, unsigned int number, const char *value)
+    void *class_data, unsigned int number, const char *string)
 {
     struct bit_mux_state *state = class_data;
-    return
-        enum_parse(
-            bit_mux_lookup, number, value, &state->values[number].value)  ?:
-        DO(hw_write_register(
-            state->block_base, number, state->mux_reg,
-            state->values[number].value));
+    unsigned int mux_value;
+    error__t error = enum_parse(bit_mux_lookup, number, string, &mux_value);
+    if (!error)
+    {
+        struct bit_mux_value *value = &state->values[number];
+        LOCK(state->mutex);
+        value->value = mux_value;
+        value->update_index = get_change_index();
+        hw_write_register(state->block_base, number, state->mux_reg, mux_value);
+        UNLOCK(state->mutex);
+    }
+    return error;
 }
 
 
@@ -125,8 +133,10 @@ static void bit_mux_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct bit_mux_state *state = class_data;
+    LOCK(state->mutex);
     for (unsigned int i = 0; i < state->count; i ++)
         changes[i] = state->values[i].update_index > report_index;
+    UNLOCK(state->mutex);
 }
 
 
