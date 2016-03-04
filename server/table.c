@@ -305,7 +305,7 @@ static error__t table_parse_register(
 }
 
 
-static error__t table_get(
+static error__t table_get_many(
     void *class_data, unsigned int number,
     struct connection_result *result)
 {
@@ -402,7 +402,7 @@ const struct class_methods table_class_methods = {
     .parse_attribute = table_parse_attribute,
     .parse_register = table_parse_register,
     .destroy = table_destroy,
-    .get_many = table_get,
+    .get_many = table_get_many,
     .put_table = table_put_table,
     .change_set = table_change_set,
     .change_set_index = CHANGE_IX_TABLE,

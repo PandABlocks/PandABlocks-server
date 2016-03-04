@@ -102,7 +102,7 @@ static uint64_t experiment_sample_count;
 
 
 /* Performs a complete experiment capture: start data buffer, process the data
- * stream until hardware is complete, stop data buffer.. */
+ * stream until hardware is complete, stop data buffer. */
 static void capture_experiment(void)
 {
     start_write(data_buffer);

@@ -16,19 +16,15 @@
 #define LOCKW(mutex)    ASSERT_PTHREAD(pthread_rwlock_wrlock(&(mutex)))
 #define UNLOCKRW(mutex) ASSERT_PTHREAD(pthread_rwlock_unlock(&(mutex)))
 
-/* Compute and return result under mutex. */
-#define WITH_LOCK(mutex, result) \
+/* Compute and return result under specified lock. */
+#define _WITH_LOCK_UNLOCK(lock, unlock, mutex, result) \
     ( { \
-        LOCK(mutex); \
-        DO_FINALLY(result, UNLOCK(mutex)); \
+        lock(mutex); \
+        DO_FINALLY(result, unlock(mutex)); \
     } )
-
-/* Comput and return result under read lock. */
-#define WITH_LOCKR(mutex, result) \
-    ( { \
-        LOCKR(mutex); \
-        DO_FINALLY(result, UNLOCKRW(mutex)); \
-    } )
+#define WITH_LOCK(args...)      _WITH_LOCK_UNLOCK(LOCK, UNLOCK, args)
+#define WITH_LOCKR(args...)     _WITH_LOCK_UNLOCK(LOCKR, UNLOCKRW, args)
+#define WITH_LOCKW(args...)     _WITH_LOCK_UNLOCK(LOCKW, UNLOCKRW, args)
 
 
 /* A handy macro for timeouts in ns. */
