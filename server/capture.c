@@ -140,8 +140,10 @@ static size_t average_unscaled_adc(
     const struct data_capture *capture,
     const uint32_t input[], uint32_t output[])
 {
-    uint32_t adc_sample_count = input[capture->adc_count_index];
     const int64_t *adc_means = (const void *) &input[capture->adc_mean.index];
+    uint32_t adc_sample_count = input[capture->adc_count_index];
+    if (adc_sample_count == 0)
+        adc_sample_count = 1;
     for (size_t i = 0; i < capture->adc_mean.count; i ++)
         output[i] = (uint32_t) ((adc_means[i] << 8) / adc_sample_count);
     return sizeof(uint32_t) * capture->adc_mean.count;
@@ -222,6 +224,8 @@ static size_t average_scaled_adc(
     const struct scaling *scaling =
         &capture->scaling[capture->adc_mean.scaling];
     uint32_t adc_sample_count = input[capture->adc_count_index];
+    if (adc_sample_count == 0)
+        adc_sample_count = 1;
     for (size_t i = 0; i < capture->adc_mean.count; i ++)
         output[i] =
             scaling[i].scale * (double) input_64[i] / adc_sample_count +
