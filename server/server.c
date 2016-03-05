@@ -40,6 +40,10 @@ static unsigned int persistence_poll = 2;
 static unsigned int persistence_holdoff = 10;
 static unsigned int persistence_backoff = 60;
 
+/* Daemon state. */
+static bool daemon_mode = false;
+static const char *pid_filename = NULL;
+
 
 /* Parses a persistence time specification in the form
  *
@@ -73,6 +77,8 @@ static void usage(const char *argv0)
 "   -c: Specify configuration directory\n"
 "   -f: Specify persistence file\n"
 "   -t: Specify persistence timeouts.  Format is poll:holdoff:backoff\n"
+"   -D  Run server as a daemon\n"
+"   -P: Write process id to given file name\n"
         , argv0, config_port, data_port);
 }
 
@@ -83,7 +89,7 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:Rc:f:t:"))
+        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   config_port = (unsigned int) atoi(optarg);      break;
@@ -92,6 +98,8 @@ static error__t process_options(int argc, char *const argv[])
             case 'c':   config_dir = optarg;                            break;
             case 'f':   persistence_file = optarg;                      break;
             case 't':   error = parse_persistence_times(optarg);        break;
+            case 'D':   daemon_mode = true;                             break;
+            case 'P':   pid_filename = optarg;                          break;
             default:
                 return FAIL_("Try `%s -h` for usage", argv0);
             case -1:
@@ -106,7 +114,25 @@ static error__t process_options(int argc, char *const argv[])
 
 static error__t maybe_daemonise(void)
 {
-    return ERROR_OK;
+    FILE *pid_file = NULL;
+    error__t error =
+        /* The logic here is a little odd: we want to check that we can write
+         * the PID file before daemonising, to ensure that the caller gets the
+         * error message if daemonising fails, but we need to write the PID file
+         * afterwards to get the right PID. */
+        IF(pid_filename,
+            TEST_OK_(pid_file = fopen(pid_filename, "wx"),
+                "PID file already exists: is server already running?"))  ?:
+        IF(daemon_mode,
+            /* Don't chdir to / so that we can unlink(pid_filename) at end. */
+            TEST_IO(daemon(true, false))  ?:
+            DO(start_logging("PandA server")))  ?:
+        IF(pid_file,
+            TEST_IO(fprintf(pid_file, "%d", getpid())));
+
+    if (pid_file)
+        fclose(pid_file);
+    return error;
 }
 
 
@@ -175,19 +201,17 @@ int main(int argc, char *const argv[])
         initialise_socket_server(config_port, data_port, reuse_addr)  ?:
 
         maybe_daemonise();
-    if (error)
-        ERROR_REPORT(error, "Server startup failed");
 
-    if (!error)
+    if (!ERROR_REPORT(error, "Server startup failed"))
     {
         /* Now run the server.  Control will not return until we're ready to
          * terminate. */
+        log_message("Server started");
         error =
+            start_persistence()  ?:
             start_data_server()  ?:
             run_socket_server();
-
-        if (error)
-            ERROR_REPORT(error, "Server shutting down");
+        ERROR_REPORT(error, "Server shutting down");
     }
 
     log_message("Server shutting down");
@@ -207,6 +231,9 @@ int main(int argc, char *const argv[])
     terminate_bit_out();
     terminate_output();
     terminate_fields();
+
+    if (pid_filename)
+        unlink(pid_filename);
 
     return error ? 1 : 0;
 }

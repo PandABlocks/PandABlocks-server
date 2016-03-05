@@ -130,6 +130,13 @@ static bool log_verbose = true;
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
+void start_logging(const char *ident)
+{
+    openlog(ident, 0, LOG_DAEMON);
+    daemon_mode = true;
+}
+
+
 void vlog_message(int priority, const char *format, va_list args)
 {
     pthread_mutex_lock(&log_mutex);
