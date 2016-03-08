@@ -1,0 +1,55 @@
+#!/bin/sh
+
+# Startup script for Panda server on target machine.
+
+. /etc/init.d/functions
+
+# File locations
+pidfile=/opt/var/run/zebra2-server.pid
+
+firmware=/opt/usr/share/panda/panda_top.bit
+panda_server=/opt/usr/bin/panda_server
+panda_config=/opt/usr/share/panda/config_d
+panda_module=/opt/usr/share/panda/panda.ko
+panda_state=/opt/state/panda.state
+
+
+fail()
+{
+    echo >&2 "$@"
+    return 1
+}
+
+
+do_start()
+{
+    { [ -e $firmware ]  ||  fail "Firmware not installed"; }  &&
+    cat $firmware >/dev/xdevcfg  &&
+    insmod $panda_module  &&
+
+    # After inserting Panda module wait for devices to appear
+    i=0  &&
+    while [ $i -lt 10 ]; do
+        sleep 0.1
+        [ -e /dev/panda.map ]  &&  break
+        i=$((i+1))
+    done
+
+    $panda_server -c $panda_config -f $panda_state -P $pidfile -D
+}
+
+do_stop()
+{
+    kill -HUP $(cat $pidfile)  &&
+
+    # Remove the Panda driver.  We have to keep trying because we can't actually
+    # unload it until the server has finished shutting down.
+    i=0  &&
+    while [ $i -lt 10 ]; do
+        sleep 0.5
+        rmmod panda  &&  break
+        i=$((i+1))
+    done
+}
+
+do_start_stop "$1" zebra2-server

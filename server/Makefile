@@ -6,7 +6,6 @@ endif
 
 
 # Git version
-GIT_VERSION = $(shell git describe --abbrev=7 --dirty --always --tags)
 BUILD_DATE_TIME = $(shell date +'%Y-%m-%d %H:%M:%S')
 
 
