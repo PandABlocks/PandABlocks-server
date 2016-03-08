@@ -7,10 +7,10 @@
 # File locations
 pidfile=/opt/var/run/zebra2-server.pid
 
-firmware=/opt/usr/share/panda/panda_top.bit
-panda_server=/opt/usr/bin/panda_server
-panda_config=/opt/usr/share/panda/config_d
-panda_module=/opt/usr/share/panda/panda.ko
+firmware=/opt/share/panda/panda_top.bit
+panda_server=/opt/bin/panda_server
+panda_config=/opt/share/panda/config_d
+panda_module=/opt/share/panda/panda.ko
 panda_state=/opt/state/panda.state
 
 
