@@ -13,8 +13,12 @@
 #include "parse.h"
 #include "config_server.h"
 #include "types.h"
-#include "classes.h"
 #include "attributes.h"
+#include "output.h"
+#include "bit_out.h"
+#include "register.h"
+#include "time_position.h"
+#include "table.h"
 #include "locking.h"
 
 #include "fields.h"
@@ -43,10 +47,12 @@ struct block {
 struct field {
     const struct block *block;      // Parent block
     char *name;                     // Field name
+    const struct class_methods *methods;    // Class implementation
     unsigned int sequence;          // Field sequence number
     char *description;              // User readable description
-    struct class *class;            // Class defining hardware interface and
     struct hash_table *attrs;       // Attribute lookup table
+    void *class_data;               // Class specific data
+    bool initialised;               // Checked during finalisation
 };
 
 
@@ -130,6 +136,19 @@ error__t block_list_get(struct connection_result *result)
 }
 
 
+static error__t describe_field(
+    struct field *field, char string[], size_t length)
+{
+    const char *extra = field->methods->describe ?
+        field->methods->describe(field->class_data) : NULL;
+    if (extra)
+        return format_string(
+            string, length, "%s %s", field->methods->name, extra);
+    else
+        return format_string(string, length, "%s", field->methods->name);
+}
+
+
 error__t field_list_get(
     const struct block *block, struct connection_result *result)
 {
@@ -138,8 +157,8 @@ error__t field_list_get(
         size_t length = (size_t) snprintf(
             result->string, result->length,
             "%s %u ", field->name, field->sequence);
-        error__t error = describe_class(
-            field->class, result->string + length, result->length - length);
+        error__t error = describe_field(
+            field, result->string + length, result->length - length);
         ASSERT_OK(!error);
 
         result->write_many(result->write_context, result->string);
@@ -160,30 +179,53 @@ error__t attr_list_get(struct field *field, struct connection_result *result)
 
 const struct enumeration *get_field_enumeration(const struct field *field)
 {
-    return get_class_enumeration(field->class);
+    if (field->methods->get_enumeration)
+        return field->methods->get_enumeration(field->class_data);
+    else
+        return NULL;
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Field read and write.  These all just delegate the implementation down to the
- * class. */
+/* Field read and write. */
 
 error__t field_get(
     struct field *field, unsigned int number, struct connection_result *result)
 {
-    return class_get(field->class, number, true, result);
+    if (field->methods->refresh)
+        field->methods->refresh(field->class_data, number);
+
+    if (field->methods->get)
+    {
+        result->response = RESPONSE_ONE;
+        return field->methods->get(
+            field->class_data, number, result->string, result->length);
+    }
+    else if (field->methods->get_many)
+    {
+        result->response = RESPONSE_MANY;
+        return field->methods->get_many(field->class_data, number, result);
+    }
+    else
+        return FAIL_("Field not readable");
 }
+
 
 error__t field_put(struct field *field, unsigned int number, const char *string)
 {
-    return class_put(field->class, number, string);
+    return
+        TEST_OK_(field->methods->put, "Field not writeable")  ?:
+        field->methods->put(field->class_data, number, string);
 }
+
 
 error__t field_put_table(
     struct field *field, unsigned int number,
     bool append, struct put_table_writer *writer)
 {
-    return class_put_table(field->class, number, append, writer);
+    return
+        TEST_OK_(field->methods->put_table, "Field is not a table")  ?:
+        field->methods->put_table(field->class_data, number, append, writer);
 }
 
 
@@ -244,17 +286,11 @@ static void report_changed_value(
     size_t prefix =
         format_field_name(string, sizeof(string), field, NULL, number, '=');
 
-    /* Use the class's own formatting method to format into the result string
-     * via our own connection result.  If a multiple string result is returned
-     * then, for the moment, we report an unexpected error. */
-    struct connection_result format_result = {
-        .string = string + prefix,
-        .length = sizeof(string) - prefix,
-        .write_many = dummy_write_many,
-    };
     handle_error_report(string, sizeof(string), prefix,
-        class_get(field->class, number, false, &format_result)  ?:
-        TEST_OK(format_result.response == RESPONSE_ONE));
+        TEST_OK_(field->methods->get, "Field not readable")  ?:
+        field->methods->get(
+            field->class_data, number,
+            string + prefix, sizeof(string) - prefix));
     result->write_many(result->write_context, string);
 }
 
@@ -312,9 +348,26 @@ static void refresh_change_index(
     LOCK(change_mutex);
     uint64_t change_index = update_change_index(
         change_set_context, change_set, report_index);
-    refresh_class_changes(change_set, change_index);
+    if (change_set & CHANGES_BITS)
+        do_bit_out_refresh(change_index);
+    if (change_set & CHANGES_POSITION)
+        do_pos_out_refresh(change_index);
     UNLOCK(change_mutex);
 }
+
+
+static void get_field_change_set(
+    struct field *field, enum change_set change_set,
+    const uint64_t report_index[], bool changes[])
+{
+    unsigned int ix = field->methods->change_set_index;
+    if (field->methods->change_set  &&  (change_set & (1U << ix)))
+        field->methods->change_set(
+            field->class_data, report_index[ix], changes);
+    else
+        memset(changes, 0, sizeof(bool) * field->block->count);
+}
+
 
 
 /* Walks all fields and generates a change event for all changed fields. */
@@ -332,8 +385,8 @@ void generate_change_sets(
         FOR_EACH_FIELD(block->fields, field)
         {
             bool changes[block->count];
-            get_class_change_set(
-                field->class, change_set & (enum change_set) ~CHANGES_TABLE,
+            get_field_change_set(
+                field, change_set & (enum change_set) ~CHANGES_TABLE,
                 report_index, changes);
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
@@ -341,8 +394,8 @@ void generate_change_sets(
 
             /* We need to report table changes separately, totally different
              * reporting syntax! */
-            get_class_change_set(
-                field->class, change_set & CHANGES_TABLE,
+            get_field_change_set(
+                field, change_set & CHANGES_TABLE,
                 report_index, changes);
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
@@ -368,8 +421,8 @@ bool check_change_set(
         FOR_EACH_FIELD(block->fields, field)
         {
             bool changes[block->count];
-            get_class_change_set(
-                field->class, change_set, report_index, changes);
+            get_field_change_set(
+                field, change_set, report_index, changes);
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
                     return true;
@@ -420,8 +473,10 @@ error__t initialise_fields(void)
 static void destroy_field(struct field *field)
 {
     free(field->name);
-    if (field->class)
-        destroy_class(field->class);
+    if (field->methods->destroy)
+        field->methods->destroy(field->class_data);
+    else
+        free(field->class_data);
     free(field->description);
     delete_attributes(field->attrs);
     hash_table_destroy(field->attrs);
@@ -450,7 +505,30 @@ void terminate_fields(void)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Field and database creation and validation. */
+/* Top level list of classes. */
+
+static const struct class_methods *classes_table[] = {
+    &param_class_methods,           // param
+
+    &read_class_methods,            // read
+    &write_class_methods,           // write
+
+    &time_class_methods,            // time
+
+    &bit_out_class_methods,         // bit_out
+    &pos_out_class_methods,         // pos_out
+    &ext_out_class_methods,         // ext_out
+
+    &bit_mux_class_methods,         // bit_mux
+    &pos_mux_class_methods,         // pos_mux
+
+    &table_class_methods,           // table
+};
+
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Block creation. */
 
 
 error__t create_block(
@@ -486,51 +564,105 @@ error__t block_set_description(struct block *block, const char *description)
 }
 
 
-static struct field *create_field_block(
-    const struct block *block, const char *name)
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Field and database creation and validation. */
+
+
+static error__t info_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
 {
-    struct field *field = malloc(sizeof(struct field));
-    *field = (struct field) {
-        .block = block,
-        .name = strdup(name),
-        .sequence = (unsigned int) hash_table_count(block->fields),
-        .attrs = hash_table_create(false),
-    };
-    return field;
+    return describe_field(owner, result, length);
 }
+
+
+static struct attr_methods info_attribute = {
+    "INFO", "Class information for field",
+    .format = info_format,
+};
+
+
+static error__t lookup_class(
+    const char *name, const struct class_methods **result)
+{
+    for (unsigned int i = 0; i < ARRAY_SIZE(classes_table); i ++)
+    {
+        const struct class_methods *methods = classes_table[i];
+        if (strcmp(name, methods->name) == 0)
+        {
+            *result = methods;
+            return ERROR_OK;
+        }
+    }
+    return FAIL_("Class %s not found", name);
+}
+
+
+static error__t create_field_attributes(struct field *field)
+{
+    create_attributes(
+        field->methods->attrs, field->methods->attr_count,
+        field, field->class_data, field->block->count, field->attrs);
+    create_attributes(
+        &info_attribute, 1, field, field->class_data,
+        field->block->count, field->attrs);
+    return ERROR_OK;
+}
+
 
 error__t create_field(
     const char **line, struct field **field, const struct block *block)
 {
-    char field_name[MAX_NAME_LENGTH];
-    return
-        parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
-        parse_whitespace(line)  ?:
-        DO(*field = create_field_block(block, field_name))  ?:
-        TRY_CATCH(
-            create_class(
-                line, block->count, (*field)->attrs, &(*field)->class)  ?:
-            /* Insert the field into the blocks map of fields. */
-            TEST_OK_(
-                hash_table_insert(
-                    block->fields, (*field)->name, *field) == NULL,
-                "Field %s.%s already exists", block->name, field_name),
+    *field = malloc(sizeof(struct field));
+    **field = (struct field) {
+        .block = block,
+        .sequence = (unsigned int) hash_table_count(block->fields),
+        .attrs = hash_table_create(false),
+    };
 
-        // catch
-            destroy_field(*field)
-        );
+    char field_name[MAX_NAME_LENGTH];
+    char class_name[MAX_NAME_LENGTH];
+    error__t error =
+        parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
+        DO((*field)->name = strdup(field_name))  ?:
+        parse_whitespace(line)  ?:
+        parse_name(line, class_name, sizeof(class_name))  ?:
+        lookup_class(class_name, &(*field)->methods)  ?:
+
+        (*field)->methods->init(
+            line, block->count, (*field)->attrs, &(*field)->class_data)  ?:
+        create_field_attributes(*field)  ?:
+        /* Insert the field into the blocks map of fields. */
+        TEST_OK_(
+            hash_table_insert(block->fields, (*field)->name, *field) == NULL,
+            "Field %s.%s already exists", block->name, field_name);
+
+    if (error)
+        destroy_field(*field);
+    return error;
 }
 
 
 error__t field_parse_attribute(struct field *field, const char **line)
 {
-    return class_parse_attribute(field->class, line);
+    return
+        TEST_OK_(field->methods->parse_attribute,
+            "Cannot add attribute to this field")  ?:
+        field->methods->parse_attribute(field->class_data, line);
 }
 
 
 error__t field_parse_register(struct field *field, const char **line)
 {
-    return class_parse_register(field->class, field, field->block->base, line);
+    return
+        TEST_OK_(field->methods->parse_register,
+            "No register assignment expected for this class")  ?:
+        TEST_OK_(!field->initialised, "Register already assigned")  ?:
+        field->methods->parse_register(
+            field->class_data, field, field->block->base, line)  ?:
+        DO(field->initialised = true);
 }
 
 
@@ -556,7 +688,11 @@ error__t validate_fields(void)
             log_message("Empty description for block %s", block->name);
         FOR_EACH_FIELD_WHILE(!error, block->fields, field)
         {
-            error = finalise_class(field->class);
+            error =
+                TEST_OK_(field->initialised,
+                    "No register assigned for class")  ?:
+                IF(field->methods->finalise,
+                    field->methods->finalise(field->class_data));
             if (error)
                 error_extend(error,
                     "Checking field %s.%s", block->name, field->name);

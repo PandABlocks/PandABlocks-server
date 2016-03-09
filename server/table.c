@@ -13,9 +13,9 @@
 #include "error.h"
 #include "parse.h"
 #include "hardware.h"
-#include "classes.h"
-#include "attributes.h"
 #include "config_server.h"
+#include "fields.h"
+#include "attributes.h"
 #include "base64.h"
 #include "locking.h"
 
