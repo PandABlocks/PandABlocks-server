@@ -232,7 +232,8 @@ static error__t table_parse_attribute(void *class_data, const char **line)
 
 
 static error__t short_table_parse_register(
-    struct table_state *state, unsigned int block_base, const char **line)
+    struct table_state *state, struct field *field,
+    unsigned int block_base, const char **line)
 {
     unsigned int max_length;
     unsigned int init_reg, fill_reg, length_reg;
@@ -241,11 +242,11 @@ static error__t short_table_parse_register(
          * registers. */
         parse_uint(line, &max_length)  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &init_reg)  ?:
+        check_parse_register(field, line, &init_reg)  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &fill_reg)  ?:
+        check_parse_register(field, line, &fill_reg)  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &length_reg)  ?:
+        check_parse_register(field, line, &length_reg)  ?:
 
         DO(state->max_length = (size_t) max_length)  ?:
         hw_open_short_table(
@@ -255,7 +256,8 @@ static error__t short_table_parse_register(
 
 
 static error__t long_table_parse_register(
-    struct table_state *state, unsigned int block_base, const char **line)
+    struct table_state *state, struct field *field,
+    unsigned int block_base, const char **line)
 {
     unsigned int table_order;
     unsigned int base_reg;
@@ -265,9 +267,9 @@ static error__t long_table_parse_register(
         parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
         parse_uint(line, &table_order)  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &base_reg)  ?:
+        check_parse_register(field, line, &base_reg)  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &length_reg)  ?:
+        check_parse_register(field, line, &length_reg)  ?:
 
         hw_open_long_table(
             block_base, state->block_count, table_order,
@@ -295,10 +297,10 @@ static error__t table_parse_register(
     return
         parse_whitespace(line)  ?:
         IF_ELSE(read_string(line, "short"),
-            short_table_parse_register(state, block_base, line),
+            short_table_parse_register(state, field, block_base, line),
         //else
         IF_ELSE(read_string(line, "long"),
-            long_table_parse_register(state, block_base, line),
+            long_table_parse_register(state, field, block_base, line),
         //else
             FAIL_("Table type not recognised")))  ?:
         DO(allocate_data_areas(state));

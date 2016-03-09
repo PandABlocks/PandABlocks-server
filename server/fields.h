@@ -170,16 +170,22 @@ error__t block_set_description(struct block *block, const char *description);
 
 /* Call this to create each field. */
 error__t create_field(
-    const char **line, struct field **field, const struct block *block);
+    const char **line, struct field **field, struct block *block);
 
 /* Called to add attribute lines while parsing config file. */
 error__t field_parse_attribute(struct field *field, const char **line);
 
 /* Parse register setting for field. */
-error__t field_parse_register(struct field *field, const char **line);
+error__t field_parse_registers(struct field *field, const char **line);
 
 /* Sets description string for field. */
 error__t field_set_description(struct field *field, const char *description);
+
+
+/* Parses validates and assigns register, ensuring that the register is unique
+ * to the associated block.  Should be called for each register parsed. */
+error__t check_parse_register(
+    struct field *field, const char **line, unsigned int *reg);
 
 
 /* Must be called after loading configuration and register database to check

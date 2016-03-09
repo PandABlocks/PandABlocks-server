@@ -155,7 +155,7 @@ static error__t register_parse_normal_field(
     return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         lookup_field(block, field_name, &field)  ?:
-        field_parse_register(field, line);
+        field_parse_registers(field, line);
 }
 
 

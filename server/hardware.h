@@ -10,6 +10,7 @@
 
 
 #define UNASSIGNED_REGISTER ((unsigned int) -1)
+#define BLOCK_REGISTER_COUNT    (1U << 6)   // 6 bits per register field
 
 
 /* Must be called before any hardware functions.  If an error occurs then

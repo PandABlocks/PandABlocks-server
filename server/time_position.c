@@ -102,9 +102,9 @@ static error__t time_parse_register(
     state->block_base = block_base;
     return
         parse_whitespace(line)  ?:
-        parse_uint(line, &state->low_register)  ?:
+        check_parse_register(field, line, &state->low_register)  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &state->high_register)  ?:
+        check_parse_register(field, line, &state->high_register)  ?:
         IF(**line != '\0',
             parse_whitespace(line)  ?:
             parse_char(line, '>')  ?:

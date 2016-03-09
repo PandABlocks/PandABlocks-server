@@ -37,6 +37,7 @@ struct block {
     unsigned int base;          // Block register base
     struct hash_table *fields;  // Map from field name to fields
     char *description;          // User readable description
+    uint8_t reg_used[BLOCK_REGISTER_COUNT / 8];     // Register assignment map
 };
 
 
@@ -45,7 +46,7 @@ struct block {
  * There is also a register associated with each field, and depending on the
  * class there may be further type specific data. */
 struct field {
-    const struct block *block;      // Parent block
+    struct block *block;            // Parent block
     char *name;                     // Field name
     const struct class_methods *methods;    // Class implementation
     unsigned int sequence;          // Field sequence number
@@ -564,6 +565,17 @@ error__t block_set_description(struct block *block, const char *description)
 }
 
 
+error__t check_parse_register(
+    struct field *field, const char **line, unsigned int *reg)
+{
+    return
+        parse_uint(line, reg)  ?:
+        TEST_OK_(*reg < BLOCK_REGISTER_COUNT, "Register value too large")  ?:
+        TEST_OK_(
+            (field->block->reg_used[*reg / 8] & (1U << (*reg % 8))) == 0,
+            "Register %u already in use", *reg)  ?:
+        DO(field->block->reg_used[*reg / 8] |= (uint8_t) (1U << (*reg % 8)));
+}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -613,7 +625,7 @@ static error__t create_field_attributes(struct field *field)
 
 
 error__t create_field(
-    const char **line, struct field **field, const struct block *block)
+    const char **line, struct field **field, struct block *block)
 {
     *field = malloc(sizeof(struct field));
     **field = (struct field) {
@@ -654,7 +666,7 @@ error__t field_parse_attribute(struct field *field, const char **line)
 }
 
 
-error__t field_parse_register(struct field *field, const char **line)
+error__t field_parse_registers(struct field *field, const char **line)
 {
     return
         TEST_OK_(field->methods->parse_register,

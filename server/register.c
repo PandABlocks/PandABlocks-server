@@ -62,7 +62,7 @@ static error__t base_parse_register(
             DO( *line += 4;
                 state->slow = true)  ?:     // default state is false
             parse_whitespace(line))  ?:
-        parse_uint(line, &state->field_register);
+        check_parse_register(field, line, &state->field_register);
 }
 
 
