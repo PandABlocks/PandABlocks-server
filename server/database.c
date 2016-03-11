@@ -89,14 +89,20 @@ static error__t register_parse_special_field(
     error__t (*set_named_register)(const char *, unsigned int) = context;
 
     char reg_name[MAX_NAME_LENGTH];
-    unsigned int reg;
+    unsigned int reg, reg_end;
     return
         parse_name(line, reg_name, sizeof(reg_name))  ?:
         parse_whitespace(line)  ?:
         parse_uint(line, &reg)  ?:
-        parse_eos(line)  ?:
-
-        IF(set_named_register, set_named_register(reg_name, reg));
+        IF_ELSE(**line,
+            parse_whitespace(line)  ?:
+            TEST_OK_(read_string(line, ".."),
+                "Expected end of input or number range")  ?:
+            parse_uint(line, &reg_end)  ?:
+            parse_eos(line)  ?:
+            DO(printf("ignoring %s %u .. %u\n", reg_name, reg, reg_end)),
+        //else
+            IF(set_named_register, set_named_register(reg_name, reg)));
 }
 
 
