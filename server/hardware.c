@@ -378,6 +378,12 @@ void hw_write_data_delay(unsigned int capture_index, unsigned int delay)
 }
 
 
+void hw_write_bit_delay(unsigned int bit_index, unsigned int delay)
+{
+    write_named_register(PCAP_BIT_DELAY + bit_index, delay);
+}
+
+
 void hw_write_capture_set(const unsigned int capture[], size_t count)
 {
     write_named_register(PCAP_START_WRITE, 0);

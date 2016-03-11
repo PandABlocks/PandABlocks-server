@@ -86,7 +86,8 @@ struct output_type_info {
     bool extra_values;                  // If second group of registers used
     bool bit_group;                     // If bit group processing needed
     bool create_type;                   // If type helper wanted
-    bool data_delay;                    // If data delay is programmable
+    // Function for writing data delay
+    void (*write_delay)(struct output *, unsigned int);
 };
 
 
@@ -287,6 +288,19 @@ static const struct enumeration *capture_get_enumeration(void *data)
 }
 
 
+static const struct attr_methods capture_attr_methods = {
+    "CAPTURE", "Configure capture for this field",
+    .in_change_set = true,
+    .format = capture_format,
+    .put = capture_put,
+    .get_enumeration = capture_get_enumeration,
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* DATA_DELAY attribute. */
+
+
 static error__t data_delay_format(
     void *owner, void *data, unsigned int number, char result[], size_t length)
 {
@@ -306,17 +320,23 @@ static error__t data_delay_put(
         parse_uint(&string, &delay)  ?:
         TEST_OK_(delay <= MAX_DATA_DELAY, "Delay too long")  ?:
         DO( value->data_delay = delay;
-            hw_write_data_delay(value->capture_index[0], delay));
+            output->info->write_delay(output, number));
 }
 
 
-static const struct attr_methods capture_attr_methods = {
-    "CAPTURE", "Configure capture for this field",
-    .in_change_set = true,
-    .format = capture_format,
-    .put = capture_put,
-    .get_enumeration = capture_get_enumeration,
-};
+static void write_data_delay(struct output *output, unsigned int number)
+{
+    struct output_value *value = &output->values[number];
+    hw_write_data_delay(value->capture_index[0], value->data_delay);
+}
+
+
+static void write_bit_delay(struct output *output, unsigned int number)
+{
+    struct output_value *value = &output->values[number];
+    hw_write_bit_delay(output->bit_group, value->data_delay);
+}
+
 
 static const struct attr_methods data_delay_attr_methods = {
     "DATA_DELAY", "Configure data delay for this field",
@@ -502,7 +522,7 @@ static const struct output_type_info output_type_info[] = {
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = true,
         .create_type = true,
-        .data_delay = true,
+        .write_delay = write_data_delay,
     },
     [OUTPUT_CONST] = {
         .description = "const",
@@ -517,7 +537,7 @@ static const struct output_type_info output_type_info[] = {
         .pos_type = true,
         .extra_values = true,
         .create_type = true,
-        .data_delay = true,
+        .write_delay = write_data_delay,
     },
     [OUTPUT_ADC] = {
         .description = "adc",
@@ -558,6 +578,7 @@ static const struct output_type_info output_type_info[] = {
         .prepare_class = PREPARE_CLASS_NORMAL,
         .pos_type = false,
         .bit_group = true,
+        .write_delay = write_bit_delay,
     },
     [OUTPUT_EXT_ADC] = {
         .description = "adc",
@@ -726,7 +747,7 @@ static error__t complete_create_output(
             &capture_attr_methods, NULL, output, output->count);
         hash_table_insert(attr_map, capture_attr_methods.name, output->capture);
     }
-    if (output->info->data_delay)
+    if (output->info->write_delay)
         create_attributes(
             &data_delay_attr_methods, 1, NULL, output, output->count, attr_map);
 

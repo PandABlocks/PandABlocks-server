@@ -147,6 +147,7 @@ void hw_write_framing_enable(bool enable);
 
 /* Writes the capture delay register. */
 void hw_write_data_delay(unsigned int capture_index, unsigned int delay);
+void hw_write_bit_delay(unsigned int bit_index, unsigned int delay);
 
 /* Writes list of capture bus fields to capture. */
 void hw_write_capture_set(const unsigned int capture[], size_t count);
