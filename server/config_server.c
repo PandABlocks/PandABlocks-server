@@ -13,7 +13,6 @@
 #include "buffered_file.h"
 #include "config_command.h"
 #include "system_command.h"
-#include "classes.h"
 #include "base64.h"
 
 #include "config_server.h"

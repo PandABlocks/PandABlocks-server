@@ -12,6 +12,9 @@ error__t initialise_persistence(
     unsigned int poll_interval, unsigned int holdoff_interval,
     unsigned int backoff_interval);
 
+/* This starts the persistence thread, to be called after daemonising. */
+error__t start_persistence(void);
+
 /* This will ensure that the persistence state is updated, so should be called
  * after all active threads have been closed. */
 void terminate_persistence(void);

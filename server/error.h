@@ -128,6 +128,9 @@ void log_error(const char *message, ...)
     __attribute__((format(printf, 1, 2)));
 void vlog_message(int priority, const char *format, va_list args);
 
+/* Once this has been called all logged message will be sent to syslog. */
+void start_logging(const char *ident);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* The core error handling macros. */

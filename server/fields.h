@@ -3,6 +3,72 @@
 /* Connection dependencies. */
 struct connection_result;   // Used to return results to active client
 struct put_table_writer;    // Used for writing table data
+struct hash_table;
+struct field;
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
+/* Abstract interface to class. */
+struct class_methods {
+    const char *name;
+
+    /* Called to parse the class definition line for a field.  The corresponding
+     * class has already been identified. */
+    error__t (*init)(
+        const char **line, unsigned int count,
+        struct hash_table *attr_map, void **class_data);
+
+    /* Parses the attribute definition line for this field. */
+    error__t (*parse_attribute)(void *class_data, const char **line);
+    /* Parses the register definition line for this field. */
+    error__t (*parse_register)(
+        void *class_data, struct field *field, unsigned int block_base,
+        const char **line);
+    /* Called at end of startup to finalise and validate setup. */
+    error__t (*finalise)(void *class_data);
+    /* Called during shutdown to release all class resources. */
+    void (*destroy)(void *class_data);
+
+    /* Implements  block.field? for a single value. */
+    error__t (*get)(
+        void *class_data, unsigned int number, char result[], size_t length);
+    /* Implements  block.field? for multiple values.  Will only be called if
+     * .get is not defined. */
+    error__t (*get_many)(
+        void *class_data, unsigned int number,
+        struct connection_result *result);
+    /* Implements  block.field=value */
+    error__t (*put)(void *class_data, unsigned int number, const char *value);
+    /* Implements  block.field<  */
+    error__t (*put_table)(
+        void *class_data, unsigned int number,
+        bool append, struct put_table_writer *writer);
+
+    /* For the _out classes the data provided by .read() needs to be loaded as a
+     * separate action, this optional method does this. */
+    void (*refresh)(void *class_data, unsigned int number);
+
+    /* Computes change set for this class.  The class looks up its own change
+     * index in report_index[] and updates changes[] accordingly. */
+    void (*change_set)(
+        void *class_data, const uint64_t report_index, bool changes[]);
+    /* If .change_set is non NULL then this must be set to the change set index
+     * which will be reported. */
+    unsigned int change_set_index;
+
+    /* Optionally returns class description. */
+    const char *(*describe)(void *class_data);
+
+    /* Returns enumeration if class has an associated enumeration. */
+    const struct enumeration *(*get_enumeration)(void *class_data);
+
+    /* Class specific attributes. */
+    const struct attr_methods *attrs;
+    unsigned int attr_count;
+};
+
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -104,16 +170,22 @@ error__t block_set_description(struct block *block, const char *description);
 
 /* Call this to create each field. */
 error__t create_field(
-    const char **line, struct field **field, const struct block *block);
+    const char **line, struct field **field, struct block *block);
 
 /* Called to add attribute lines while parsing config file. */
 error__t field_parse_attribute(struct field *field, const char **line);
 
 /* Parse register setting for field. */
-error__t field_parse_register(struct field *field, const char **line);
+error__t field_parse_registers(struct field *field, const char **line);
 
 /* Sets description string for field. */
 error__t field_set_description(struct field *field, const char *description);
+
+
+/* Parses validates and assigns register, ensuring that the register is unique
+ * to the associated block.  Should be called for each register parsed. */
+error__t check_parse_register(
+    struct field *field, const char **line, unsigned int *reg);
 
 
 /* Must be called after loading configuration and register database to check

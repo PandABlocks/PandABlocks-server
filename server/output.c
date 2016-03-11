@@ -13,7 +13,6 @@
 #include "config_server.h"
 #include "data_server.h"
 #include "fields.h"
-#include "classes.h"
 #include "attributes.h"
 #include "types.h"
 #include "enums.h"
@@ -880,7 +879,7 @@ static error__t pos_mux_parse_register(
     state->block_base = block_base;
     return
         parse_whitespace(line)  ?:
-        parse_uint(line, &state->mux_reg);
+        check_parse_register(field, line, &state->mux_reg);
 }
 
 
