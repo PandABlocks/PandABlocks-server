@@ -82,21 +82,36 @@ static error__t load_config_database(const char *config_dir)
 /* We need to check the hardware register setup before loading normal blocks. */
 static bool hw_checked = false;
 
+struct register_set_parse {
+    error__t (*set_register)(const char *name, unsigned int reg);
+    error__t (*set_range)(
+        const char *name, unsigned int start, unsigned int end);
+} set_named_registers = {
+    .set_register = hw_set_named_register,
+    .set_range = hw_set_named_register_range,
+};
+
 
 static error__t register_parse_special_field(
     void *context, const char **line, struct indent_parser *parser)
 {
-    error__t (*set_named_register)(const char *, unsigned int) = context;
+    struct register_set_parse *set_parse = context;
 
     char reg_name[MAX_NAME_LENGTH];
-    unsigned int reg;
+    unsigned int reg, reg_end;
     return
         parse_name(line, reg_name, sizeof(reg_name))  ?:
         parse_whitespace(line)  ?:
         parse_uint(line, &reg)  ?:
-        parse_eos(line)  ?:
-
-        IF(set_named_register, set_named_register(reg_name, reg));
+        IF_ELSE(**line,
+            parse_whitespace(line)  ?:
+            TEST_OK_(read_string(line, ".."),
+                "Expected end of input or number range")  ?:
+            parse_uint(line, &reg_end)  ?:
+            parse_eos(line)  ?:
+            IF(set_parse, set_parse->set_range(reg_name, reg, reg_end)),
+        //else
+            IF(set_parse, set_parse->set_register(reg_name, reg)));
 }
 
 
@@ -130,7 +145,7 @@ static error__t register_parse_special_header(
              * normally and assign registers. */
             hw_set_block_base(base);
             parser->end = register_parse_reg_end;
-            parser->context = hw_set_named_register;
+            parser->context = &set_named_registers;
         }
         else if (strcmp(block_name, "DRV") == 0)
         {
@@ -155,7 +170,7 @@ static error__t register_parse_normal_field(
     return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         lookup_field(block, field_name, &field)  ?:
-        field_parse_register(field, line);
+        field_parse_registers(field, line);
 }
 
 

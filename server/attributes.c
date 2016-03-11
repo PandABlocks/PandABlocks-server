@@ -10,7 +10,6 @@
 #include "error.h"
 #include "hashtable.h"
 #include "config_server.h"
-#include "classes.h"
 #include "locking.h"
 
 #include "attributes.h"

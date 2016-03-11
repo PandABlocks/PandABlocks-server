@@ -297,11 +297,16 @@ error__t initialise_persistence(
         file_name, poll_interval, holdoff_interval, backoff_interval);
 
     ASSERT_IO(asprintf(&backup_file_name, "%s.backup", file_name));
-    thread_running = true;
 
     pwait_initialise(&psignal);
     load_persistent_state();
+    return ERROR_OK;
+}
 
+
+error__t start_persistence(void)
+{
+    thread_running = true;
     return
         /* Start the monitor thread. */
         TRY_CATCH(

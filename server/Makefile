@@ -6,7 +6,6 @@ endif
 
 
 # Git version
-GIT_VERSION = $(shell git describe --abbrev=7 --dirty --always --tags)
 BUILD_DATE_TIME = $(shell date +'%Y-%m-%d %H:%M:%S')
 
 
@@ -85,7 +84,6 @@ SRCS += database.c              # Reading configuration and register files
 SRCS += config_command.c        # Block and field command parsing and dispatch
 SRCS += system_command.c        # System command parse and dispatch
 SRCS += fields.c                # Top level block and field support
-SRCS += classes.c               # Hardware class support
 SRCS += types.c                 # Type parsing and formatting support
 SRCS += enums.c                 # Enumeration handling
 SRCS += attributes.c            # Class and type attribute support

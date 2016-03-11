@@ -10,6 +10,7 @@
 
 
 #define UNASSIGNED_REGISTER ((unsigned int) -1)
+#define BLOCK_REGISTER_COUNT    (1U << 6)   // 6 bits per register field
 
 
 /* Must be called before any hardware functions.  If an error occurs then
@@ -27,6 +28,10 @@ void hw_set_block_base(unsigned int reg);
 
 /* Sets register offset for given named register. */
 error__t hw_set_named_register(const char *name, unsigned int reg);
+
+/* Sets register range for given named register. */
+error__t hw_set_named_register_range(
+    const char *name, unsigned int start, unsigned int end);
 
 /* Checks that all register offsets have been set. */
 error__t hw_validate(void);
@@ -139,6 +144,9 @@ void hw_write_framing_mask(uint32_t framing_mask, uint32_t framing_mode);
 
 /* Configures whether framing is enabled. */
 void hw_write_framing_enable(bool enable);
+
+/* Writes the capture delay register. */
+void hw_write_data_delay(unsigned int capture_index, unsigned int delay);
 
 /* Writes list of capture bus fields to capture. */
 void hw_write_capture_set(const unsigned int capture[], size_t count);
