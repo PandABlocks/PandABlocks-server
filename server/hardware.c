@@ -90,8 +90,8 @@ uint32_t hw_read_register(
 #define PCAP_ARM                13
 #define PCAP_DISARM             14
 #define SLOW_REGISTER_STATUS    15
-#define BIT_DELAY               28      // Range of 4
-#define DATA_DELAY              32      // Range of 32
+#define PCAP_BIT_DELAY          28      // Range of 4
+#define PCAP_DATA_DELAY         32      // Range of 32
 
 #define NAMED_REGISTER(reg_name) \
     [reg_name] = { .name = #reg_name, .range = 1, }
@@ -119,8 +119,8 @@ static struct named_register {
     NAMED_REGISTER(PCAP_ARM),
     NAMED_REGISTER(PCAP_DISARM),
     NAMED_REGISTER(SLOW_REGISTER_STATUS),
-    NAMED_REGISTER_RANGE(BIT_DELAY, 4),
-    NAMED_REGISTER_RANGE(DATA_DELAY, 32),
+    NAMED_REGISTER_RANGE(PCAP_BIT_DELAY, 4),
+    NAMED_REGISTER_RANGE(PCAP_DATA_DELAY, 32),
 };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
@@ -374,7 +374,7 @@ void hw_write_framing_enable(bool enable)
 
 void hw_write_data_delay(unsigned int capture_index, unsigned int delay)
 {
-    write_named_register(DATA_DELAY + capture_index, delay);
+    write_named_register(PCAP_DATA_DELAY + capture_index, delay);
 }
 
 
