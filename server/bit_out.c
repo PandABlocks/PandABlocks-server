@@ -24,7 +24,7 @@
 
 
 /* Maximum valid delay, defined by hardware. */
-#define MAX_BIT_MUX_DELAY   63
+#define MAX_BIT_MUX_DELAY   31
 
 
 /* Protects updating of bits. */
