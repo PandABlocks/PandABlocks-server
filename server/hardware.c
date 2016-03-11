@@ -90,9 +90,19 @@ uint32_t hw_read_register(
 #define PCAP_ARM                13
 #define PCAP_DISARM             14
 #define SLOW_REGISTER_STATUS    15
+#define BIT_DELAY               28      // Range of 4
+#define DATA_DELAY              32      // Range of 32
 
-#define NAMED_REGISTER(name)    [name] = #name
-static const char *named_registers[] = {
+#define NAMED_REGISTER(reg_name) \
+    [reg_name] = { .name = #reg_name, .range = 1, }
+#define NAMED_REGISTER_RANGE(reg_name, reg_range) \
+    [reg_name] = { .name = #reg_name, .range = reg_range, }
+
+static struct named_register {
+    const char *name;
+    unsigned int range;
+    bool seen;
+} named_registers[] = {
     NAMED_REGISTER(FPGA_VERSION),
     NAMED_REGISTER(FPGA_BUILD),
     NAMED_REGISTER(SLOW_VERSION),
@@ -109,8 +119,9 @@ static const char *named_registers[] = {
     NAMED_REGISTER(PCAP_ARM),
     NAMED_REGISTER(PCAP_DISARM),
     NAMED_REGISTER(SLOW_REGISTER_STATUS),
+    NAMED_REGISTER_RANGE(BIT_DELAY, 4),
+    NAMED_REGISTER_RANGE(DATA_DELAY, 32),
 };
-static bool named_register_seen[ARRAY_SIZE(named_registers)] = { };
 
 static unsigned int reg_block_base = UNASSIGNED_REGISTER;
 
@@ -121,23 +132,34 @@ void hw_set_block_base(unsigned int reg)
 }
 
 
+error__t hw_set_named_register_range(
+    const char *name, unsigned int start, unsigned int end)
+{
+    struct named_register *reg = &named_registers[start];
+    return
+        TEST_OK_(start < ARRAY_SIZE(named_registers),
+            "Register out of range")  ?:
+        TEST_OK_(reg->name  &&  strcmp(reg->name, name) == 0,
+            "Wrong offset value for this register")  ?:
+        TEST_OK_(!reg->seen, "Register already assigned")  ?:
+        TEST_OK_(end == start + reg->range - 1, "Invalid range of values")  ?:
+        DO(reg->seen = true);
+}
+
+
 error__t hw_set_named_register(const char *name, unsigned int reg)
 {
-    for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
-        if (strcmp(named_registers[i], name) == 0)
-            return
-                TEST_OK_(i == reg,
-                    "Register *REG.%s expected with offset %u", name, i)  ?:
-                TEST_OK_(!named_register_seen[i], "Register recorded twice")  ?:
-                DO(named_register_seen[i] = true);
-    return FAIL_("Invalid register name");
+    return hw_set_named_register_range(name, reg, reg);
 }
 
 error__t hw_validate(void)
 {
     for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
-        if (!named_register_seen[i])
-            return FAIL_("Register %s not in *REG list", named_registers[i]);
+    {
+        struct named_register *reg = &named_registers[i];
+        if (reg->name  &&  !reg->seen)
+            return FAIL_("Register %s not in *REG list", reg->name);
+    }
     return ERROR_OK;
 }
 
@@ -347,6 +369,12 @@ void hw_write_framing_mask(uint32_t framing_mask, uint32_t framing_mode)
 void hw_write_framing_enable(bool enable)
 {
     write_named_register(PCAP_FRAMING_ENABLE, enable);
+}
+
+
+void hw_write_data_delay(unsigned int capture_index, unsigned int delay)
+{
+    write_named_register(DATA_DELAY + capture_index, delay);
 }
 
 
