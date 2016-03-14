@@ -822,7 +822,7 @@ static error__t parse_ext_out_type(
         else if (strcmp(type_name, "bits") == 0)
         {
             *output_type = OUTPUT_BITS;
-            error =
+            return
                 parse_whitespace(line)  ?:
                 parse_uint(line, bit_group);
         }

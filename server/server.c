@@ -103,9 +103,7 @@ static error__t process_options(int argc, char *const argv[])
             default:
                 return FAIL_("Try `%s -h` for usage", argv0);
             case -1:
-                argc -= optind;
-                argv += optind;
-                return TEST_OK_(argc == 0, "Unexpected arguments");
+                return TEST_OK_(argc == optind, "Unexpected arguments");
         }
     }
     return error;

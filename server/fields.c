@@ -624,36 +624,46 @@ static error__t create_field_attributes(struct field *field)
 }
 
 
-error__t create_field(
-    const char **line, struct field **field, struct block *block)
+static struct field *create_field_block(
+    struct block *block, const char *name,
+    const struct class_methods *methods)
 {
-    *field = malloc(sizeof(struct field));
-    **field = (struct field) {
+    struct field *field = malloc(sizeof(struct field));
+    *field = (struct field) {
         .block = block,
+        .name = strdup(name),
+        .methods = methods,
         .sequence = (unsigned int) hash_table_count(block->fields),
         .attrs = hash_table_create(false),
     };
+    return field;
+}
 
+
+error__t create_field(
+    const char **line, struct field **field, struct block *block)
+{
     char field_name[MAX_NAME_LENGTH];
     char class_name[MAX_NAME_LENGTH];
-    error__t error =
+    const struct class_methods *methods = NULL;
+    return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
-        DO((*field)->name = strdup(field_name))  ?:
         parse_whitespace(line)  ?:
         parse_name(line, class_name, sizeof(class_name))  ?:
-        lookup_class(class_name, &(*field)->methods)  ?:
+        lookup_class(class_name, &methods)  ?:
 
-        (*field)->methods->init(
-            line, block->count, (*field)->attrs, &(*field)->class_data)  ?:
-        create_field_attributes(*field)  ?:
-        /* Insert the field into the blocks map of fields. */
-        TEST_OK_(
-            hash_table_insert(block->fields, (*field)->name, *field) == NULL,
-            "Field %s.%s already exists", block->name, field_name);
-
-    if (error)
-        destroy_field(*field);
-    return error;
+        DO(*field = create_field_block(block, field_name, methods))  ?:
+        TRY_CATCH(
+            methods->init(
+                line, block->count, (*field)->attrs, &(*field)->class_data)  ?:
+            create_field_attributes(*field)  ?:
+            /* Insert the field into the blocks map of fields. */
+            TEST_OK_(
+                hash_table_insert(
+                    block->fields, (*field)->name, *field) == NULL,
+                "Field %s.%s already exists", block->name, field_name),
+        //catch
+            DO(destroy_field(*field)));
 }
 
 

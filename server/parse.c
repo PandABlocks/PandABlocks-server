@@ -275,7 +275,7 @@ error__t parse_utf8_string(const char **input, const char **result)
         {
             int check = check_utf8_char(utf8);
             if (check < 0)
-                return FAIL_(error_strings[-check]);
+                return FAIL_("%s", error_strings[-check]);
             utf8 += check;
         }
     }

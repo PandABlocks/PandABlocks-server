@@ -512,7 +512,7 @@ static error__t create_long_table(
     unsigned int base_reg, unsigned int length_reg)
 {
     table->long_table = (struct long_table) {
-        .block_ids = malloc(table->count * sizeof(unsigned int)),
+        .block_ids = malloc(table->count * sizeof(int)),
     };
     memset(table->long_table.block_ids, 0, table->count * sizeof(unsigned int));
 

@@ -510,8 +510,9 @@ static bool process_capture_block(
 
 
 /* Sends the data stream until end of stream or there's a problem with the
- * client connection.  Returns false if there's a client connection problem. */
-static bool send_data_stream(
+ * client connection.  Any client connection problem is stored in the
+ * connection, so is not returned. */
+static void send_data_stream(
     struct data_connection *connection, size_t skip_bytes,
     uint64_t *sent_samples)
 {
@@ -554,7 +555,6 @@ static bool send_data_stream(
         if (ok)
             ok = flush_out_buf(connection->file);
     }
-    return ok;
 }
 
 
@@ -607,7 +607,7 @@ error__t process_data_socket(int scon)
 
             uint64_t sent_samples = 0;
             if (ok)
-                ok = send_data_stream(&connection, skip_bytes, &sent_samples);
+                send_data_stream(&connection, skip_bytes, &sent_samples);
 
             /* Ensure we always close the reader, even if sending the stream
              * failed.  Note that we pick up the completion code before closing

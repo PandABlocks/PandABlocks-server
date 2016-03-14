@@ -113,6 +113,9 @@ void _error_panic(char *extra, const char *filename, int line)
 /* Performs normal error report. */
 error__t _error_create(char *extra, const char *format, ...)
     __attribute__((format(printf, 2, 3)));
+/* This trick lets both scan-build and the optimiser know that when _TEST fails
+ * a non zero error__t value is returned. */
+static inline void *__attribute__((nonnull)) _nonnull(void *arg) { return arg; }
 
 /* Mechanism for reporting extra error information from errno.  The string
  * returned must be released by the caller. */
@@ -149,7 +152,7 @@ void start_logging(const char *ident);
     ( { \
         typeof(expr) result = (expr); \
         unlikely(!COND(result)) ? \
-            _error_create(EXTRA(result), message) : \
+            _nonnull(_error_create(EXTRA(result), message)) : \
             ERROR_OK; \
     } )
 #define _TEST(args...)  _id_TEST(UNIQUE_ID(), args)
