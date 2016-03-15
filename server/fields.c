@@ -37,7 +37,7 @@ struct block {
     unsigned int base;          // Block register base
     struct hash_table *fields;  // Map from field name to fields
     char *description;          // User readable description
-    uint8_t reg_used[BLOCK_REGISTER_COUNT / 8];     // Register assignment map
+    uint32_t reg_used[BLOCK_REGISTER_COUNT / 32];   // Register assignment map
 };
 
 
@@ -572,9 +572,9 @@ error__t check_parse_register(
         parse_uint(line, reg)  ?:
         TEST_OK_(*reg < BLOCK_REGISTER_COUNT, "Register value too large")  ?:
         TEST_OK_(
-            (field->block->reg_used[*reg / 8] & (1U << (*reg % 8))) == 0,
+            (field->block->reg_used[*reg / 32] & (1U << (*reg % 32))) == 0,
             "Register %u already in use", *reg)  ?:
-        DO(field->block->reg_used[*reg / 8] |= (uint8_t) (1U << (*reg % 8)));
+        DO(field->block->reg_used[*reg / 32] |= 1U << (*reg % 32));
 }
 
 
