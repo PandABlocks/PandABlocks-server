@@ -143,20 +143,30 @@ static void at_exit(int signum)
 
 static error__t initialise_signals(void)
 {
+    sigset_t signal_mask;
     struct sigaction do_shutdown = {
         .sa_handler = at_exit, .sa_flags = SA_RESTART };
     struct sigaction do_ignore = {
         .sa_handler = SIG_IGN, .sa_flags = SA_RESTART };
     struct sigaction do_default = { .sa_handler = SIG_DFL, };
     return
-        TEST_IO(sigfillset(&do_shutdown.sa_mask))  ?:
+        /* Make sure that we can actually see the signals we're going handle,
+         * and block everything else. */
+        TEST_IO(sigfillset(&signal_mask))  ?:
+        TEST_IO(sigdelset(&signal_mask, SIGHUP))  ?:
+        TEST_IO(sigdelset(&signal_mask, SIGINT))  ?:
+        TEST_IO(sigdelset(&signal_mask, SIGTERM))  ?:
+        TEST_IO(sigdelset(&signal_mask, SIGPIPE))  ?:
+        TEST_IO(sigdelset(&signal_mask, SIGQUIT))  ?:
+        TEST_IO(sigprocmask(SIG_SETMASK, &signal_mask, NULL))  ?:
+
         /* Catch the usual interruption signals and use them to trigger an
          * orderly shutdown.  As a reminder, these are the sources of these
          * three signals:
          *  1  HUP      Terminal hangup, also often used for config reload
          *  2  INT      Keyboard interrupt (CTRL-C)
-         *  15 TERM     Normal termination request, default kill signal
-         */
+         *  15 TERM     Normal termination request, default kill signal */
+        TEST_IO(sigfillset(&do_shutdown.sa_mask))  ?:
         TEST_IO(sigaction(SIGHUP,  &do_shutdown, NULL))  ?:
         TEST_IO(sigaction(SIGINT,  &do_shutdown, NULL))  ?:
         TEST_IO(sigaction(SIGTERM, &do_shutdown, NULL))  ?:
