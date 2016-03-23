@@ -5,7 +5,7 @@
 . /etc/init.d/functions
 
 # File locations
-pidfile=/opt/var/run/zebra2-server.pid
+pidfile=/var/run/zebra2-server.pid
 
 firmware=/opt/share/panda/panda_top.bit
 panda_server=/opt/bin/panda_server
