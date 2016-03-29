@@ -1,0 +1,10 @@
+d share/panda
+d bin
+d state
+d etc/init.d
+d etc/rc.d
+b share/panda driver/panda.ko
+b bin/panda_server server/server
+t etc/init.d etc/panda-server
+l etc/rc.d/S200panda-server ../init.d/panda-server
+l etc/rc.d/K200panda-server ../init.d/panda-server
