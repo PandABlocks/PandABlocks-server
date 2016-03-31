@@ -57,7 +57,8 @@ static error__t read_all(void *data, size_t length)
     ssize_t received;
     while (!error  &&  length > 0)
         error =
-            TEST_IO(received = read(sock, data, length))  ?:
+            TEST_IO_(received = read(sock, data, length),
+                "Simulation server not responding")  ?:
             TEST_OK_(received, "Unexpected EOF")  ?:
             DO(
                 data   += (size_t) received;
