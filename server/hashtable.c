@@ -337,37 +337,3 @@ bool hash_table_walk(
     }
     return false;
 }
-
-
-#if 0
-#include "error.h"
-
-void hash_table_validate(struct hash_table *table)
-{
-    size_t entries = 0;
-    size_t deleted = 0;
-    size_t size = table->size_mask + 1;
-    ASSERT_OK((size & -size) == size);      // Size a power of 2
-    for (size_t i = 0; i < size; i ++)
-    {
-        struct table_entry *entry = &table->table[i];
-        if (entry->hash != EMPTY_HASH)
-        {
-            entries += 1;
-            if (entry->hash == DELETED_HASH)
-                deleted += 1;
-            else
-            {
-                ASSERT_OK(entry->hash == compute_hash(table, entry->key));
-                bool found;
-                ASSERT_OK(lookup(
-                    table, entry->key, entry->hash, &found) == entry);
-                ASSERT_OK(found);
-            }
-        }
-    }
-    ASSERT_OK(entries == table->entries);
-    ASSERT_OK(deleted == table->deleted);
-    ASSERT_OK(3 * table->entries < 2 * table->size_mask);
-}
-#endif
