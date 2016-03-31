@@ -14,6 +14,7 @@
 #include "parse.h"
 #include "config_server.h"
 #include "config_command.h"
+#include "system_command.h"
 #include "fields.h"
 #include "attributes.h"
 #include "base64.h"
@@ -31,6 +32,10 @@ static char *backup_file_name;
 
 /* This is used to track state changes. */
 static struct change_set_context change_set_context;
+
+/* This is the set of changes recorded in the state file. */
+#define PERSIST_CHANGES \
+    (CHANGES_CONFIG | CHANGES_ATTR | CHANGES_TABLE | CHANGES_SPECIAL)
 
 
 /* Structure for line reading: this will be passed through to
@@ -79,6 +84,14 @@ static error__t load_one_value(struct read_line_context *read_line, char line[])
     line[name_length] = '\0';
     char *value = &line[name_length + 1];
 
+    /* * prefix switches between system and entity command sets. */
+    const struct config_command_set *command_set = &entity_commands;
+    if (*line == '*')
+    {
+        command_set = &system_commands;
+        line += 1;
+    }
+
     switch (action)
     {
         case '=':
@@ -86,7 +99,7 @@ static error__t load_one_value(struct read_line_context *read_line, char line[])
             struct connection_context context = {
                 .change_set_context = &change_set_context,
             };
-            return entity_commands.put(&context, line, value);
+            return command_set->put(&context, line, value);
         }
         case '<':
         {
@@ -95,7 +108,7 @@ static error__t load_one_value(struct read_line_context *read_line, char line[])
                 .read_line = do_read_line,
             };
             return process_put_table_command(
-                &entity_commands, &table_read_line, line, value);
+                command_set, &table_read_line, line, value);
         }
         default:
             return FAIL_("Malformed line");
@@ -138,8 +151,7 @@ static void load_persistent_state(void)
 
 static bool check_state_changed(void)
 {
-    return check_change_set(
-        &change_set_context, CHANGES_CONFIG | CHANGES_ATTR | CHANGES_TABLE);
+    return check_change_set(&change_set_context, PERSIST_CHANGES);
 }
 
 
@@ -198,14 +210,12 @@ static void write_changed_state(void)
         /* Start by resetting the change context so that we're up to date before
          * we start writing. */
         uint64_t report_index[CHANGE_SET_SIZE];       // This will be discarded
-        update_change_index(
-            &change_set_context, CHANGES_CONFIG | CHANGES_ATTR | CHANGES_TABLE,
-            report_index);
+        update_change_index(&change_set_context, PERSIST_CHANGES, report_index);
 
         /* First generate the single value settings.  Generate attribute values
          * first as they can affect the interpretation of the config values. */
         generate_change_sets(&result, CHANGES_ATTR);
-        generate_change_sets(&result, CHANGES_CONFIG);
+        generate_change_sets(&result, CHANGES_CONFIG | CHANGES_SPECIAL);
 
         /* Now generate the table settings. */
         result.write_many = write_table_value;
