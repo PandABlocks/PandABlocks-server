@@ -20,12 +20,16 @@ struct config_connection;
 /* Reportable changes are grouped into several groups, each separately
  * reportable:  Normal configuration changes, two sets of live data updates, and
  * a polled readback change set. */
-#define CHANGE_IX_CONFIG    0   // *CHANGES.CONFIG?     Configuration changes
-#define CHANGE_IX_BITS      1   // *CHANGES.BITS?       Bit output changes
-#define CHANGE_IX_POSITION  2   // *CHANGES.POSN?       Position output changes
-#define CHANGE_IX_READ      3   // *CHANGES.READ?       Read register changes
-#define CHANGE_IX_ATTR      4   // *CHANGES.ATTR?       Read attribute changes
-#define CHANGE_IX_TABLE     5   // *CHANGES.TABLE?      Read table changes
+enum {
+    CHANGE_IX_CONFIG,       // *CHANGES.CONFIG?     Configuration changes
+    CHANGE_IX_BITS,         // *CHANGES.BITS?       Bit output changes
+    CHANGE_IX_POSITION,     // *CHANGES.POSN?       Position output changes
+    CHANGE_IX_READ,         // *CHANGES.READ?       Read register changes
+    CHANGE_IX_ATTR,         // *CHANGES.ATTR?       Read attribute changes
+    CHANGE_IX_TABLE,        // *CHANGES.TABLE?      Read table changes
+
+    CHANGE_SET_SIZE,        // MUST be last entry in list of enums
+};
 enum change_set {
     CHANGES_NONE     = 0,
     CHANGES_CONFIG   = 1 << CHANGE_IX_CONFIG,
@@ -34,12 +38,10 @@ enum change_set {
     CHANGES_READ     = 1 << CHANGE_IX_READ,
     CHANGES_ATTR     = 1 << CHANGE_IX_ATTR,
     CHANGES_TABLE    = 1 << CHANGE_IX_TABLE,
-    CHANGES_ALL =               // *CHANGES?            All changes
-        CHANGES_CONFIG | CHANGES_BITS | CHANGES_POSITION | CHANGES_READ |
-        CHANGES_ATTR | CHANGES_TABLE,
+
+    CHANGES_ALL      = (1 << CHANGE_SET_SIZE) - 1,      // *CHANGES?
 };
 
-#define CHANGE_SET_SIZE     6
 STATIC_COMPILE_ASSERT(CHANGES_ALL < 1 << CHANGE_SET_SIZE)
 
 
