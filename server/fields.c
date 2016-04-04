@@ -20,7 +20,6 @@
 #include "time_position.h"
 #include "table.h"
 #include "locking.h"
-#include "special.h"
 
 #include "fields.h"
 
@@ -408,9 +407,6 @@ void generate_change_sets(
                     result, field, report_index[CHANGE_IX_ATTR]);
         }
     }
-
-    if (change_set & CHANGES_SPECIAL)
-        generate_special_change_set(result, report_index[CHANGE_IX_SPECIAL]);
 }
 
 
@@ -445,10 +441,6 @@ bool check_change_set(
             }
         }
     }
-
-    if ((change_set & CHANGES_SPECIAL)  &&
-            check_special_change_set(report_index[CHANGE_IX_SPECIAL]))
-        return true;
     return false;
 }
 

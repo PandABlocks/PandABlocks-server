@@ -14,37 +14,12 @@
 #include "parse.h"
 #include "config_server.h"
 #include "fields.h"
-#include "special.h"
 
 #include "database.h"
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Config database. */
-
-
-static error__t config_parse_special_field(
-    void *context, const char **line, struct indent_parser *parser)
-{
-    char field_name[MAX_NAME_LENGTH];
-    return
-        parse_name(line, field_name, sizeof(field_name))  ?:
-        parse_eos(line)  ?:
-        add_special_key(field_name);
-}
-
-
-static error__t config_parse_special_header(
-    void *context, const char **line, struct indent_parser *parser)
-{
-    parser->parse_line = config_parse_special_field;
-    char block_name[MAX_NAME_LENGTH];
-    return
-        parse_char(line, '*')  ?:
-        parse_name(line, block_name, sizeof(block_name))  ?:
-        parse_eos(line)  ?:
-        TEST_OK_(strcmp(block_name, "SPECIAL") == 0, "Unexpected block");
-}
 
 
 /* For some types we can add extra attribute lines.  In particular, enumerations
@@ -72,7 +47,7 @@ static error__t config_parse_field_line(
 /* Parses a block definition header.  This is simply a name, optionally followed
  * by a number in square brackets, and should be followed by a number of field
  * definitions. */
-static error__t config_parse_normal_header(
+static error__t config_parse_header_line(
     void *context, const char **line, struct indent_parser *parser)
 {
     /* Parse input of form <name> [ "[" <count> "]" ]. */
@@ -87,16 +62,6 @@ static error__t config_parse_normal_header(
         parse_eos(line)  ?:
 
         create_block((struct block **) &parser->context, block_name, count);
-}
-
-
-static error__t config_parse_header_line(
-    void *context, const char **line, struct indent_parser *parser)
-{
-    if (**line == '*')
-        return config_parse_special_header(context, line, parser);
-    else
-        return config_parse_normal_header(context, line, parser);
 }
 
 

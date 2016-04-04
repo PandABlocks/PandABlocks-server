@@ -25,7 +25,6 @@
 #include "persistence.h"
 #include "prepare.h"
 #include "version.h"
-#include "special.h"
 
 
 static unsigned int config_port = 8888;
@@ -191,7 +190,6 @@ int main(int argc, char *const argv[])
     error__t error =
         process_options(argc, argv)  ?:
 
-        initialise_special()  ?:
         initialise_fields()  ?:
         initialise_output()  ?:
         initialise_bit_out()  ?:
@@ -241,7 +239,6 @@ int main(int argc, char *const argv[])
     terminate_bit_out();
     terminate_output();
     terminate_fields();
-    terminate_special();
 
     if (pid_filename)
         unlink(pid_filename);

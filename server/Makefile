@@ -95,7 +95,6 @@ SRCS += time_position.c         # time and position support
 SRCS += table.c                 # table classes support
 SRCS += register.c              # param, read, write class support
 SRCS += base64.c                # base64 conversion support
-SRCS += special.c               # Support for *SPECIAL command
 
 
 # For the true hardware target and simulation targets we need to take a bit of
