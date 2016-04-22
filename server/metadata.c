@@ -10,13 +10,20 @@
 
 #include "error.h"
 #include "hashtable.h"
+#include "parse.h"
 #include "config_server.h"
 #include "locking.h"
 
 #include "metadata.h"
 
 
+enum metadata_type {
+    METADATA_STRING,
+    METADATA_MULTILINE,
+};
+
 struct metadata_value {
+    enum metadata_type type;
     char *value;
     uint64_t update_index;
 };
@@ -50,14 +57,32 @@ void terminate_metadata(void)
 }
 
 
+static error__t lookup_type(const char *type_name, enum metadata_type *type)
+{
+    return
+        IF_ELSE(strcmp(type_name, "string") == 0,
+            DO(*type = METADATA_STRING),
+        //else
+        IF_ELSE(strcmp(type_name, "multiline") == 0,
+            DO(*type = METADATA_MULTILINE),
+        //else
+            FAIL_("Invalid metadata type")));
+}
+
+
 error__t add_metadata_key(const char *key, const char **line)
 {
     struct metadata_value *value = malloc(sizeof(struct metadata_value));
     *value = (struct metadata_value) {
         .update_index = 1,
     };
-    return TEST_OK_(hash_table_insert(metadata_map, key, value) == 0,
-        "Special key %s repeated", key);
+    char type_name[MAX_NAME_LENGTH];
+    return
+        parse_whitespace(line)  ?:
+        parse_name(line, type_name, sizeof(type_name))  ?:
+        lookup_type(type_name, &value->type)  ?:
+        TEST_OK_(hash_table_insert(metadata_map, key, value) == 0,
+            "Metadata key %s repeated", key);
 }
 
 
@@ -72,30 +97,56 @@ error__t get_metadata_keys(struct connection_result *result)
 }
 
 
+static error__t format_value(
+    struct metadata_value *value, struct connection_result *result)
+{
+    switch (value->type)
+    {
+        case METADATA_STRING:
+            return format_one_result(result, "%s", value->value ?: "");
+        case METADATA_MULTILINE:
+            /* Multi-line data is stored as a sequence of null terminated
+             * strings with a final empty string to terminate. */
+            for (const char *string = value->value; string  &&  *string;
+                    string += strlen(string) + 1)
+                result->write_many(result->write_context, string);
+            result->response = RESPONSE_MANY;
+            return ERROR_OK;
+        default:    ASSERT_FAIL();
+    }
+}
+
+
 error__t get_metadata_value(const char *key, struct connection_result *result)
 {
     struct metadata_value *value = hash_table_lookup(metadata_map, key);
     return
-        TEST_OK_(value, "Special key %s not found", key)  ?:
-        WITH_LOCK(mutex, format_one_result(result, "%s", value->value ?: ""));
+        TEST_OK_(value, "Metadata key %s not found", key)  ?:
+        WITH_LOCK(mutex, format_value(value, result));
 }
 
 
 error__t put_metadata_value(const char *key, const char *string)
 {
     struct metadata_value *value = hash_table_lookup(metadata_map, key);
-    error__t error = TEST_OK_(value, "Special key %s not found", key);
+    error__t error =
+        TEST_OK_(value, "Metadata key %s not found", key)  ?:
+        TEST_OK_(value->type == METADATA_STRING, "Cannot write this field");
     if (!error)
     {
         LOCK(mutex);
         free(value->value);
-        *value = (struct metadata_value) {
-            .value = strdup(string),
-            .update_index = get_change_index(),
-        };
+        value->value = strdup(string);
+        value->update_index = get_change_index();
         UNLOCK(mutex);
     }
     return error;
+}
+
+
+error__t put_metadata_table(const char *key, struct put_table_writer *writer)
+{
+    return FAIL_("Not implemented");
 }
 
 
@@ -125,8 +176,17 @@ void generate_metadata_change_set(
         if (value->update_index > report_index)
         {
             char string[MAX_RESULT_LENGTH];
-            snprintf(string, sizeof(string),
-                "*SPECIAL.%s=%s", key, value->value ?: "");
+            switch (value->type)
+            {
+                case METADATA_STRING:
+                    snprintf(string, sizeof(string),
+                        "*METADATA.%s=%s", key, value->value ?: "");
+                    break;
+                case METADATA_MULTILINE:
+                    snprintf(string, sizeof(string), "*METADATA.%s<", key);
+                    break;
+                default:    ASSERT_FAIL();
+            }
             result->write_many(result->write_context, string);
         }
     UNLOCK(mutex);

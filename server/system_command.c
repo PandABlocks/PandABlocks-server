@@ -92,6 +92,18 @@ static error__t put_metadata(
 }
 
 
+static error__t put_table_metadata(
+    const char *command, struct put_table_writer *writer)
+{
+    char key[MAX_NAME_LENGTH];
+    return
+        parse_char(&command, '.')  ?:
+        parse_name(&command, key, sizeof(key))  ?:
+        parse_eos(&command)  ?:
+        put_metadata_table(key, writer);
+}
+
+
 /* *BLOCKS?
  *
  * Returns formatted list of all the blocks in the system. */
@@ -385,11 +397,14 @@ struct command_table_entry {
     error__t (*put)(
         struct connection_context *connection,
         const char *command, const char *value);
+    error__t (*put_table)(
+        const char *command, struct put_table_writer *writer);
 };
 
 static const struct command_table_entry command_table_list[] = {
     { "IDN",        false, .get = get_idn, },
-    { "METADATA",   true,  .get = get_metadata, .put = put_metadata, },
+    { "METADATA",   true,  .get = get_metadata, .put = put_metadata,
+                           .put_table = put_table_metadata, },
     { "BLOCKS",     false, .get = get_blocks, },
     { "ECHO",       true,  .get = get_echo, },
     { "WHO",        false, .get = get_who, },
@@ -445,7 +460,12 @@ static error__t process_system_put(
 static error__t process_system_put_table(
     const char *command, bool append, struct put_table_writer *writer)
 {
-    return FAIL_("Not a table");
+    const struct command_table_entry *command_set;
+    return
+        parse_system_command(&command, &command_set)  ?:
+        TEST_OK_(command_set->put_table, "Not a table")  ?:
+        TEST_OK_(!append, "Append not allowed")  ?:
+        command_set->put_table(command, writer);
 }
 
 

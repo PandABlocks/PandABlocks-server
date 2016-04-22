@@ -215,11 +215,12 @@ static void write_changed_state(void)
         /* First generate the single value settings.  Generate attribute values
          * first as they can affect the interpretation of the config values. */
         generate_change_sets(&result, CHANGES_ATTR);
-        generate_change_sets(&result, CHANGES_CONFIG | CHANGES_METADATA);
+        generate_change_sets(&result, CHANGES_CONFIG);
 
         /* Now generate the table settings. */
         result.write_many = write_table_value;
         generate_change_sets(&result, CHANGES_TABLE);
+        generate_change_sets(&result, CHANGES_METADATA);
 
         fclose(out_file);
 

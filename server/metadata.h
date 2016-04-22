@@ -15,6 +15,9 @@ error__t get_metadata_value(const char *key, struct connection_result *result);
 /* Updates string associated with key. */
 error__t put_metadata_value(const char *key, const char *value);
 
+/* Updates multi-line metadata field. */
+error__t put_metadata_table(const char *key, struct put_table_writer *writer);
+
 /* Checks if any metadata values have changed since the given report index. */
 bool check_metadata_change_set(uint64_t report_index);
 
