@@ -24,6 +24,7 @@
 #include "attributes.h"
 #include "enums.h"
 #include "version.h"
+#include "metadata.h"
 
 #include "system_command.h"
 
@@ -52,6 +53,42 @@ static error__t get_idn(const char *command, struct connection_result *result)
         sprintf(fpga_string + len, "C%u", fpga_version >> 24);
     return format_one_result(result, "%s SW: %s FPGA: %s %08x %08x",
         server_name, server_version, fpga_string, fpga_build, slow_version);
+}
+
+
+/* *METADATA.key?
+ * *METADATA.*?
+ * *METADATA.key=name
+ *
+ * Arbitrary string associated with configuration. */
+static error__t get_metadata(
+    const char *command, struct connection_result *result)
+{
+    char key[MAX_NAME_LENGTH];
+    return
+        parse_char(&command, '.')  ?:
+        IF_ELSE(read_char(&command, '*'),
+            parse_eos(&command)  ?:
+            get_metadata_keys(result),
+        //else
+            parse_name(&command, key, sizeof(key))  ?:
+            parse_eos(&command)  ?:
+            get_metadata_value(key, result));
+}
+
+
+static error__t put_metadata(
+    struct connection_context *connection,
+    const char *command, const char *value)
+{
+    char key[MAX_NAME_LENGTH];
+    const char *string;
+    return
+        parse_char(&command, '.')  ?:
+        parse_name(&command, key, sizeof(key))  ?:
+        parse_eos(&command)  ?:
+        parse_utf8_string(&value, &string)  ?:
+        put_metadata_value(key, string);
 }
 
 
@@ -95,6 +132,7 @@ static error__t get_who(const char *command, struct connection_result *result)
  * *CHANGES.READ?
  * *CHANGES.ATTR?
  * *CHANGES.TABLE?
+ * *CHANGES.METADATA?
  *
  * Returns list of changed fields and their value. */
 
@@ -107,6 +145,7 @@ static error__t lookup_change_set(
     else if (strcmp(action, "READ"  ) == 0)   *change_set = CHANGES_READ;
     else if (strcmp(action, "ATTR"  ) == 0)   *change_set = CHANGES_ATTR;
     else if (strcmp(action, "TABLE" ) == 0)   *change_set = CHANGES_TABLE;
+    else if (strcmp(action, "METADATA" ) == 0) *change_set = CHANGES_METADATA;
     else
         return FAIL_("Unknown changes selection");
     return ERROR_OK;
@@ -142,6 +181,7 @@ static error__t get_changes(
  * *CHANGES.READ=
  * *CHANGES.ATTR=
  * *CHANGES.TABLE=
+ * *CHANGES.METADATA=
  *
  * Resets change reporting for selected change set. */
 static error__t put_changes(
@@ -348,18 +388,18 @@ struct command_table_entry {
 };
 
 static const struct command_table_entry command_table_list[] = {
-    { "IDN",        .get = get_idn, },
-    { "BLOCKS",     .get = get_blocks, },
-    { "ECHO",       .get = get_echo, .allow_arg = true },
-    { "WHO",        .get = get_who, },
-    { "CHANGES",    .get = get_changes, .allow_arg = true, .put = put_changes },
-    { "DESC",       .get = get_desc, .allow_arg = true },
-    { "CAPTURE",    .get = get_capture, .allow_arg = true,
-        .put = put_capture, },
-    { "POSITIONS",  .get = get_positions, },
-    { "VERBOSE",    .put = put_verbose, },
-    { "ENUMS",      .get = get_enums, .allow_arg = true, },
-    { "PCAP",       .get = get_pcap, .allow_arg = true, .put = put_pcap, },
+    { "IDN",        false, .get = get_idn, },
+    { "METADATA",   true,  .get = get_metadata, .put = put_metadata, },
+    { "BLOCKS",     false, .get = get_blocks, },
+    { "ECHO",       true,  .get = get_echo, },
+    { "WHO",        false, .get = get_who, },
+    { "CHANGES",    true,  .get = get_changes,  .put = put_changes },
+    { "DESC",       true,  .get = get_desc, },
+    { "CAPTURE",    true,  .get = get_capture,  .put = put_capture, },
+    { "POSITIONS",  false, .get = get_positions, },
+    { "VERBOSE",    false, .put = put_verbose, },
+    { "ENUMS",      true,  .get = get_enums, },
+    { "PCAP",       true,  .get = get_pcap,     .put = put_pcap, },
 };
 
 static struct hash_table *command_table;

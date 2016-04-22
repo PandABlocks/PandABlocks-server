@@ -20,6 +20,7 @@
 #include "time_position.h"
 #include "table.h"
 #include "locking.h"
+#include "metadata.h"
 
 #include "fields.h"
 
@@ -407,6 +408,9 @@ void generate_change_sets(
                     result, field, report_index[CHANGE_IX_ATTR]);
         }
     }
+
+    if (change_set & CHANGES_METADATA)
+        generate_metadata_change_set(result, report_index[CHANGE_IX_METADATA]);
 }
 
 
@@ -441,6 +445,10 @@ bool check_change_set(
             }
         }
     }
+
+    if ((change_set & CHANGES_METADATA)  &&
+            check_metadata_change_set(report_index[CHANGE_IX_METADATA]))
+        return true;
     return false;
 }
 

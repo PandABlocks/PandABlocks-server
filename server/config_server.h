@@ -27,6 +27,7 @@ enum {
     CHANGE_IX_READ,         // *CHANGES.READ?       Read register changes
     CHANGE_IX_ATTR,         // *CHANGES.ATTR?       Read attribute changes
     CHANGE_IX_TABLE,        // *CHANGES.TABLE?      Read table changes
+    CHANGE_IX_METADATA,     // *CHANGES.METADATA?   Metadata attributes
 
     CHANGE_SET_SIZE,        // MUST be last entry in list of enums
 };
@@ -38,6 +39,7 @@ enum change_set {
     CHANGES_READ     = 1 << CHANGE_IX_READ,
     CHANGES_ATTR     = 1 << CHANGE_IX_ATTR,
     CHANGES_TABLE    = 1 << CHANGE_IX_TABLE,
+    CHANGES_METADATA = 1 << CHANGE_IX_METADATA,
 
     CHANGES_ALL      = (1 << CHANGE_SET_SIZE) - 1,      // *CHANGES?
 };
