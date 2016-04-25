@@ -119,15 +119,13 @@ struct connection_result {
 
 /* This is filled in by a successful call to put_table. */
 struct put_table_writer {
-    /* Write table data to this area then call .close() when finished. */
-    uint32_t *data;
-    size_t max_length;
-
-    /* This must be called when this writer is finished with.  If write_ok is
-     * not true then the entire write is discarded, otherwise length should be
-     * set to the number of words written to the data area. */
     void *context;
-    void (*close)(void *context, bool write_ok, size_t length);
+
+    /* Called to write a single line to the table target. */
+    error__t (*write)(void *context, const char *line);
+    /* This must be called when this writer is finished with.  If write_ok is
+     * not true then the entire write is discarded. */
+    void (*close)(void *context, bool write_ok);
 };
 
 
@@ -147,7 +145,8 @@ struct config_command_set {
     /* Implements name< command.  This implements writing an array of values via
      * the returned put_table_writer interface. */
     error__t (*put_table)(
-        const char *name, bool append, struct put_table_writer *writer);
+        const char *name, bool append, bool binary,
+        struct put_table_writer *writer);
 };
 
 

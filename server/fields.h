@@ -44,7 +44,7 @@ struct class_methods {
     /* Implements  block.field<  */
     error__t (*put_table)(
         void *class_data, unsigned int number,
-        bool append, struct put_table_writer *writer);
+        bool append, bool binary, struct put_table_writer *writer);
 
     /* For the _out classes the data provided by .read() needs to be loaded as a
      * separate action, this optional method does this. */
@@ -141,7 +141,7 @@ error__t field_put(struct field *field, unsigned int number, const char *value);
 /* Writes table of values ot a field:  block<n>.field<  */
 error__t field_put_table(
     struct field *field, unsigned int number,
-    bool append, struct put_table_writer *writer);
+    bool append, bool binary, struct put_table_writer *writer);
 
 
 /* List of attributes for field:  block.field.*?  */

@@ -86,7 +86,9 @@ struct table_block {
      * buffer for use during write, this is protected by write_lock.  When
      * updating the block we need to take the read_lock as well for writing. */
     uint32_t *write_data;       // Transient data area while writing
+    size_t write_length;        // Current data write length in words
     size_t write_offset;        // Offset data will start at when completed
+    bool write_binary;          // Set if data is being written in binary
 
     pthread_mutex_t write_lock; // Locks access to write_data area
     pthread_rwlock_t read_lock; // Write access taken when updating length&data
@@ -149,22 +151,66 @@ static error__t write_base_64(
 }
 
 
-/* Writing is rejected if there is another write to the same table in progress
- * simultaneously. */
-static error__t start_table_write(struct table_block *block)
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Writing to table. */
+
+
+/* Fills buffer from a binary stream by reading exactly the requested number of
+ * values as bytes. */
+static error__t convert_base64_line(
+    const char *line, uint32_t *data, size_t length, size_t *converted)
 {
-    int result = pthread_mutex_trylock(&block->write_lock);
-    if (result == EBUSY)
-        return FAIL_("Table currently being written");
-    else
-        return TEST_PTHREAD(result);
+    size_t converted_bytes;
+    enum base64_status status =
+        base64_decode(line, data, length * sizeof(uint32_t), &converted_bytes);
+    *converted = converted_bytes / sizeof(uint32_t);
+    return
+        TEST_OK_(status == BASE64_STATUS_OK,
+            "%s", base64_error_string(status))  ?:
+        TEST_OK_(converted_bytes % sizeof(uint32_t) == 0,
+            "Invalid data length");
+}
+
+
+/* In ASCII mode we accept a sequence of numbers on each line. */
+static error__t convert_ascii_line(
+    const char *line, uint32_t *data, size_t length, size_t *converted)
+{
+    *converted = 0;
+    error__t error = ERROR_OK;
+    while (!error  &&  *line != '\0')
+        error =
+            TEST_OK_(*converted < length, "Too many points for table")  ?:
+            parse_uint32(&line, &data[(*converted)++]);
+    return error;
+}
+
+
+/* Called repeatedly to write lines to the table write area. */
+static error__t write_table_line(void *context, const char *line)
+{
+    struct table_block *block = context;
+    struct table_state *state =
+        container_of(block, struct table_state, blocks[block->number]);
+
+    /* Compute the available buffer length. */
+    size_t max_length =
+        state->max_length - block->write_offset - block->write_length;
+    uint32_t *write_data = block->write_data + block->write_length;
+    size_t length;
+    return
+        IF_ELSE(block->write_binary,
+            convert_base64_line(line, write_data, max_length, &length),
+        //else
+            convert_ascii_line(line, write_data, max_length, &length))  ?:
+        DO(block->write_length += length);
 }
 
 
 /* When a write is complete we copy the write data over to the live data.  This
  * is done under a write lock on the read/write lock.  Before releasing the
  * locks, we also do any required hardware finalisation. */
-static void complete_table_write(void *context, bool write_ok, size_t length)
+static void complete_table_write(void *context, bool write_ok)
 {
     struct table_block *block = context;
     struct table_state *state =
@@ -177,8 +223,8 @@ static void complete_table_write(void *context, bool write_ok, size_t length)
         /* Write the data. */
         hw_write_table(
             state->table, block->number,
-            block->write_offset, block->write_data, length);
-        block->length = length + block->write_offset;
+            block->write_offset, block->write_data, block->write_length);
+        block->length = block->write_length + block->write_offset;
 
         block->update_index = get_change_index();
 
@@ -186,6 +232,34 @@ static void complete_table_write(void *context, bool write_ok, size_t length)
     }
 
     UNLOCK(block->write_lock);
+}
+
+
+/* Writing is rejected if there is another write to the same table in progress
+ * simultaneously. */
+static error__t start_table_write(
+    struct table_block *block,
+    bool append, bool binary, struct put_table_writer *writer)
+{
+    int result = pthread_mutex_trylock(&block->write_lock);
+    if (result == EBUSY)
+        return FAIL_("Table currently being written");
+    else if (result)
+        return TEST_PTHREAD(result);
+    else
+    {
+        *writer = (struct put_table_writer) {
+            .context = block,
+            .write = write_table_line,
+            .close = complete_table_write,
+        };
+
+        /* If appending is requested adjust the data area length accordingly. */
+        block->write_offset = append ? block->length : 0;
+        block->write_binary = binary;
+        block->write_length = 0;
+        return ERROR_OK;
+    }
 }
 
 
@@ -334,21 +408,11 @@ static void table_change_set(
 
 static error__t table_put_table(
     void *class_data, unsigned int number,
-    bool append, struct put_table_writer *writer)
+    bool append, bool binary, struct put_table_writer *writer)
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-
-    /* If appending is requested adjust the data area length accordingly. */
-    size_t offset = append ? block->length : 0;
-    *writer = (struct put_table_writer) {
-        .data = block->write_data,
-        .max_length = state->max_length - offset,
-        .context = block,
-        .close = complete_table_write,
-    };
-    block->write_offset = offset;
-    return start_table_write(block);
+    return start_table_write(block, append, binary, writer);
 }
 
 

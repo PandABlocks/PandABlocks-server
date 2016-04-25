@@ -458,13 +458,15 @@ static error__t process_system_put(
 
 
 static error__t process_system_put_table(
-    const char *command, bool append, struct put_table_writer *writer)
+    const char *command, bool append, bool binary,
+    struct put_table_writer *writer)
 {
     const struct command_table_entry *command_set;
     return
         parse_system_command(&command, &command_set)  ?:
         TEST_OK_(command_set->put_table, "Not a table")  ?:
-        TEST_OK_(!append, "Append not allowed")  ?:
+        TEST_OK_(!append, "Append not supported")  ?:
+        TEST_OK_(!binary, "Binary writes not supported")  ?:
         command_set->put_table(command, writer);
 }
 
