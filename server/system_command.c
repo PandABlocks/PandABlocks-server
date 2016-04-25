@@ -182,7 +182,7 @@ static error__t get_changes(
     result->response = RESPONSE_MANY;
     return
         parse_change_set(&command, &change_set)  ?:
-        DO(generate_change_sets(result, change_set));
+        DO(generate_change_sets(result, change_set, false));
 }
 
 

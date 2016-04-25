@@ -108,7 +108,8 @@ size_t format_field_name(
 
 /* Generates list of all changed fields and their values. */
 void generate_change_sets(
-    struct connection_result *result, enum change_set changes);
+    struct connection_result *result, enum change_set changes,
+    bool print_tables);
 
 /* Returns true if a change is detected in the given change set. */
 bool check_change_set(

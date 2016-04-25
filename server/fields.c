@@ -320,11 +320,22 @@ static void report_changed_attr(
 
 static void report_changed_table(
     struct field *field, unsigned int number,
-    struct connection_result *result)
+    struct connection_result *result, bool print_table)
 {
     char string[MAX_RESULT_LENGTH];
     format_field_name(string, sizeof(string), field, NULL, number, '<');
-    result->write_many(result->write_context, string);
+    if (print_table)
+    {
+        strcat(string, "B");
+        struct attr *bin_attr;
+        result->write_many(result->write_context, string);
+        error_report(
+            lookup_attr(field, "B", &bin_attr)  ?:
+            attr_get(bin_attr, number, result));
+        result->write_many(result->write_context, "");
+    }
+    else
+        result->write_many(result->write_context, string);
 }
 
 
@@ -375,7 +386,8 @@ static void get_field_change_set(
 
 /* Walks all fields and generates a change event for all changed fields. */
 void generate_change_sets(
-    struct connection_result *result, enum change_set change_set)
+    struct connection_result *result, enum change_set change_set,
+    bool print_tables)
 {
     /* Get the change index for this connection and update it so the next
      * changes request will be up to date.  Use a fresh index for this. */
@@ -402,7 +414,7 @@ void generate_change_sets(
                 report_index, changes);
             for (unsigned int i = 0; i < block->count; i ++)
                 if (changes[i])
-                    report_changed_table(field, i, result);
+                    report_changed_table(field, i, result, print_tables);
 
             if (change_set & CHANGES_ATTR)
                 generate_attr_change_sets(
@@ -411,7 +423,8 @@ void generate_change_sets(
     }
 
     if (change_set & CHANGES_METADATA)
-        generate_metadata_change_set(result, report_index[CHANGE_IX_METADATA]);
+        generate_metadata_change_set(
+            result, report_index[CHANGE_IX_METADATA], print_tables);
 }
 
 

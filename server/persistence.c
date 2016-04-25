@@ -17,6 +17,7 @@
 #include "system_command.h"
 #include "fields.h"
 #include "attributes.h"
+#include "metadata.h"
 #include "base64.h"
 #include "locking.h"
 
@@ -157,36 +158,10 @@ static bool check_state_changed(void)
 
 /* Helper function for connection_result: writes a single value to the
  * persistence state file. */
-static void write_one_value(void *context, const char *string)
+static void write_one_line(void *context, const char *string)
 {
     FILE *out_file = context;
     fprintf(out_file, "%s\n", string);
-}
-
-
-/* Helper value for table results.  Here we do a bit of a hack and divert the
- * request to the table's .B attribute. */
-static void write_table_value(void *context, const char *string)
-{
-    FILE *out_file = context;
-    fprintf(out_file, "%sB\n", string);
-
-    struct connection_result result = {
-        .write_context = context,
-        .write_many = write_one_value,
-    };
-
-    /* A bit of a hack here.  We know that string is block.field< and we want to
-     * generate block.field.B. */
-    size_t name_length = strlen(string);
-    char table_b[name_length + 4];
-    snprintf(table_b, sizeof(table_b),
-        "%.*s.B", (int) (name_length - 1), string);
-
-    error__t error = entity_commands.get(table_b, &result);
-    if (error)
-        ERROR_REPORT(error, "Unexpected error writing %s", string);
-    fprintf(out_file, "\n");
 }
 
 
@@ -204,7 +179,7 @@ static void write_changed_state(void)
         struct connection_result result = {
             .change_set_context = &zero_change_set,
             .write_context = out_file,
-            .write_many = write_one_value,
+            .write_many = write_one_line,
         };
 
         /* Start by resetting the change context so that we're up to date before
@@ -214,13 +189,12 @@ static void write_changed_state(void)
 
         /* First generate the single value settings.  Generate attribute values
          * first as they can affect the interpretation of the config values. */
-        generate_change_sets(&result, CHANGES_ATTR);
-        generate_change_sets(&result, CHANGES_CONFIG);
+        generate_change_sets(&result, CHANGES_ATTR, true);
+        generate_change_sets(&result, CHANGES_CONFIG, true);
 
         /* Now generate the table settings. */
-        result.write_many = write_table_value;
-        generate_change_sets(&result, CHANGES_TABLE);
-        generate_change_sets(&result, CHANGES_METADATA);
+        generate_change_sets(&result, CHANGES_TABLE, true);
+        generate_change_sets(&result, CHANGES_METADATA, true);
 
         fclose(out_file);
 
