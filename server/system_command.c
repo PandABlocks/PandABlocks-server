@@ -59,6 +59,7 @@ static error__t get_idn(const char *command, struct connection_result *result)
 /* *METADATA.key?
  * *METADATA.*?
  * *METADATA.key=name
+ * *METADATA.key<
  *
  * Arbitrary string associated with configuration. */
 static error__t get_metadata(

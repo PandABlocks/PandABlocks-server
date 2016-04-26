@@ -23,4 +23,5 @@ bool check_metadata_change_set(uint64_t report_index);
 
 /* Returns change set for given index. */
 void generate_metadata_change_set(
-    struct connection_result *result, uint64_t report_index);
+    struct connection_result *result, uint64_t report_index,
+    bool print_table);
