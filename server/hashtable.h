@@ -65,6 +65,10 @@ void hash_table_validate(struct hash_table *table);
 typedef long unsigned int hash_t;
 
 
+/* Computes sensible hash function over given memory area. */
+hash_t hash_memory_area(const void *key, size_t length);
+
+
 /* Abstract key management interface so hash table can support key types other
  * than null terminated strings. */
 struct hash_table_ops {

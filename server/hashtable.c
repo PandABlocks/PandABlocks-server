@@ -33,19 +33,24 @@ struct hash_table {
 
 
 /* Hash algorithm lifted from Python Objects/stringobject.c:string_hash. */
-static hash_t hash_string(const void *key)
+hash_t hash_memory_area(const void *key, size_t length)
 {
-    const char *s = key;
-    size_t length = strlen(s);
     if (length == 0)
         return 0;
     else
     {
+        const char *s = key;
         hash_t hash = (hash_t) *s++ << 7;
         for (size_t i = 1; i < length; i++)
-            hash = (1000003 * hash) ^ (hash_t) (unsigned int) *s++;
+            hash = (1000003 * hash) ^ (hash_t) *s++;
         return hash ^ length;
     }
+}
+
+
+static hash_t hash_string(const void *key)
+{
+    return hash_memory_area(key, strlen(key));
 }
 
 
@@ -57,7 +62,7 @@ static bool compare_string(const void *key1, const void *key2)
 
 static hash_t hash_ptr(const void *key)
 {
-    return (hash_t) key;
+    return hash_memory_area(&key, sizeof(key));
 }
 
 static bool compare_ptr(const void *key1, const void *key2)
