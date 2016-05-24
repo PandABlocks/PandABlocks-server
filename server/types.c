@@ -199,6 +199,63 @@ static const struct type_methods int_type_methods = {
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Scalar type: floating point number scaled by constant factor. */
+
+
+struct scalar_state {
+    double scale;
+};
+
+
+static error__t scalar_init(
+    const char **string, unsigned int count, void **type_data)
+{
+    struct scalar_state *state = malloc(sizeof(struct scalar_state));
+    *type_data = state;
+    return
+        parse_char(string, ' ')  ?:
+        parse_double(string, &state->scale);
+}
+
+
+static error__t scalar_parse(
+    void *type_data, unsigned int number,
+    const char *string, unsigned int *value)
+{
+    struct scalar_state *state = type_data;
+    double result;
+    return
+        parse_double(&string, &result)  ?:
+        parse_eos(&string)  ?:
+        DO(result /= state->scale)  ?:
+        TEST_OK_(INT_MIN <= result  &&  result <= INT_MAX,
+            "Value out of range")  ?:
+        DO(*value = (unsigned int) lround(result));
+}
+
+
+static error__t scalar_format(
+    void *type_data, unsigned int number,
+    unsigned int value, char string[], size_t length)
+{
+    struct scalar_state *state = type_data;
+    return format_double(string, length, state->scale * value);
+}
+
+
+static const struct type_methods scalar_type_methods = {
+    "scalar",
+    .init = scalar_init,
+    .parse = scalar_parse, .format = scalar_format,
+    .attrs = (struct attr_methods[]) {
+        {   "RAW", "Underlying integer value",
+            .format = raw_format_int, .put = raw_put_int, },
+    },
+    .attr_count = 1,
+};
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Bit type: input can only be 0 or 1. */
 
 static error__t bit_parse(
@@ -424,6 +481,7 @@ void destroy_type(struct type *type)
 static const struct type_methods *types_table[] = {
     &uint_type_methods,             // uint
     &int_type_methods,              // int
+    &scalar_type_methods,           // scalar
     &bit_type_methods,              // bit
 
     &action_type_methods,           // action
