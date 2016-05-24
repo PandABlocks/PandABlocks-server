@@ -138,22 +138,19 @@ static error__t uint_init(
 
 static error__t uint_parse(
     void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
+    const char **string, unsigned int *value)
 {
     unsigned int *max_value = type_data;
     return
-        parse_uint(&string, value)  ?:
-        parse_eos(&string)  ?:
+        parse_uint(string, value)  ?:
         TEST_OK_(*value <= *max_value, "Number out of range");
 }
 
 static error__t int_parse(
     void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
+    const char **string, unsigned int *value)
 {
-    return
-        parse_int(&string, (int *) value)  ?:
-        parse_eos(&string);
+    return parse_int(string, (int *) value);
 }
 
 
@@ -220,13 +217,12 @@ static error__t scalar_init(
 
 static error__t scalar_parse(
     void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
+    const char **string, unsigned int *value)
 {
     struct scalar_state *state = type_data;
     double result;
     return
-        parse_double(&string, &result)  ?:
-        parse_eos(&string)  ?:
+        parse_double(string, &result)  ?:
         DO(result /= state->scale)  ?:
         TEST_OK_(INT_MIN <= result  &&  result <= INT_MAX,
             "Value out of range")  ?:
@@ -260,12 +256,11 @@ static const struct type_methods scalar_type_methods = {
 
 static error__t bit_parse(
     void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
+    const char **string, unsigned int *value)
 {
     bool result;
     return
-        parse_bit(&string, &result)  ?:
-        parse_eos(&string)  ?:
+        parse_bit(string, &result)  ?:
         DO(*value = result);
 }
 
@@ -290,10 +285,10 @@ static const struct type_methods bit_type_methods = {
 
 static error__t action_parse(
     void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
+    const char **string, unsigned int *value)
 {
     *value = 0;
-    return parse_eos(&string);
+    return ERROR_OK;
 }
 
 
@@ -358,19 +353,21 @@ static error__t do_parse_lut(const char *string, unsigned int *value)
 
 static error__t lut_parse(
     void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
+    const char **string, unsigned int *value)
 {
     struct lut_state *state = type_data;
     struct lut_field *field = &state->values[number];
 
-    error__t error = do_parse_lut(string, value);
+    error__t error = do_parse_lut(*string, value);
     if (!error)
     {
         LOCK(state->mutex);
         field->value = *value;
         free(field->string);
-        field->string = strdup(string);
+        field->string = strdup(*string);
         UNLOCK(state->mutex);
+
+        *string += strlen(*string);
     }
     return error;
 }
@@ -432,7 +429,8 @@ error__t type_put(struct type *type, unsigned int number, const char *string)
     return
         TEST_OK_(type->methods->parse,
             "Cannot write %s value", type->methods->name)  ?:
-        type->methods->parse(type->type_data, number, string, &value)  ?:
+        type->methods->parse(type->type_data, number, &string, &value)  ?:
+        parse_eos(&string)  ?:
         write_type_register(type, number, value);
 }
 

@@ -163,14 +163,13 @@ static error__t write_time_value(
 
 
 static error__t time_class_parse(
-    const char *string, unsigned int scale,
+    const char **string, unsigned int scale,
     uint64_t max_value, uint64_t *result)
 {
     double scaled_value;
     double value;
     return
-        parse_double(&string, &scaled_value)  ?:
-        parse_eos(&string)  ?:
+        parse_double(string, &scaled_value)  ?:
         /* The obvious thing to do here is simply to call llround() on the
          * result of the calculation below and detect range overflow ... good
          * luck with that, seems that whether overflow is actually reported is
@@ -189,8 +188,9 @@ static error__t time_put(
     uint64_t result;
     return
         time_class_parse(
-            string, state->values[number].time_scale,
+            &string, state->values[number].time_scale,
             MAX_CLOCK_VALUE, &result)  ?:
+        parse_eos(&string)  ?:
         write_time_value(state, number, result);
 }
 
@@ -335,7 +335,7 @@ static void position_destroy(void *type_data, unsigned int count)
 
 static error__t position_parse(
     void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
+    const char **string, unsigned int *value)
 {
     struct position_state *state = type_data;
     struct position_field *field = &state->values[number];
@@ -348,8 +348,7 @@ static error__t position_parse(
     double position;
     double converted;
     return
-        parse_double(&string, &position)  ?:
-        parse_eos(&string)  ?:
+        parse_double(string, &position)  ?:
         DO(converted = (position - offset) / scale)  ?:
         TEST_OK_(INT32_MIN <= converted  &&  converted <= INT32_MAX,
             "Position out of range")  ?:
@@ -526,7 +525,7 @@ static error__t time_type_init(
 
 static error__t time_parse(
     void *type_data, unsigned int number,
-    const char *string, unsigned int *value)
+    const char **string, unsigned int *value)
 {
     struct time_type_state *state = type_data;
     uint64_t result;

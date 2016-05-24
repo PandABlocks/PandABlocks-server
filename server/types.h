@@ -18,10 +18,11 @@ struct type_methods {
     /* This is called during startup to process an attribute line. */
     error__t (*add_attribute_line)(void *type_data, const char **string);
 
-    /* This converts a string to a writeable integer. */
+    /* This converts a string to a writeable integer.  If the entire string is
+     * not consumed by the parse an error will be reported by the caller. */
     error__t (*parse)(
         void *type_data, unsigned int number,
-        const char *string, unsigned int *value);
+        const char **string, unsigned int *value);
 
     /* This formats the value into a string according to the type rules. */
     error__t (*format)(

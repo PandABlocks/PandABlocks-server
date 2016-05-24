@@ -307,6 +307,15 @@ error__t enum_parse(
         enum_name_to_index(type_data, string, value), "Label not found");
 }
 
+static error__t do_enum_parse(
+    void *type_data, unsigned int number,
+    const char **string, unsigned int *value)
+{
+    return
+        enum_parse(type_data, number, *string, value)  ?:
+        DO(*string += strlen(*string));
+}
+
 
 /* Formats valid value into enumeration string, otherwise error. */
 error__t enum_format(
@@ -330,6 +339,6 @@ const struct type_methods enum_type_methods = {
     "enum",
     .init = enum_init, .destroy = enum_destroy,
     .add_attribute_line = enum_add_label,
-    .parse = enum_parse, .format = enum_format,
+    .parse = do_enum_parse, .format = enum_format,
     .get_enumeration = enum_get_enumeration,
 };
