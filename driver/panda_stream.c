@@ -226,11 +226,11 @@ static int allocate_blocks(struct stream_open *open)
     {
         struct block *block = &open->blocks[blk];
         block->block = (void *) __get_free_pages(GFP_KERNEL, block_shift);
-        TEST_(block->block,
+        TEST_OK(block->block,
             rc = -ENOMEM, no_block, "Unable to allocate buffer");
         block->dma =
             dma_map_single(dev, block->block, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
-        TEST_(!dma_mapping_error(dev, block->dma),
+        TEST_OK(!dma_mapping_error(dev, block->dma),
             rc = -EIO, no_dma_map, "Unable to map DMA block");
         block->state = BLOCK_FREE;
     }

@@ -41,13 +41,13 @@ static int panda_block_mmap(struct file *file, struct vm_area_struct *vma)
 
     /* Check that we've allocated our pages and haven't already been mapped. */
     int rc = 0;
-    TEST_(open->block_addr, rc = -ENXIO, bad_request, "No block allocated");
-    TEST_(!open->vma, rc = -EBUSY, bad_request, "Block already mapped");
+    TEST_OK(open->block_addr, rc = -ENXIO, bad_request, "No block allocated");
+    TEST_OK(!open->vma, rc = -EBUSY, bad_request, "Block already mapped");
 
     /* Check the mapped area is in range. */
     size_t size = vma->vm_end - vma->vm_start;
     unsigned long end = (vma->vm_pgoff << PAGE_SHIFT) + size;
-    TEST_(end <= open->block_size,
+    TEST_OK(end <= open->block_size,
         rc = -EINVAL, bad_request, "Requested area out of range");
 
     /* Let remap_pfn_range do all the work. */
@@ -74,24 +74,24 @@ static int create_block(
 
     /* Check the block isn't already allocated. */
     int rc = 0;
-    TEST_(!open->block_addr,
+    TEST_OK(!open->block_addr,
         rc = -EBUSY, bad_request, "Block already allocated");
 
     /* Try to retrieve the ioctl arguments and validate them. */
-    TEST_(!copy_from_user(&open->block, block, sizeof(struct panda_block)),
+    TEST_OK(!copy_from_user(&open->block, block, sizeof(struct panda_block)),
         rc = -EFAULT, bad_request, "Error copying block");
-    TEST_(
+    TEST_OK(
         open->block.block_base < pcap->length - 4  &&
         open->block.block_length < pcap->length - 4,
         rc = -EINVAL, bad_request, "Invalid register argument for block");
 
     /* Ok, all in order.  Allocate the requested block and map it for DMA. */
     open->block_addr = (void *) __get_free_pages(GFP_KERNEL, open->block.order);
-    TEST_(open->block_addr, rc = -ENOMEM, bad_request,
+    TEST_OK(open->block_addr, rc = -ENOMEM, bad_request,
         "Unable to allocate block");
     open->dma = dma_map_single(
         dev, open->block_addr, open->block_size, DMA_TO_DEVICE);
-    TEST_(!dma_mapping_error(dev, open->dma),
+    TEST_OK(!dma_mapping_error(dev, open->dma),
         rc = -EIO, no_dma, "Unable to map DMA area");
 
     /* Inform the hardware via the register we were given. */
@@ -140,10 +140,10 @@ static ssize_t panda_block_write(
 
     /* Check the block is allocated. */
     int rc = 0;
-    TEST_(open->block_addr,
+    TEST_OK(open->block_addr,
         rc = -EBUSY, bad_request, "No block allocated");
     /* Check the requested length is valid. */
-    TEST_(*offset + length <= open->block_size,
+    TEST_OK(*offset + length <= open->block_size,
         rc = -EFBIG, bad_request, "Write segment too long");
 
     /* Good.  Tell the hardware, switch into CPU mode, copy the data, switch
@@ -151,7 +151,7 @@ static ssize_t panda_block_write(
     writel(0, pcap->reg_base + open->block.block_length);
     dma_sync_single_for_cpu(
         dev, open->dma, open->block_size, DMA_TO_DEVICE);
-    TEST_(!copy_from_user(open->block_addr + *offset, data, length),
+    TEST_OK(!copy_from_user(open->block_addr + *offset, data, length),
         rc = -EFAULT, bad_copy, "Fault copying data from user");
     dma_sync_single_for_device(
         dev, open->dma, open->block_size, DMA_TO_DEVICE);
