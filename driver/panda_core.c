@@ -185,12 +185,12 @@ static int __init panda_init(void)
 
     return 0;
 
+    platform_driver_unregister(&panda_driver);
 no_platform:
+    class_destroy(panda_class);
 no_class:
     unregister_chrdev_region(panda_dev, PANDA_MINORS);
 no_chrdev:
-    platform_driver_unregister(&panda_driver);
-
     return rc;
 }
 
