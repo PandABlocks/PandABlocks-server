@@ -84,6 +84,7 @@ SRCS += data_server.c           # Data socket server for streamed data capture
 SRCS += buffer.c                # Circular buffer for captured data stream
 SRCS += buffered_file.c         # Buffered file IO for socket interface
 SRCS += parse.c                 # Common string parsing support
+SRCS += utf8_check.c            # External UTF-8 format checker
 SRCS += parse_lut.c             # 5 input lookup table expression parsing
 SRCS += hashtable.c             # Simple hash table
 SRCS += database.c              # Reading configuration and register files
