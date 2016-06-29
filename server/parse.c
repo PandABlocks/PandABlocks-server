@@ -176,8 +176,9 @@ error__t parse_uint_array(
 
 error__t parse_utf8_string(const char **input, const char **result)
 {
-    *result = (const char *) utf8_check((const unsigned char *) *result);
-    return TEST_OK_(*result == '\0', "Malformed UTF-8 encoding");
+    *result = *input;
+    *input = (const char *) utf8_check((const unsigned char *) *input);
+    return TEST_OK_(**input == '\0', "Malformed UTF-8 encoding");
 }
 
 
