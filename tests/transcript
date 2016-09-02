@@ -26,6 +26,7 @@
 # hashtable implementation and the ordering in the config file.
 < *BLOCKS?
 > !TTLIN 6
+> !SFP 1
 > !OUTENC 4
 > !PCAP 1
 > !PCOMP 4
@@ -41,6 +42,7 @@
 > !SEQ 4
 > !PULSE 4
 > !SRGATE 4
+> !FMC 1
 > !LUT 8
 > !LVDSOUT 2
 > !COUNTER 8

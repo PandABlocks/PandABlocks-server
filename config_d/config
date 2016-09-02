@@ -52,7 +52,6 @@ PULSE[4]
     INP             bit_mux
     ENABLE          bit_mux
     OUT             bit_out
-    PERR            bit_out
     ERR_OVERFLOW    read        bit
     ERR_PERIOD      read        bit
     QUEUE           read        uint 1023
@@ -94,16 +93,19 @@ INENC[4]
     CLK_PERIOD      param       time
     FRAME_PERIOD    param       time
     BITS            param       uint 63
+    BITS_CRC        param       uint 63
     SETP            write       position
     RST_ON_Z        param       bit
     EXTENSION       read        int
     ERR_FRAME       read        bit
     ERR_RESPONSE    read        bit
     ENC_STATUS      read
+    DCARD_MODE      read
     A               bit_out
     B               bit_out
     Z               bit_out
     CONN            bit_out
+    TRANS           bit_out
     VAL             pos_out     encoder
 
 QDEC[4]
@@ -261,9 +263,46 @@ POSITIONS
     ZERO            pos_out     const
 
 SLOW
-    FPGA_VERSION    read
-    ENC_CONN        read
+    TEMP_PSU        read        int
+    TEMP_SFP        read        int
+    TEMP_ENC_L      read        int
+    TEMP_PICO       read        int
+    TEMP_ENC_R      read        int
+    ALIM_12V0       read
+    PICO_5V0        read
+    IO_5V0          read
+    SFP_3V3         read
+    FMC_15VN        read
+    FMC_15VP        read
+    ENC_24V         read
+    FMC_12V         read
+
+FMC
+    FMC_PRSNT       read
+    LINK_UP         read
+    ERROR_COUNT     read
+    LA_P_ERROR      read
+    LA_N_ERROR      read
+    GTREFCLK        read
+    FMC_CLK0        read
+    FMC_CLK1        read
+    SOFT_RESET      write       action
+    EXT_CLK         read
+    LOOP_PERIOD     param
+
+SFP
+    LINK1_UP        read
+    ERROR1_COUNT    read
+    LINK2_UP        read
+    ERROR2_COUNT    read
+    LINK3_UP        read
+    ERROR3_COUNT    read
+    SFP_CLK1        read
+    SFP_CLK2        read
+    SFP_CLK3        read
+    SOFT_RESET      write       action
 
 *METADATA
     MODEL           string
     YAML            multiline
+
