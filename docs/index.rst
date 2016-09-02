@@ -1,12 +1,12 @@
-Zebra2
-======
+Table of Contents
+=================
 
-This is what Zebra2 is
+Contents:
 
-Quickstart
-----------
+..  toctree::
+    :maxdepth: 2
 
-How to get started
-
-Read on to the :ref:`blocks` section
-
+    README.rst
+    commands.rst
+    fields.rst
+    capture.rst

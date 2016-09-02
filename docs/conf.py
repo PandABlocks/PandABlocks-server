@@ -23,22 +23,14 @@ import os
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-#needs_sphinx = '1.0'
-try:
-    from pkg_resources import require
-except:
-    pass
-else:
-    require("matplotlib")
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'matplotlib.sphinxext.plot_directive',
     'sphinx.ext.autodoc',
-    'zebra2.sphinxext.sequence_plot_directive',
 ]
+
 # Something a bit odd: on some systems we find napoleon under sphinx.ext, on
 # others under sphinxcontrib.  Try both, select the appropriate one.
 try:
@@ -50,8 +42,6 @@ else:
 
 napoleon_use_ivar=True
 autoclass_content="both"
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "python"))
 
 
 # Add any paths that contain templates here, relative to this directory.
@@ -66,12 +56,12 @@ source_suffix = '.rst'
 #source_encoding = 'utf-8-sig'
 
 # The master toctree document.
-master_doc = 'toc'
+master_doc = 'index'
 
 # General information about the project.
 project = u'zebra2-server'
-copyright = u'2015, Michael Abbott, Tom Cobb'
-author = u'Michael Abbott, Tom Cobb'
+copyright = u'2015-2016, Michael Abbott, Tom Cobb'
+author = u'Michael Abbott'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -97,7 +87,7 @@ language = None
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build']
+exclude_patterns = ['_build', 'presentation*']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
