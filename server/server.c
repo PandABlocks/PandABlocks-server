@@ -218,7 +218,7 @@ int main(int argc, char *const argv[])
          * terminate. */
         log_message("Server started");
         error =
-            start_persistence()  ?:
+            IF(persistence_file, start_persistence())  ?:
             start_data_server()  ?:
             run_socket_server();
         ERROR_REPORT(error, "Server shutting down");
