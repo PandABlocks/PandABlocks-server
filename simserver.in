@@ -4,19 +4,44 @@ HERE="$(dirname "$0")"
 
 # This is filled in from the setting in CONFIG
 PYTHON='@@PYTHON@@'
+SIM_SERVER_DIR='@@SIM_SERVER_DIR@@'
 
-CONFIG_DIR="$HERE"/config_d
 PERSISTENCE='@@BUILD_DIR@@'/persistence.state
 
 CONFIG_PORT=8888
 DATA_PORT=8889
+DEBUG=()
 
-if [[ $1 = -check ]]; then
-    DEBUG=(valgrind --leak-check=full --track-origins=yes)
-    shift
-else
-    DEBUG=()
-fi
+
+# Allow some settings to be overridden.
+while getopts 'cs:p:d:-h' option; do
+    case "$option" in
+    c)  DEBUG=(valgrind --leak-check=full --track-origins=yes) ;;
+    s)  SIM_SERVER_DIR="$OPTARG" ;;
+    p)  CONFIG_PORT=$OPTARG ;;
+    d)  DATA_PORT=$OPTARG ;;
+    -)  ;;
+    h)  cat <<EOF
+./simserver [options] [-- command options]
+options can be one of:
+    -c  Run with valgrind memory checking
+    -s: Set simulation server directory, default is
+        $SIM_SERVER_DIR
+    -p: Specify configuration port (default 8888)
+    -d: Specify data port (default 8889)
+    -h  Show this help
+Remaining command options are passed through to the server executable.
+EOF
+        exit 0 ;;
+    *)  exit >&2 'Invalid option: try -h for help'
+        exit 1 ;;
+    esac
+done
+shift $((OPTIND-1))
+
+
+CONFIG_DIR="$SIM_SERVER_DIR"/config_d
+SIM_SERVER="$SIM_SERVER_DIR"/python/sim_server.py
 
 # Force any previously running instance of the simulation server to go away --
 # this can happen if sim_server failed on startup for any reason.
@@ -24,7 +49,7 @@ nc localhost 9999 </dev/null
 
 # Run the simulation server as a daemon.  It will ensure its socket is up and
 # running before taking itself into the background.
-$PYTHON "$HERE"/python/sim_server.py -d "$CONFIG_DIR"  &&
+"$PYTHON" "$SIM_SERVER" -d "$CONFIG_DIR"  &&
 
 # We normally omit --show-reachable=yes because it generates *lots* of noises
 # when there's a crash!
