@@ -176,10 +176,14 @@ static void write_changed_state(void)
          * is reported. */
         struct change_set_context zero_change_set = { };
 
+        char string[MAX_RESULT_LENGTH];
         struct connection_result result = {
             .change_set_context = &zero_change_set,
+            .string = string,
+            .length = sizeof(string),
             .write_context = out_file,
             .write_many = write_one_line,
+            .response = RESPONSE_ERROR,
         };
 
         /* Start by resetting the change context so that we're up to date before
