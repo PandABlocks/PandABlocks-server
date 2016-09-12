@@ -258,15 +258,14 @@ void generate_metadata_change_set(
             metadata_map, &ix, (const void **) &key, (void *) &value))
     {
         LOCK(value->mutex);
-        if (value->update_index > report_index)
+        bool changed = value->update_index > report_index;
+        UNLOCK(value->mutex);
+
+        if (changed)
         {
-            char string[MAX_RESULT_LENGTH];
             if (value->multiline)
             {
-                UNLOCK(value->mutex);
-
-                snprintf(string, sizeof(string), "*METADATA.%s<", key);
-                result->write_many(result->write_context, string);
+                format_many_result(result, "*METADATA.%s<", key);
                 if (print_table)
                 {
                     error_report(get_metadata_value(key, result));
@@ -275,11 +274,12 @@ void generate_metadata_change_set(
             }
             else
             {
-                snprintf(string, sizeof(string),
+                LOCK(value->mutex);
+                snprintf(result->string, result->length,
                     "*METADATA.%s=%s", key, value->value ?: "");
                 UNLOCK(value->mutex);
-
-                result->write_many(result->write_context, string);
+                /* We avoid writing while holding the lock. */
+                result->write_many(result->write_context, result->string);
             }
         }
     }
