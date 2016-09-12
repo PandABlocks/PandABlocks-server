@@ -7,6 +7,7 @@ TOP := $(CURDIR)
 
 BUILD_DIR = $(TOP)/build
 PYTHON = python2
+SPHINX_BUILD = sphinx-build
 ARCH = arm
 CROSS_COMPILE = arm-xilinx-linux-gnueabi-
 BINUTILS_DIR = /dls_sw/FPGA/Xilinx/SDK/2015.1/gnu/arm/lin/bin
@@ -97,11 +98,14 @@ sim_server: $(SIM_SERVER) simserver
 # Documentation
 
 $(DOCS_BUILD_DIR)/index.html: $(wildcard docs/*.rst docs/*/*.rst docs/conf.py)
-	sphinx-build -b html docs $(DOCS_BUILD_DIR)
+	$(SPHINX_BUILD) -b html docs $(DOCS_BUILD_DIR)
 
 docs: $(DOCS_BUILD_DIR)/index.html
 
-.PHONY: docs
+docs-clean:
+	rm -rf $(DOCS_BUILD_DIR)
+
+.PHONY: docs docs-clean
 
 
 # ------------------------------------------------------------------------------

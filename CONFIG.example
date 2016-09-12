@@ -11,6 +11,10 @@
 #
 # PYTHON = python2
 
+# Sphinx build for documentation.
+#
+# SPHINX_BUILD = sphinx-build
+
 # Compiler settings.  Default cross compile prefix given here.  If BINUTILS_DIR
 # is specified it will be prepended to the path for building the driver and
 # target server.
