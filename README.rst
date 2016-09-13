@@ -1,11 +1,11 @@
-Zebra2 Server
-=============
+Panda Server
+============
 
-The Zebra2 socket server provides a bridge between the register interface to the
-FPGA firmware controlling the Zebra2 hardware and users and other software.  The
+The Panda socket server provides a bridge between the register interface to the
+FPGA firmware controlling the Panda hardware and users and other software.  The
 interface provided by this server is designed to be simple and robust.
 
-The Zebra2 firmware is structured into numerous functional blocks, with each
+The Panda firmware is structured into numerous functional blocks, with each
 block configured via a number of fields.  This structure is directly reflected
 in the functional interface provided by this server: most commands read or write
 specific fields.
@@ -106,7 +106,7 @@ then a pre-build kernel will be needed -- for this reference `zebra2-rootfs
 <https://github.com/PandA-Motion-Project/zebra2-rootfs>`_ and build the kernel
 target.
 
-The zebra2-server Makefile supports four main build targets:
+The panda-server Makefile supports four main build targets:
 
 ``driver``
     This builds the kernel driver required by the target server to communicate

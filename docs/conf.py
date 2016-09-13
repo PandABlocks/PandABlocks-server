@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# zebra2-server documentation build configuration file, created by
+# panda-server documentation build configuration file, created by
 # sphinx-quickstart on Wed Dec  2 09:44:14 2015.
 #
 # This file is execfile()d with the current directory set to its
@@ -45,7 +45,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'zebra2-server'
+project = u'panda-server'
 copyright = u'2015-2016, Michael Abbott, Tom Cobb'
 author = u'Michael Abbott'
 
@@ -213,7 +213,7 @@ html_static_path = ['_static']
 #html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'zebra2-serverdoc'
+htmlhelp_basename = 'panda-serverdoc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -235,7 +235,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  (master_doc, 'zebra2-server.tex', u'zebra2-server Documentation',
+  (master_doc, 'panda-server.tex', u'panda-server Documentation',
    u'Michael Abbott, Tom Cobb', 'manual'),
 ]
 
@@ -265,7 +265,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'zebra2-server', u'zebra2-server Documentation',
+    (master_doc, 'panda-server', u'panda-server Documentation',
      [author], 1)
 ]
 
@@ -279,8 +279,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  (master_doc, 'zebra2-server', u'zebra2-server Documentation',
-   author, 'zebra2-server', 'One line description of project.',
+  (master_doc, 'panda-server', u'panda-server Documentation',
+   author, 'panda-server', 'One line description of project.',
    'Miscellaneous'),
 ]
 
