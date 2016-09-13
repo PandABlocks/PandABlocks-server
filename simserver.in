@@ -49,6 +49,7 @@ nc localhost 9999 </dev/null
 
 # Run the simulation server as a daemon.  It will ensure its socket is up and
 # running before taking itself into the background.
+echo Running simulation from "$SIM_SERVER_DIR"
 "$PYTHON" "$SIM_SERVER" -d "$CONFIG_DIR"  &&
 
 # We normally omit --show-reachable=yes because it generates *lots* of noises
