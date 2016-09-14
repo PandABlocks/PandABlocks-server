@@ -8,17 +8,22 @@ TOP := $(CURDIR)
 BUILD_DIR = $(TOP)/build
 PYTHON = python2
 SPHINX_BUILD = sphinx-build
-ARCH = arm
 CROSS_COMPILE = arm-xilinx-linux-gnueabi-
-BINUTILS_DIR = /dls_sw/FPGA/Xilinx/SDK/2015.1/gnu/arm/lin/bin
-KERNEL_DIR = $(error Define KERNEL_DIR before building driver)
-SIM_SERVER_DIR = $(TOP)
+BINUTILS_DIR = $(error Define BINUTILS_DIR in CONFIG file)
+KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
+PANDA_FPGA = $(error Define PANDA_FPGA in CONFIG file)
+PANDA_ROOTFS = $(error Define PANDA_ROOTFS in CONFIG file)
+PANDA_FPGA_REGISTERS = $(PANDA_FPGA)/modules/base/registers
 
 DEFAULT_TARGETS = driver server sim_server docs zpkg
 
--include CONFIG
+
+# The CONFIG file is required.  If not present, create by copying CONFIG.example
+# and editing as appropriate.
+include CONFIG
 
 
+ARCH = arm
 CC = $(CROSS_COMPILE)gcc
 
 DRIVER_BUILD_DIR = $(BUILD_DIR)/driver
@@ -39,6 +44,8 @@ default: $(DEFAULT_TARGETS)
 
 export GIT_VERSION := $(shell git describe --abbrev=7 --dirty --always --tags)
 
+export PYTHONPATH = $(TOP)/python
+
 # ------------------------------------------------------------------------------
 # Kernel driver building
 
@@ -52,8 +59,8 @@ $(DRIVER_BUILD_FILES): $(DRIVER_BUILD_DIR)/%: driver/%
 
 # The driver register header file needs to be built.
 DRIVER_HEADER = $(DRIVER_BUILD_DIR)/panda_drv.h
-$(DRIVER_HEADER): driver/panda_drv.py config_d/registers
-	$(PYTHON) $< >$@
+$(DRIVER_HEADER): driver/panda_drv.py $(PANDA_FPGA_REGISTERS)
+	$(PYTHON) $^ >$@
 
 $(PANDA_KO): $(DRIVER_BUILD_DIR) $(DRIVER_BUILD_FILES) $(DRIVER_HEADER)
 	$(MAKE) -C $(KERNEL_DIR) M=$< modules \
@@ -72,20 +79,23 @@ SERVER = $(SERVER_BUILD_DIR)/server
 SIM_SERVER = $(SIM_SERVER_BUILD_DIR)/sim_server
 SERVER_FILES := $(wildcard server/*)
 
+SERVER_BUILD_ENV += VPATH=$(TOP)/server
+SERVER_BUILD_ENV += TOP=$(TOP)
+SERVER_BUILD_ENV += PYTHON=$(PYTHON)
+SERVER_BUILD_ENV += PANDA_FPGA_REGISTERS=$(PANDA_FPGA_REGISTERS)
+
 $(SERVER): $(SERVER_BUILD_DIR) $(SERVER_FILES)
-	$(MAKE) -C $< -f $(TOP)/server/Makefile \
-            VPATH=$(TOP)/server TOP=$(TOP) CC=$(CC)
+	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) CC=$(CC)
 
 # Two differences with building sim_server: we use the native compiler, not the
 # cross-compiler, and we only build the sim_server target.
 $(SIM_SERVER): $(SIM_SERVER_BUILD_DIR) $(SERVER_FILES)
-	$(MAKE) -C $< -f $(TOP)/server/Makefile \
-            VPATH=$(TOP)/server TOP=$(TOP) sim_server
+	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) sim_server
 
 # Construction of simserver launch script.
 SIMSERVER_SUBSTS += s:@@PYTHON@@:$(PYTHON):;
 SIMSERVER_SUBSTS += s:@@BUILD_DIR@@:$(BUILD_DIR):;
-SIMSERVER_SUBSTS += s:@@SIM_SERVER_DIR@@:$(SIM_SERVER_DIR):;
+SIMSERVER_SUBSTS += s:@@PANDA_FPGA@@:$(PANDA_FPGA):;
 
 simserver: simserver.in
 	sed '$(SIMSERVER_SUBSTS)' $< >$@
@@ -105,10 +115,10 @@ $(DOCS_BUILD_DIR)/index.html: $(wildcard docs/*.rst docs/*/*.rst docs/conf.py)
 
 docs: $(DOCS_BUILD_DIR)/index.html
 
-docs-clean:
+clean-docs:
 	rm -rf $(DOCS_BUILD_DIR)
 
-.PHONY: docs docs-clean
+.PHONY: docs clean-docs
 
 
 # ------------------------------------------------------------------------------
@@ -129,6 +139,10 @@ zpkg: $(SERVER_ZPKG) $(CONFIG_ZPKG)
 
 
 # ------------------------------------------------------------------------------
+
+# This has global effect, and is mostly desirable behaviour.
+.DELETE_ON_ERROR:
+
 
 # This needs to go more or less last to avoid conflict with other targets.
 $(BUILD_DIR)/%:

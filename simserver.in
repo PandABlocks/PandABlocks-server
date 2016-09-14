@@ -4,28 +4,28 @@ HERE="$(dirname "$0")"
 
 # This is filled in from the setting in CONFIG
 PYTHON='@@PYTHON@@'
-SIM_SERVER_DIR='@@SIM_SERVER_DIR@@'
+SIM_SERVER_DIR='@@PANDA_FPGA@@'
 
 PERSISTENCE='@@BUILD_DIR@@'/persistence.state
 
 CONFIG_PORT=8888
 DATA_PORT=8889
-DEBUG=()
+DEBUG=(valgrind --leak-check=full --track-origins=yes)
 
 
 # Allow some settings to be overridden.
-while getopts 'cs:p:d:-h' option; do
+while getopts 'nlp:d:-h' option; do
     case "$option" in
-    c)  DEBUG=(valgrind --leak-check=full --track-origins=yes) ;;
-    s)  SIM_SERVER_DIR="$OPTARG" ;;
+    n)  DEBUG=() ;;
+    l)  SIM_SERVER_DIR="$HERE" ;;
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
     -)  ;;
     h)  cat <<EOF
 ./simserver [options] [-- command options]
 options can be one of:
-    -c  Run with valgrind memory checking
-    -s: Set simulation server directory, default is
+    -n  Run without valgrind memory checking
+    -l  Run with local dummy simulation server.  Default server is:
         $SIM_SERVER_DIR
     -p: Specify configuration port (default 8888)
     -d: Specify data port (default 8889)
