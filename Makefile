@@ -13,6 +13,7 @@ BINUTILS_DIR =
 KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
 PANDA_FPGA = $(error Define PANDA_FPGA in CONFIG file)
 PANDA_ROOTFS = $(error Define PANDA_ROOTFS in CONFIG file)
+MAKE_ZPKG = $(PANDA_ROOTFS)/make-zpkg
 PANDA_FPGA_REGISTERS = $(PANDA_FPGA)/modules/base/registers
 
 DEFAULT_TARGETS = driver server sim_server docs zpkg
@@ -124,14 +125,12 @@ clean-docs:
 # ------------------------------------------------------------------------------
 # Build installation package
 
-SERVER_ZPKG = $(BUILD_DIR)/panda-server@$(GIT_VERSION).zpg
+zpkg: etc/panda-server.list $(PANDA_KO) $(SERVER)
+	rm -f $(BUILD_DIR)/*.zpg
+	$(MAKE_ZPKG) -t $(TOP) -b $(BUILD_DIR) -d $(BUILD_DIR) \
+            $< $(GIT_VERSION)
 
-$(SERVER_ZPKG): $(PANDA_KO) $(SERVER) etc/panda-server.list
 
-$(BUILD_DIR)/%.zpg:
-	etc/make-zpkg $(TOP) $(BUILD_DIR) $@
-
-zpkg: $(SERVER_ZPKG)
 .PHONY: zpkg
 
 
