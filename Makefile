@@ -125,16 +125,13 @@ clean-docs:
 # Build installation package
 
 SERVER_ZPKG = $(BUILD_DIR)/panda-server@$(GIT_VERSION).zpg
-CONFIG_ZPKG = $(BUILD_DIR)/panda-config@$(GIT_VERSION).zpg
 
-$(SERVER_ZPKG): $(PANDA_KO) $(SERVER) $(wildcard etc/*)
-
-$(CONFIG_ZPKG): $(wildcard config_d/*)
+$(SERVER_ZPKG): $(PANDA_KO) $(SERVER) etc/panda-server.list
 
 $(BUILD_DIR)/%.zpg:
 	etc/make-zpkg $(TOP) $(BUILD_DIR) $@
 
-zpkg: $(SERVER_ZPKG) $(CONFIG_ZPKG)
+zpkg: $(SERVER_ZPKG)
 .PHONY: zpkg
 
 
