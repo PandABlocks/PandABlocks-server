@@ -178,9 +178,9 @@ static error__t register_parse_special_header(
         {
             /* *REG block, for special hardware registers.  We parse this
              * normally and assign registers. */
-            hw_set_block_base(base);
             parser->end = register_parse_reg_end;
             parser->context = &set_named_registers;
+            error = hw_set_block_base(base);
         }
         else if (strcmp(block_name, "DRV") == 0)
         {

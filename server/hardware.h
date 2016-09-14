@@ -24,7 +24,7 @@ void terminate_hardware(void);
 /* Hardware setup. */
 
 /* Sets block base address used for special named registers. */
-void hw_set_block_base(unsigned int reg);
+error__t hw_set_block_base(unsigned int reg);
 
 /* Sets register offset for given named register. */
 error__t hw_set_named_register(const char *name, unsigned int reg);

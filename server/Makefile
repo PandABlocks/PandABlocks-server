@@ -109,11 +109,22 @@ SRCS += metadata.c              # Support for *METADATA command
 # care.  The source file hardware.c needs to be compiled twice with two
 # differing targets.
 hw_hardware.o: hardware.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $^
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 sw_hardware.o: CPPFLAGS += -DSIM_HARDWARE
 sw_hardware.o: hardware.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $^
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+
+# Special rules for named_registers.h: this is automatically generated from the
+# *REG entry in the register definitions file.
+hw_hardware.o: named_registers.h
+sw_hardware.o: named_registers.h
+
+named_registers.h: named_registers.py $(PANDA_FPGA_REGISTERS)
+	$(PYTHON) $^ >$@
+
+CPPFLAGS += -I.
 
 
 # Pass the git version through to version
@@ -139,3 +150,7 @@ include $(SRCS:.c=.d)
 # Target for assembler build for code generation inspection.
 %.s: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -S $<
+
+
+# This has global effect, and is mostly desirable behaviour.
+.DELETE_ON_ERROR:
