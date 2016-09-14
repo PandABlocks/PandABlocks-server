@@ -10,3 +10,4 @@ Contents:
     commands.rst
     fields.rst
     capture.rst
+    building.rst
