@@ -187,25 +187,44 @@ static error__t get_changes(
 }
 
 
-/* *CHANGES=
- * *CHANGES.CONFIG=
- * *CHANGES.BITS=
- * *CHANGES.POSN=
- * *CHANGES.READ=
- * *CHANGES.ATTR=
- * *CHANGES.TABLE=
- * *CHANGES.METADATA=
+/* *CHANGES=[S|E]
+ * *CHANGES.CONFIG=[S|E]
+ * *CHANGES.BITS=[S|E]
+ * *CHANGES.POSN=[S|E]
+ * *CHANGES.READ=[S|E]
+ * *CHANGES.ATTR=[S|E]
+ * *CHANGES.TABLE=[S|E]
+ * *CHANGES.METADATA=[S|E]
  *
  * Resets change reporting for selected change set. */
+
+static error__t parse_change_set_reset(
+    const char **string, enum reset_change_set_action *action)
+{
+    *action = RESET_END;    // Default is reset to end
+    if (read_char(string, 'E'))
+        return ERROR_OK;
+    else if (read_char(string, 'S'))
+    {
+        *action = RESET_START;
+        return ERROR_OK;
+    }
+    else
+        return TEST_OK_(**string == '\0', "Invalid reset option");
+}
+
 static error__t put_changes(
     struct connection_context *connection,
     const char *command, const char *value)
 {
     enum change_set change_set;
+    enum reset_change_set_action action;
     return
         parse_change_set(&command, &change_set)  ?:
+        parse_change_set_reset(&value, &action)  ?:
         parse_eos(&value)  ?:
-        DO(reset_change_set(connection->change_set_context, change_set));
+        DO(reset_change_set(
+            connection->change_set_context, change_set, action));
 }
 
 

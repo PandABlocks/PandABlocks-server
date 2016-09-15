@@ -470,10 +470,21 @@ bool check_change_set(
 /* To reset the change set it's enough to request a fresh index, and then
  * discard the result. */
 void reset_change_set(
-    struct change_set_context *context, enum change_set change_set)
+    struct change_set_context *context, enum change_set change_set,
+    enum reset_change_set_action action)
 {
-    uint64_t report_index[CHANGE_SET_SIZE];
-    refresh_change_index(context, change_set, report_index);
+    switch (action)
+    {
+        case RESET_START:
+            reset_change_index(context, change_set);
+            break;
+        case RESET_END:
+        {
+            uint64_t report_index[CHANGE_SET_SIZE];
+            refresh_change_index(context, change_set, report_index);
+            break;
+        }
+    }
 }
 
 

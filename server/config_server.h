@@ -66,6 +66,10 @@ uint64_t update_change_index(
     struct change_set_context *context,
     enum change_set change_set, uint64_t reported[]);
 
+/* Resets change index back to zero for the selected change set. */
+void reset_change_index(
+    struct change_set_context *context, enum change_set change_set);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* A couple of helper routines for output formatting. */

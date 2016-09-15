@@ -129,7 +129,8 @@ below:
 |                               | ``READ``, ``ATTR``, or ``TABLE``.            |
 +-------------------------------+----------------------------------------------+
 | ``*CHANGES``\ [\ ``.``\       | Reset reported changes, `group` as above.    |
-| group]\ ``=``                 |                                              |
+| group]\ ``=``\ [\ ``E``\      |                                              |
+| | ``S``\ ]                    |                                              |
 +-------------------------------+----------------------------------------------+
 | ``*CAPTURE?``                 | Report data capture words.                   |
 +-------------------------------+----------------------------------------------+
@@ -274,17 +275,19 @@ below:
         > !SEQ4.TABLE<
         > .
 
-| ``*CHANGES=``
-| ``*CHANGES.CONFIG=``
-| ``*CHANGES.BITS=``
-| ``*CHANGES.POSN=``
-| ``*CHANGES.READ=``
-| ``*CHANGES.ATTR=``
-| ``*CHANGES.TABLE=``
+| ``*CHANGES=``\ [``E``\ | ``S``\ ]
+| ``*CHANGES.CONFIG=``\ [``E``\ | ``S``\ ]
+| ``*CHANGES.BITS=``\ [``E``\ | ``S``\ ]
+| ``*CHANGES.POSN=``\ [``E``\ | ``S``\ ]
+| ``*CHANGES.READ=``\ [``E``\ | ``S``\ ]
+| ``*CHANGES.ATTR=``\ [``E``\ | ``S``\ ]
+| ``*CHANGES.TABLE=``\ [``E``\ | ``S``\ ]
 
     These commands reset the change information for the corresponding group of
-    information so that only changes occuring after the reset are reported.  For
-    example::
+    information so that only changes occuring after the reset are reported, or
+    so that all changes are reported.  If ``=`` or ``=E`` (for End) is specified
+    then only new changes are reported, if ``=S`` (for Start) then change
+    reporting is reset to the start as for a new connection.  For example::
 
         < TTLIN1.TERM=50-Ohm
         > OK

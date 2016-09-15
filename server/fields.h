@@ -115,9 +115,12 @@ void generate_change_sets(
 bool check_change_set(
     struct change_set_context *change_set_context, enum change_set change_set);
 
-/* Ensures specified change set will not report any changes up to this point. */
+/* Ensures specified change set will not report any changes up to this point, or
+ * resets change set back to the start. */
+enum reset_change_set_action { RESET_START, RESET_END };
 void reset_change_set(
-    struct change_set_context *context, enum change_set change_set);
+    struct change_set_context *context, enum change_set change_set,
+    enum reset_change_set_action action);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
