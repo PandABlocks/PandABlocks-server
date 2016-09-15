@@ -41,7 +41,7 @@ shift $((OPTIND-1))
 
 
 CONFIG_DIR="$SIM_SERVER_DIR"/config_d
-SIM_SERVER="$SIM_SERVER_DIR"/python/sim_server.py
+SIM_SERVER="$SIM_SERVER_DIR"/python/sim_server
 
 # Force any previously running instance of the simulation server to go away --
 # this can happen if sim_server failed on startup for any reason.
