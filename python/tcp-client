@@ -67,13 +67,14 @@ class Client(object):
             for resp in self.recv_all():
                 print "> %s" % resp
 
-if __name__ == "__main__":
-    from argparse import ArgumentParser
-    parser = ArgumentParser(
-        description="Commandline client to Zebra2 TCP server")
-    parser.add_argument("hostname", default="localhost", nargs="?",
-                        help="Hostname of Zebra2 box (default localhost)")
-    parser.add_argument("port", type=int, default=8888, nargs="?",
-                        help="Port number of TCP server (default 8888)")
-    args = parser.parse_args()
-    Client(args.hostname, args.port)
+
+from argparse import ArgumentParser
+parser = ArgumentParser(
+    description="Commandline client to Zebra2 TCP server")
+parser.add_argument("hostname", default="localhost", nargs="?",
+                    help="Hostname of Zebra2 box (default localhost)")
+parser.add_argument("port", type=int, default=8888, nargs="?",
+                    help="Port number of TCP server (default 8888)")
+args = parser.parse_args()
+
+Client(args.hostname, args.port)
