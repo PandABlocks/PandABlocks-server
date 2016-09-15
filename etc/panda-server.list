@@ -5,6 +5,7 @@ d etc/init.d
 d etc/rc.d
 b share/panda driver/panda.ko
 b bin/panda_server server/server
+b bin/slow_load server/slow_load
 t etc/init.d etc/panda-server
 l etc/rc.d/S200panda-server ../init.d/panda-server
 l etc/rc.d/K200panda-server ../init.d/panda-server

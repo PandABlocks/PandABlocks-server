@@ -78,6 +78,7 @@ driver: $(PANDA_KO)
 
 SERVER = $(SERVER_BUILD_DIR)/server
 SIM_SERVER = $(SIM_SERVER_BUILD_DIR)/sim_server
+SLOW_LOAD = $(SERVER_BUILD_DIR)/slow_load
 SERVER_FILES := $(wildcard server/*)
 
 SERVER_BUILD_ENV += VPATH=$(TOP)/server
@@ -93,6 +94,11 @@ $(SERVER): $(SERVER_BUILD_DIR) $(SERVER_FILES)
 $(SIM_SERVER): $(SIM_SERVER_BUILD_DIR) $(SERVER_FILES)
 	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) sim_server
 
+$(SLOW_LOAD): $(SERVER_BUILD_DIR) server/slow_load.c
+	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) CC=$(CC) \
+            slow_load
+
+
 # Construction of simserver launch script.
 SIMSERVER_SUBSTS += s:@@PYTHON@@:$(PYTHON):;
 SIMSERVER_SUBSTS += s:@@BUILD_DIR@@:$(BUILD_DIR):;
@@ -104,8 +110,9 @@ simserver: simserver.in
 
 server: $(SERVER)
 sim_server: $(SIM_SERVER) simserver
+slow_load: $(SLOW_LOAD)
 
-.PHONY: server sim_server
+.PHONY: server sim_server slow_load
 
 
 # ------------------------------------------------------------------------------
@@ -125,7 +132,7 @@ clean-docs:
 # ------------------------------------------------------------------------------
 # Build installation package
 
-zpkg: etc/panda-server.list $(PANDA_KO) $(SERVER)
+zpkg: etc/panda-server.list $(PANDA_KO) $(SERVER) $(SLOW_LOAD)
 	rm -f $(BUILD_DIR)/*.zpg
 	$(MAKE_ZPKG) -t $(TOP) -b $(BUILD_DIR) -d $(BUILD_DIR) \
             $< $(GIT_VERSION)

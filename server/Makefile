@@ -105,6 +105,10 @@ SRCS += base64.c                # base64 conversion support
 SRCS += metadata.c              # Support for *METADATA command
 
 
+# Program for loading slow FPGA on carrier card.
+slow_load: slow_load.c
+
+
 # For the true hardware target and simulation targets we need to take a bit of
 # care.  The source file hardware.c needs to be compiled twice with two
 # differing targets.

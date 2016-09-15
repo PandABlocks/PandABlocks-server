@@ -7,11 +7,14 @@
 # File locations
 pidfile=/var/run/zebra2-server.pid
 
-firmware=/opt/share/panda/panda_top.bit
+carrier_firmware=/opt/share/panda/panda_top.bit
+slow_firmware=/opt/share/panda/slow_top.bin
+
 panda_server=/opt/bin/panda_server
 panda_config=/opt/share/panda/config_d
 panda_module=/opt/share/panda/panda.ko
 panda_state=/opt/state/panda.state
+slow_load=/opt/bin/slow_load
 
 
 fail()
@@ -23,8 +26,10 @@ fail()
 
 do_start()
 {
-    { [ -e $firmware ]  ||  fail "Firmware not installed"; }  &&
-    cat $firmware >/dev/xdevcfg  &&
+    { [ -e $carrier_firmware -a -e $slow_firmware]  ||
+        fail "Firmware not installed"; }  &&
+    $slow_load <$slow_firmware  &&
+    cat $carrier_firmware >/dev/xdevcfg  &&
     insmod $panda_module  &&
 
     # After inserting Panda module wait for devices to appear
