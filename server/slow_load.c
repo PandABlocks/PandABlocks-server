@@ -1,42 +1,20 @@
-/* This file is part of Power Supply Controller project
- * Copyright (C) 2008  Isa Uzun, Diamond Light Source Ltd.
+/* FPGALoad - utility for programming PSC Xilinx Spartan3E firmware.
  *
- * Contact:
- *      Dr. Isa Uzun,
- *      Diamond Light Source Ltd,
- *      Diamond House,
- *      Chilton,
- *      Didcot,
- *      Oxfordshire,
- *      OX11 0DE
- *      isa.uzun@diamond.ac.uk
+ * Following GPIOs are used to interface to FPGA for programming.
+ *    CCLK  ( output, initialise 0 )
+ *    D0    ( output, initialise 0 )
+ *    PROGB ( output, initialise 1 )
+ *    DONE  ( input  )
+ *    INIT  ( input  )
+ *
+ * PROG_B (output) XXXXX |_______|
+ *                                   ___________________________
+ * INIT_B (input ) XXXXXXXXX________|
+ *                                           _        _
+ * CCLK   (output) XXXXX____________________| |______| |________
+ *
+ * DO     (output) XXXXX_____________________X________X_________
  */
-
-/* FPGALoad - Utility for donwloading PSC Xilinx Spartan3E firmware prom
- * file using SBC. Firmware must be stored in binary format.
- *
- * Following Colibri PXA270 GPIOs are used to interface to FPGA for programming.
- *    GPIO11 -> CCLK  ( output, initialise 0 )
- *    GPIO12 -> D0    ( output, initialise 0 )
- *    GPIO14 -> PROGB ( output, initialise 1 )
- *    GPIO16 -> DONE  ( input  )
- *    GPIO19 -> INIT  ( input  )
- *
- *
- *
- */
-
-/*                    _         ______________________________
- PROG_B (output) XXXXX |_______|
-                                   ___________________________
- INIT_B (input ) XXXXXXXXX________|
-                                           _        _
- CCLK   (output) XXXXX____________________| |______| |________
-
- DO     (output) XXXXX_____________________X________X_________
- */
-
-
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -45,13 +23,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <errno.h>
-#include <signal.h>
 #include <fcntl.h>
-#include <ctype.h>
-#include <termios.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <time.h>
+
 
 #define ASSERT(e) if(!(e)) assert_fail(__FILE__, __LINE__)
 
@@ -80,9 +53,12 @@ static void assert_fail(const char *filename, int linenumber)
  * kernel identifier. */
 #define GPIO_OFFSET     906
 
+/* The table below is initialised with the GPIO offset for the physical pin used
+ * for the GPIO function. */
 struct gpio_info {
-    int gpio;
-    int file;
+    const int gpio;     // Physical GPIO used for this function
+    int file;           // Open file handle for access to this GPIO
+    bool value;         // Last value written for update optimisation
 };
 static struct gpio_info gpio_info[] = {
     [GPIO_CCLK]  = { .gpio = GPIO_OFFSET + 9, },
@@ -98,20 +74,29 @@ static bool read_gpio(int gpio)
 {
     char buf[16];
     ASSERT(read(gpio_info[gpio].file, buf, sizeof(buf)) > 0);
-printf("read_gpio %d %d => %s\n", gpio, gpio_info[gpio].file, buf);
     return buf[0] == '1';
 }
 
-static void write_gpio(int gpio, bool value)
+
+static void write_gpio_value(int gpio, bool value)
 {
-//     char buf_out[3] = { value, '\n', 0 };
-    char buf_out[3] = " ";
-    buf_out[0] = value ? '1' : '0';
-printf("writing %s to %d %d\n", buf_out, gpio, gpio_info[gpio].file);
-    ASSERT(write(gpio_info[gpio].file, buf_out, 1) == 1);
+    struct gpio_info *info = &gpio_info[gpio];
+    char buf = value ? '1' : '0';
+    ASSERT(write(info->file, &buf, 1) == 1);
+    info->value = value;
 }
 
 
+/* We optimise the writing of GPIOs by not writing when the value hasn't
+ * changed.  This is a worthwhile optimisation for this application: the
+ * bitstream being loaded has many successive zeros, so we may save up to 30%
+ * off the load time. */
+static void write_gpio(int gpio, bool value)
+{
+    struct gpio_info *info = &gpio_info[gpio];
+    if (info->value != value)
+        write_gpio_value(gpio, value);
+}
 
 
 /* Writes given formatted string to file. */
@@ -130,26 +115,62 @@ static void write_to_file(const char *file_name, const char *format, ...)
 }
 
 
+static void format_gpio_name(
+    char *filename, size_t length, int gpio, const char *suffix)
+{
+    size_t offset =
+        (size_t) snprintf(filename, length, "/sys/class/gpio/gpio%d", gpio);
+    ASSERT(offset < length);
+    if (suffix)
+        snprintf(filename + offset, length - offset, "/%s", suffix);
+}
+
+
 /* Configures given GPIO for input or output and opens it for access. */
-static void configure_gpio(int gpio, bool output)
+enum gpio_direction { GPIO_IN, GPIO_OUT };
+static void configure_gpio(int gpio, enum gpio_direction in_out)
 {
     struct gpio_info *info = &gpio_info[gpio];
-    write_to_file("/sys/class/gpio/export", "%d", info->gpio);
-
-    const char *direction = output ? "out" : "in";
-//     int flags = output ? O_WRONLY : O_RDONLY;
-    int flags = O_RDWR;
+    const char *direction = NULL;
+    int flags = 0;
+    switch (in_out)
+    {
+        case GPIO_IN:
+            direction = "in";
+            flags = O_RDONLY;
+            break;
+        case GPIO_OUT:
+            direction = "out";
+            flags = O_WRONLY;
+            break;
+    }
 
     char filename[64];
-    snprintf(filename, sizeof(filename),
-        "/sys/class/gpio/gpio%d/direction", info->gpio);
+    format_gpio_name(filename, sizeof(filename), info->gpio, NULL);
+    if (access(filename, F_OK) == 0)
+        write_to_file("/sys/class/gpio/unexport", "%d", info->gpio);
+    write_to_file("/sys/class/gpio/export", "%d", info->gpio);
+
+    format_gpio_name(filename, sizeof(filename), info->gpio, "direction");
     write_to_file(filename, direction);
 
     /* Finally open the newly opened gpio. */
-    snprintf(filename, sizeof(filename),
-        "/sys/class/gpio/gpio%d/value", info->gpio);
+    format_gpio_name(filename, sizeof(filename), info->gpio, "value");
     info->file = open(filename, flags);
     ASSERT(info->file != -1);
+}
+
+
+static void configure_gpio_out(int gpio, bool value)
+{
+    configure_gpio(gpio, GPIO_OUT);
+    write_gpio_value(gpio, value);
+}
+
+
+static void configure_gpio_in(int gpio)
+{
+    configure_gpio(gpio, GPIO_IN);
 }
 
 
@@ -164,30 +185,23 @@ static void unconfigure_gpio(int gpio)
 
 /*
  Following GPIOs are used to interface to FPGA for programming.
-    GPIO11 -> CCLK  ( output, initialise 0 )
-    GPIO12 -> D0    ( output, initialise 0 )
-    GPIO14 -> PROGB ( output, initialise 1 )
-    GPIO16 -> DONE  ( input  )
-    GPIO19 -> INIT  ( input  )
+    CCLK  ( output, initialise 0 )
+    D0    ( output, initialise 0 )
+    PROGB ( output, initialise 1 )
+    DONE  ( input  )
+    INIT  ( input  )
 */
-static void GpioInit(void)
+static void init_GPIOs(void)
 {
-    configure_gpio(GPIO_M0,    true);
-    write_gpio(GPIO_M0, 1);
-
-    configure_gpio(GPIO_CCLK,  true);
-    configure_gpio(GPIO_D0,    true);
-    configure_gpio(GPIO_PROGB, true);
-    configure_gpio(GPIO_DONE, false);
-    configure_gpio(GPIO_INIT, false);
-
-    // Initialise PROG_B output to 1, other outputs to 0.
-    write_gpio(GPIO_PROGB, 1);
-    write_gpio(GPIO_D0, 0);
-    write_gpio(GPIO_CCLK, 0);
+    configure_gpio_out(GPIO_M0,    1);
+    configure_gpio_out(GPIO_CCLK,  0);
+    configure_gpio_out(GPIO_D0,    0);
+    configure_gpio_out(GPIO_PROGB, 1);
+    configure_gpio_in(GPIO_DONE);
+    configure_gpio_in(GPIO_INIT);
 }
 
-static void GpioClose(void)
+static void close_gpios(void)
 {
     unconfigure_gpio(GPIO_CCLK);
     unconfigure_gpio(GPIO_D0);
@@ -205,35 +219,25 @@ static void cclk(void)
     write_gpio(GPIO_CCLK, 0);
 }
 
-// Set D0 output and strobe Configuration Clock (CCLK)
-static bool WriteDataOut(bool  bit)
+
+/* We expect at least one of GPIO_DONE and GPIO_INIT to be high. */
+static bool check_status_ok(void)
 {
-    if (!read_gpio(GPIO_DONE)  &&  !read_gpio(GPIO_INIT))
-    {
-        printf("DONE and INIT_B both low during programming, Config error!\n");
-        return false;
-    }
-    else
-    {
-        write_gpio(GPIO_D0, bit);
-        cclk();
-        return true;
-    }
+    return read_gpio(GPIO_DONE)  ||  read_gpio(GPIO_INIT);
 }
+
 
 // This function takes a 8-bit configuration byte, and
 // serializes it, MSB first, LSB Last
-static bool ShiftDataOut(unsigned char data)
+static void shift_byte_out(unsigned char data)
 {
-    bool ok = true;
-    for (int bit = 0; ok  &&  bit < 8; bit ++)
+    for (int bit = 0; bit < 8; bit ++)
     {
-        ok = WriteDataOut((data >> bit) & 1);
-        if (!ok)
-            printf("Error writing bit %d\n", bit);
+        write_gpio(GPIO_D0, (data >> bit) & 1);
+        cclk();
     }
-    return ok;
 }
+
 
 /* Performs the actual FPGA programming work.  Returns false on failure. */
 static bool program_FPGA(void)
@@ -274,16 +278,17 @@ static bool program_FPGA(void)
         len = read(STDIN_FILENO, StreamData, sizeof(StreamData)),
         len > 0)
     {
+        if (!check_status_ok())
+        {
+            printf("DONE and INIT_B both low during programming!\n");
+            printf("Error in block %d\n", block);
+            return false;
+        }
+
         printf(".");  fflush(stdout);
         block += 1;
         for (int j=0; j < len; j++)
-        {
-            if (!ShiftDataOut(StreamData[j]))
-            {
-                printf("Error at offset %d, block %d\n", j, block);
-                return false;
-            }
-        }
+            shift_byte_out(StreamData[j]);
     }
     printf("\n");
 
@@ -306,14 +311,15 @@ static bool program_FPGA(void)
     return true;
 }
 
+
 int main(int argc, char **argv)
 {
     printf("Initialising GPIOs...\n");
-    GpioInit();
+    init_GPIOs();
 
     bool ok = program_FPGA();
 
-    GpioClose();
+    close_gpios();
 
     return ok ? 0 : 1;
 }
