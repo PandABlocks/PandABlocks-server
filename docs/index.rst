@@ -11,4 +11,4 @@ Contents:
     fields.rst
     capture.rst
     building.rst
-    tools.rst
+    support.rst
