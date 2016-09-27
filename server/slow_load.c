@@ -57,7 +57,8 @@ static void assert_fail(const char *filename, int linenumber)
  * for the GPIO function. */
 struct gpio_info {
     const int gpio;     // Physical GPIO used for this function
-    int file;           // Open file handle for access to this GPIO
+    int file;           // Open file handle for write access to this GPIO
+    const char *path;   // File name for read access to this GPIO
     bool value;         // Last value written for update optimisation
 };
 static struct gpio_info gpio_info[] = {
@@ -72,8 +73,12 @@ static struct gpio_info gpio_info[] = {
 
 static bool read_gpio(int gpio)
 {
+    struct gpio_info *info = &gpio_info[gpio];
     char buf[16];
-    ASSERT(read(gpio_info[gpio].file, buf, sizeof(buf)) > 0);
+    int file = open(info->path, O_RDONLY);
+    ASSERT(file > 0);
+    ASSERT(read(file, buf, sizeof(buf)) > 0);
+    close(file);
     return buf[0] == '1';
 }
 
@@ -127,50 +132,41 @@ static void format_gpio_name(
 
 
 /* Configures given GPIO for input or output and opens it for access. */
-enum gpio_direction { GPIO_IN, GPIO_OUT };
-static void configure_gpio(int gpio, enum gpio_direction in_out)
+static void configure_gpio(
+    struct gpio_info *info, const char *direction,
+    char *filename, size_t length)
 {
-    struct gpio_info *info = &gpio_info[gpio];
-    const char *direction = NULL;
-    int flags = 0;
-    switch (in_out)
-    {
-        case GPIO_IN:
-            direction = "in";
-            flags = O_RDONLY;
-            break;
-        case GPIO_OUT:
-            direction = "out";
-            flags = O_WRONLY;
-            break;
-    }
-
-    char filename[64];
-    format_gpio_name(filename, sizeof(filename), info->gpio, NULL);
+    format_gpio_name(filename, length, info->gpio, NULL);
     if (access(filename, F_OK) == 0)
         write_to_file("/sys/class/gpio/unexport", "%d", info->gpio);
     write_to_file("/sys/class/gpio/export", "%d", info->gpio);
 
-    format_gpio_name(filename, sizeof(filename), info->gpio, "direction");
+    format_gpio_name(filename, length, info->gpio, "direction");
     write_to_file(filename, direction);
 
-    /* Finally open the newly opened gpio. */
-    format_gpio_name(filename, sizeof(filename), info->gpio, "value");
-    info->file = open(filename, flags);
-    ASSERT(info->file != -1);
+    /* Format path to value field. */
+    format_gpio_name(filename, length, info->gpio, "value");
 }
 
 
 static void configure_gpio_out(int gpio, bool value)
 {
-    configure_gpio(gpio, GPIO_OUT);
+    struct gpio_info *info = &gpio_info[gpio];
+    char filename[64];
+    configure_gpio(info, "out", filename, sizeof(filename));
+    info->file = open(filename, O_WRONLY);
+    ASSERT(info->file != -1);
+
     write_gpio_value(gpio, value);
 }
 
 
 static void configure_gpio_in(int gpio)
 {
-    configure_gpio(gpio, GPIO_IN);
+    struct gpio_info *info = &gpio_info[gpio];
+    char filename[64];
+    configure_gpio(info, "in", filename, sizeof(filename));
+    info->path = strdup(filename);
 }
 
 
@@ -178,7 +174,8 @@ static void configure_gpio_in(int gpio)
 static void unconfigure_gpio(int gpio)
 {
     struct gpio_info *info = &gpio_info[gpio];
-    close(info->file);
+    if (!info->path)
+        close(info->file);
     write_to_file("/sys/class/gpio/unexport", "%d", info->gpio);
 }
 
