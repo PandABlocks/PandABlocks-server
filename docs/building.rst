@@ -117,5 +117,3 @@ found.  In practice the ``.zpg`` file and ``html/`` directory will be wanted.
 | ``zpkg-panda-server/``
 
     A zpkg for the server is built here.
-
-# vim: set filetype=make:
