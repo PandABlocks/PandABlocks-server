@@ -26,10 +26,10 @@ fail()
 
 do_start()
 {
-    { [ -e $carrier_firmware -a -e $slow_firmware]  ||
+    { [ -e $carrier_firmware -a -e $slow_firmware ]  ||
         fail "Firmware not installed"; }  &&
-    $slow_load <$slow_firmware  &&
     cat $carrier_firmware >/dev/xdevcfg  &&
+    $slow_load <$slow_firmware  &&
     insmod $panda_module  &&
 
     # After inserting Panda module wait for devices to appear
