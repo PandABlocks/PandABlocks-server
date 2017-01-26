@@ -450,19 +450,22 @@ static struct output_capture pos_out_encoder_output_capture = {
 /*  pos_out adc
  *  ext_out adc
  *      Triggered       SCALED32
- *      Average         ADC_MEAN                FRAME   */
+ *      Difference      SCALED32 (offset=0)     FRAME
+ *      Average         ADC_MEAN                SPECIAL */
 static struct output_capture pos_out_adc_output_capture = {
     .enum_set = {
         .enums = (struct enum_entry[]) {
             { 0, "No", },
             { 1, "Triggered", },
-            { 2, "Average", },
+            { 2, "Difference", },
+            { 3, "Average", },
         },
-        .count = 3,
+        .count = 4,
     },
     .output_options = (struct output_options[]) {
         { CAPTURE_SCALED32, },                      // Triggered
-        { CAPTURE_ADC_MEAN, FRAMING_FRAME, },       // Average
+        { CAPTURE_SCALED32, FRAMING_FRAME, true, }, // Difference
+        { CAPTURE_ADC_MEAN, FRAMING_SPECIAL, },     // Average
     },
     .scaling = true,
 };
