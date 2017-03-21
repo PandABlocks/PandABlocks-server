@@ -11,10 +11,8 @@ SPHINX_BUILD = sphinx-build
 CROSS_COMPILE = arm-xilinx-linux-gnueabi-
 BINUTILS_DIR =
 KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
-PANDA_FPGA = $(error Define PANDA_FPGA in CONFIG file)
 PANDA_ROOTFS = $(error Define PANDA_ROOTFS in CONFIG file)
 MAKE_ZPKG = $(PANDA_ROOTFS)/make-zpkg
-PANDA_FPGA_REGISTERS = $(PANDA_FPGA)/modules/base/registers
 
 DEFAULT_TARGETS = driver server sim_server docs zpkg
 
@@ -60,7 +58,7 @@ $(DRIVER_BUILD_FILES): $(DRIVER_BUILD_DIR)/%: driver/%
 
 # The driver register header file needs to be built.
 DRIVER_HEADER = $(DRIVER_BUILD_DIR)/panda_drv.h
-$(DRIVER_HEADER): driver/panda_drv.py $(PANDA_FPGA_REGISTERS)
+$(DRIVER_HEADER): driver/panda_drv.py $(TOP)/config_d/registers
 	$(PYTHON) $^ >$@
 
 $(PANDA_KO): $(DRIVER_BUILD_DIR) $(DRIVER_BUILD_FILES) $(DRIVER_HEADER)
@@ -84,7 +82,6 @@ SERVER_FILES := $(wildcard server/*)
 SERVER_BUILD_ENV += VPATH=$(TOP)/server
 SERVER_BUILD_ENV += TOP=$(TOP)
 SERVER_BUILD_ENV += PYTHON=$(PYTHON)
-SERVER_BUILD_ENV += PANDA_FPGA_REGISTERS=$(PANDA_FPGA_REGISTERS)
 
 $(SERVER): $(SERVER_BUILD_DIR) $(SERVER_FILES)
 	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) CC=$(CC)

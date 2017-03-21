@@ -63,6 +63,12 @@
     # DMA block size in bytes
     PCAP_BLOCK_SIZE         6
 
+
+# -----------------------------------------------------------------------------
+# The lines above must agree with the firmware and the target configuration.
+# The lines below are for local testing only.
+
+
 TTLIN       3
     TERM            0
     VAL             2 3 4 5 6 7

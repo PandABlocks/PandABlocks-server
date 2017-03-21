@@ -26,8 +26,7 @@
 #
 # KERNEL_DIR = /scratch/tmp/zebra2-rootfs/build/linux
 
-# Path to PandaFPGA project.  Files from this project are required for the
-# build, and by default the simulation server is used from here.
+# Path to PandaFPGA project.  By default the simulation server runs from here.
 #
 # PANDA_FPGA = $(HOME)/targetOS/PandaFPGA
 

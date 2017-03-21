@@ -125,7 +125,7 @@ sw_hardware.o: hardware.c
 hw_hardware.o: named_registers.h
 sw_hardware.o: named_registers.h
 
-named_registers.h: named_registers.py $(PANDA_FPGA_REGISTERS)
+named_registers.h: named_registers.py $(TOP)/config_d/registers
 	$(PYTHON) $^ >$@
 
 CPPFLAGS += -I.
