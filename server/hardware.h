@@ -58,7 +58,7 @@ void hw_read_positions(
 
 /* Reads the three version registers. */
 void hw_read_versions(
-    uint32_t *fpga_version, uint32_t *fpga_build, uint32_t *slow_version);
+    uint32_t *fpga_version, uint32_t *fpga_build, uint32_t *user_version);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
