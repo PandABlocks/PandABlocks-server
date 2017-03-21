@@ -30,7 +30,6 @@ struct base_state {
     struct type *type;              // Type implementation for value conversion
     unsigned int block_base;        // Base number for block
     unsigned int field_register;    // Register to be read or written
-    bool slow;                      // Set if register is a slow register
 };
 
 
@@ -57,11 +56,6 @@ static error__t base_parse_register(
     state->block_base = block_base;
     return
         parse_whitespace(line)  ?:
-        IF(strncmp(*line, "slow", 4) == 0,
-            /* Slow register, must be followed by whitespace. */
-            DO( *line += 4;
-                state->slow = true)  ?:     // default state is false
-            parse_whitespace(line))  ?:
         check_parse_register(field, line, &state->field_register);
 }
 
@@ -109,23 +103,13 @@ static error__t base_put(
 static void write_register(
     struct base_state *state, unsigned int number, uint32_t value)
 {
-    if (state->slow)
-        hw_write_slow_register(
-            state->block_base, number, state->field_register, value);
-    else
-        hw_write_register(
-            state->block_base, number, state->field_register, value);
+    hw_write_register(state->block_base, number, state->field_register, value);
 }
 
 
 static uint32_t read_register(struct base_state *state, unsigned int number)
 {
-    if (state->slow)
-        return hw_read_slow_register(
-            state->block_base, number, state->field_register);
-    else
-        return hw_read_register(
-            state->block_base, number, state->field_register);
+    return hw_read_register(state->block_base, number, state->field_register);
 }
 
 

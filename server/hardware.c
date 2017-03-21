@@ -138,64 +138,6 @@ static inline uint32_t read_named_register(unsigned int offset)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Slow register access has the extra problem that it can fail. */
-
-
-static pthread_mutex_t slow_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-static unsigned int busy_wait_timeout = 1000;
-
-
-/* This waits for the given named register to go to zero.  This should happen
- * within a few microseconds. */
-static void wait_for_slow_ready(void)
-{
-    for (unsigned int i = 0; i < busy_wait_timeout; i ++)
-        if (read_named_register(SLOW_REGISTER_STATUS) == 0)
-            return;
-
-    /* Damn.  Looks like we're stuck.  Log this but return anyway.  We're
-     * probably going to storm the log with errors. */
-    log_error("SLOW_REGISTER_STATUS stuck at non-zero value");
-}
-
-
-/* To write a slow register we need to check that the write buffer is empty
- * before initiating the write. */
-void hw_write_slow_register(
-    unsigned int block_base, unsigned int block_number, unsigned int reg,
-    uint32_t value)
-{
-    LOCK(slow_mutex);
-    /* Wait for any preceding write to complete. */
-    wait_for_slow_ready();
-    /* Initiate write. */
-    hw_write_register(block_base, block_number, reg, value);
-    UNLOCK(slow_mutex);
-}
-
-
-/* Reading a slow register is a bit more involved: we read the status (as a
- * sanity check), write the target register to initiate the read, then wait for
- * status to clear before finally returning the result. */
-uint32_t hw_read_slow_register(
-    unsigned int block_base, unsigned int block_number, unsigned int reg)
-{
-    LOCK(slow_mutex);
-    /* Wait for any preceding write to complete. */
-    wait_for_slow_ready();
-    /* Initiate the read. */
-    hw_write_register(block_base, block_number, reg, 0);
-    /* Wait for read to complete. */
-    wait_for_slow_ready();
-    /* Retrieve the result. */
-    uint32_t result = hw_read_register(block_base, block_number, reg);
-    UNLOCK(slow_mutex);
-    return result;
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
 /* The bit updates interface consists of a burst read of 8 16-bit pairs (packed

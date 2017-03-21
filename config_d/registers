@@ -40,10 +40,6 @@
     PCAP_ARM                13
     PCAP_DISARM             14
 
-    # Slow read and write status: if 1 transaction in progress, if 0 transaction
-    # complete.
-    SLOW_REGISTER_STATUS    15
-
     # This array of registers is used to program data delays on the capture bus
     PCAP_BIT_DELAY          28 .. 31
     PCAP_DATA_DELAY         32 .. 63
@@ -68,7 +64,7 @@
     PCAP_BLOCK_SIZE         6
 
 TTLIN       3
-    TERM            slow 0
+    TERM            0
     VAL             2 3 4 5 6 7
 
 TTLOUT      4
@@ -139,7 +135,7 @@ SEQ         11
     TABLE           short   512    13 14 15
 
 INENC       12
-    PROTOCOL        slow 0
+    PROTOCOL        0
     CLK_PERIOD      1
     FRAME_PERIOD    2
     BITS            3
