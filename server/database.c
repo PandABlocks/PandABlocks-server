@@ -218,7 +218,6 @@ static error__t register_parse_normal_header(
     unsigned int base;
     struct block *block;
     return
-        TEST_OK_(hw_checked, "Must define *REG block first")  ?:
         parse_name(line, block_name, sizeof(block_name))  ?:
         parse_whitespace(line)  ?:
         parse_uint(line, &base)  ?:

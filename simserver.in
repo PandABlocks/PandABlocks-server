@@ -4,29 +4,32 @@ HERE="$(dirname "$0")"
 
 # This is filled in from the setting in CONFIG
 PYTHON='@@PYTHON@@'
-SIM_SERVER_DIR='@@PANDA_FPGA@@'
 
 PERSISTENCE='@@BUILD_DIR@@'/persistence.state
+
 
 CONFIG_PORT=8888
 DATA_PORT=8889
 DEBUG=(valgrind --leak-check=full --track-origins=yes)
+# By default run local simulation
+SIM_SERVER="$HERE"/python/sim_server
+CONFIG_DIR='@@BUILD_DIR@@/config_d'
 
 
 # Allow some settings to be overridden.
-while getopts 'nlp:d:-h' option; do
+while getopts 'nf:p:d:-h' option; do
     case "$option" in
     n)  DEBUG=() ;;
-    l)  SIM_SERVER_DIR="$HERE" ;;
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
+    f)  SIM_SERVER="$OPTARG/python/sim_server"
+        CONFIG_DIR="$OPTARG/config_d" ;;
     -)  ;;
     h)  cat <<EOF
 ./simserver [options] [-- command options]
 options can be one of:
     -n  Run without valgrind memory checking
-    -l  Run with local dummy simulation server.  Default server is:
-        $SIM_SERVER_DIR
+    -f: Run with FPGA simulation from specified build directory
     -p: Specify configuration port (default 8888)
     -d: Specify data port (default 8889)
     -h  Show this help
@@ -40,16 +43,13 @@ done
 shift $((OPTIND-1))
 
 
-CONFIG_DIR="$SIM_SERVER_DIR"/config_d
-SIM_SERVER="$SIM_SERVER_DIR"/python/sim_server
-
 # Force any previously running instance of the simulation server to go away --
 # this can happen if sim_server failed on startup for any reason.
 nc localhost 9999 </dev/null
 
 # Run the simulation server as a daemon.  It will ensure its socket is up and
 # running before taking itself into the background.
-echo Running simulation from "$SIM_SERVER_DIR"
+echo Running simulation "$SIM_SERVER"
 "$PYTHON" "$SIM_SERVER" -d "$CONFIG_DIR"  &&
 
 # We normally omit --show-reachable=yes because it generates *lots* of noises

@@ -1,0 +1,244 @@
+TTLIN       3
+    TERM            0
+    VAL             2 3 4 5 6 7
+
+TTLOUT      4
+    VAL             0 1
+
+LVDSIN      5
+    VAL             8 9
+
+LVDSOUT     6
+    VAL             0 1
+
+LUT         7
+    FUNC            5
+    INPA            0 6
+    INPB            1 7
+    INPC            2 8
+    INPD            3 9
+    INPE            4 10
+    OUT             10 11 12 13 14 15 16 17
+
+SRGATE      8
+    SET_EDGE        2
+    RST_EDGE        3
+    FORCE_SET       4
+    FORCE_RST       5
+    SET             0 6
+    RST             1 7
+    OUT             18 19 20 21
+
+DIV         9
+    DIVISOR         2
+    FIRST_PULSE     3
+    INP             0 5
+    ENABLE          1 6
+    OUTD            22 23 24 25
+    OUTN            26 27 28 29
+    COUNT           4
+
+PULSE       10
+    DELAY           3 2     >3
+    WIDTH           5 4     >3
+    INP             0 11
+    ENABLE          1 12
+    OUT             30 31 32 33
+    ERR_OVERFLOW    7
+    ERR_PERIOD      8
+    QUEUE           9
+    MISSED_CNT      10
+
+SEQ         11
+    PRESCALE        5
+    TABLE_CYCLE     8
+    ENABLE          0 16
+    INPA            1 17
+    INPB            2 18
+    INPC            3 19
+    INPD            4 20
+    OUTA            38 39 40 41
+    OUTB            42 43 44 45
+    OUTC            46 47 48 49
+    OUTD            50 51 52 53
+    OUTE            54 55 56 57
+    OUTF            58 59 60 61
+    ACTIVE          62 63 64 65
+    CUR_FRAME       9
+    CUR_FCYCLE      10
+    CUR_TCYCLE      11
+    TABLE           short   512    13 14 15
+
+INENC       12
+    PROTOCOL        0
+    CLK_PERIOD      1
+    FRAME_PERIOD    2
+    BITS            3
+    BITS_CRC        4
+    SETP            5
+    RST_ON_Z        6
+    EXTENSION       7
+    ERR_FRAME       8
+    ERR_RESPONSE    9
+    ENC_STATUS      10
+    DCARD_MODE      11
+    A               66 67 68 69
+    B               70 71 72 73
+    Z               74 75 76 77
+    CONN            78 79 80 81
+    TRANS           107 108 109 110
+    VAL             1 2 3 4 / 33 34 35 36
+
+QDEC        13
+    RST_ON_Z        3
+    SETP            4
+    A               0 5
+    B               1 6
+    Z               2 7
+    OUT             5 6 7 8
+
+OUTENC      14
+    PROTOCOL        5
+    BITS            6
+    QPERIOD         7
+    ENABLE          8 10
+    A               0 11
+    B               1 12
+    Z               2 13
+    VAL             4
+    CONN            3 14
+    QSTATE          9
+
+POSENC      15
+    INP             0
+    QPERIOD         1
+    ENABLE          3 5
+    PROTOCOL        2
+    A               82 83 84 85
+    B               86 87 88 89
+    QSTATE          4
+
+ADDER       16
+    INPA            0
+    INPB            1
+    INPC            2
+    INPD            3
+    SCALE           4
+    OUT             10 11
+
+COUNTER     17
+    DIR             4
+    START           5
+    STEP            6
+    ENABLE          0 1
+    TRIG            2 3
+    CARRY           90 91 92 93 94 95 96 97
+    OUT             12 13 14 15 16 17 18 19
+
+PGEN        18
+    CYCLES          3
+    ENABLE          0 6
+    TRIG            1 7
+    OUT             20 21
+    TABLE           long    2^8    4 5
+    TABLE_STATUS    8
+
+PCOMP       19
+    START           2
+    STEP            3
+    WIDTH           4
+    PNUM            5
+    RELATIVE        6
+    DIR             7
+    DELTAP          8
+    USE_TABLE       10
+    ENABLE          0 15
+    INP             1
+    ACTIVE          98 99 100 101
+    OUT             102 103 104 105
+    ERROR           14
+    TABLE           long    2^2    11 12
+    TABLE_STATUS    16
+
+ADC         20
+    OUT             22 23 24 25 26 27 28 29 / 54 55 56 57 58 59 60 61
+
+PCAP        21
+    ENABLE          0 5
+    FRAME           1 6
+    CAPTURE         2 7
+    ERR_STATUS      4
+    ACTIVE          106
+    CAPTURE_TS      62 / 63
+    FRAME_LENGTH    37
+    CAPTURE_OFFSET  38
+    ADC_COUNT       32
+    BITS0           39
+    BITS1           40
+    BITS2           41
+    BITS3           42
+
+BITS        22
+    A               0
+    B               1
+    C               2
+    D               3
+    OUTA            118
+    OUTB            119
+    OUTC            120
+    OUTD            121
+    ZERO            0
+    ONE             1
+
+CLOCKS      23
+    A_PERIOD        0
+    B_PERIOD        1
+    C_PERIOD        2
+    D_PERIOD        3
+    OUTA            122
+    OUTB            123
+    OUTC            124
+    OUTD            125
+
+POSITIONS   24
+    ZERO            0
+
+SLOW        25
+    TEMP_PSU        0
+    TEMP_SFP        1
+    TEMP_ENC_L      2
+    TEMP_PICO       3
+    TEMP_ENC_R      4
+    ALIM_12V0       5
+    PICO_5V0        6
+    IO_5V0          7
+    SFP_3V3         8
+    FMC_15VN        9
+    FMC_15VP        10
+    ENC_24V         11
+    FMC_12V         12
+
+FMC         26
+    FMC_PRSNT       0
+    LINK_UP         1
+    ERROR_COUNT     2
+    LA_P_ERROR      3
+    LA_N_ERROR      4
+    GTREFCLK        5
+    FMC_CLK0        6
+    FMC_CLK1        7
+    SOFT_RESET      8
+    EXT_CLK         9
+    LOOP_PERIOD     10
+
+SFP         27
+    LINK1_UP        0
+    ERROR1_COUNT    1
+    LINK2_UP        2
+    ERROR2_COUNT    3
+    LINK3_UP        4
+    ERROR3_COUNT    5
+    SFP_CLK1        6
+    SFP_CLK2        7
+    SFP_CLK3        8
+    SOFT_RESET      9

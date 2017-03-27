@@ -99,14 +99,20 @@ $(SLOW_LOAD): $(SERVER_BUILD_DIR) server/slow_load.c
 # Construction of simserver launch script.
 SIMSERVER_SUBSTS += s:@@PYTHON@@:$(PYTHON):;
 SIMSERVER_SUBSTS += s:@@BUILD_DIR@@:$(BUILD_DIR):;
-SIMSERVER_SUBSTS += s:@@PANDA_FPGA@@:$(PANDA_FPGA):;
 
 simserver: simserver.in
 	sed '$(SIMSERVER_SUBSTS)' $< >$@
 	chmod +x $@
 
+$(BUILD_DIR)/config_d: config_d/registers $(wildcard python/sim_config/*)
+	mkdir -p $@
+	rm -f $@/*
+	cp python/sim_config/* $@
+	cat $< >>$@/registers
+	touch $@
+
 server: $(SERVER)
-sim_server: $(SIM_SERVER) simserver
+sim_server: $(SIM_SERVER) simserver $(BUILD_DIR)/config_d
 slow_load: $(SLOW_LOAD)
 
 .PHONY: server sim_server slow_load
