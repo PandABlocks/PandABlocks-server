@@ -641,10 +641,28 @@ error__t initialise_data_server(void)
 
 error__t start_data_server(void)
 {
+    /* We want to run the data thread as a high priority real time thread so
+     * that at least the data doesn't back up in the hardware.  Even if things
+     * get starved further downstream, it'll be better to at least bring the
+     * data into userspace.
+     *
+     * A good explanation of the process is here:
+     *
+     *  http://stackoverflow.com/questions/3649281/
+     *      how-to-increase-thread-priority-in-pthreads
+     *
+     * Basically we have to call pthread_setschedparam to configure the thread
+     * for real time scheduling, then we can set the priority.  The scheduling
+     * options are described in sched_setscheduler(2).  Of course we can only do
+     * this on the real target system. */
+    struct sched_param sched_param = { .sched_priority = 20 };
     return
         TEST_PTHREAD(pthread_create(
             &data_thread_id, NULL, data_thread, NULL))  ?:
-        DO(data_thread_started = true);
+        DO(data_thread_started = true)  ?:
+        IF(!sim_hardware(),
+            TEST_PTHREAD(pthread_setschedparam(
+                data_thread_id, SCHED_RR, &sched_param)));
 }
 
 

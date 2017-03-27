@@ -25,6 +25,9 @@ error__t initialise_hardware(void);
 
 void terminate_hardware(void);
 
+/* Checks whether we're in simulation mode. */
+bool sim_hardware(void);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Hardware setup. */

@@ -504,6 +504,16 @@ void hw_close_table(struct hw_table *table)
 /******************************************************************************/
 
 
+bool sim_hardware(void)
+{
+#ifdef SIM_HARDWARE
+    return true;
+#else
+    return false;
+#endif
+}
+
+
 #ifndef SIM_HARDWARE
 
 error__t initialise_hardware(void)
