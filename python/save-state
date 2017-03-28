@@ -62,18 +62,17 @@ def save_table(input, output, table):
     print >>output
 
 
-def save_metadata(input, output):
-    for line in read_response(input, '*CHANGES.METADATA?'):
-        if line[-1] == '<':
-            yield line
-        else:
-            print >>output, line
-
 def save_metatable(input, output, table):
     print >>output, table
     for line in read_response(input, table[:-1] + '?'):
         print >>output, line
     print >>output
+
+def save_metadata(input, output, line):
+    if line[-1] == '<':
+        save_metatable(input, output, line)
+    else:
+        print >>output, line
 
 
 # Argument processing
@@ -96,8 +95,8 @@ input = get_lines(sock)
 output = file(args.destination, 'w')
 
 # First save the CONFIG state
-save_state(input, output, '*CHANGES.CONFIG?')
 save_state(input, output, '*CHANGES.ATTR?')
+save_state(input, output, '*CHANGES.CONFIG?')
 
 # Now save the individual tables.
 # Note that we must read the complete table response before processing!
@@ -107,6 +106,6 @@ for table in tables:
 
 # Finally the metadata is a bit more tricky, because the table and value results
 # are mixed together.
-metatables = list(save_metadata(input, output))
-for table in metatables:
-    save_metatable(input, output, table)
+metadata = list(read_response(input, '*CHANGES.METADATA?'))
+for line in metadata:
+    save_metadata(input, output, line)
