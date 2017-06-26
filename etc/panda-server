@@ -5,7 +5,7 @@
 . /etc/init.d/functions
 
 # File locations
-pidfile=/var/run/zebra2-server.pid
+pidfile=/var/run/panda-server.pid
 
 carrier_firmware=/opt/share/panda/panda_top.bit
 slow_firmware=/opt/share/panda/slow_top.bin
@@ -57,4 +57,4 @@ do_stop()
     done
 }
 
-do_start_stop "$1" zebra2-server
+do_start_stop "$1" panda-server

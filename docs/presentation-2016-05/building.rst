@@ -12,13 +12,13 @@ Building Core PandA Rootfs
 :Date: 3rd May 2016
 
 Most of this presentation is condensed from the readme file for the
-``zebra2-rootfs`` project.
+``PandABlocks-rootfs`` project.
 
 
 PandA Rootfs
 ============
 
-The project ``zebra2-rootfs`` on Github builds the following:
+The project ``PandABlocks-rootfs`` on Github builds the following:
 
 * Files required to boot PandA.  These are the files that go into the initial SD
   card image::
@@ -26,7 +26,7 @@ The project ``zebra2-rootfs`` on Github builds the following:
     boot.bin    devicetree.dtb     uEnv.txt  uinitramfs
     config.txt  imagefile.cpio.gz  uImage
 
-* Kernel build.  This is required by the ``zebra2-server`` in order to build the
+* Kernel build.  This is required by the ``PandABlocks-server`` in order to build the
   kernel driver.
 
 
@@ -58,7 +58,7 @@ The following must be installed before building this project:
 
 * The Diamond rootfs builder.  This can be downloaded from
   https://github.com/araneidae/rootfs.  The current build needs at least version
-  1.7.
+  1.10.
 
 * Sources needed for rootfs build.  These can now be downloaded from the Github
   release page, or from their respective project repositories.
@@ -67,10 +67,10 @@ The following must be installed before building this project:
 Configuring ``CONFIG.local``
 ============================
 
-Copy the file ``CONFIG.example`` to ``CONFIG.local`` and modify the following
+Copy the file ``CONFIG.example`` to ``CONFIG`` and modify the following
 fields as required:
 
-``ZEBRA2_ROOT``:
+``PANDA_ROOT``:
     This is where the entire build occurs.  At least 2GB of storage must be free
     in this area.
 
@@ -94,4 +94,4 @@ Type::
     make
 
 The build takes around half an hour, and the results will be placed in
-``$(ZEBRA2_ROOT)/boot``.
+``$(PANDA_ROOT)/boot``.

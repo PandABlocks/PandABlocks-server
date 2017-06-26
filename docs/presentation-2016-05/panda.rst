@@ -316,7 +316,7 @@ placing a new ``imagefile.cpio.gz`` file in ``/boot`` and rebooting.
 Application software will be installed under ``/opt`` using Z-Packages.
 
 
-Zebra Packages (zpkg)
+PandA Packages (zpkg)
 =====================
 
 zpkg files will be used for managing all application software.  A zpkg is

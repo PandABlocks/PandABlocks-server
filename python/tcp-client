@@ -70,9 +70,9 @@ class Client(object):
 
 from argparse import ArgumentParser
 parser = ArgumentParser(
-    description="Commandline client to Zebra2 TCP server")
+    description="Commandline client to PandA TCP server")
 parser.add_argument("hostname", default="localhost", nargs="?",
-                    help="Hostname of Zebra2 box (default localhost)")
+                    help="Hostname of PandA box (default localhost)")
 parser.add_argument("port", type=int, default=8888, nargs="?",
                     help="Port number of TCP server (default 8888)")
 args = parser.parse_args()

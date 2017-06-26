@@ -21,14 +21,14 @@
 #
 # BINUTILS_DIR = /dls_sw/FPGA/Xilinx/SDK/2015.1/gnu/arm/lin/bin
 
-# Where the kernel was compiled.  Use zebra2-rootfs to build this.  This is only
+# Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is only
 # required if building the driver target.
 #
-# KERNEL_DIR = /scratch/tmp/zebra2-rootfs/build/linux
+# KERNEL_DIR = /scratch/tmp/PandA-rootfs/build/linux
 
 # Some tools from the rootfs are used.
 #
-# PANDA_ROOTFS = $(HOME)/targetOS/zebra2-rootfs
+# PANDA_ROOTFS = $(HOME)/targetOS/PandABlocks-rootfs
 
 # List of default targets build when running make
 #
