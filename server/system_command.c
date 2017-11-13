@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 
 #include "error.h"
 #include "hashtable.h"
@@ -406,6 +407,37 @@ static error__t get_pcap(const char *command, struct connection_result *result)
 }
 
 
+/* *XADC?
+ *
+ * Returns system temperature as read from XADC device. */
+
+static error__t get_xadc_value(const char *filename, double *result)
+{
+    char full_filename[PATH_MAX];
+    snprintf(full_filename, sizeof(full_filename),
+        "/sys/devices/soc0/amba/f8007100.adc/iio:device0/%s", filename);
+    FILE *file;
+    return
+        TEST_OK(file = fopen(full_filename, "r"))  ?:
+        DO_FINALLY(
+            TEST_OK(fscanf(file, "%lg", result) == 1),
+        // finally
+            fclose(file));
+}
+
+static error__t get_xadc(
+    const char *command, struct connection_result *result)
+{
+    /* Read raw value and calibration factors from device. */
+    double raw, offset, scale;
+    return
+        get_xadc_value("in_temp0_raw", &raw)  ?:
+        get_xadc_value("in_temp0_offset", &offset)  ?:
+        get_xadc_value("in_temp0_scale", &scale)  ?:
+        format_one_result(result, "%.3f", 1e-3 * scale * (raw + offset));
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
 
@@ -435,6 +467,7 @@ static const struct command_table_entry command_table_list[] = {
     { "VERBOSE",    false, .put = put_verbose, },
     { "ENUMS",      true,  .get = get_enums, },
     { "PCAP",       true,  .get = get_pcap,     .put = put_pcap, },
+    { "XADC",       false, .get = get_xadc, },
 };
 
 static struct hash_table *command_table;

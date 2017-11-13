@@ -147,6 +147,8 @@ below:
 | ``*PCAP.``\ field\ ``=``      | Position capture actions.  `field` can be    |
 |                               | either ``ARM``, or ``DISARM``.               |
 +-------------------------------+----------------------------------------------+
+| ``*XADC?``                    | Returns Zynq system temperature in degrees.  |
++-------------------------------+----------------------------------------------+
 
 ``*IDN?``
     Returns system identification string, for example the following::
@@ -350,3 +352,9 @@ below:
                 progress, or no fields configured for capture.
     DISARM      Halts ongoing data capture.
     =========== ================================================================
+
+``*XADC?``
+
+    Returns current temperature of Zync processor as measured using built-in
+    XADC device.  Temperature is returned in degrees Centigrate to 3 decimal
+    places.
