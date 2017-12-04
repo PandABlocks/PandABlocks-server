@@ -207,12 +207,6 @@ error__t disarm_capture(void)
 }
 
 
-error__t reset_capture(void)
-{
-    return FAIL_("Not implemented");
-}
-
-
 error__t get_capture_status(struct connection_result *result)
 {
     unsigned int readers, active;

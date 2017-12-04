@@ -346,7 +346,6 @@ static error__t get_enums(const char *command, struct connection_result *result)
  *
  * *PCAP.ARM=
  * *PCAP.DISARM=
- * *PCAP.RESET=
  * *PCAP.STATUS?
  * *PCAP.CAPTURED?
  * *PCAP.COMPLETION?
@@ -362,10 +361,7 @@ static error__t lookup_pcap_put_action(const char *name)
         IF_ELSE(strcmp(name, "DISARM") == 0,
             disarm_capture(),
         //else
-        IF_ELSE(strcmp(name, "RESET") == 0,
-            reset_capture(),
-        //else
-            FAIL_("Invalid *PCAP field"))));
+            FAIL_("Invalid *PCAP field")));
 }
 
 static error__t put_pcap(
