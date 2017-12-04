@@ -22,8 +22,8 @@ while getopts 'nf:p:d:-h' option; do
     n)  DEBUG=() ;;
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
-    f)  SIM_SERVER="$OPTARG/python/sim_server"
-        CONFIG_DIR="$OPTARG/config_d" ;;
+    f)  SIM_SERVER="$OPTARG/common/python/sim_server"
+        CONFIG_DIR="$OPTARG/build/PandABox/config_d" ;;
     -)  ;;
     h)  cat <<EOF
 ./simserver [options] [-- command options]
