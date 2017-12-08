@@ -117,7 +117,7 @@ static error__t load_config_database(const char *config_dir)
 /* We need to check the hardware register setup before loading normal blocks. */
 static bool hw_checked = false;
 
-struct register_set_parse {
+static struct register_set_parse {
     error__t (*set_register)(const char *name, unsigned int reg);
     error__t (*set_range)(
         const char *name, unsigned int start, unsigned int end);
