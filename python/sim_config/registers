@@ -187,8 +187,6 @@ BITS        22
     OUTB            119
     OUTC            120
     OUTD            121
-    ZERO            0
-    ONE             1
 
 CLOCKS      23
     A_PERIOD        0
@@ -199,9 +197,6 @@ CLOCKS      23
     OUTB            123
     OUTC            124
     OUTD            125
-
-POSITIONS   24
-    ZERO            0
 
 SLOW        25
     TEMP_PSU        0

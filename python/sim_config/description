@@ -191,8 +191,6 @@ BITS        Soft inputs and constant bits
     OUTB            The value of B on the bit bus
     OUTC            The value of C on the bit bus
     OUTD            The value of D on the bit bus
-    ZERO            The constant value 0 on the bit bus
-    ONE             The constant value 1 on the bit bus
 
 CLOCKS      Configurable clocks
     A_PERIOD        Period of clock A output
@@ -203,9 +201,6 @@ CLOCKS      Configurable clocks
     OUTB            Clock B output
     OUTC            Clock C output
     OUTD            Clock D output
-
-POSITIONS   Constants
-    ZERO            Constant zero position
 
 SLOW        Slow control FPGA
     TEMP_PSU        On-board temperature [Power Supply]

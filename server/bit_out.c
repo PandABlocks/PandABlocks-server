@@ -78,6 +78,7 @@ static error__t bit_mux_init(
     };
     for (unsigned int i = 0; i < count; i ++)
         state->values[i] = (struct bit_mux_value) {
+            .value = BIT_BUS_ZERO,
             .update_index = 1,
         };
     *class_data = state;
@@ -276,8 +277,10 @@ static error__t offset_format(
 
 error__t initialise_bit_out(void)
 {
-    bit_mux_lookup = create_dynamic_enumeration(BIT_BUS_COUNT);
-    return ERROR_OK;
+    bit_mux_lookup = create_dynamic_enumeration(BIT_BUS_COUNT + 2);
+    return
+        add_enumeration(bit_mux_lookup, "ZERO", BIT_BUS_ZERO)  ?:
+        add_enumeration(bit_mux_lookup, "ONE", BIT_BUS_ONE);
 }
 
 

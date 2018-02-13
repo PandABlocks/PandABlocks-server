@@ -876,14 +876,14 @@ static const char *output_describe(void *class_data)
 
 error__t initialise_output(void)
 {
-    pos_mux_lookup = create_dynamic_enumeration(POS_BUS_COUNT);
+    pos_mux_lookup = create_dynamic_enumeration(POS_BUS_COUNT + 1);
 
     for (unsigned int i = 0; i < ARRAY_SIZE(output_capture_set); i ++)
     {
         struct output_capture *capture = output_capture_set[i];
         capture->enumeration = create_static_enumeration(&capture->enum_set);
     }
-    return ERROR_OK;
+    return add_enumeration(pos_mux_lookup, "ZERO", POS_BUS_ZERO);
 }
 
 
@@ -927,6 +927,7 @@ static error__t pos_mux_init(
     };
     for (unsigned int i = 0; i < count; i ++)
         state->values[i] = (struct pos_mux_value) {
+            .value = POS_BUS_ZERO,
             .update_index = 1,
         };
     *class_data = state;

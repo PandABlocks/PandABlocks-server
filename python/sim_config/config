@@ -246,8 +246,6 @@ BITS
     OUTB            bit_out
     OUTC            bit_out
     OUTD            bit_out
-    ZERO            bit_out
-    ONE             bit_out
 
 CLOCKS
     A_PERIOD        param       time
@@ -258,9 +256,6 @@ CLOCKS
     OUTB            bit_out
     OUTC            bit_out
     OUTD            bit_out
-
-POSITIONS
-    ZERO            pos_out     const
 
 SLOW
     TEMP_PSU        read        int

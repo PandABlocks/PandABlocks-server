@@ -13,6 +13,12 @@
 #define BLOCK_REGISTER_COUNT    (1U << 6)   // 6 bits per register field
 
 
+/* Special codings for reserved bit bus and position bus indices. */
+#define BIT_BUS_ZERO        BIT_BUS_COUNT
+#define BIT_BUS_ONE         (BIT_BUS_COUNT + 1)
+#define POS_BUS_ZERO        POS_BUS_COUNT
+
+
 /* Must be called before any hardware functions.  If an error occurs then
  * program startup should be terminated. */
 error__t initialise_hardware(void);
