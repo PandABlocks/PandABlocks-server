@@ -188,17 +188,17 @@ Field type          Description
 
     ``OFFSET``, ``SCALE``
         These numbers can be set to configure the conversion from the underlying
-        position to the reported value.  The value reported when reading the
-        field is
-
-            raw * scale + offset
+        position to the value captured when scaling is enabled and read from the
+        ``SCALED`` attribute.
 
     ``UNITS``
         This field can be set to any UTF-8 string, and is provided for the
         convenience of the user interface.
 
-    ``RAW``
-        This returns the underlying signed 32-bit number on the position bus.
+    ``SCALED``
+        This returns the scaled value computed as
+
+            raw * scale + offset
 
     The optional extra field is used to manage four varieties of value on the
     position bus.  These determine how values are processed and which capture
@@ -366,25 +366,23 @@ fields.
 
 ``position``
     This is used for floating point numbers which are converted from or to an
-    underlying 32-bit signed value via the conversion
+    underlying 32-bit signed value when through the ``SCALED`` attribute via the
+    conversion
 
-        value = raw * scale + offset
+        scaled = raw * scale + offset
 
     The following attributes are supported and are the same as for ``pos_out``:
 
     ``OFFSET``, ``SCALE``
         These numbers can be set to configure the conversion from the underlying
-        position to the reported value.  The value reported when reading the
-        field is
-
-            raw * scale + offset
+        position to the scaled value.
 
     ``UNITS``
         This field can be set to any UTF-8 string, and is provided for the
         convenience of the user interface.
 
-    ``RAW``
-        This returns the underlying signed 32-bit number.
+    ``SCALED``
+        This returns the scaled value or can be written as a scaled value.
 
 ``time``
     As for the ``time`` field type, converts between time in specified units and
