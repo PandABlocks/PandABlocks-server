@@ -337,7 +337,41 @@ static error__t position_parse(
     void *type_data, unsigned int number,
     const char **string, unsigned int *value)
 {
-    struct position_state *state = type_data;
+    return parse_int(string, (int *) value);
+}
+
+static error__t position_format(
+    void *type_data, unsigned int number,
+    unsigned int value, char result[], size_t length)
+{
+    return format_string(result, length, "%d", (int) value);
+}
+
+
+static error__t position_scaled_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct type *type = owner;
+    struct position_state *state = data;
+    struct position_field *field = &state->values[number];
+
+    LOCK(state->mutex);
+    double scale = field->scale;
+    double offset = field->offset;
+    UNLOCK(state->mutex);
+
+    uint32_t value;
+    return
+        read_type_register(type, number, &value)  ?:
+        format_double(result, length, (int) value * scale + offset);
+}
+
+static error__t position_scaled_put(
+    void *owner, void *data, unsigned int number, const char *string)
+{
+    struct type *type = owner;
+    struct position_state *state = data;
     struct position_field *field = &state->values[number];
 
     LOCK(state->mutex);
@@ -348,27 +382,12 @@ static error__t position_parse(
     double position;
     double converted;
     return
-        parse_double(string, &position)  ?:
+        parse_double(&string, &position)  ?:
+        parse_eos(&string)  ?:
         DO(converted = (position - offset) / scale)  ?:
         TEST_OK_(INT32_MIN <= converted  &&  converted <= INT32_MAX,
             "Position out of range")  ?:
-        DO(*value = (unsigned int) (int) lround(converted));
-}
-
-
-static error__t position_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length)
-{
-    struct position_state *state = type_data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double scale = field->scale;
-    double offset = field->offset;
-    UNLOCK(state->mutex);
-
-    return format_double(result, length, (int) value * scale + offset);
+        write_type_register(type, number, (unsigned int) lround(converted));
 }
 
 
@@ -622,8 +641,8 @@ const struct type_methods position_type_methods = {
     .init = position_init, .destroy = position_destroy,
     .parse = position_parse, .format = position_format,
     .attrs = (struct attr_methods[]) {
-        { "RAW", "Unscaled underlying value",
-            .format = raw_format_int, .put = raw_put_int, },
+        { "SCALED", "Value with scaling applied",
+            .format = position_scaled_format, .put = position_scaled_put, },
         { "SCALE", "Scale factor",
             .in_change_set = true,
             .format = position_scale_format, .put = position_scale_put, },
