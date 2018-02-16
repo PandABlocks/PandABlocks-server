@@ -394,13 +394,24 @@ static error__t lut_format(
 }
 
 
+static error__t lut_raw_format(
+    void *owner, void *data, unsigned int number, char result[], size_t length)
+{
+    struct type *type = owner;
+    uint32_t value;
+    return
+        read_type_register(type, number, &value)  ?:
+        format_string(result, length, "0x%08X", value);
+}
+
+
 static const struct type_methods lut_type_methods = {
     "lut",
     .init = lut_init, .destroy = lut_destroy,
     .parse = lut_parse, .format = lut_format,
     .attrs = (struct attr_methods[]) {
         { "RAW", "Bit pattern written to register",
-          .format = raw_format_uint, }, },
+          .format = lut_raw_format, }, },
     .attr_count = 1,
 };
 

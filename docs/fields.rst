@@ -351,7 +351,7 @@ fields.
         < LUT2.FUNC?
         > OK =A=>B?C:D
         < LUT2.FUNC.RAW?
-        > OK =4039962864
+        > OK =0xF0CCF0F0
 
 
 ``enum``
