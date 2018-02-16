@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 HERE="$(dirname "$0")"
 
@@ -14,16 +14,18 @@ DEBUG=(valgrind --leak-check=full --track-origins=yes)
 # By default run local simulation
 SIM_SERVER="$HERE"/python/sim_server
 CONFIG_DIR='@@BUILD_DIR@@/config_d'
+SIM_ARGS=()
 
 
 # Allow some settings to be overridden.
-while getopts 'nf:p:d:-h' option; do
+while getopts 'nf:p:d:v-h' option; do
     case "$option" in
     n)  DEBUG=() ;;
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
     f)  SIM_SERVER="$OPTARG/common/python/sim_server"
         CONFIG_DIR="$OPTARG/build/PandABox/config_d" ;;
+    v)  SIM_ARGS=("${SIM_ARGS[@]}" -v) ;;
     -)  ;;
     h)  cat <<EOF
 ./simserver [options] [-- command options]
@@ -32,6 +34,7 @@ options can be one of:
     -f: Run with FPGA simulation from specified build directory
     -p: Specify configuration port (default 8888)
     -d: Specify data port (default 8889)
+    -v  Run simulation in verbose mode
     -h  Show this help
 Remaining command options are passed through to the server executable.
 EOF
@@ -50,7 +53,7 @@ nc localhost 9999 </dev/null
 # Run the simulation server as a daemon.  It will ensure its socket is up and
 # running before taking itself into the background.
 echo Running simulation "$SIM_SERVER"
-"$PYTHON" "$SIM_SERVER" -d "$CONFIG_DIR"  &&
+"$PYTHON" "$SIM_SERVER" "${SIM_ARGS[@]}" -d "$CONFIG_DIR"  &&
 
 # We normally omit --show-reachable=yes because it generates *lots* of noises
 # when there's a crash!

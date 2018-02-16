@@ -20,6 +20,8 @@ parser = argparse.ArgumentParser(description = 'PandA Hardware simulation')
 parser.add_argument(
     '-d', '--daemon', action = 'store_true', help = 'Run as daemon process')
 parser.add_argument(
+    '-v', '--verbose', action = 'store_true', help = 'Log register access')
+parser.add_argument(
     'config_dir',
     help = '''\
 Path to configuration directory.
@@ -58,16 +60,20 @@ def read(sock, n):
 # This simulation is as dumb as a brick, it merely provides a basic
 # implementation of the communication protocol and otherwise does as little as
 # possible.
-def run_simulation(conn):
+def run_simulation(conn, verbose):
     while True:
         command_word = read(conn, 4)
         command, block, num, reg = struct.unpack('cBBB', command_word)
         if command == 'R':
             # Read one register, always returns zero
             conn.sendall(struct.pack('I', 0))
+            if verbose:
+                print 'R', block, num, reg
         elif command == 'W':
             # Write one register, we throw the value away
             value, = struct.unpack('I', read(conn, 4))
+            if verbose:
+                print 'W', block, num, reg, '<=', value
         elif command == 'T':
             # Write data array to large table, we throw this away
             length, = struct.unpack('I', read(conn, 4))
@@ -95,6 +101,6 @@ sock.close()
 
 conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 try:
-    run_simulation(conn)
+    run_simulation(conn, args.verbose)
 except (SocketFail, KeyboardInterrupt) as e:
     print 'Simulation closed:', repr(e)
