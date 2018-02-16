@@ -205,12 +205,38 @@ static struct register_methods param_methods = {
 };
 
 
+static error__t parse_default_param(
+    const char **line, unsigned int count, struct simple_state *state)
+{
+    uint32_t default_value;
+    return IF(read_char(line, ' '),
+        DO(*line = skip_whitespace(*line))  ?:
+        parse_char(line, '=')  ?:
+        parse_uint32(line, &default_value)  ?:
+        DO(
+            for (unsigned int i = 0; i < count; i ++)
+                state->values[i].value = default_value;
+        ));
+}
+
+
 static error__t param_init(
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data)
 {
-    return simple_register_init(
-        &param_methods, line, count, attr_map, class_data);
+    return
+        simple_register_init(
+            &param_methods, line, count, attr_map, class_data)  ?:
+        parse_default_param(line, count, *class_data);
+}
+
+
+static error__t param_finalise(void *class_data)
+{
+    struct simple_state *state = class_data;
+    for (unsigned int i = 0; i < state->count; i ++)
+        write_register(&state->base, i, state->values[i].value);
+    return ERROR_OK;
 }
 
 
@@ -229,6 +255,7 @@ const struct class_methods param_class_methods = {
     "param",
     BASE_METHODS,
     .init = param_init,
+    .finalise = param_finalise,
     .get = base_get,
     .put = base_put,
     .change_set = param_change_set,

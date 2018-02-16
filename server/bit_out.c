@@ -66,6 +66,21 @@ void report_capture_bits(struct connection_result *result, unsigned int group)
 }
 
 
+static error__t parse_default_param(
+    const char **line, unsigned int count, struct bit_mux_state *state)
+{
+    uint32_t default_value;
+    return IF(read_char(line, ' '),
+        DO(*line = skip_whitespace(*line))  ?:
+        parse_char(line, '=')  ?:
+        parse_uint32(line, &default_value)  ?:
+        DO(
+            for (unsigned int i = 0; i < count; i ++)
+                state->values[i].value = default_value;
+        ));
+}
+
+
 static error__t bit_mux_init(
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data)
@@ -83,6 +98,16 @@ static error__t bit_mux_init(
         };
     *class_data = state;
 
+    return parse_default_param(line, count, state);
+}
+
+
+static error__t bit_mux_finalise(void *class_data)
+{
+    struct bit_mux_state *state = class_data;
+    for (unsigned int i = 0; i < state->count; i ++)
+        hw_write_register(
+            state->block_base, i, state->mux_reg, state->values[i].value);
     return ERROR_OK;
 }
 
@@ -318,6 +343,7 @@ static void bit_out_refresh(void *class_data, unsigned int number)
 const struct class_methods bit_mux_class_methods = {
     "bit_mux",
     .init = bit_mux_init,
+    .finalise = bit_mux_finalise,
     .parse_register = bit_mux_parse_register,
     .get = bit_mux_get,
     .put = bit_mux_put,

@@ -936,6 +936,16 @@ static error__t pos_mux_init(
 }
 
 
+static error__t pos_mux_finalise(void *class_data)
+{
+    struct pos_mux_state *state = class_data;
+    for (unsigned int i = 0; i < state->count; i ++)
+        hw_write_register(
+            state->block_base, i, state->mux_reg, state->values[i].value);
+    return ERROR_OK;
+}
+
+
 static error__t pos_mux_parse_register(
     void *class_data, struct field *field, unsigned int block_base,
     const char **line)
@@ -1006,6 +1016,7 @@ void report_capture_positions(struct connection_result *result)
 const struct class_methods pos_mux_class_methods = {
     "pos_mux",
     .init = pos_mux_init,
+    .finalise = pos_mux_finalise,
     .parse_register = pos_mux_parse_register,
     .get = pos_mux_get,
     .put = pos_mux_put,

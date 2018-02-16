@@ -117,6 +117,16 @@ error__t raw_put_int(
 /* Individual type implementations. */
 
 
+/* This helper allows us to check for an optional value (flagged by trailing
+ * whitespace after the parse so far) in the complicating presence of a possible
+ * default assignment after.  True is returned if there is more to parse at the
+ * current level. */
+static bool check_for_option(const char *string)
+{
+    return *string == ' '  &&  *skip_whitespace(string) != '=';
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Unsigned integer type.
  *
@@ -131,7 +141,7 @@ static error__t uint_init(
     *max_value = UINT32_MAX;
     *type_data = max_value;
     return
-        IF(read_char(string, ' '),
+        IF(check_for_option(*string),
             parse_uint(string, max_value));
 }
 
