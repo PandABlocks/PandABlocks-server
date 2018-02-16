@@ -118,8 +118,8 @@ function currentSlide() {
 		cs = document.currentSlide;
 		footer = document.footer.childNodes;
 	}
-	cs.innerHTML = '<span id="csHere">' + snum + '<\/span> ' + 
-		'<span id="csSep">\/<\/span> ' + 
+	cs.innerHTML = '<span id="csHere">' + snum + '<\/span> ' +
+		'<span id="csSep">\/<\/span> ' +
 		'<span id="csTotal">' + (smax-1) + '<\/span>';
 	if (snum == 0) {
 		vis = 'hidden';

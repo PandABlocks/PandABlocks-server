@@ -26,8 +26,8 @@ The project ``PandABlocks-rootfs`` on Github builds the following:
     boot.bin    devicetree.dtb     uEnv.txt  uinitramfs
     config.txt  imagefile.cpio.gz  uImage
 
-* Kernel build.  This is required by the ``PandABlocks-server`` in order to build the
-  kernel driver.
+* Kernel build.  This is required by the ``PandABlocks-server`` in order to
+  build the kernel driver.
 
 
 Built Files

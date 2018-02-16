@@ -21,8 +21,8 @@
 #
 # BINUTILS_DIR = /dls_sw/FPGA/Xilinx/SDK/2015.1/gnu/arm/lin/bin
 
-# Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is only
-# required if building the driver target.
+# Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
+# only required if building the driver target.
 #
 # KERNEL_DIR = /scratch/tmp/PandA-rootfs/build/linux
 
