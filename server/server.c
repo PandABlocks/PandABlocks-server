@@ -45,6 +45,10 @@ static unsigned int persistence_backoff = 60;
 static bool daemon_mode = false;
 static const char *pid_filename = NULL;
 
+/* This flag is set to trigger shutdown immediately after completing startup
+ * checks.  This is used for testing and configuration file validation. */
+static bool test_config_only = false;
+
 
 /* Parses a persistence time specification in the form
  *
@@ -80,6 +84,7 @@ static void usage(const char *argv0)
 "   -t: Specify persistence timeouts.  Format is poll:holdoff:backoff\n"
 "   -D  Run server as a daemon\n"
 "   -P: Write process id to given file name\n"
+"   -T  Run in test mode and terminate immediately after initialisation\n"
         , argv0, config_port, data_port);
 }
 
@@ -90,7 +95,7 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:"))
+        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:T"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   config_port = (unsigned int) atoi(optarg);      break;
@@ -101,6 +106,7 @@ static error__t process_options(int argc, char *const argv[])
             case 't':   error = parse_persistence_times(optarg);        break;
             case 'D':   daemon_mode = true;                             break;
             case 'P':   pid_filename = optarg;                          break;
+            case 'T':   test_config_only = true;                        break;
             default:
                 return FAIL_("Try `%s -h` for usage", argv0);
             case -1:
@@ -212,7 +218,7 @@ int main(int argc, char *const argv[])
 
         maybe_daemonise();
 
-    if (!ERROR_REPORT(error, "Server startup failed"))
+    if (!ERROR_REPORT(error, "Server startup failed")  &&  !test_config_only)
     {
         /* Now run the server.  Control will not return until we're ready to
          * terminate. */

@@ -18,23 +18,27 @@ SIM_ARGS=()
 
 
 # Allow some settings to be overridden.
-while getopts 'nf:p:d:v-h' option; do
+while getopts 'nf:p:d:vc:V:-h' option; do
     case "$option" in
     n)  DEBUG=() ;;
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
     f)  SIM_SERVER="$OPTARG/common/python/sim_server"
         CONFIG_DIR="$OPTARG/build/PandABox/config_d" ;;
+    c)  CONFIG_DIR="$OPTARG" ;;
     v)  SIM_ARGS=("${SIM_ARGS[@]}" -v) ;;
+    V)  DEBUG=("${DEBUG[@]}" "$OPTARG") ;;
     -)  ;;
     h)  cat <<EOF
 ./simserver [options] [-- command options]
 options can be one of:
     -n  Run without valgrind memory checking
-    -f: Run with FPGA simulation from specified build directory
+    -f: Run with FPGA simulation from specified directory
+    -c: Specify configuration directory
     -p: Specify configuration port (default 8888)
     -d: Specify data port (default 8889)
     -v  Run simulation in verbose mode
+    -V: Add arguments to valgrind
     -h  Show this help
 Remaining command options are passed through to the server executable.
 EOF

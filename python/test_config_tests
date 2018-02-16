@@ -1,0 +1,24 @@
+# This is a sequence of test configurations
+
+# Empty test
+-- t001
+
+# Empty config file
+-- t002
+- config
+
+# Config file with uint parse error
+-- t003
+- config
+BLOCK[1]
+    FIELD   param   uint    x
+
+# Config file with uint default parse error
+-- t004
+- config
+BLOCK[1]
+    FIELD   param   uint    = x
+
+-- t005
+- config
+BLOCK x
