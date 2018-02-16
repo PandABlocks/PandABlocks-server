@@ -419,8 +419,6 @@ static error__t position_scale_put(
         LOCK(state->mutex);
         field->scale = scale;
         UNLOCK(state->mutex);
-
-        changed_type_register(owner, number);
     }
     return error;
 }
@@ -452,8 +450,6 @@ static error__t position_offset_put(
         LOCK(state->mutex);
         field->offset = offset;
         UNLOCK(state->mutex);
-
-        changed_type_register(owner, number);
     }
     return error;
 }
