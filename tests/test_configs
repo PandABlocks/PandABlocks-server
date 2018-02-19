@@ -76,11 +76,12 @@ for test in "${TESTS[@]}"; do
             if grep -q '^==[0-9]*== Invalid' <<<"$result"; then
                 echo $test Error $rc
                 ((VERBOSE > 0))  &&  cat <<<"$result"
+                failed=$((failed + 1))
             else
                 echo $test Leak $rc
                 ((VERBOSE > 1))  &&  cat <<<"$result"
+                ((rc = 0))  &&  failed=$((failed + 1))
             fi
-            failed=$((failed + 1))
         else
             echo $test Ok $rc
             ((VERBOSE > 2))  &&  cat <<<"$result"

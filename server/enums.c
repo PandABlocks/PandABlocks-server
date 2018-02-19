@@ -209,7 +209,7 @@ error__t add_enumeration(
 
     char *string_copy = strdup(string);
     const struct enum_entry *entry = &enumeration->enum_set.enums[ix];
-    error__t error =
+    return
         TEST_OK_(ix < enumeration->enum_set.count,
             "Enumeration index out of range")  ?:
         TEST_OK_(entry->name == NULL,
@@ -221,17 +221,14 @@ error__t add_enumeration(
                 !hash_table_insert_const(enumeration->map, string_copy, entry)
             :
                 !linear_search(&enumeration->enum_set, string_copy),
-            "Enumeration value already in use");
-
-    if (error)
-        free(string_copy);
-    else
-        *CAST_FROM_TO(const struct enum_entry *, struct enum_entry *, entry) =
-            (struct enum_entry) {
-                .name = string_copy,
-                .value = ix,
-            };
-    return error;
+            "Enumeration value already in use")  ?:
+        DO(
+            *CAST_FROM_TO(
+                const struct enum_entry *, struct enum_entry *, entry) =
+                (struct enum_entry) {
+                    .name = string_copy,
+                    .value = ix,
+                });
 }
 
 

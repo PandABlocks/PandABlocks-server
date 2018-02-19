@@ -504,16 +504,13 @@ error__t initialise_fields(void)
 /* We implement orderly shutdown so that we can easily detect memory leaks
  * during development. */
 
-static void destroy_field(struct field *field, bool class_ok)
+static void destroy_field(struct field *field)
 {
     free(field->name);
-    if (class_ok)
-    {
-        if (field->methods->destroy)
-            field->methods->destroy(field->class_data);
-        else
-            free(field->class_data);
-    }
+    if (field->methods->destroy)
+        field->methods->destroy(field->class_data);
+    else
+        free(field->class_data);
     free(field->description);
     delete_attributes(field->attrs);
     hash_table_destroy(field->attrs);
@@ -523,7 +520,7 @@ static void destroy_field(struct field *field, bool class_ok)
 static void destroy_block(struct block *block)
 {
     FOR_EACH_FIELD(block->fields, field)
-        destroy_field(field, true);
+        destroy_field(field);
     hash_table_destroy(block->fields);
     free(block->name);
     free(block->description);
@@ -689,21 +686,15 @@ error__t create_field(
         lookup_class(class_name, &methods)  ?:
 
         DO(*field = create_field_block(block, field_name, methods))  ?:
-        TRY_CATCH(
-            methods->init(
-                line, block->count, (*field)->attrs, &(*field)->class_data),
-        //catch
-            destroy_field(*field, false))  ?:
+        methods->init(
+            line, block->count, (*field)->attrs, &(*field)->class_data)  ?:
 
-        TRY_CATCH(
-            create_field_attributes(*field)  ?:
-            /* Insert the field into the blocks map of fields. */
-            TEST_OK_(
-                hash_table_insert(
-                    block->fields, (*field)->name, *field) == NULL,
-                "Field %s.%s already exists", block->name, field_name),
-        //catch
-            destroy_field(*field, true));
+        create_field_attributes(*field)  ?:
+        /* Insert the field into the blocks map of fields. */
+        TEST_OK_(
+            hash_table_insert(
+                block->fields, (*field)->name, *field) == NULL,
+            "Field %s.%s already exists", block->name, field_name);
 }
 
 
