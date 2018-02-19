@@ -4,18 +4,21 @@
 # with parse errors.
 
 HERE="$(dirname "$0")"
+TOP="$HERE"/..
 
 TEST_TEMPLATE="$HERE/test_config_tests"
 VERBOSE=0
+KEEP_FILES=0
 
-while getopts 't:vh' option; do
+while getopts 't:vkh' option; do
     case "$option" in
         t)  TEST_TEMPLATE="$OPTARG" ;;
-        v)  VERBOSE=1 ;;
+        v)  VERBOSE=$((VERBOSE+1)) ;;
+        k)  KEEP_FILES=1 ;;
         h)  cat <<'EOF'
 Usage: test_configs [-v] [-t <test-script>] [<tests>]
 Runs tests from the given test-script.
-    -v  Run in verbose mode
+    -v  Increase verbosity
     -t: Specify test script, default is ./test_config_tests
     -h  Show this help
 EOF
@@ -30,7 +33,11 @@ shift $((OPTIND-1))
 
 # Assemble all the tests into separate directories and files
 TEMP_DIR="$(mktemp -d)"
-trap "rm -rf $TEMP_DIR" EXIT
+if ((KEEP_FILES)); then
+    trap "echo Keeping $TEMP_DIR" EXIT
+else
+    trap "rm -rf $TEMP_DIR" EXIT
+fi
 
 TESTS=($(
     sed '/^#/d; /^$/d' "$TEST_TEMPLATE" |
@@ -41,6 +48,7 @@ TESTS=($(
                 echo "$TEST"
                 TEST_DIR="$TEMP_DIR/$TEST"
                 mkdir "${TEST_DIR}"
+                cp "$TOP"/config_d/* "${TEST_DIR}"
                 ;;
             -*)
                 TEST_FILE="$TEST_DIR"/"${REPLY#- }"
@@ -62,14 +70,20 @@ failed=0
 for test in "${TESTS[@]}"; do
     config="$TEMP_DIR/$test"
     if [[ -d "$config" ]]; then
-        result="$("$HERE"/../simserver -c "$config" -V-q -- -T 2>&1 >/dev/null)"
+        result="$("$TOP"/simserver -c "$config" -V-q -- -T 2>&1 >/dev/null)"
+        rc=$?
         if grep -q '^==' <<<"$result"; then
-            echo $test Error
-            cat <<<"$result"
+            if grep -q '^==[0-9]*== Invalid' <<<"$result"; then
+                echo $test Error $rc
+                ((VERBOSE > 0))  &&  cat <<<"$result"
+            else
+                echo $test Leak $rc
+                ((VERBOSE > 1))  &&  cat <<<"$result"
+            fi
             failed=$((failed + 1))
         else
-            echo $test Ok
-            ((VERBOSE))  &&  cat <<<"$result"
+            echo $test Ok $rc
+            ((VERBOSE > 2))  &&  cat <<<"$result"
         fi
     else
         echo $test not found

@@ -140,8 +140,16 @@ zpkg: etc/panda-server.list $(PANDA_KO) $(SERVER) $(SLOW_LOAD)
 	$(MAKE_ZPKG) -t $(TOP) -b $(BUILD_DIR) -d $(BUILD_DIR) \
             $< $(GIT_VERSION)
 
-
 .PHONY: zpkg
+
+
+# ------------------------------------------------------------------------------
+# Run automatic tests
+
+tests:
+	make -C tests
+
+.PHONY: tests
 
 
 # ------------------------------------------------------------------------------
