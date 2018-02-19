@@ -248,7 +248,7 @@ static error__t load_register_database(const char *config_dir)
     struct indent_parser parser = { .parse_line = register_parse_line, };
     return
         parse_indented_file(db_name, 1, &parser)  ?:
-        TEST_OK_(hw_checked, "Nothing found in register file");
+        TEST_OK_(hw_checked, "*REG block missing from register file");
 }
 
 
