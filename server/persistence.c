@@ -129,16 +129,27 @@ static void load_persistent_state(void)
         error_report(error);
     else
     {
+        unsigned int error_count = 0;
         struct read_line_context read_line = { .file = in_file, };
         char line[MAX_LINE_LENGTH];
         while (do_read_line(&read_line, line, sizeof(line)))
         {
             error = load_one_value(&read_line, line);
             if (error)
-                ERROR_REPORT(error,
-                    "Error on line %d of persistent state", read_line.line_no);
+            {
+                if (error_count == 0)
+                    ERROR_REPORT(error,
+                        "Unable to load line %d (%s) of persistent state",
+                        read_line.line_no, line);
+                else
+                    error_discard(error);
+                error_count += 1;
+            }
         }
         fclose(in_file);
+        if (error_count)
+            log_error("Unable to load %u lines from persistent state",
+                error_count);
 
         /* Reset change set context to the state we've just loaded.  We can do
          * this safely because the state is loaded before the socket server is
