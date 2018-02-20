@@ -82,18 +82,7 @@ bool get_capture_enabled(
 /* Update cached pos_out values up to date with values read from hardware. */
 void do_pos_out_refresh(uint64_t change_index);
 
-/* *POSITIONS? implementation, reports all pos_mux position names. */
-void report_capture_positions(struct connection_result *result);
-
-
-/* Given an array of numbers uses format_field_name to add entries to the given
- * enumeration. */
-error__t add_mux_indices(
-    struct enumeration *lookup, struct field *field,
-    const unsigned int array[], size_t length);
-
 
 /* Capture class api. */
-extern const struct class_methods pos_mux_class_methods;
 extern const struct class_methods pos_out_class_methods;
 extern const struct class_methods ext_out_class_methods;

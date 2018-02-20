@@ -18,6 +18,7 @@
 #include "database.h"
 #include "system_command.h"
 #include "fields.h"
+#include "pos_mux.h"
 #include "output.h"
 #include "bit_out.h"
 #include "time_position.h"
@@ -199,6 +200,7 @@ int main(int argc, char *const argv[])
 
         initialise_metadata()  ?:
         initialise_fields()  ?:
+        initialise_pos_mux()  ?:
         initialise_output()  ?:
         initialise_bit_out()  ?:
         initialise_time_position()  ?:
@@ -246,6 +248,7 @@ int main(int argc, char *const argv[])
     terminate_time_position();
     terminate_bit_out();
     terminate_output();
+    terminate_pos_mux();
     terminate_fields();
     terminate_metadata();
 

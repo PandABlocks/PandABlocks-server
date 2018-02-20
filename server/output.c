@@ -18,6 +18,7 @@
 #include "enums.h"
 #include "time_position.h"
 #include "bit_out.h"
+#include "pos_mux.h"
 #include "prepare.h"
 #include "locking.h"
 
@@ -31,8 +32,6 @@ static pthread_mutex_t update_mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t pos_value[POS_BUS_COUNT];
 static uint64_t pos_update_index[] = { [0 ... POS_BUS_COUNT-1] = 1 };
 
-/* Map between field names and bit bus indexes. */
-static struct enumeration *pos_mux_lookup;
 
 
 #define MAX_DATA_DELAY   31
@@ -602,21 +601,6 @@ static const struct output_type_info output_type_info[] = {
 static bool bus_index_used[CAPTURE_BUS_COUNT];
 
 
-error__t add_mux_indices(
-    struct enumeration *lookup, struct field *field,
-    const unsigned int array[], size_t length)
-{
-    error__t error = ERROR_OK;
-    for (unsigned int i = 0; !error  &&  i < length; i ++)
-    {
-        char name[MAX_NAME_LENGTH];
-        format_field_name(name, sizeof(name), field, NULL, i, '\0');
-        error = add_enumeration(lookup, name, array[i]);
-    }
-    return error;
-}
-
-
 static error__t assign_capture_values(
     struct output *output,
     unsigned int offset, unsigned int values[], unsigned int limit)
@@ -676,8 +660,7 @@ static error__t parse_registers(
 
         /* If these are position bus indices then add to the lookup list. */
         IF(info->pos_type,
-            add_mux_indices(
-                pos_mux_lookup, field, values, output->count))  ?:
+            add_pos_mux_index(field, values, output->count))  ?:
 
         /* Finally parse any extra values if requred.  These are separated
          * by a / and fill in the second values of each instance. */
@@ -876,14 +859,12 @@ static const char *output_describe(void *class_data)
 
 error__t initialise_output(void)
 {
-    pos_mux_lookup = create_dynamic_enumeration(POS_BUS_COUNT + 1);
-
     for (unsigned int i = 0; i < ARRAY_SIZE(output_capture_set); i ++)
     {
         struct output_capture *capture = output_capture_set[i];
         capture->enumeration = create_static_enumeration(&capture->enum_set);
     }
-    return add_enumeration(pos_mux_lookup, "ZERO", POS_BUS_ZERO);
+    return ERROR_OK;
 }
 
 
@@ -895,135 +876,11 @@ void terminate_output(void)
         if (capture->enumeration)
             destroy_enumeration(capture->enumeration);
     }
-    if (pos_mux_lookup)
-        destroy_enumeration(pos_mux_lookup);
-}
-
-
-/*****************************************************************************/
-/* pos_mux class. */
-
-struct pos_mux_state {
-    pthread_mutex_t mutex;
-    unsigned int block_base;
-    unsigned int mux_reg;
-    unsigned int count;
-    struct pos_mux_value {
-        unsigned int value;
-        uint64_t update_index;
-    } values[];
-};
-
-
-static error__t pos_mux_init(
-    const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
-{
-    struct pos_mux_state *state = malloc(
-        sizeof(struct pos_mux_state) + count * sizeof(struct pos_mux_value));
-    *state = (struct pos_mux_state) {
-        .mutex = PTHREAD_MUTEX_INITIALIZER,
-        .count = count,
-    };
-    for (unsigned int i = 0; i < count; i ++)
-        state->values[i] = (struct pos_mux_value) {
-            .value = POS_BUS_ZERO,
-            .update_index = 1,
-        };
-    *class_data = state;
-
-    return ERROR_OK;
-}
-
-
-static error__t pos_mux_finalise(void *class_data)
-{
-    struct pos_mux_state *state = class_data;
-    for (unsigned int i = 0; i < state->count; i ++)
-        hw_write_register(
-            state->block_base, i, state->mux_reg, state->values[i].value);
-    return ERROR_OK;
-}
-
-
-static error__t pos_mux_parse_register(
-    void *class_data, struct field *field, unsigned int block_base,
-    const char **line)
-{
-    struct pos_mux_state *state = class_data;
-    state->block_base = block_base;
-    return
-        parse_whitespace(line)  ?:
-        check_parse_register(field, line, &state->mux_reg);
-}
-
-
-static error__t pos_mux_get(
-    void *class_data, unsigned int number, char result[], size_t length)
-{
-    struct pos_mux_state *state = class_data;
-    return enum_format(
-        pos_mux_lookup, number, state->values[number].value, result, length);
-}
-
-
-static error__t pos_mux_put(
-    void *class_data, unsigned int number, const char *string)
-{
-    struct pos_mux_state *state = class_data;
-    unsigned int mux_value;
-    error__t error = enum_parse(pos_mux_lookup, number, string, &mux_value);
-    if (!error)
-    {
-        struct pos_mux_value *value = &state->values[number];
-        LOCK(state->mutex);
-        value->value = mux_value;
-        value->update_index = get_change_index();
-        hw_write_register(state->block_base, number, state->mux_reg, mux_value);
-        UNLOCK(state->mutex);
-    }
-    return error;
-}
-
-
-static void pos_mux_change_set(
-    void *class_data, const uint64_t report_index, bool changes[])
-{
-    struct pos_mux_state *state = class_data;
-    LOCK(state->mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index > report_index;
-    UNLOCK(state->mutex);
-}
-
-
-static const struct enumeration *pos_mux_get_enumeration(void *class_data)
-{
-    return pos_mux_lookup;
-}
-
-
-/* Returns list of all position bus entries. */
-void report_capture_positions(struct connection_result *result)
-{
-    write_enum_labels(pos_mux_lookup, result);
 }
 
 
 /*****************************************************************************/
 /* Published class definitions. */
-
-const struct class_methods pos_mux_class_methods = {
-    "pos_mux",
-    .init = pos_mux_init,
-    .finalise = pos_mux_finalise,
-    .parse_register = pos_mux_parse_register,
-    .get = pos_mux_get,
-    .put = pos_mux_put,
-    .get_enumeration = pos_mux_get_enumeration,
-    .change_set = pos_mux_change_set,
-    .change_set_index = CHANGE_IX_CONFIG,
-};
 
 const struct class_methods pos_out_class_methods = {
     "pos_out",

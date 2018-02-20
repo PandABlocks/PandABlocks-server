@@ -94,6 +94,7 @@ SRCS += fields.c                # Top level block and field support
 SRCS += types.c                 # Type parsing and formatting support
 SRCS += enums.c                 # Enumeration handling
 SRCS += attributes.c            # Class and type attribute support
+SRCS += pos_mux.c               # pos_mux field class
 SRCS += output.c                # pos_out class and pox_mux type support
 SRCS += bit_out.c               # bit_out class and bit_mux type support
 SRCS += capture.c               # Data capture control

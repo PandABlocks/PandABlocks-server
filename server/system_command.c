@@ -21,6 +21,7 @@
 #include "config_command.h"
 #include "prepare.h"
 #include "fields.h"
+#include "pos_mux.h"
 #include "output.h"
 #include "attributes.h"
 #include "enums.h"

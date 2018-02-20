@@ -18,6 +18,7 @@
 #include "types.h"
 #include "enums.h"
 #include "locking.h"
+#include "pos_mux.h"
 #include "output.h"
 
 #include "bit_out.h"

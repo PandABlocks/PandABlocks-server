@@ -14,6 +14,7 @@
 #include "config_server.h"
 #include "types.h"
 #include "attributes.h"
+#include "pos_mux.h"
 #include "output.h"
 #include "bit_out.h"
 #include "register.h"
