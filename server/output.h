@@ -83,6 +83,8 @@ bool get_capture_enabled(
 void do_pos_out_refresh(uint64_t change_index);
 
 
-/* Capture class api. */
-extern const struct class_methods pos_out_class_methods;
-extern const struct class_methods ext_out_class_methods;
+/* Registers ext_out and pos_out values as a capture source. */
+struct ext_out;
+struct pos_out;
+error__t register_ext_out(struct ext_out *ext_out, struct field *field);
+error__t register_pos_out(struct pos_out *pos_out, struct field *field);

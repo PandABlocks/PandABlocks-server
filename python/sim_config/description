@@ -172,10 +172,10 @@ PCAP        Position capture control
     ERR_STATUS      Was last capture successful?
     ACTIVE          Data capture in progress
 
-    CAPTURE_TS      Timestamp of captured data
-    FRAME_LENGTH    Length of captured frame
-    CAPTURE_OFFSET  Offset of capture into capture frame
-    ADC_COUNT       Number of ADC samples in captured frame
+    TS_START        Timestamp of first sample in capture frame
+    TS_END          Timestamp of last sample in capture frame
+    TS_CAPTURE      Timestamp of capture trigger
+    SAMPLES         Number of samples in capture frame
 
     BITS0           Quadrant 0 of bit_bus
     BITS1           Quadrant 1 of bit_bus

@@ -21,7 +21,7 @@
 #include "output.h"
 #include "bit_out.h"
 #include "locking.h"
-#include "time_position.h"
+#include "time.h"
 
 #include "types.h"
 
@@ -502,14 +502,9 @@ static const struct type_methods *types_table[] = {
     &int_type_methods,              // int
     &scalar_type_methods,           // scalar
     &bit_type_methods,              // bit
-
     &action_type_methods,           // action
-
     &lut_type_methods,              // lut
-
-    &position_type_methods,         // position
     &time_type_methods,             // time
-
     &enum_type_methods,             // enum
 };
 

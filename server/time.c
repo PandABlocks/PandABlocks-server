@@ -20,7 +20,7 @@
 #include "enums.h"
 #include "locking.h"
 
-#include "time_position.h"
+#include "time.h"
 
 
 #define TIME_SECS   1
@@ -296,225 +296,6 @@ static error__t time_min_format(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Position. */
-
-struct position_state {
-    pthread_mutex_t mutex;
-    struct position_field {
-        double scale;
-        double offset;
-        char *units;
-    } values[];
-};
-
-
-static error__t position_init(
-    const char **string, unsigned int count, void **type_data)
-{
-    struct position_state *state = malloc(
-        sizeof(struct position_state) + count * sizeof(struct position_field));
-    *state = (struct position_state) {
-        .mutex = PTHREAD_MUTEX_INITIALIZER,
-    };
-    for (unsigned int i = 0; i < count; i ++)
-        state->values[i] = (struct position_field) {
-            .scale = 1.0,
-        };
-    *type_data = state;
-    return ERROR_OK;
-}
-
-static void position_destroy(void *type_data, unsigned int count)
-{
-    struct position_state *state = type_data;
-    for (unsigned int i = 0; i < count; i ++)
-        free(state->values[i].units);
-    free(state);
-}
-
-
-static error__t position_parse(
-    void *type_data, unsigned int number,
-    const char **string, unsigned int *value)
-{
-    return parse_int(string, (int *) value);
-}
-
-static error__t position_format(
-    void *type_data, unsigned int number,
-    unsigned int value, char result[], size_t length)
-{
-    return format_string(result, length, "%d", (int) value);
-}
-
-
-static error__t position_scaled_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct type *type = owner;
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double scale = field->scale;
-    double offset = field->offset;
-    UNLOCK(state->mutex);
-
-    uint32_t value;
-    return
-        read_type_register(type, number, &value)  ?:
-        format_double(result, length, (int) value * scale + offset);
-}
-
-static error__t position_scaled_put(
-    void *owner, void *data, unsigned int number, const char *string)
-{
-    struct type *type = owner;
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double scale = field->scale;
-    double offset = field->offset;
-    UNLOCK(state->mutex);
-
-    double position;
-    double converted;
-    return
-        parse_double(&string, &position)  ?:
-        parse_eos(&string)  ?:
-        DO(converted = (position - offset) / scale)  ?:
-        TEST_OK_(INT32_MIN <= converted  &&  converted <= INT32_MAX,
-            "Position out of range")  ?:
-        write_type_register(type, number, (unsigned int) lround(converted));
-}
-
-
-static error__t position_scale_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double scale = field->scale;
-    UNLOCK(state->mutex);
-
-    return format_double(result, length, scale);
-}
-
-static error__t position_scale_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    double scale;
-    error__t error = parse_double(&value, &scale)  ?:  parse_eos(&value);
-
-    if (!error)
-    {
-        LOCK(state->mutex);
-        field->scale = scale;
-        UNLOCK(state->mutex);
-    }
-    return error;
-}
-
-static error__t position_offset_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    double offset = field->offset;
-    UNLOCK(state->mutex);
-
-    return format_double(result, length, offset);
-}
-
-static error__t position_offset_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    double offset;
-    error__t error = parse_double(&value, &offset)  ?: parse_eos(&value);
-    if (!error)
-    {
-        LOCK(state->mutex);
-        field->offset = offset;
-        UNLOCK(state->mutex);
-    }
-    return error;
-}
-
-
-static error__t position_units_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    LOCK(state->mutex);
-    error__t error = format_string(result, length, "%s", field->units ?: "");
-    UNLOCK(state->mutex);
-
-    return error;
-}
-
-static error__t position_units_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct position_state *state = data;
-    struct position_field *field = &state->values[number];
-
-    const char *units;
-    error__t error = parse_utf8_string(&value, &units);
-    if (!error)
-    {
-        LOCK(state->mutex);
-        free(field->units);
-        field->units = strdup(units);
-        UNLOCK(state->mutex);
-    }
-    return error;
-}
-
-
-/* Most annoying.  This function is missing from the C library, possibly best
- * explained here: https://lwn.net/Articles/507319/
- *    Never mind, it's easy to write. */
-static size_t strlcpy(char dst[], const char *src, size_t size)
-{
-    size_t src_len = strlen(src);
-    memcpy(dst, src, MIN(src_len + 1, size));
-    if (size > 0)  dst[size - 1] = '\0';
-    return src_len;
-}
-
-
-size_t get_position_info(
-    struct position_state *position, unsigned int number,
-    double *scale, double *offset, char units[], size_t length)
-{
-    LOCK(position->mutex);
-    const struct position_field *field = &position->values[number];
-    *scale = field->scale;
-    *offset = field->offset;
-    size_t result = strlcpy(units, field->units ?: "", length);
-    UNLOCK(position->mutex);
-    return result;
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Time. */
 
 /* The semantics of this code is very similar to that of time_class, but here
@@ -592,13 +373,13 @@ static const struct enumeration *time_units_get_enumeration(void *data)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Class and type definitions. */
 
-error__t initialise_time_position(void)
+error__t initialise_time(void)
 {
     time_units_enumeration = create_static_enumeration(&time_units_enum_set);
     return ERROR_OK;
 }
 
-void terminate_time_position(void)
+void terminate_time(void)
 {
     if (time_units_enumeration)
         destroy_enumeration(time_units_enumeration);
@@ -629,30 +410,6 @@ const struct class_methods time_class_methods = {
         },
     },
     .attr_count = 3,
-};
-
-
-const struct type_methods position_type_methods = {
-    "position",
-    .init = position_init, .destroy = position_destroy,
-    .parse = position_parse, .format = position_format,
-    .attrs = (struct attr_methods[]) {
-        { "SCALED", "Value with scaling applied",
-            .format = position_scaled_format, .put = position_scaled_put, },
-        { "SCALE", "Scale factor",
-            .in_change_set = true,
-            .format = position_scale_format, .put = position_scale_put, },
-        { "OFFSET", "Offset",
-            .in_change_set = true,
-            .format = position_offset_format, .put = position_offset_put, },
-        { "UNITS", "Units string",
-            .in_change_set = true,
-            .format = position_units_format,
-            .put = position_units_put,
-            .get_enumeration = time_units_get_enumeration,
-        },
-    },
-    .attr_count = 4,
 };
 
 

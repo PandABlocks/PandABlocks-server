@@ -106,7 +106,7 @@ INENC[4]
     Z               bit_out
     CONN            bit_out
     TRANS           bit_out
-    VAL             pos_out     encoder
+    VAL             pos_out
 
 QDEC[4]
     RST_ON_Z        param       bit
@@ -214,7 +214,7 @@ PCOMP[4]
         3   DMA overrun
 
 ADC[8]
-    OUT             pos_out     adc
+    OUT             pos_out
 
 PCAP
     ENABLE          bit_mux
@@ -227,10 +227,10 @@ PCAP
         3   Buffer overrun
     ACTIVE          bit_out
 
-    CAPTURE_TS      ext_out     timestamp
-    FRAME_LENGTH    ext_out
-    CAPTURE_OFFSET  ext_out     offset
-    ADC_COUNT       ext_out     adc_count
+    TS_START        ext_out     timestamp
+    TS_END          ext_out     timestamp
+    TS_CAPTURE      ext_out     timestamp
+    SAMPLES         ext_out     samples
 
     BITS0           ext_out     bits 0
     BITS1           ext_out     bits 1

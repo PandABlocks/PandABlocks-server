@@ -131,8 +131,8 @@ static error__t bit_mux_get(
     void *class_data, unsigned int number, char result[], size_t length)
 {
     struct bit_mux_state *state = class_data;
-    return enum_format(
-        bit_mux_lookup, number, state->values[number].value, result, length);
+    return format_enumeration(
+        bit_mux_lookup, state->values[number].value, result, length);
 }
 
 
@@ -141,7 +141,7 @@ static error__t bit_mux_put(
 {
     struct bit_mux_state *state = class_data;
     unsigned int mux_value;
-    error__t error = enum_parse(bit_mux_lookup, number, string, &mux_value);
+    error__t error = parse_enumeration(bit_mux_lookup, string, &mux_value);
     if (!error)
     {
         struct bit_mux_value *value = &state->values[number];

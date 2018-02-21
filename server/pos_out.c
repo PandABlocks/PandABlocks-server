@@ -1,0 +1,473 @@
+/* Position output support. */
+
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#include <pthread.h>
+
+#include "error.h"
+#include "hardware.h"
+#include "hashtable.h"
+#include "parse.h"
+#include "config_server.h"
+#include "data_server.h"
+#include "fields.h"
+#include "attributes.h"
+#include "types.h"
+#include "enums.h"
+#include "output.h"
+#include "locking.h"
+
+#include "pos_out.h"
+
+
+enum pos_out_capture {
+    POS_OUT_CAPTURE_NONE,
+    POS_OUT_CAPTURE_VALUE,
+    POS_OUT_CAPTURE_DIFF,
+    POS_OUT_CAPTURE_SUM,
+    POS_OUT_CAPTURE_MEAN,
+    POS_OUT_CAPTURE_MIN,
+    POS_OUT_CAPTURE_MAX,
+    POS_OUT_CAPTURE_MIN_MAX_MEAN,
+};
+
+struct pos_out {
+    pthread_mutex_t mutex;              // Guards ??
+    unsigned int count;                 // Number of values
+    struct pos_out_field {
+        /* Position scaling and units. */
+        double scale;
+        double offset;
+        char *units;
+
+        unsigned int capture_index;     // position bus capture index
+        enum pos_out_capture capture;   // Capture state
+        unsigned int data_delay;        // Capture data delay
+    } values[];
+};
+
+
+
+/******************************************************************************/
+/* Reading values. */
+
+/* Interlock for position values and update indices. */
+static pthread_mutex_t update_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* Current values and update indices for each output field. */
+static uint32_t pos_value[POS_BUS_COUNT];
+static uint64_t pos_update_index[] = { [0 ... POS_BUS_COUNT-1] = 1 };
+
+
+
+#define MAX_DATA_DELAY   31
+
+
+/* The refresh methods are called when we need a fresh value.  We retrieve
+ * values and changed bits from the hardware and update settings accordingly. */
+
+void do_pos_out_refresh(uint64_t change_index)
+{
+    LOCK(update_mutex);
+    bool changes[POS_BUS_COUNT];
+    hw_read_positions(pos_value, changes);
+    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
+        if (changes[i]  &&  change_index > pos_update_index[i])
+            pos_update_index[i] = change_index;
+    UNLOCK(update_mutex);
+}
+
+
+/* Class method for value refresh. */
+static void pos_out_refresh(void *class_data, unsigned int number)
+{
+    do_pos_out_refresh(get_change_index());
+}
+
+
+/* Single word read for type interface.  For pos_out values the first entry in
+ * the index array is the position bus offset. */
+static int read_pos_out_value(struct pos_out *pos_out, unsigned int number)
+{
+    LOCK(update_mutex);
+    unsigned int capture_index = pos_out->values[number].capture_index;
+    uint32_t result = pos_value[capture_index];
+    UNLOCK(update_mutex);
+    return (int) result;
+}
+
+
+/* When reading just return the current value from our static state. */
+static error__t pos_out_get(
+    void *class_data, unsigned int number, char result[], size_t length)
+{
+    struct pos_out *pos_out = class_data;
+    return format_string(
+        result, length, "%d", read_pos_out_value(pos_out, number));
+}
+
+
+/* Computation of change set. */
+static void pos_out_change_set(
+    void *class_data, const uint64_t report_index, bool changes[])
+{
+    struct pos_out *pos_out = class_data;
+    LOCK(update_mutex);
+    for (unsigned int i = 0; i < pos_out->count; i ++)
+    {
+        unsigned int capture_index = pos_out->values[i].capture_index;
+        changes[i] = pos_update_index[capture_index] > report_index;
+    }
+    UNLOCK(update_mutex);
+}
+
+
+/* Most annoying.  This function is missing from the C library, possibly best
+ * explained here: https://lwn.net/Articles/507319/
+ *    Never mind, it's easy to write. */
+static size_t strlcpy(char dst[], const char *src, size_t size)
+{
+    size_t src_len = strlen(src);
+    memcpy(dst, src, MIN(src_len + 1, size));
+    if (size > 0)  dst[size - 1] = '\0';
+    return src_len;
+}
+
+
+size_t get_pos_out_info(
+    struct pos_out *pos_out, unsigned int number,
+    double *scale, double *offset, char units[], size_t length)
+{
+    LOCK(pos_out->mutex);
+    const struct pos_out_field *field = &pos_out->values[number];
+    *scale = field->scale;
+    *offset = field->offset;
+    size_t result = strlcpy(units, field->units ?: "", length);
+    UNLOCK(pos_out->mutex);
+    return result;
+}
+
+
+static void write_data_delay(struct pos_out *pos_out, unsigned int number)
+{
+    struct pos_out_field *field = &pos_out->values[number];
+    hw_write_data_delay(field->capture_index, field->data_delay);
+}
+
+
+/******************************************************************************/
+/* Attributes. */
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Scaling and units. */
+
+
+static error__t pos_out_scaled_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+
+    LOCK(pos_out->mutex);
+    double scale = field->scale;
+    double offset = field->offset;
+    UNLOCK(pos_out->mutex);
+
+    int value = read_pos_out_value(pos_out, number);
+    return format_double(result, length, value * scale + offset);
+}
+
+
+static error__t pos_out_scale_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+
+    LOCK(pos_out->mutex);
+    double scale = field->scale;
+    UNLOCK(pos_out->mutex);
+
+    return format_double(result, length, scale);
+}
+
+static error__t pos_out_scale_put(
+    void *owner, void *data, unsigned int number, const char *value)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+
+    double scale;
+    error__t error = parse_double(&value, &scale)  ?:  parse_eos(&value);
+
+    if (!error)
+    {
+        LOCK(pos_out->mutex);
+        field->scale = scale;
+        UNLOCK(pos_out->mutex);
+    }
+    return error;
+}
+
+static error__t pos_out_offset_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+
+    LOCK(pos_out->mutex);
+    double offset = field->offset;
+    UNLOCK(pos_out->mutex);
+
+    return format_double(result, length, offset);
+}
+
+static error__t pos_out_offset_put(
+    void *owner, void *data, unsigned int number, const char *value)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+
+    double offset;
+    error__t error = parse_double(&value, &offset)  ?: parse_eos(&value);
+    if (!error)
+    {
+        LOCK(pos_out->mutex);
+        field->offset = offset;
+        UNLOCK(pos_out->mutex);
+    }
+    return error;
+}
+
+
+static error__t pos_out_units_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+
+    LOCK(pos_out->mutex);
+    error__t error = format_string(result, length, "%s", field->units ?: "");
+    UNLOCK(pos_out->mutex);
+
+    return error;
+}
+
+static error__t pos_out_units_put(
+    void *owner, void *data, unsigned int number, const char *value)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+
+    const char *units;
+    error__t error = parse_utf8_string(&value, &units);
+    if (!error)
+    {
+        LOCK(pos_out->mutex);
+        free(field->units);
+        field->units = strdup(units);
+        UNLOCK(pos_out->mutex);
+    }
+    return error;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Capture control. */
+
+static const struct enum_set pos_out_capture_enum_set = {
+    .enums = (struct enum_entry[]) {
+        { POS_OUT_CAPTURE_NONE,         "No", },
+        { POS_OUT_CAPTURE_VALUE,        "Value", },
+        { POS_OUT_CAPTURE_DIFF,         "Difference", },
+        { POS_OUT_CAPTURE_SUM,          "Sum", },
+        { POS_OUT_CAPTURE_MEAN,         "Mean", },
+        { POS_OUT_CAPTURE_MIN,          "Minimum", },
+        { POS_OUT_CAPTURE_MAX,          "Maximum", },
+        { POS_OUT_CAPTURE_MIN_MAX_MEAN, "Min Max Mean", },
+    },
+    .count = 8,
+};
+
+static const struct enumeration *pos_out_capture_enum;
+
+
+static error__t pos_out_capture_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+
+    LOCK(pos_out->mutex);
+    enum pos_out_capture capture = field->capture;
+    UNLOCK(pos_out->mutex);
+
+    return format_enumeration(pos_out_capture_enum, capture, result, length);
+}
+
+
+static error__t pos_out_capture_put(
+    void *owner, void *data, unsigned int number, const char *value)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+    unsigned int capture = 0;
+    return
+        TEST_OK_(enum_name_to_index(pos_out_capture_enum, value, &capture),
+            "Invalid capture option")  ?:
+        DO(
+            LOCK(pos_out->mutex);
+            field->capture = capture;
+            UNLOCK(pos_out->mutex));
+}
+
+
+static const struct enumeration *pos_out_capture_get_enumeration(void *data)
+{
+    return pos_out_capture_enum;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Delay control. */
+
+static error__t pos_out_data_delay_format(
+    void *owner, void *data, unsigned int number,
+    char result[], size_t length)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+    return format_string(result, length, "%u", field->data_delay);
+}
+
+
+static error__t pos_out_data_delay_put(
+    void *owner, void *data, unsigned int number, const char *string)
+{
+    struct pos_out *pos_out = data;
+    struct pos_out_field *field = &pos_out->values[number];
+    unsigned int delay;
+    return
+        parse_uint(&string, &delay)  ?:
+        TEST_OK_(delay <= MAX_DATA_DELAY, "Delay too long")  ?:
+        DO( field->data_delay = delay;
+            write_data_delay(pos_out, number));
+}
+
+
+
+/******************************************************************************/
+
+
+static error__t pos_out_init(
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data)
+{
+    struct pos_out *pos_out = malloc(
+        sizeof(struct pos_out) + count * sizeof(struct pos_out_field));
+    *pos_out = (struct pos_out) {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .count = count,
+    };
+    for (unsigned int i = 0; i < count; i ++)
+        pos_out->values[i] = (struct pos_out_field) {
+            .scale = 1.0,
+        };
+    *class_data = pos_out;
+
+    return ERROR_OK;
+}
+
+
+static void pos_out_destroy(void *class_data)
+{
+    struct pos_out *pos_out = class_data;
+    for (unsigned int i = 0; i < pos_out->count; i ++)
+        free(pos_out->values[i].units);
+    free(pos_out);
+}
+
+
+static error__t parse_registers(
+    const char **line, struct pos_out *pos_out)
+{
+    unsigned int registers[pos_out->count];
+    return
+        parse_uint_array(line, registers, pos_out->count)  ?:
+        DO( for (unsigned int i = 0; i < pos_out->count; i ++)
+            pos_out->values[i].capture_index = registers[i]);
+}
+
+
+static error__t pos_out_parse_register(
+    void *class_data, struct field *field, unsigned int block_base,
+    const char **line)
+{
+    struct pos_out *pos_out = class_data;
+    return
+        parse_registers(line, pos_out)  ?:
+        register_pos_out(pos_out, field);
+}
+
+
+error__t initialise_pos_out(void)
+{
+    pos_out_capture_enum = create_static_enumeration(&pos_out_capture_enum_set);
+    return ERROR_OK;
+}
+
+
+void terminate_pos_out(void)
+{
+    if (pos_out_capture_enum)
+        destroy_enumeration(pos_out_capture_enum);
+}
+
+
+/******************************************************************************/
+
+const struct class_methods pos_out_class_methods = {
+    "pos_out",
+    .init = pos_out_init,
+    .parse_register = pos_out_parse_register,
+    .destroy = pos_out_destroy,
+    .get = pos_out_get, .refresh = pos_out_refresh,
+    .change_set = pos_out_change_set,
+    .change_set_index = CHANGE_IX_POSITION,
+    .attrs = (struct attr_methods[]) {
+        { "SCALED", "Value with scaling applied",
+            .format = pos_out_scaled_format, },
+        { "SCALE", "Scale factor",
+            .in_change_set = true,
+            .format = pos_out_scale_format, .put = pos_out_scale_put, },
+        { "OFFSET", "Offset",
+            .in_change_set = true,
+            .format = pos_out_offset_format, .put = pos_out_offset_put, },
+        { "UNITS", "Units string",
+            .in_change_set = true,
+            .format = pos_out_units_format,
+            .put = pos_out_units_put,
+        },
+        { "CAPTURE", "Capture options",
+            .in_change_set = true,
+            .format = pos_out_capture_format, .put = pos_out_capture_put,
+            .get_enumeration = pos_out_capture_get_enumeration,
+        },
+        { "DATA_DELAY", "Configure data delay for this field",
+            .in_change_set = true,
+            .format = pos_out_data_delay_format,
+            .put = pos_out_data_delay_put,
+        },
+    },
+    .attr_count = 6,
+};

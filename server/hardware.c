@@ -262,28 +262,9 @@ void hw_write_arm(bool enable)
 }
 
 
-void hw_write_framing_mask(uint32_t framing_mask, uint32_t framing_mode)
-{
-    write_named_register(PCAP_FRAMING_MASK, framing_mask);
-    write_named_register(PCAP_FRAMING_MODE, framing_mode);
-}
-
-
-void hw_write_framing_enable(bool enable)
-{
-    write_named_register(PCAP_FRAMING_ENABLE, enable);
-}
-
-
 void hw_write_data_delay(unsigned int capture_index, unsigned int delay)
 {
     write_named_register(PCAP_DATA_DELAY + capture_index, delay);
-}
-
-
-void hw_write_bit_delay(unsigned int bit_index, unsigned int delay)
-{
-    write_named_register(PCAP_BIT_DELAY + bit_index, delay);
 }
 
 

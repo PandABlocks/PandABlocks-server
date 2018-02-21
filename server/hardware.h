@@ -137,15 +137,8 @@ const char *hw_decode_completion(unsigned int completion);
  * *data_end==true the data capture engine should be treated as locked. */
 void hw_write_arm(bool enable);
 
-/* Configures framing mask and mode. */
-void hw_write_framing_mask(uint32_t framing_mask, uint32_t framing_mode);
-
-/* Configures whether framing is enabled. */
-void hw_write_framing_enable(bool enable);
-
 /* Writes the capture delay register. */
 void hw_write_data_delay(unsigned int capture_index, unsigned int delay);
-void hw_write_bit_delay(unsigned int bit_index, unsigned int delay);
 
 /* Writes list of capture bus fields to capture. */
 void hw_write_capture_set(const unsigned int capture[], size_t count);

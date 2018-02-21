@@ -87,7 +87,7 @@ INENC       12
     Z               74 75 76 77
     CONN            78 79 80 81
     TRANS           107 108 109 110
-    VAL             1 2 3 4 / 33 34 35 36
+    VAL             1 2 3 4
 
 QDEC        13
     RST_ON_Z        3
@@ -161,7 +161,7 @@ PCOMP       19
     TABLE_STATUS    16
 
 ADC         20
-    OUT             22 23 24 25 26 27 28 29 / 54 55 56 57 58 59 60 61
+    OUT             22 23 24 25 26 27 28 29
 
 PCAP        21
     ENABLE          0 5
@@ -169,14 +169,14 @@ PCAP        21
     CAPTURE         2 7
     ERR_STATUS      4
     ACTIVE          106
-    CAPTURE_TS      62 / 63
-    FRAME_LENGTH    37
-    CAPTURE_OFFSET  38
-    ADC_COUNT       32
-    BITS0           39
-    BITS1           40
-    BITS2           41
-    BITS3           42
+    TS_START        0 / 1
+    TS_END          2 / 3
+    TS_CAPTURE      4 / 5
+    SAMPLES         6
+    BITS0           8
+    BITS1           9
+    BITS2           10
+    BITS3           11
 
 BITS        22
     A               0
