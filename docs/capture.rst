@@ -95,24 +95,28 @@ A line of capture options *must* be sent after initial connection before any
 data will be sent.  This is a list of any of the following options separated by
 whitespace ending with a newline character.
 
-=========== ================================================================== =
-ASCII       Specifies that data is to be sent as ASCII numbers.                D
-BASE64      Binary data will be sent as a stream of base64 strings.
-FRAMED      Binary data is sent as a sequence of sized frames.
-UNFRAMED    Binary data is sent as a raw stream of bytes.
-SCALED      All scalable data is scaled and sent as doubles.                   D
-UNSCALED    ADC averages are calculated but other values are sent as integers.
-RAW         The captured binary data is sent without processing.
-NO_HEADER   The data header is omitted.
-NO_STATUS   The connection and end of experiment status strings are omitted.
-ONE_SHOT    Only one experiment will be transmitted.
+=========== ================================================================ = =
+ASCII       Specifies that data is to be sent as ASCII numbers.              1 D
+BASE64      Binary data will be sent as a stream of base64 strings.          1
+FRAMED      Binary data is sent as a sequence of sized frames.               1
+UNFRAMED    Binary data is sent as a raw stream of bytes.                    1 R
+SCALED      All scalable data is scaled and sent as doubles.                 2 D
+UNSCALED    Averages are calculated but all values are sent as integers.     2 R
+RAW         The captured binary data is sent without processing.             2
+NO_HEADER   The data header is omitted.                                        R
+NO_STATUS   The connection and end of experiment status strings are            R
+            omitted.
+ONE_SHOT    Only one experiment will be transmitted.                           R
 XML         The header will be sent in XML format.
 BARE        Selects ``UNFRAMED UNSCALED NO_HEADER NO_STATUS ONE_SHOT``
 DEFAULT     Default options.                                                   D
-=========== ================================================================== =
+=========== ================================================================ = =
 
 Key:
     :D: Default option if no other option specified.
+    :R: Options selected in response to ``BARE`` option.
+    :1: Data transmission formats, one of these will be selected.
+    :2: Data processing formats, one of these will be selected.
 
 
 Data Transport Formatting
