@@ -548,7 +548,7 @@ static struct type *create_type_block(
 static void create_type_attributes(
     struct type *type, struct hash_table *attr_map)
 {
-    create_attributes(
+    add_attributes(
         type->methods->attrs, type->methods->attr_count,
         type, type->type_data, type->count, attr_map);
 }
@@ -575,10 +575,4 @@ error__t create_type(
         DO(
             *type = create_type_block(methods, reg, reg_data, count, type_data);
             create_type_attributes(*type, attr_map));
-}
-
-
-void *get_type_state(struct type *type)
-{
-    return type->type_data;
 }

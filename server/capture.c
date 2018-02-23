@@ -28,19 +28,17 @@ struct field_group {
     size_t scaling;     // Index of first scaling entry for this group
 };
 
+struct scaling {
+    double scale;
+    double offset;
+};
 
 /* This structure defines the process for generating data capture. */
 struct data_capture {
     /* Number words in a single sample. */
     size_t raw_sample_words;
 
-    /* Timestamp capture and offset control. */
-    enum ts_capture ts_capture;
-
-    /* Offsets of special fields into sample. */
-    size_t timestamp_index;     // Raw 64-bit timestamp
-    size_t ts_offset_index;     // Timestamp offset correct, if required
-    size_t adc_count_index;     // ADC capture count
+    size_t sample_count_index;      // Offset of sample count if required
 
     /* Counts, data indexes, and scaling indexes for fields with differing
      * process requirements.  For the 64-bit fields the index is in 32-bit words
@@ -48,13 +46,10 @@ struct data_capture {
     struct field_group unscaled;    // 32-bit fields with no processing
     struct field_group scaled32;    // 32-bit fields with scaling and offset
     struct field_group scaled64;    // 64-bit fields with scaling and offset
-    struct field_group adc_mean;    // 64-bit accumulated ADC sums
-
-    /* Scaling for timestamp. */
-    double timestamp_scale;
+    struct field_group averaged;    // 64-bit accumulated sums
 
     /* Arrays of constants for scaling. */
-    struct scaling scaling[CAPTURE_BUS_COUNT];
+    struct scaling scaling[MAX_CAPTURE_COUNT];
 };
 
 
@@ -64,16 +59,15 @@ struct data_capture {
 /* Raw data is laid out thus:
  *
  *  +-----------+-----------+-----------+-----------+-----------+
- *  | hidden    | unscaled  | scaled    | scaled    | adc mean  |
+ *  | hidden    | unscaled  | scaled    | scaled    | averaged  |
  *  |           | uint-32   | int-32    | int-64    | int-64    |
  *  +-----------+-----------+-----------+-----------+-----------+
  *   ^           ^           ^           ^           ^
- *  uncaptured  unscaled    scaled32   scaled64   adc_mean
+ *  uncaptured  unscaled    scaled32   scaled64   averaged
  *  _count      _count      _count      _count      _count
  *
- * The hidden fields include the timestamp (handled separately), and the
- * timestamp offset and adc capture count when these are not explicitly captured
- * but are needed for computations.
+ * The hidden field includes the sample capture count when this is not
+ * explicitly captured but is needed for averaging.
  *
  * The effect of the conversion depends on the selected conversion, with the
  * following corresponding results:
@@ -100,25 +94,6 @@ struct data_capture {
  * */
 
 
-static bool capture_raw_timestamp(
-    const struct data_capture *capture,
-    const uint32_t input[], uint64_t *output)
-{
-    const uint64_t *timestamp = (const void *) &input[capture->timestamp_index];
-    switch (capture->ts_capture)
-    {
-        case TS_IGNORE: default:
-            return false;
-        case TS_CAPTURE:
-            *output = *timestamp;
-            return true;
-        case TS_OFFSET:
-            *output = *timestamp - input[capture->ts_offset_index];
-            return true;
-    }
-}
-
-
 /* Copies given fields unprocessed to output. */
 static size_t copy_unscaled_fields(
     const struct field_group *fields, const uint32_t input[],
@@ -134,24 +109,22 @@ static size_t copy_unscaled_fields(
 /* Unscaled conversion. */
 
 
-/* Averaged ADC samples are scaled by 2^8 to avoid losing precision.  This will
- * work safely for up to 24 bit ADCs. */
-static size_t average_unscaled_adc(
+/* Averaging of unscaled data. */
+static size_t average_unscaled_data(
     const struct data_capture *capture,
     const uint32_t input[], uint32_t output[])
 {
-    const int64_t *adc_means = (const void *) &input[capture->adc_mean.index];
-    uint32_t adc_sample_count = input[capture->adc_count_index];
-    if (adc_sample_count == 0)
-        adc_sample_count = 1;
-    for (size_t i = 0; i < capture->adc_mean.count; i ++)
-        output[i] = (uint32_t) ((adc_means[i] << 8) / adc_sample_count);
-    return sizeof(uint32_t) * capture->adc_mean.count;
+    const int64_t *averages = (const void *) &input[capture->averaged.index];
+    uint32_t sample_count = input[capture->sample_count_index];
+    if (sample_count == 0)
+        sample_count = 1;
+    for (size_t i = 0; i < capture->averaged.count; i ++)
+        output[i] = (uint32_t) (averages[i] / sample_count);
+    return sizeof(uint32_t) * capture->averaged.count;
 }
 
 
-/* For unscaled data we do two conversions to the data: apply the timestamp
- * offset if requried, and perform the averaging of ADC data.  The remaining
+/* For unscaled data the only conversion we do is averaging.  The remaining
  * values are copied unchanged. */
 static void convert_unscaled_data(
     const struct data_capture *capture,
@@ -159,10 +132,6 @@ static void convert_unscaled_data(
 {
     for (unsigned int i = 0; i < sample_count; i ++)
     {
-        /* Timestamp if requested with appropriate adjustment. */
-        if (capture_raw_timestamp(capture, input, output))
-            output += sizeof(uint64_t);
-
         /* Copy over the unscaled and scaled values. */
         output += copy_unscaled_fields(
             &capture->unscaled, input, output, sizeof(uint32_t));
@@ -171,8 +140,8 @@ static void convert_unscaled_data(
         output += copy_unscaled_fields(
             &capture->scaled64, input, output, sizeof(uint64_t));
 
-        /* Process the ADC values. */
-        output += average_unscaled_adc(capture, input, output);
+        /* Process the averaged values. */
+        output += average_unscaled_data(capture, input, output);
 
         input += capture->raw_sample_words;
     }
@@ -181,17 +150,6 @@ static void convert_unscaled_data(
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 /* Scaled conversion. */
-
-static bool capture_scaled_timestamp(
-    const struct data_capture *capture, const uint32_t input[], double *output)
-{
-    uint64_t timestamp;
-    bool ts_present = capture_raw_timestamp(capture, input, &timestamp);
-    if (ts_present)
-        *output = capture->timestamp_scale * (double) timestamp;
-    return ts_present;
-}
-
 
 static size_t convert_scaled32(
     const struct data_capture *capture, const uint32_t input[], double output[])
@@ -217,20 +175,20 @@ static size_t convert_scaled64(
 }
 
 
-static size_t average_scaled_adc(
+static size_t average_scaled_data(
     const struct data_capture *capture, const uint32_t input[], double output[])
 {
-    const int64_t *input_64 = (const void *) &input[capture->adc_mean.index];
+    const int64_t *input_64 = (const void *) &input[capture->averaged.index];
     const struct scaling *scaling =
-        &capture->scaling[capture->adc_mean.scaling];
-    uint32_t adc_sample_count = input[capture->adc_count_index];
-    if (adc_sample_count == 0)
-        adc_sample_count = 1;
-    for (size_t i = 0; i < capture->adc_mean.count; i ++)
+        &capture->scaling[capture->averaged.scaling];
+    uint32_t sample_count = input[capture->sample_count_index];
+    if (sample_count == 0)
+        sample_count = 1;
+    for (size_t i = 0; i < capture->averaged.count; i ++)
         output[i] =
-            scaling[i].scale * (double) input_64[i] / adc_sample_count +
+            scaling[i].scale * (double) input_64[i] / sample_count +
             scaling[i].offset;
-    return sizeof(double) * capture->adc_mean.count;
+    return sizeof(double) * capture->averaged.count;
 }
 
 
@@ -240,10 +198,6 @@ static void convert_scaled_data(
 {
     for (unsigned int i = 0; i < sample_count; i ++)
     {
-        /* Capture timestamp if requested. */
-        if (capture_scaled_timestamp(capture, input, output))
-            output += sizeof(double);
-
         /* Capture the unscaled values. */
         output += copy_unscaled_fields(
             &capture->unscaled, input, output, sizeof(uint32_t));
@@ -251,7 +205,7 @@ static void convert_scaled_data(
         /* Perform all the scaling. */
         output += convert_scaled32(capture, input, output);
         output += convert_scaled64(capture, input, output);
-        output += average_scaled_adc(capture, input, output);
+        output += average_scaled_data(capture, input, output);
 
         input += capture->raw_sample_words;
     }
@@ -282,19 +236,15 @@ size_t get_binary_sample_length(
             length =
                 sizeof(uint32_t) * (
                     capture->unscaled.count + capture->scaled32.count +
-                    capture->adc_mean.count) +
+                    capture->averaged.count) +
                 sizeof(uint64_t) * capture->scaled64.count;
-            if (capture->ts_capture != TS_IGNORE)
-                length += sizeof(uint64_t);
             break;
         case DATA_PROCESS_SCALED:
             length =
                 sizeof(uint32_t) * capture->unscaled.count +
-                sizeof(uint64_t) * (
+                sizeof(double) * (
                     capture->scaled32.count + capture->scaled64.count +
-                    capture->adc_mean.count);
-            if (capture->ts_capture != TS_IGNORE)
-                length += sizeof(double);
+                    capture->averaged.count);
             break;
     }
     return length;
@@ -350,7 +300,7 @@ static const void *send_raw_as_ascii(
         capture->scaled32.count, data,
         " %"PRIi32, int32_t);
     data += FORMAT_ASCII(
-        capture->scaled64.count + capture->adc_mean.count, data,
+        capture->scaled64.count + capture->averaged.count, data,
         " %"PRIi64, int64_t);
     return data;
 }
@@ -360,8 +310,6 @@ static const void *send_unscaled_as_ascii(
     const struct data_capture *capture,
     struct buffered_file *file, const void *data)
 {
-    if (capture->ts_capture != TS_IGNORE)
-        data += FORMAT_ASCII(1, data, " %"PRIu64, uint64_t);
     data += FORMAT_ASCII(
         capture->unscaled.count, data, " %"PRIu32, uint32_t);
     data += FORMAT_ASCII(
@@ -369,7 +317,7 @@ static const void *send_unscaled_as_ascii(
     data += FORMAT_ASCII(
         capture->scaled64.count, data, " %"PRIi64, int64_t);
     data += FORMAT_ASCII(
-        capture->adc_mean.count, data, " %"PRIi32, int32_t);
+        capture->averaged.count, data, " %"PRIi32, int32_t);
     return data;
 }
 
@@ -378,13 +326,11 @@ static const void *send_scaled_as_ascii(
     const struct data_capture *capture,
     struct buffered_file *file, const void *data)
 {
-    if (capture->ts_capture != TS_IGNORE)
-        data += FORMAT_ASCII(1, data, PRIdouble, double);
     data += FORMAT_ASCII(
         capture->unscaled.count, data, " %"PRIu32, uint32_t);
     data += FORMAT_ASCII(
         capture->scaled32.count + capture->scaled64.count +
-        capture->adc_mean.count, data, PRIdouble, double);
+        capture->averaged.count, data, PRIdouble, double);
     return data;
 }
 
@@ -421,109 +367,65 @@ bool send_binary_as_ascii(
 
 /* Used to gather the final capture state. */
 struct gather {
-    uint32_t framing_mask;          // Framing setup as request by output
-    uint32_t framing_mode;
-
-    unsigned int scaling_count;     // Number of entries written to scaling
     struct data_capture *capture;   // Associated data capture area
-
+    unsigned int scaling_count;     // Number of entries written to scaling
     unsigned int capture_count;     // Number of entries to be captured
-    unsigned int capture_index[CAPTURE_BUS_COUNT];   // List of capture indices
+    unsigned int capture_index[MAX_CAPTURE_COUNT];   // List of capture indices
 };
 
 
 
 /* Emits a single output, returns index of captured value. */
 static unsigned int emit_capture(
-    struct gather *gather, const struct output_field *output,
+    struct gather *gather, const struct capture_info *field,
     unsigned int index_count, bool scaled)
 {
+    struct data_capture *capture = gather->capture;
     unsigned int capture_index = gather->capture_count;
-    enum framing_mode framing_mode = get_output_info(
-        output,
-        &gather->capture_index[capture_index],
-        &gather->capture->scaling[gather->scaling_count]);
-    /* Pick up frame identification bit if required from first capture index. */
-    uint32_t frame_bit = 1U << gather->capture_index[capture_index];
-
-    /* Emit the capture index and any scaling if required. */
+    for (unsigned int i = 0; i < index_count; i ++)
+        gather->capture_index[capture_index + i] =
+            field->capture_index.index[i];
     gather->capture_count += index_count;
-    if (scaled)
-        gather->scaling_count += 1;
 
-    /* Set the framing masks as appropriate. */
-    switch (framing_mode)
+    if (scaled)
     {
-        case FRAMING_TRIGGER:   break;
-        case FRAMING_FRAME:
-            gather->framing_mask |= frame_bit;
-            break;
-        case FRAMING_SPECIAL:
-            gather->framing_mask |= frame_bit;
-            gather->framing_mode |= frame_bit;
-            break;
+        capture->scaling[gather->scaling_count] = (struct scaling) {
+            .scale = field->scale,
+            .offset = field->offset,
+        };
+        gather->scaling_count += 1;
     }
 
     return capture_index;
 }
 
 
-/* Ensures that the given capture group is being captured and records its index,
- * adds to the list of captured fields as necessary.  If the output was found
- * then true is returned to indicate that the computed offset will need to be
- * corrected afterwards. */
-static bool ensure_output_captured(
-    struct gather *gather,
-    const struct capture_group *group, const struct output_field *output,
-    size_t *ix)
-{
-    /* Search capture group for output. */
-    for (unsigned int i = 0; i < group->count; i ++)
-        if (group->outputs[i] == output)
-        {
-            *ix = i;
-            return true;
-        }
-
-    /* Not present, so add to capture list. */
-    *ix = emit_capture(gather, output, 1, false);
-    return false;
-}
-
-
-/* The timestamp and adc capture counts need special treatment.  We need to
- * ensure that they're captured if required and place their capture indexes. */
-static void prepare_fixed_outputs(
-    struct gather *gather, const struct captured_fields *fields)
+/* Ensure that the sample count is available.  If it is already being captured
+ * then work out where it will appear in the unscaled list, otherwise add it to
+ * the anonymous capture group at the start. */
+static void ensure_sample_count(
+    const struct captured_fields *fields, struct gather *gather)
 {
     struct data_capture *capture = gather->capture;
-    capture->ts_capture = fields->ts_capture;
 
-    /* Timestamp and offset, if necessary. */
-    bool fixup_ts_offset = false;
-    if (fields->ts_capture != TS_IGNORE)
+    /* Search the unscaled captures for a sample matching the sample count. */
+    unsigned int sample_count_capture =
+        fields->sample_count->capture_index.index[0];
+    for (unsigned int i = 0; i < fields->unscaled.count; i ++)
     {
-        emit_capture(gather, fields->timestamp, 2, false);
-        if (fields->ts_capture == TS_OFFSET)
-            fixup_ts_offset = ensure_output_captured(
-                gather, &fields->unscaled, fields->offset,
-                &capture->ts_offset_index);
+        struct capture_info *field = fields->unscaled.outputs[i];
+        if (field->capture_index.index[0] == sample_count_capture)
+        {
+            /* Already being captured.  Because the unscaled group goes first
+             * and we're the only entry, this is the right index. */
+            capture->sample_count_index = i;
+        }
     }
 
-    /* ADC count if any ADC mean fields. */
-    bool fixup_adc_count = false;
-    if (fields->adc_mean.count > 0)
-        fixup_adc_count = ensure_output_captured(
-            gather, &fields->unscaled, fields->adc_count,
-            &capture->adc_count_index);
-
-    /* Fixup the ts_offset and adc_count fields if required by adding the offset
-     * of the starting area of the unscaled area -- which we only just know now,
-     * having fully populated it. */
-    if (fixup_ts_offset)
-        capture->ts_offset_index += gather->capture_count;
-    if (fixup_adc_count)
-        capture->adc_count_index += gather->capture_count;
+    /* Not being captured.  We need to emit a capture entry right now.  Because
+     * we're first and only, we go into the anonymous group. */
+    capture->sample_count_index =
+        emit_capture(gather, fields->sample_count, 1, false);
 }
 
 
@@ -545,7 +447,9 @@ static void gather_data_capture(
 {
     /* Work through the fields. */
     struct data_capture *capture = gather->capture;
-    prepare_fixed_outputs(gather, fields);
+    if (capture->averaged.count > 0)
+        ensure_sample_count(fields, gather);
+
     prepare_output_group(
         gather, &fields->unscaled, &capture->unscaled, 1, false);
     prepare_output_group(
@@ -553,14 +457,12 @@ static void gather_data_capture(
     prepare_output_group(
         gather, &fields->scaled64, &capture->scaled64, 2, true);
     prepare_output_group(
-        gather, &fields->adc_mean, &capture->adc_mean, 2, true);
+        gather, &fields->averaged, &capture->averaged, 2, true);
     capture->raw_sample_words = gather->capture_count;
 }
 
 
-static struct data_capture data_capture_state = {
-    .timestamp_scale = 1.0 / CLOCK_FREQUENCY,
-};
+static struct data_capture data_capture_state;
 
 
 error__t prepare_data_capture(
@@ -573,16 +475,12 @@ error__t prepare_data_capture(
 
     gather_data_capture(fields, &gather);
     error__t error =
-        TEST_OK_(gather.capture_count > 0,
-            "Nothing configured for capture");
+        TEST_OK_(gather.capture_count > 0, "Nothing configured for capture");
     if (!error)
     {
         /* Now we can let the hardware know. */
-//         hw_write_framing_mask(gather.framing_mask, gather.framing_mode);
         hw_write_capture_set(gather.capture_index, gather.capture_count);
-//         hw_write_framing_enable(
-//             fields->ts_capture == TS_OFFSET  ||  gather.framing_mask);
-        *capture = gather.capture;
+        *capture = &data_capture_state;
     }
     return error;
 }

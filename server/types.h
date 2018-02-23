@@ -91,10 +91,6 @@ error__t create_type(
 /* Releases internal resources associated with type. */
 void destroy_type(struct type *type);
 
-/* Returns internal state associated with type.  Only use this if the type is
- * known! */
-void *get_type_state(struct type *type);
-
 
 /* Returns name of type. */
 const char *get_type_name(const struct type *type);

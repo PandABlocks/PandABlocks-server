@@ -17,127 +17,10 @@
 #include "output.h"
 #include "hardware.h"
 #include "capture.h"
+#include "ext_out.h"
 
 #include "prepare.h"
 
-
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Output fields registration. */
-
-/* This structure is used to record a single registered output field. */
-struct output_field {
-    /* The field is identified by the output and index number. */
-    struct output *output;
-    unsigned int number;
-
-    /* The field name is computed at output registration. */
-    char *field_name;
-    /* The two capture index values for this field. */
-    unsigned int capture_index[2];
-
-    /* The following fields are updated during capture preparation. */
-    struct capture_info info;
-};
-
-
-/* All registered outputs. */
-static struct output_field *output_fields[CAPTURE_BUS_COUNT];
-static unsigned int output_field_count;
-
-/* Offsets into outputs of the three special fields. */
-static struct output_field *timestamp_output;
-static struct output_field *offset_output;
-static struct output_field *adc_count_output;
-
-
-/* The three special fields need to be remembered separately. */
-static error__t process_special_field(
-    enum prepare_class prepare_class, struct output_field *field)
-{
-    error__t error = ERROR_OK;
-    switch (prepare_class)
-    {
-        case PREPARE_CLASS_NORMAL:
-            break;
-        case PREPARE_CLASS_TIMESTAMP:
-            error = TEST_OK_(timestamp_output == NULL,
-                "Timestamp already specified");
-            timestamp_output = field;
-            break;
-        case PREPARE_CLASS_TS_OFFSET:
-            error = TEST_OK_(offset_output == NULL,
-                "Timestamp already specified");
-            offset_output = field;
-            break;
-        case PREPARE_CLASS_ADC_COUNT:
-            error = TEST_OK_(adc_count_output == NULL,
-                "Timestamp already specified");
-            adc_count_output = field;
-            break;
-    }
-    return error;
-}
-
-
-static struct output_field *create_output_field(
-    struct output *output, unsigned int number, const char *field_name,
-    const unsigned int capture_index[2])
-{
-    struct output_field *field = malloc(sizeof(struct output_field));
-    *field = (struct output_field) {
-        .output = output,
-        .number = number,
-        .field_name = strdup(field_name),
-        .capture_index = { capture_index[0], capture_index[1], },
-    };
-    output_fields[output_field_count++] = field;
-    return field;
-}
-
-
-error__t register_output(
-    struct output *output, unsigned int number, const char *field_name,
-    enum prepare_class prepare_class, const unsigned int capture_index[2])
-{
-    struct output_field *field;
-    return
-        TEST_OK_(output_field_count < CAPTURE_BUS_COUNT,
-            "Too many capture fields specified!")  ?:
-        DO(field = create_output_field(
-            output, number, field_name, capture_index))  ?:
-        process_special_field(prepare_class, field);
-}
-
-
-/* Makes a best effor stab at returning a list of fields currently configured
- * for capture. */
-void report_capture_list(struct connection_result *result)
-{
-    for (unsigned int i = 0; i < output_field_count; i ++)
-    {
-        struct output_field *field = output_fields[i];
-        const char *capture;
-        if (get_capture_enabled(field->output, field->number, &capture))
-            format_many_result(result, "%s %s", field->field_name, capture);
-    }
-}
-
-
-void reset_capture_list(void)
-{
-    for (unsigned int i = 0; i < output_field_count; i ++)
-        reset_output_capture(
-            output_fields[i]->output, output_fields[i]->number);
-}
-
-
-void report_capture_labels(struct connection_result *result)
-{
-    for (unsigned int i = 0; i < output_field_count; i ++)
-        result->write_many(result->write_context, output_fields[i]->field_name);
-}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -355,33 +238,30 @@ static void end_element(struct xml_element *element)
 
 /* Returns string specifying formatting of given field. */
 static const char *field_type_name(
-    const struct output_field *field, const struct data_options *options)
+    const struct capture_info *field, const struct data_options *options)
 {
     static const char *field_type_names[][CAPTURE_MODE_COUNT] = {
         [DATA_PROCESS_RAW] = {
-            [CAPTURE_UNSCALED] = "uint32",
-            [CAPTURE_SCALED32] = "int32",
-            [CAPTURE_SCALED64] = "int64",
-            [CAPTURE_ADC_MEAN] = "int64",
-            [CAPTURE_TS_NORMAL ... CAPTURE_TS_OFFSET] = "uint64",
+            [CAPTURE_MODE_SCALED32] = "int32",
+            [CAPTURE_MODE_SCALED64] = "int64",
+            [CAPTURE_MODE_AVERAGE]  = "int64",
+            [CAPTURE_MODE_UNSCALED] = "uint32",
         },
         [DATA_PROCESS_UNSCALED] = {
-            [CAPTURE_UNSCALED] = "uint32",
-            [CAPTURE_SCALED32] = "int32",
-            [CAPTURE_SCALED64] = "int64",
-            [CAPTURE_ADC_MEAN] = "int32",
-            [CAPTURE_TS_NORMAL ... CAPTURE_TS_OFFSET] = "uint64",
+            [CAPTURE_MODE_SCALED32] = "int32",
+            [CAPTURE_MODE_SCALED64] = "int64",
+            [CAPTURE_MODE_AVERAGE]  = "int32",
+            [CAPTURE_MODE_UNSCALED] = "uint32",
         },
         [DATA_PROCESS_SCALED] = {
-            [CAPTURE_UNSCALED] = "uint32",
-            [CAPTURE_SCALED32] = "double",
-            [CAPTURE_SCALED64] = "double",
-            [CAPTURE_ADC_MEAN] = "double",
-            [CAPTURE_TS_NORMAL ... CAPTURE_TS_OFFSET] = "double",
+            [CAPTURE_MODE_SCALED32] = "double",
+            [CAPTURE_MODE_SCALED64] = "double",
+            [CAPTURE_MODE_AVERAGE]  = "double",
+            [CAPTURE_MODE_UNSCALED] = "uint32",
         },
     };
     enum data_process process = options->data_process;
-    enum capture_mode capture = field->info.capture_mode;
+    enum capture_mode capture = field->capture_mode;
     return field_type_names[process][capture];
 }
 
@@ -419,7 +299,7 @@ static void send_capture_info(
 
 static void send_field_info(
     struct buffered_file *file, const struct data_options *options,
-    const struct output_field *field)
+    const struct capture_info *field)
 {
     struct xml_element element =
         start_element(file, "field", options->xml_header, false, false);
@@ -429,16 +309,16 @@ static void send_field_info(
     format_attribute_opt(&element, false,
         "type", "%s", field_type_name(field, options));
     format_attribute_opt(&element, false,
-        "capture", "%s", field->info.capture_string);
+        "capture", "%s", field->capture_string);
 
-    if (field->info.scaled)
+    if (field->capture_mode != CAPTURE_MODE_UNSCALED)
     {
         format_attribute(&element,
-            "scale", "%.12g", field->info.scaling.scale);
+            "scale", "%.12g", field->scale);
         format_attribute(&element,
-            "offset", "%.12g", field->info.scaling.offset);
+            "offset", "%.12g", field->offset);
         format_attribute_string(&element,
-            "units", field->info.units);
+            "units", field->units);
     }
 
     end_element(&element);
@@ -469,12 +349,10 @@ bool send_data_header(
     struct xml_element field_group =
         start_element(file, "fields", options->xml_header, true, false);
 
-    if (fields->ts_capture != TS_IGNORE)
-        send_field_info(file, options, fields->timestamp);
     send_group_info(file, options, &fields->unscaled);
     send_group_info(file, options, &fields->scaled32);
     send_group_info(file, options, &fields->scaled64);
-    send_group_info(file, options, &fields->adc_mean);
+    send_group_info(file, options, &fields->averaged);
 
     end_element(&field_group);
     end_element(&header);
@@ -489,98 +367,63 @@ bool send_data_header(
 /* Output preparation. */
 
 
-/* Called by data capture as part of initial preparation. */
-enum framing_mode get_output_info(
-    const struct output_field *output,
-    unsigned int capture_index[2], struct scaling *scaling)
+/* This structure is updated by calling prepare_captured_fields and is consumed
+ * by prepare_data_capture() in capture.c.  We pre-allocate enough space for all
+ * fields to be full, which cannot happen, but the numbers involved are not
+ * extravagant. */
+static struct captured_fields captured_fields = {
+    .sample_count = (struct capture_info[1]) { },
+    .unscaled = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .scaled32 = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .scaled64 = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .averaged = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+};
+
+/* Capture info for each field is held in this area. */
+static struct capture_info capture_info_buffer[MAX_CAPTURE_COUNT];
+
+
+static struct capture_group *get_capture_group(enum capture_mode capture_mode)
 {
-    capture_index[0] = output->capture_index[0];
-    capture_index[1] = output->capture_index[1];
-    *scaling = output->info.scaling;
-    return output->info.framing_mode;
+    switch (capture_mode)
+    {
+        case CAPTURE_MODE_SCALED32:
+             return &captured_fields.scaled32;
+        case CAPTURE_MODE_SCALED64:
+             return &captured_fields.scaled64;
+        case CAPTURE_MODE_AVERAGE:
+             return &captured_fields.averaged;
+        case CAPTURE_MODE_UNSCALED:
+             return &captured_fields.unscaled;
+        default:
+            ASSERT_FAIL();
+    }
 }
-
-
-/* This structure is updated by calling prepare_captured_fields. */
-static struct captured_fields captured_fields;
 
 
 const struct captured_fields *prepare_captured_fields(void)
 {
-    captured_fields.ts_capture = TS_IGNORE;
-    captured_fields.timestamp = timestamp_output;
-    captured_fields.offset = offset_output;
-    captured_fields.adc_count = adc_count_output;
-
     captured_fields.unscaled.count = 0;
     captured_fields.scaled32.count = 0;
     captured_fields.scaled64.count = 0;
-    captured_fields.adc_mean.count = 0;
+    captured_fields.averaged.count = 0;
+
+    get_samples_capture_info(captured_fields.sample_count);
 
     /* Walk the list of outputs and gather them into their groups. */
-    for (unsigned int i = 0; i < output_field_count; i ++)
+    unsigned int ix = 0;
+    unsigned int captured;
+    struct capture_info *capture_info = capture_info_buffer;
+    while (iterate_captured_values(&ix, &captured, capture_info))
     {
-        struct output_field *output = output_fields[i];
-
-        /* Fetch and store the current capture settings for this field. */
-        enum capture_mode capture_mode =
-            get_capture_info(output->output, output->number, &output->info);
-
-        /* Dispatch output into the appropriate group for processing. */
-        struct capture_group *capture = NULL;
-        switch (capture_mode)
+        for (unsigned int i = 0; i < captured; i ++)
         {
-            default:
-            case CAPTURE_OFF:       break;
-            case CAPTURE_UNSCALED:  capture = &captured_fields.unscaled; break;
-            case CAPTURE_SCALED32:  capture = &captured_fields.scaled32; break;
-            case CAPTURE_SCALED64:  capture = &captured_fields.scaled64; break;
-            case CAPTURE_ADC_MEAN:  capture = &captured_fields.adc_mean; break;
-
-            case CAPTURE_TS_NORMAL:
-                captured_fields.ts_capture = TS_CAPTURE;
-                break;
-            case CAPTURE_TS_OFFSET:
-                captured_fields.ts_capture = TS_OFFSET;
-                break;
+            struct capture_group *capture =
+                get_capture_group(capture_info->capture_mode);
+            capture->outputs[capture->count++] = capture_info;
+            capture_info += 1;
         }
-        if (capture)
-            capture->outputs[capture->count++] = output;
     }
 
     return &captured_fields;
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Initialisation and shutdown. */
-
-error__t initialise_prepare(void)
-{
-    /* Initialise the four capture groups with enough workspace. */
-    size_t output_size = sizeof(struct output_field *) * CAPTURE_BUS_COUNT;
-    captured_fields.unscaled.outputs = malloc(output_size);
-    captured_fields.scaled32.outputs = malloc(output_size);
-    captured_fields.scaled64.outputs = malloc(output_size);
-    captured_fields.adc_mean.outputs = malloc(output_size);
-
-    return
-        /* Check that all of the fixed fields have been specified. */
-        TEST_OK_(timestamp_output, "Timestamp field not specified")  ?:
-        TEST_OK_(offset_output, "Timestamp offset field not specified")  ?:
-        TEST_OK_(adc_count_output, "ADC count field not specified");
-}
-
-
-void terminate_prepare(void)
-{
-    free(captured_fields.unscaled.outputs);
-    free(captured_fields.scaled32.outputs);
-    free(captured_fields.scaled64.outputs);
-    free(captured_fields.adc_mean.outputs);
-    for (unsigned int i = 0; i < output_field_count; i ++)
-    {
-        free(output_fields[i]->field_name);
-        free(output_fields[i]);
-    }
 }

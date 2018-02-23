@@ -167,9 +167,11 @@ ADC         Analogue inputs
 
 PCAP        Position capture control
     ENABLE          Data capture enable
-    FRAME           Data capture frame
+    GATE            Data capture gate
     CAPTURE         Data capture event
-    ERR_STATUS      Was last capture successful?
+    CAPTURE_EDGE    Data capture event edge
+    SHIFT_SUM       Readout shift on accumulator
+    HEALTH          Data capture status
     ACTIVE          Data capture in progress
 
     TS_START        Timestamp of first sample in capture frame

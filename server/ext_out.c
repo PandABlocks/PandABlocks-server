@@ -33,21 +33,14 @@ enum ext_out_type {
 
 struct ext_out {
     enum ext_out_type ext_type;
-    unsigned int bit_group; // Only for ext_out bits <group>
-    unsigned int registers[2];       // Up to two registers for timestamps
-    bool capture;           // Set if data capture requested by user
+    unsigned int bit_group;     // Only for ext_out bits <group>
+    unsigned int registers[2];  // Up to two registers for timestamps
+    struct attr *capture_attr;
+    bool capture;               // Set if data capture requested by user
 };
 
 
-static const struct enum_set ext_out_capture_enum_set = {
-    .enums = (struct enum_entry[]) {
-        { 0, "No", },
-        { 1, "Capture", },
-    },
-    .count = 2,
-};
-
-static const struct enumeration *ext_out_capture_enum;
+static struct ext_out *samples_ext_out;
 
 
 static error__t bits_get_many(
@@ -67,7 +60,169 @@ static const struct attr_methods bits_attr_methods = {
 };
 
 
+
+static const char *ext_out_describe(void *class_data)
+{
+    static const char *description[] = {
+        [EXT_OUT_TIMESTAMP] = "timestamp",
+        [EXT_OUT_SAMPLES]   = "samples",
+        [EXT_OUT_BITS]      = "bits",
+    };
+
+    struct ext_out *ext_out = class_data;
+    return description[ext_out->ext_type];
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* CAPTURE attribute */
+
+static const struct enum_set ext_out_capture_enum_set = {
+    .enums = (struct enum_entry[]) {
+        { 0, "No", },
+        { 1, "Capture", },
+    },
+    .count = 2,
+};
+
+static const struct enumeration *ext_out_capture_enum;
+
+
+static error__t ext_out_capture_format(
+    void *owner, void *data, unsigned int number, char result[], size_t length)
+{
+    struct ext_out *ext_out = data;
+    return format_string(result, length, "%s",
+        enum_index_to_name(ext_out_capture_enum, ext_out->capture));
+}
+
+
+static error__t ext_out_capture_put(
+    void *owner, void *data, unsigned int number, const char *value)
+{
+    struct ext_out *ext_out = data;
+    unsigned int capture;
+    return
+        TEST_OK_(
+            enum_name_to_index(ext_out_capture_enum, value, &capture),
+            "Not a valid capture option")  ?:
+        DO(ext_out->capture = capture);
+}
+
+
+static const struct enumeration *ext_out_capture_get_enumeration(void *data)
+{
+    return ext_out_capture_enum;
+}
+
+
+void reset_ext_out_capture(struct ext_out *ext_out)
+{
+//     LOCK(ext_out->mutex);
+    if (ext_out->capture)
+    {
+        ext_out->capture = false;
+        attr_changed(ext_out->capture_attr, 0);
+    }
+//     UNLOCK(ext_out->mutex);
+}
+
+
+bool get_ext_out_capture(struct ext_out *ext_out, const char **string)
+{
+    bool capture = ext_out->capture;
+    *string = ext_out_capture_enum_set.enums[capture].name;
+    return capture;
+}
+
+
+/* This attribute needs to be added separately so that we can hang onto the
+ * attribute so that we can implement the reset_pos_out_capture method. */
+static const struct attr_methods ext_out_capture_attr = {
+    "CAPTURE", "Capture options",
+    .in_change_set = true,
+    .format = ext_out_capture_format, .put = ext_out_capture_put,
+    .get_enumeration = ext_out_capture_get_enumeration,
+};
+
+
+/*****************************************************************************/
+/* Field info. */
+
+
+static enum capture_mode get_capture_mode(enum ext_out_type ext_type)
+{
+    switch (ext_type)
+    {
+        case EXT_OUT_TIMESTAMP: return CAPTURE_MODE_SCALED64;
+        case EXT_OUT_SAMPLES:   return CAPTURE_MODE_UNSCALED;
+        case EXT_OUT_BITS:      return CAPTURE_MODE_UNSCALED;
+        default:
+            ASSERT_FAIL();
+    }
+}
+
+
+static const char *get_capture_string(enum ext_out_type ext_type)
+{
+    switch (ext_type)
+    {
+        case EXT_OUT_TIMESTAMP: return "Timestamp";
+        case EXT_OUT_SAMPLES:   return "Samples";
+        case EXT_OUT_BITS:      return "Bits";
+        default:
+            ASSERT_FAIL();
+    }
+}
+
+
+static void get_capture_info(
+    struct ext_out *ext_out, struct capture_info *capture_info)
+{
+    bool is_timestamp = ext_out->ext_type == EXT_OUT_TIMESTAMP;
+    *capture_info = (struct capture_info) {
+        .capture_index = {
+            .index = {
+                CAPTURE_EXT_BUS(ext_out->registers[0]),
+                CAPTURE_EXT_BUS(ext_out->registers[1]) },
+            .count = is_timestamp ? 2 : 1,
+        },
+        .capture_mode = get_capture_mode(ext_out->ext_type),
+        .capture_string = get_capture_string(ext_out->ext_type),
+        .scale = 1.0 / CLOCK_FREQUENCY,
+        .offset = 0.0,
+        .units = "s",
+    };
+}
+
+
+unsigned int get_ext_out_capture_info(
+    struct ext_out *ext_out, struct capture_info *capture_info)
+{
+    if (ext_out->capture)
+    {
+        get_capture_info(ext_out, capture_info);
+        return 1;
+    }
+    else
+        return 0;
+}
+
+
+bool get_samples_capture_info(struct capture_info *capture_info)
+{
+    get_capture_info(samples_ext_out, capture_info);
+    return samples_ext_out->capture;
+}
+
+
+/*****************************************************************************/
+/* Startup and shutdown. */
+
+
+/* This array of booleans is used to detect overlapping extra bus indexes. */
+static bool ext_bus_index_used[EXT_BUS_COUNT];
+
 
 /* An ext_out type is one of timestamp, samples or bits. */
 static error__t parse_ext_out_type(
@@ -101,12 +256,13 @@ static error__t create_ext_out(
     *ext_out = (struct ext_out) {
         .ext_type = ext_type,
         .bit_group = bit_group,
+        .capture_attr = add_one_attribute(
+            &ext_out_capture_attr, NULL, ext_out, 1, attr_map),
     };
     *class_data = ext_out;
 
     if (ext_type == EXT_OUT_BITS)
-        create_attributes(
-            &bits_attr_methods, 1, NULL, ext_out, 1, attr_map);
+        add_attributes(&bits_attr_methods, 1, NULL, ext_out, 1, attr_map);
     return ERROR_OK;
 }
 
@@ -134,59 +290,39 @@ static void register_bit_group(struct field *field, struct ext_out *ext_out)
 }
 
 
+static error__t parse_register(const char **line, unsigned int *registers)
+{
+    unsigned int value;
+    return
+        parse_uint(line, &value)  ?:
+        TEST_OK_(value < EXT_BUS_COUNT, "Extra index out of range")  ?:
+        TEST_OK_(!ext_bus_index_used[value],
+            "Extra index %u already used", value)  ?:
+        DO( *registers = value;
+            ext_bus_index_used[value] = true);
+}
+
+
 static error__t ext_out_parse_register(
     void *class_data, struct field *field, unsigned int block_base,
     const char **line)
 {
     struct ext_out *ext_out = class_data;
     return
-        parse_uint(line, &ext_out->registers[0])  ?:
+        parse_register(line, &ext_out->registers[0])  ?:
         IF(ext_out->ext_type == EXT_OUT_TIMESTAMP,
             parse_whitespace(line)  ?:
-            parse_uint(line, &ext_out->registers[1]));
+            parse_char(line, '/')  ?:
+            parse_register(line, &ext_out->registers[1]))  ?:
+
         register_ext_out(ext_out, field)  ?:
+        IF(ext_out->ext_type == EXT_OUT_SAMPLES,
+            TEST_OK_(samples_ext_out == NULL,
+                "Duplicate samples field assigned")  ?:
+            DO(samples_ext_out = ext_out))  ?:
         IF(ext_out->ext_type == EXT_OUT_BITS,
             DO(register_bit_group(field, ext_out)));
 }
-
-
-static const char *ext_out_describe(void *class_data)
-{
-    static const char *description[] = {
-        [EXT_OUT_TIMESTAMP] = "timestamp",
-        [EXT_OUT_SAMPLES]   = "samples",
-        [EXT_OUT_BITS]      = "bits",
-    };
-
-    struct ext_out *ext_out = class_data;
-    return description[ext_out->ext_type];
-}
-
-
-static error__t ext_out_capture_format(
-    void *owner, void *data, unsigned int number, char result[], size_t length)
-{
-    struct ext_out *ext_out = data;
-    return format_string(result, length, "%s",
-        enum_index_to_name(ext_out_capture_enum, ext_out->capture));
-}
-
-
-static error__t ext_out_capture_put(
-    void *owner, void *data, unsigned int number, const char *value)
-{
-    struct ext_out *ext_out = data;
-    unsigned int capture;
-    return
-        TEST_OK_(
-            enum_name_to_index(ext_out_capture_enum, value, &capture),
-            "Not a valid capture option")  ?:
-        DO(ext_out->capture = capture);
-}
-
-
-/*****************************************************************************/
-/* Startup and shutdown. */
 
 
 error__t initialise_ext_out(void)
@@ -203,16 +339,12 @@ void terminate_ext_out(void)
 }
 
 
+/*****************************************************************************/
+
 const struct class_methods ext_out_class_methods = {
     "ext_out",
     .init = ext_out_init,
     .parse_register = ext_out_parse_register,
     .describe = ext_out_describe,
-    .attrs = (struct attr_methods[]) {
-        { "CAPTURE", "Capture options",
-            .in_change_set = true,
-            .format = ext_out_capture_format, .put = ext_out_capture_put,
-        },
-    },
-    .attr_count = 1,
+    // "CAPTURE" attribute initialised separately
 };

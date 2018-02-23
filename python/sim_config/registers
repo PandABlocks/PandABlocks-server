@@ -164,10 +164,12 @@ ADC         20
     OUT             22 23 24 25 26 27 28 29
 
 PCAP        21
-    ENABLE          0 5
-    FRAME           1 6
-    CAPTURE         2 7
-    ERR_STATUS      4
+    ENABLE          0 3
+    GATE            1 4
+    CAPTURE         2 5
+    CAPTURE_EDGE    6
+    SHIFT_SUM       7
+    HEALTH          8
     ACTIVE          106
     TS_START        0 / 1
     TS_END          2 / 3

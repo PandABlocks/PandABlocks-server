@@ -99,7 +99,7 @@ const char *get_attr_description(const struct attr *attr)
 }
 
 
-struct attr *create_attribute(
+static struct attr *create_attribute(
     const struct attr_methods *methods,
     void *owner, void *data, unsigned int count)
 {
@@ -119,15 +119,24 @@ struct attr *create_attribute(
 }
 
 
-void create_attributes(
+struct attr *add_one_attribute(
+    const struct attr_methods *methods,
+    void *owner, void *data, unsigned int count,
+    struct hash_table *attr_map)
+{
+    struct attr *attr = create_attribute(methods, owner, data, count);
+    ASSERT_OK(!hash_table_insert(attr_map, methods->name, attr));
+    return attr;
+}
+
+
+void add_attributes(
     const struct attr_methods methods[], unsigned int attr_count,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map)
 {
     for (unsigned int i = 0; i < attr_count; i ++)
-        hash_table_insert(
-            attr_map, methods[i].name,
-            create_attribute(&methods[i], owner, data, count));
+        add_one_attribute(&methods[i], owner, data, count, attr_map);
 }
 
 

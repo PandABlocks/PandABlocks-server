@@ -18,6 +18,7 @@
 #include "attributes.h"
 #include "types.h"
 #include "enums.h"
+#include "pos_mux.h"
 #include "output.h"
 #include "locking.h"
 
@@ -36,8 +37,9 @@ enum pos_out_capture {
 };
 
 struct pos_out {
-    pthread_mutex_t mutex;              // Guards ??
+    pthread_mutex_t mutex;
     unsigned int count;                 // Number of values
+    struct attr *capture_attr;          // CAPTURE attribute for change notify
     struct pos_out_field {
         /* Position scaling and units. */
         double scale;
@@ -49,7 +51,6 @@ struct pos_out {
         unsigned int data_delay;        // Capture data delay
     } values[];
 };
-
 
 
 /******************************************************************************/
@@ -338,6 +339,39 @@ static const struct enumeration *pos_out_capture_get_enumeration(void *data)
 }
 
 
+void reset_pos_out_capture(struct pos_out *pos_out, unsigned int number)
+{
+    LOCK(pos_out->mutex);
+    struct pos_out_field *field = &pos_out->values[number];
+    if (field->capture != POS_OUT_CAPTURE_NONE)
+    {
+        field->capture = POS_OUT_CAPTURE_NONE;
+        attr_changed(pos_out->capture_attr, number);
+    }
+    UNLOCK(pos_out->mutex);
+}
+
+
+bool get_pos_out_capture(
+    struct pos_out *pos_out, unsigned int number, const char **string)
+{
+    struct pos_out_field *field = &pos_out->values[number];
+    enum pos_out_capture capture = field->capture;
+    *string = pos_out_capture_enum_set.enums[capture].name;
+    return capture != POS_OUT_CAPTURE_NONE;
+}
+
+
+/* This attribute needs to be added separately so that we can hang onto the
+ * attribute so that we can implement the reset_pos_out_capture method. */
+static const struct attr_methods pos_out_capture_attr = {
+    "CAPTURE", "Capture options",
+    .in_change_set = true,
+    .format = pos_out_capture_format, .put = pos_out_capture_put,
+    .get_enumeration = pos_out_capture_get_enumeration,
+};
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Delay control. */
 
@@ -365,8 +399,116 @@ static error__t pos_out_data_delay_put(
 }
 
 
+/******************************************************************************/
+/* Field info. */
+
+#define ONE_INDEX(field, mode) \
+    ((struct capture_index) { \
+        .index = { CAPTURE_POS_BUS(field->capture_index, mode), }, \
+        .count = 1, \
+     })
+
+#define TWO_INDEX(field, mode1, mode2) \
+    ((struct capture_index) { \
+        .index = { \
+            CAPTURE_POS_BUS(field->capture_index, mode1), \
+            CAPTURE_POS_BUS(field->capture_index, mode2), \
+        }, \
+        .count = 2, \
+     })
+
+
+static void get_capture_info(
+    struct capture_info *capture_info, struct pos_out_field *field,
+    struct capture_index capture_index, enum capture_mode capture_mode,
+    const char *capture_string)
+{
+    *capture_info = (struct capture_info) {
+        .capture_index = capture_index,
+        .capture_mode = capture_mode,
+        .capture_string = capture_string,
+        .scale = field->scale,
+        .offset = field->offset,
+    };
+    snprintf(
+        capture_info->units, sizeof(capture_info->units), "%s", field->units);
+}
+
+
+unsigned int get_pos_out_capture_info(
+    struct pos_out *pos_out, unsigned int number,
+    struct capture_info capture_info[])
+{
+    struct pos_out_field *field = &pos_out->values[number];
+    unsigned int capture_count = 1;     // Most common case
+    LOCK(pos_out->mutex);
+    switch (field->capture)
+    {
+        case POS_OUT_CAPTURE_NONE:
+            capture_count = 0;
+            break;
+        case POS_OUT_CAPTURE_VALUE:
+            get_capture_info(
+                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_VALUE),
+                CAPTURE_MODE_SCALED32, "Value");
+            break;
+        case POS_OUT_CAPTURE_DIFF:
+            get_capture_info(
+                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_DIFF),
+                CAPTURE_MODE_SCALED32, "Difference");
+            break;
+        case POS_OUT_CAPTURE_SUM:
+            get_capture_info(
+                &capture_info[0], field,
+                TWO_INDEX(field, POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
+                CAPTURE_MODE_SCALED64, "Sum");
+            break;
+        case POS_OUT_CAPTURE_MEAN:
+            get_capture_info(
+                &capture_info[0], field,
+                TWO_INDEX(field, POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
+                CAPTURE_MODE_AVERAGE, "Mean");
+            break;
+        case POS_OUT_CAPTURE_MIN:
+            get_capture_info(
+                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_MIN),
+                CAPTURE_MODE_SCALED32, "Min");
+            break;
+        case POS_OUT_CAPTURE_MAX:
+            get_capture_info(
+                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_MAX),
+                CAPTURE_MODE_SCALED32, "Max");
+            break;
+        case POS_OUT_CAPTURE_MIN_MAX_MEAN:
+            get_capture_info(
+                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_MIN),
+                CAPTURE_MODE_SCALED32, "Min");
+            get_capture_info(
+                &capture_info[1], field, ONE_INDEX(field, POS_FIELD_MAX),
+                CAPTURE_MODE_SCALED32, "Max");
+            get_capture_info(
+                &capture_info[2], field,
+                TWO_INDEX(field, POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
+                CAPTURE_MODE_AVERAGE, "Mean");
+            capture_count = 3;
+            break;
+        default:
+            ASSERT_FAIL();
+    }
+    UNLOCK(pos_out->mutex);
+    return capture_count;
+}
+
+
 
 /******************************************************************************/
+/* Initialisation and shutdown. */
+
+/* pos_out initialisation. */
+
+
+/* This array of booleans is used to detect overlapping capture bus indexes. */
+static bool pos_bus_index_used[POS_BUS_COUNT];
 
 
 static error__t pos_out_init(
@@ -378,6 +520,8 @@ static error__t pos_out_init(
     *pos_out = (struct pos_out) {
         .mutex = PTHREAD_MUTEX_INITIALIZER,
         .count = count,
+        .capture_attr = add_one_attribute(
+            &pos_out_capture_attr, NULL, pos_out, count, attr_map),
     };
     for (unsigned int i = 0; i < count; i ++)
         pos_out->values[i] = (struct pos_out_field) {
@@ -398,14 +542,19 @@ static void pos_out_destroy(void *class_data)
 }
 
 
-static error__t parse_registers(
-    const char **line, struct pos_out *pos_out)
+static error__t assign_capture_values(
+    struct pos_out *pos_out, unsigned int values[])
 {
-    unsigned int registers[pos_out->count];
-    return
-        parse_uint_array(line, registers, pos_out->count)  ?:
-        DO( for (unsigned int i = 0; i < pos_out->count; i ++)
-            pos_out->values[i].capture_index = registers[i]);
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < pos_out->count; i ++)
+        error =
+            TEST_OK_(values[i] < POS_BUS_COUNT,
+                "Capture index out of range")  ?:
+            TEST_OK_(!pos_bus_index_used[values[i]],
+                "Capture index %u already used", values[i])  ?:
+            DO( pos_out->values[i].capture_index = values[i];
+                pos_bus_index_used[values[i]] = true);
+    return error;
 }
 
 
@@ -414,11 +563,20 @@ static error__t pos_out_parse_register(
     const char **line)
 {
     struct pos_out *pos_out = class_data;
+    unsigned int registers[pos_out->count];
     return
-        parse_registers(line, pos_out)  ?:
-        register_pos_out(pos_out, field);
+        /* Parse and record position bus assignments */
+        parse_uint_array(line, registers, pos_out->count)  ?:
+        assign_capture_values(pos_out, registers)  ?:
+        /* Add all positions to the list of pos_mux options. */
+        add_pos_mux_index(field, registers, pos_out->count)  ?:
+        /* Register this as an output source. */
+        register_pos_out(pos_out, field, pos_out->count);
 }
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* File initialisation */
 
 error__t initialise_pos_out(void)
 {
@@ -458,16 +616,12 @@ const struct class_methods pos_out_class_methods = {
             .format = pos_out_units_format,
             .put = pos_out_units_put,
         },
-        { "CAPTURE", "Capture options",
-            .in_change_set = true,
-            .format = pos_out_capture_format, .put = pos_out_capture_put,
-            .get_enumeration = pos_out_capture_get_enumeration,
-        },
         { "DATA_DELAY", "Configure data delay for this field",
             .in_change_set = true,
             .format = pos_out_data_delay_format,
             .put = pos_out_data_delay_put,
         },
+        // "CAPTURE" added in constructor
     },
-    .attr_count = 6,
+    .attr_count = 5,
 };

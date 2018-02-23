@@ -94,7 +94,7 @@ INENC[4]
     FRAME_PERIOD    param       time
     BITS            param       uint 63
     BITS_CRC        param       uint 63
-    SETP            write       position
+    SETP            write
     RST_ON_Z        param       bit
     EXTENSION       read        int
     ERR_FRAME       read        bit
@@ -110,7 +110,7 @@ INENC[4]
 
 QDEC[4]
     RST_ON_Z        param       bit
-    SETP            write       position
+    SETP            write
     A               bit_mux
     B               bit_mux
     Z               bit_mux
@@ -185,9 +185,9 @@ PGEN[2]
         3   DMA overrun
 
 PCOMP[4]
-    START           param       position
-    STEP            param       position
-    WIDTH           param       position
+    START           param
+    STEP            param
+    WIDTH           param
     PNUM            param
     RELATIVE        param       enum 2
         0   Absolute
@@ -218,13 +218,17 @@ ADC[8]
 
 PCAP
     ENABLE          bit_mux
-    FRAME           bit_mux
+    GATE            bit_mux
     CAPTURE         bit_mux
-    ERR_STATUS      read        enum 4
+    CAPTURE_EDGE    param       enum 3
+        0   Rising
+        1   Falling
+        2   Rising or Falling
+    SHIFT_SUM       param       uint 8
+    HEALTH          read        enum 4
         0   Ok
-        1   Capture before frame
-        2   Multiple captures
-        3   Buffer overrun
+        1   Capture events too close together
+        2   Samples overflow
     ACTIVE          bit_out
 
     TS_START        ext_out     timestamp

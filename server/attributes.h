@@ -60,14 +60,16 @@ const struct enumeration *get_attr_enumeration(const struct attr *attr);
 const char *get_attr_description(const struct attr *attr);
 
 
-/* Creates a single attribute with the given owner and data pointers. */
-struct attr *create_attribute(
+/* Creates a single attribute with the given owner and data pointers and adds it
+ * to the given attr_map. */
+struct attr *add_one_attribute(
     const struct attr_methods *methods,
-    void *owner, void *data, unsigned int count);
+    void *owner, void *data, unsigned int count,
+    struct hash_table *attr_map);
 
 /* Creates a list of attributes and adds them to the given attr_map.  If an
  * attribute with the same name is already present it is silently replaced. */
-void create_attributes(
+void add_attributes(
     const struct attr_methods methods[], unsigned int attr_count,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map);

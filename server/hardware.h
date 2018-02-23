@@ -2,7 +2,7 @@
 
 #define BIT_BUS_COUNT       128
 #define POS_BUS_COUNT       32
-#define CAPTURE_BUS_COUNT   64
+#define EXT_BUS_COUNT       16
 
 
 #define CLOCK_FREQUENCY 125000000       // 8ns per tick
@@ -139,6 +139,33 @@ void hw_write_arm(bool enable);
 
 /* Writes the capture delay register. */
 void hw_write_data_delay(unsigned int capture_index, unsigned int delay);
+
+
+/* Macros for formatting position and extension bus entries into capture field
+ * values.  The bit layout for each type is as follows:
+ *
+ *                  32            9 8        4   2    0
+ *                  +------------+-+----------+-+------+
+ *  Position bus    |        0   |0|  pos-ix  |0| mode |
+ *                  +------------+-+----------+-+------+
+ *
+ *                                9   7      4
+ *                  +------------+-+-+--------+--------+
+ *  Extension bus   |        0   |1|0| ext-ix |    0   |
+ *                  +------------+-+-+--------+--------+
+ */
+#define CAPTURE_POS_BUS(pos_ix, mode) \
+    ((((pos_ix) & 0x1F) << 4) | ((mode) & 0x7))
+#define CAPTURE_EXT_BUS(ext_ix) \
+    ((1 << 9) | (((ext_ix) & 0xF) << 4))
+
+/* Definitions of position capture fields. */
+#define POS_FIELD_VALUE         0
+#define POS_FIELD_DIFF          1
+#define POS_FIELD_SUM_LOW       2
+#define POS_FIELD_SUM_HIGH      3
+#define POS_FIELD_MIN           4
+#define POS_FIELD_MAX           5
 
 /* Writes list of capture bus fields to capture. */
 void hw_write_capture_set(const unsigned int capture[], size_t count);

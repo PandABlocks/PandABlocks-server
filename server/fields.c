@@ -650,10 +650,10 @@ static error__t lookup_class(
 
 static error__t create_field_attributes(struct field *field)
 {
-    create_attributes(
+    add_attributes(
         field->methods->attrs, field->methods->attr_count,
         field, field->class_data, field->block->count, field->attrs);
-    create_attributes(
+    add_attributes(
         &info_attribute, 1, field, field->class_data,
         field->block->count, field->attrs);
     return ERROR_OK;

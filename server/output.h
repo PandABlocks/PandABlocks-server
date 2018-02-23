@@ -1,90 +1,72 @@
 /* Definitions of methods for bit_out and pos_out classes and bit_mux and
  * pos_mux types. */
 
-struct class;
-struct field;
-struct enumeration;
-
-
 error__t initialise_output(void);
-
 void terminate_output(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Data capture API. */
+/* Interface for registering captured data sources. */
 
-struct output;
-
-
-/* This is used to record the various capture processing options that may have
- * been selected for this output. */
-enum capture_mode {
-    CAPTURE_OFF,            // Output not being captured
-    CAPTURE_UNSCALED,       // 32-bit value with no processing
-    CAPTURE_SCALED32,       // 32-bit value with scaling
-    CAPTURE_SCALED64,       // 64-bit value with scaling
-    CAPTURE_ADC_MEAN,       // 64-bit value with mean and scaling
-    CAPTURE_TS_NORMAL,      // 64-bit timestamp without offset
-    CAPTURE_TS_OFFSET,      // 64-bit timestamp with offset correction
-
-    CAPTURE_MODE_COUNT,     // Number of capture mode enum values
-};
-
-
-/* At the same time as the capture processing is set we also need to instruct
- * the hardware about our framing setup. */
-enum framing_mode {
-    FRAMING_TRIGGER,        // Framing mode not selected, capture on trigger
-    FRAMING_FRAME,          // Normal framing mode
-    FRAMING_SPECIAL,        // Framing mode with special option flag set
-};
-
-
-/* Scaling parameters, if appropriate. */
-struct scaling {
-    double scale;
-    double offset;
-};
-
-
-struct capture_info {
-    bool scaled;
-    enum framing_mode framing_mode;
-    enum capture_mode capture_mode;
-    const char *capture_string;
-    struct scaling scaling;
-    char units[MAX_NAME_LENGTH];
-};
-
-/* Returns all current information about the selected output source: how it's
- * configured for capture, any scaling settings, the units string, and the
- * capture enumeration selection.
- *     If the units buffer is too short, the units string will be silently
- * truncated here.  If the returned capture_mode is CAPTURE_OFF then the
- * remaining fields are not filled in. */
-enum capture_mode get_capture_info(
-    struct output *output, unsigned int number, struct capture_info *info);
-
-
-/* Disables capture for the specified output. */
-void reset_output_capture(struct output *output, unsigned int number);
-
-/* If this output is configured for capture returns true together with the
- * capture enumeration selection. */
-bool get_capture_enabled(
-    struct output *output, unsigned int number, const char **capture);
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Capture enumeration. */
-
-/* Update cached pos_out values up to date with values read from hardware. */
-void do_pos_out_refresh(uint64_t change_index);
-
-
-/* Registers ext_out and pos_out values as a capture source. */
 struct ext_out;
 struct pos_out;
+struct field;
+
+
+/* Registers position bus capture control field. */
+error__t register_pos_out(
+    struct pos_out *pos_out, struct field *field, unsigned int count);
+
+/* Registers extension bus capture control field.  The 'ext_out samples' field
+ * needs to be identified for special treatment during data capture. */
 error__t register_ext_out(struct ext_out *ext_out, struct field *field);
-error__t register_pos_out(struct pos_out *pos_out, struct field *field);
+
+
+/* *CAPTURE= implementation: resets all capture settings. */
+void reset_capture_list(void);
+
+/* *CAPTURE? implementation: returns list of all captured fields. */
+void report_capture_list(struct connection_result *result);
+
+/* *CAPTURE.*? implementation: returns list of all fields which can be
+ * selected for capture. */
+void report_capture_labels(struct connection_result *result);
+
+
+enum capture_mode {
+    CAPTURE_MODE_SCALED32,          // int32 with scaling
+    CAPTURE_MODE_SCALED64,          // int64 with scaling
+    CAPTURE_MODE_AVERAGE,           // int64 with scaling and averaging
+    CAPTURE_MODE_UNSCALED,          // uint32 with no scaling option
+
+    CAPTURE_MODE_COUNT              // Number of capture mode enum values
+};
+
+
+struct capture_index {
+    unsigned int index[2];          // Capture index or indices for data
+    unsigned int count;             // Number of indices in data capture
+};
+
+
+/* All the information needed to captured and process a captured field. */
+struct capture_info {
+    struct capture_index capture_index;
+    enum capture_mode capture_mode; // Underlying data type of captured field
+    const char *field_name;         // Name of captured field
+    const char *capture_string;     // Identifies what is captured
+    /* The following fields are invalid if capture mode is unscaled. */
+    double scale;                   // Scaling factor
+    double offset;                  // Scaling offset
+    char units[MAX_NAME_LENGTH];    // Scaling units string
+};
+
+
+/* Interator for generating list of captured values.  Complicated a little by
+ * the fact that a single captured field can generate multiple captured values!
+ *    Use by setting *ix to 0 before first call and calling repeatedly until
+ * false is returned.  *captured is set to the number of capture_info[] entries
+ * that have been written, space must be allowed for at least three. */
+bool iterate_captured_values(
+    unsigned int *ix, unsigned int *captured,
+    struct capture_info capture_info[]);
