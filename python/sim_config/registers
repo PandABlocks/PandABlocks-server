@@ -171,9 +171,9 @@ PCAP        21
     SHIFT_SUM       7
     HEALTH          8
     ACTIVE          106
-    TS_START        0 / 1
-    TS_END          2 / 3
-    TS_CAPTURE      4 / 5
+    TS_START        0 1
+    TS_END          2 3
+    TS_CAPTURE      4 5
     SAMPLES         6
     BITS0           8
     BITS1           9

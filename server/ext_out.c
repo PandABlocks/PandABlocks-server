@@ -311,7 +311,6 @@ static error__t ext_out_parse_register(
         parse_register(line, &ext_out->registers[0])  ?:
         IF(ext_out->ext_type == EXT_OUT_TIMESTAMP,
             parse_whitespace(line)  ?:
-            parse_char(line, '/')  ?:
             parse_register(line, &ext_out->registers[1]))  ?:
 
         register_ext_out(ext_out, field)  ?:
