@@ -298,7 +298,7 @@ static const struct enum_set pos_out_capture_enum_set = {
         { POS_OUT_CAPTURE_MIN_MAX,      "Min Max", },
         { POS_OUT_CAPTURE_MIN_MAX_MEAN, "Min Max Mean", },
     },
-    .count = 8,
+    .count = 9,
 };
 
 static const struct enumeration *pos_out_capture_enum;
