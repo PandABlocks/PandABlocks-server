@@ -60,8 +60,8 @@ const struct enumeration *get_attr_enumeration(const struct attr *attr);
 const char *get_attr_description(const struct attr *attr);
 
 
-/* Creates a single attribute with the given owner and data pointers and adds it
- * to the given attr_map. */
+/* Creates a single attribute with the given owner and data pointers, adds it
+ * to the given attr_map, and returns the attribute just created. */
 struct attr *add_one_attribute(
     const struct attr_methods *methods,
     void *owner, void *data, unsigned int count,

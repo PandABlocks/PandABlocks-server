@@ -236,8 +236,8 @@ int main(int argc, char *const argv[])
     terminate_persistence();
 
     terminate_data_server();
-    terminate_system_command();
     terminate_hardware();
+    terminate_system_command();
     terminate_time();
     terminate_output();
     terminate_fields();

@@ -210,6 +210,7 @@ unsigned int get_ext_out_capture_info(
 
 bool get_samples_capture_info(struct capture_info *capture_info)
 {
+    ASSERT_OK(samples_ext_out);     // If not assigned, we are dead.
     get_capture_info(samples_ext_out, capture_info);
     return samples_ext_out->capture;
 }
