@@ -45,7 +45,6 @@ enum capture_mode {
 
 struct capture_index {
     unsigned int index[2];          // Capture index or indices for data
-    unsigned int count;             // Number of indices in data capture
 };
 
 

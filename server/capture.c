@@ -419,6 +419,7 @@ static void ensure_sample_count(
             /* Already being captured.  Because the unscaled group goes first
              * and we're the only entry, this is the right index. */
             capture->sample_count_index = i;
+            return;
         }
     }
 
@@ -447,7 +448,7 @@ static void gather_data_capture(
 {
     /* Work through the fields. */
     struct data_capture *capture = gather->capture;
-    if (capture->averaged.count > 0)
+    if (fields->averaged.count > 0)
         ensure_sample_count(fields, gather);
 
     prepare_output_group(

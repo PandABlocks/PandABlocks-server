@@ -179,16 +179,15 @@ static const char *get_capture_string(enum ext_out_type ext_type)
 static void get_capture_info(
     struct ext_out *ext_out, struct capture_info *capture_info)
 {
-    bool is_timestamp = ext_out->ext_type == EXT_OUT_TIMESTAMP;
     *capture_info = (struct capture_info) {
         .capture_index = {
             .index = {
                 CAPTURE_EXT_BUS(ext_out->registers[0]),
                 CAPTURE_EXT_BUS(ext_out->registers[1]) },
-            .count = is_timestamp ? 2 : 1,
         },
         .capture_mode = get_capture_mode(ext_out->ext_type),
         .capture_string = get_capture_string(ext_out->ext_type),
+        /* Scaling info only used for timestamp fields. */
         .scale = 1.0 / CLOCK_FREQUENCY,
         .offset = 0.0,
         .units = "s",

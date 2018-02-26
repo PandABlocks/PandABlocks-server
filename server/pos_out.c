@@ -33,6 +33,7 @@ enum pos_out_capture {
     POS_OUT_CAPTURE_MEAN,
     POS_OUT_CAPTURE_MIN,
     POS_OUT_CAPTURE_MAX,
+    POS_OUT_CAPTURE_MIN_MAX,
     POS_OUT_CAPTURE_MIN_MAX_MEAN,
 };
 
@@ -289,11 +290,12 @@ static const struct enum_set pos_out_capture_enum_set = {
     .enums = (struct enum_entry[]) {
         { POS_OUT_CAPTURE_NONE,         "No", },
         { POS_OUT_CAPTURE_VALUE,        "Value", },
-        { POS_OUT_CAPTURE_DIFF,         "Difference", },
+        { POS_OUT_CAPTURE_DIFF,         "Diff", },
         { POS_OUT_CAPTURE_SUM,          "Sum", },
         { POS_OUT_CAPTURE_MEAN,         "Mean", },
-        { POS_OUT_CAPTURE_MIN,          "Minimum", },
-        { POS_OUT_CAPTURE_MAX,          "Maximum", },
+        { POS_OUT_CAPTURE_MIN,          "Min", },
+        { POS_OUT_CAPTURE_MAX,          "Max", },
+        { POS_OUT_CAPTURE_MIN_MAX,      "Min Max", },
         { POS_OUT_CAPTURE_MIN_MAX_MEAN, "Min Max Mean", },
     },
     .count = 8,
@@ -402,22 +404,6 @@ static error__t pos_out_data_delay_put(
 /******************************************************************************/
 /* Field info. */
 
-#define ONE_INDEX(field, mode) \
-    ((struct capture_index) { \
-        .index = { CAPTURE_POS_BUS(field->capture_index, mode), }, \
-        .count = 1, \
-     })
-
-#define TWO_INDEX(field, mode1, mode2) \
-    ((struct capture_index) { \
-        .index = { \
-            CAPTURE_POS_BUS(field->capture_index, mode1), \
-            CAPTURE_POS_BUS(field->capture_index, mode2), \
-        }, \
-        .count = 2, \
-     })
-
-
 static void get_capture_info(
     struct capture_info *capture_info, struct pos_out_field *field,
     struct capture_index capture_index, enum capture_mode capture_mode,
@@ -440,57 +426,56 @@ unsigned int get_pos_out_capture_info(
     struct capture_info capture_info[])
 {
     struct pos_out_field *field = &pos_out->values[number];
-    unsigned int capture_count = 1;     // Most common case
+    unsigned int capture_count = 0;
+
+    /* This macro assembles the appropriate capture information into the given
+     * capture_info[] array according to the field capture configuration. */
+    #define POS_FIELD_UNUSED    0
+    #define GET_CAPTURE_INFO(reg1, reg2, mode, name) \
+        do { \
+            struct capture_index capture_index = { \
+                .index = { \
+                    CAPTURE_POS_BUS(field->capture_index, POS_FIELD_##reg1), \
+                    CAPTURE_POS_BUS(field->capture_index, POS_FIELD_##reg2), \
+                }, \
+            }; \
+            get_capture_info( \
+                &capture_info[capture_count], field, capture_index, \
+                CAPTURE_MODE_##mode, name); \
+            capture_count += 1; \
+        } while (0)
+
     LOCK(pos_out->mutex);
     switch (field->capture)
     {
         case POS_OUT_CAPTURE_NONE:
-            capture_count = 0;
             break;
         case POS_OUT_CAPTURE_VALUE:
-            get_capture_info(
-                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_VALUE),
-                CAPTURE_MODE_SCALED32, "Value");
+            GET_CAPTURE_INFO(VALUE,   UNUSED,   SCALED32, "Value");
             break;
         case POS_OUT_CAPTURE_DIFF:
-            get_capture_info(
-                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_DIFF),
-                CAPTURE_MODE_SCALED32, "Difference");
+            GET_CAPTURE_INFO(DIFF,    UNUSED,   SCALED32, "Difference");
             break;
         case POS_OUT_CAPTURE_SUM:
-            get_capture_info(
-                &capture_info[0], field,
-                TWO_INDEX(field, POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
-                CAPTURE_MODE_SCALED64, "Sum");
+            GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, SCALED64, "Sum");
             break;
         case POS_OUT_CAPTURE_MEAN:
-            get_capture_info(
-                &capture_info[0], field,
-                TWO_INDEX(field, POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
-                CAPTURE_MODE_AVERAGE, "Mean");
+            GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, AVERAGE,  "Mean");
             break;
         case POS_OUT_CAPTURE_MIN:
-            get_capture_info(
-                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_MIN),
-                CAPTURE_MODE_SCALED32, "Min");
+            GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
             break;
         case POS_OUT_CAPTURE_MAX:
-            get_capture_info(
-                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_MAX),
-                CAPTURE_MODE_SCALED32, "Max");
+            GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
+            break;
+        case POS_OUT_CAPTURE_MIN_MAX:
+            GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
+            GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
             break;
         case POS_OUT_CAPTURE_MIN_MAX_MEAN:
-            get_capture_info(
-                &capture_info[0], field, ONE_INDEX(field, POS_FIELD_MIN),
-                CAPTURE_MODE_SCALED32, "Min");
-            get_capture_info(
-                &capture_info[1], field, ONE_INDEX(field, POS_FIELD_MAX),
-                CAPTURE_MODE_SCALED32, "Max");
-            get_capture_info(
-                &capture_info[2], field,
-                TWO_INDEX(field, POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
-                CAPTURE_MODE_AVERAGE, "Mean");
-            capture_count = 3;
+            GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
+            GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
+            GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, AVERAGE,  "Mean");
             break;
         default:
             ASSERT_FAIL();
@@ -498,7 +483,6 @@ unsigned int get_pos_out_capture_info(
     UNLOCK(pos_out->mutex);
     return capture_count;
 }
-
 
 
 /******************************************************************************/

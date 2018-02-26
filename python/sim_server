@@ -73,7 +73,7 @@ def run_simulation(conn, verbose):
             # Write one register, we throw the value away
             value, = struct.unpack('I', read(conn, 4))
             if verbose:
-                print 'W', block, num, reg, '<=', value
+                print 'W', block, num, reg, '<=', value, hex(value)
         elif command == 'T':
             # Write data array to large table, we throw this away
             length, = struct.unpack('I', read(conn, 4))
