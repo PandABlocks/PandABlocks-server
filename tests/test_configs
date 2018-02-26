@@ -70,7 +70,7 @@ failed=0
 for test in "${TESTS[@]}"; do
     config="$TEMP_DIR/$test"
     if [[ -d "$config" ]]; then
-        result="$("$TOP"/simserver -c "$config" -V-q -- -T 2>&1 >/dev/null)"
+        result="$("$TOP"/simserver -P -c "$config" -V-q -- -T 2>&1 >/dev/null)"
         rc=$?
         if grep -q '^==' <<<"$result"; then
             if grep -q '^==[0-9]*== Invalid' <<<"$result"; then
