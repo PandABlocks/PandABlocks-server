@@ -71,8 +71,8 @@ Field
 ``write`` field-subtype
 ``time``
 ``bit_out``
-``pos_out`` [ ``adc`` | ``const`` | ``encoder`` ]
-``ext_out`` ext-extra
+``pos_out``
+``ext_out`` ( ``timestamp`` | ``samples`` | ``bits`` group )
 ``bit_mux`` [ ``=`` value ]
 ``pos_mux``
 ``table``
@@ -101,18 +101,8 @@ Field
 ``bit_out``
     This identifies an output bit.
 
-``pos_out`` [ ``adc`` | ``const`` | ``encoder`` ]
-    This identifies a position bus output, which can be of one of four subtype
-    depending on the following keyword:
-
-    =========== ================================================================
-    Keyword     Description
-    =========== ================================================================
-    None        Normal position bus value (counter, etc).
-    ``adc``     ADC value, subject to special averaging processing.
-    ``const``   Only used for ``ZERO``, does not support capture.
-    ``encoder`` Encoders support up to 64-bits so need special treatment
-    =========== ================================================================
+``pos_out``
+    This identifies a position bus output.
 
 ``ext_out`` ext-extra
     This identifies an entry on the extension bus which needs special treatment.
@@ -122,12 +112,10 @@ Field
     ext-extra       Description
     =============== ============================================================
     ``timestamp``   Capture timestamp as a 64-bit value
-    ``offset``      Capture offset field
+    ``samples``     Captures sample count for data capture.
     ``bits`` group  Defines fields which allow the bit bus to be captured.  The
                     group number identifies which 32-bit group of 128 bits is
                     captured.
-    ``adc_count``   Number of ADC samples in capture window.
-    ``adc``         (Do not use this subtype.)
     =============== ============================================================
 
 | ``bit_mux`` [ ``=`` value ]
@@ -194,10 +182,8 @@ Class                   Register syntax
 ``time``                low-register high-register
 ``bit_out``             ( bit-index )N
 ``pos_out``             ( pos-index )N
-``pos_out encoder``     ( pos-index )N ``/`` ( ext-index )N
-``pos_out adc``         ( pos-index )N ``/`` ( ext-index )N
-``ext_out``             ( ext-index )N
-``ext_out timestamp``   ( ext-index )N ``/`` ( ext-index )N
+``ext_out timestamp``   ext-index ext-index
+``ext_out`` other       ext-index
 ``bit_mux``             register
 ``pos_mux``             register
 ``table``               ``short`` size init-reg fill-reg length-reg

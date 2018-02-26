@@ -83,9 +83,9 @@ Field type          Description
 ``time``            Configurable timer parameter.
 ``bit_out``         Bit output, can be configured as bit input for ``bit_mux``
                     fields.
-``pos_out`` [extra] Position output, can be configured for data capture and as
+``pos_out``         Position output, can be configured for data capture and as
                     position input for ``pos_mux`` fields.
-``ext_out`` [extra] Extended output values, can be configured for data capture,
+``ext_out`` extra   Extended output values, can be configured for data capture,
                     but not available on position bus.
 ``bit_mux``         Bit input with configurable delay.
 ``pos_mux``         Position input multiplexer selection.
@@ -174,15 +174,36 @@ Field type          Description
 
     The field itself can be read to return the current value of the bit.
 
-``pos_out`` [extra]
+``pos_out``
     Fields of this type are used for block outputs which contribute to the
     internal position bus, and they contribute to the ``*CHANGES.POSN`` change
     group.  The following attributes support capture control:
 
     ``CAPTURE``
-        This can be set to enable capture of this field.  The precise options
-        for capture depend on the extra options, see the capture section for
-        details.
+        This can be set to manage capture of this field.  One of the following
+        enumeration values can be written to this field:
+
+        =============== ========================================================
+        Value           Description
+        =============== ========================================================
+        No              Capture is disabled for this field.
+        Value           The value at the time of trigger will be captured.
+        Diff            The difference of values is captured.
+        Sum             The sum of all valid values is captured.  This is a
+                        64-bit value, and may be further scaled if
+                        ``PCAP.SHIFT_SUM`` is set.
+        Mean            The average of all valid values is captured.
+        Min             The minimum of all valid values is captured.
+        Max             The maximum of all valid values is captured.
+        Min Max         Both minimum and maximum values are captured.
+        Min Max Mean    All three values, minimum, maximum, average are
+                        captured.
+        =============== ========================================================
+
+    ``DATA_DELAY``
+        This is a fine delay in clock ticks (between 0 and 31) which is applied
+        to the raw position data before being processed for capture.  This is
+        useful for compensating for internal delays.
 
     The following attributes support formatting of the field when reading it:
     the current value is returned subject to the formatting rules described
@@ -195,44 +216,48 @@ Field type          Description
 
     ``UNITS``
         This field can be set to any UTF-8 string, and is provided for the
-        convenience of the user interface.
+        convenience of the user interface and is returned as part of the data
+        capture heading.
 
     ``SCALED``
         This returns the scaled value computed as
 
             raw * scale + offset
 
-    The optional extra field is used to manage four varieties of value on the
-    position bus.  These determine how values are processed and which capture
-    options are possible:
-
-    =============== ============================================================
-    (default)       Default positions.
-    ``encoder``     Encoder values with possible 16-bit extension.
-    ``adc``         ADC values with averaging option.
-    ``const``       Constant value, cannot be captured.  The only field of this
-                    type is ``POSITIONS.ZERO``.
-    =============== ============================================================
-
-``ext_out`` [extra]
+``ext_out`` extra
     Fields of this type represent values that can be captured but which are not
     present on the position bus.  These fields also support one capture control
     field:
 
     ``CAPTURE``
-        As for ``pos_out``, can be set to enable capture of this field.  The
-        available options are documented in the capture section.
+        As for ``pos_out``, can be set to control capture of this field:
 
-    The optional extra field is used to identify the following categories of
-    extra field:
+        =============== ========================================================
+        Value           Description
+        =============== ========================================================
+        No              This field will not be captured.
+        Capture         This field will be captured.
+        =============== ========================================================
+
+    The `extra` field determines the detailed behaviour of this field, and will
+    be one of the following values:
 
     =============== ============================================================
-    (default)       Ordinary 32 bit values.
-    ``timestamp``   Extended dynamic range timestamp.
-    ``offset``      Extra field to support timestamp capture.
-    ``adc_count``   Number of ADC samples in each capture window.
-    ``bits``        Special bits capture fields.
+    extra value     Description
     =============== ============================================================
+    ``timestamp``   Timestamps in clock ticks with optional scaling to seconds
+                    on data capture.
+    ``samples``     Special internal field for counting captured samples.
+    ``bits``        Used to implement bit-bus readout fields.  Fields of this
+                    sub-type implement an extra ``BITS`` field.
+    =============== ============================================================
+
+    Fields of type ``ext_out bits`` implement an extra attribute:
+
+    ``BITS``
+        This returns a list of all bit fields associated with this field.
+        Fields of this type can be used to capture a snapshot of the bit bus at
+        the trigger time.
 
 ``bit_mux``
     Bit input selectors for blocks.  Each of these fields can be set to the name
@@ -366,29 +391,9 @@ fields.
         > !50-Ohm
         > .
 
-``position``
-    This is used for floating point numbers which are converted from or to an
-    underlying 32-bit signed value when through the ``SCALED`` attribute via the
-    conversion
-
-        scaled = raw * scale + offset
-
-    The following attributes are supported and are the same as for ``pos_out``:
-
-    ``OFFSET``, ``SCALE``
-        These numbers can be set to configure the conversion from the underlying
-        position to the scaled value.
-
-    ``UNITS``
-        This field can be set to any UTF-8 string, and is provided for the
-        convenience of the user interface.
-
-    ``SCALED``
-        This returns the scaled value or can be written as a scaled value.
-
 ``time``
-    As for the ``time`` field type, converts between time in specified units and
-    time in FPGA clock ticks.  The following fields are supported:
+    Converts between time in specified units and time in FPGA clock ticks.  The
+    following fields are supported:
 
     ``UNITS``
         This attribute can be set to any of the strings ``min``, ``s``, ``ms``,
@@ -413,8 +418,6 @@ bit                         Bit: 0 or 1
 action                      Write only, no value
 lut         RAW             5 input lookup table logical formula
 enum        LABELS          Enumeration selection
-position    RAW, OFFSET,    Floating point numbers interpreting integer
-            SCALE, UNITS    according to specified scaling factor and offset
 time        RAW, UNITS      Time intervals converted to FPGA ticks
 =========== =============== ====================================================
 
@@ -437,14 +440,12 @@ bit_out         CAPTURE_WORD    Capturable word containing this bit     R
 bit_mux         DELAY           Bit input delay in FPGA ticks           R W C
 \               MAX_DELAY       Maximum valid delay                     R
 pos_out         CAPTURE         Position capture control                R W C
+\               DATA_DELAY      Data capture delay control              R W C
 \               OFFSET          Position offset                         R W C
 \               SCALE           Position scaling                        R W C
 \               UNITS           Position units                          R W C
-\               RAW             Underlying raw position value           R
-position        OFFSET          Position offset                         R W C
-\               SCALE           Position scaling                        R W C
-\               UNITS           Position units                          R W C
-\               RAW             Underlying raw position value           R
+\               SCALED          Position after applying scaling         R
+ext_out bits    BITS            List of bit_out fields                  R     M
 table           MAX_LENGTH      Maximum table row count                 R
 \               LENGTH          Current table row count                 R
 \               B               Table data in base-64                   R     M

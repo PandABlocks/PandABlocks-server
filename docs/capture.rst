@@ -10,43 +10,30 @@ through the data capture port by setting the appropriate value in the
 as follows:
 
 ``pos_out``
-    =========== ============================================================== =
-    No          Capture disabled
-    Triggered   Capture value at trigger point
-    Difference  Capture difference within captured frame                       F
-    =========== ============================================================== =
+    =============== ========================================================
+    Value           Description
+    =============== ========================================================
+    No              Capture is disabled for this field.
+    Value           The value at the time of trigger will be captured.
+    Diff            The difference of values is captured.
+    Sum             The sum of all valid values is captured.  This is a
+                    64-bit value, and may be further scaled if
+                    ``PCAP.SHIFT_SUM`` is set.
+    Mean            The average of all valid values is captured.
+    Min             The minimum of all valid values is captured.
+    Max             The maximum of all valid values is captured.
+    Min Max         Both minimum and maximum values are captured.
+    Min Max Mean    All three values, minimum, maximum, average are
+                    captured.
+    =============== ========================================================
 
-``pos_out encoder``
-    =========== ============================================================== =
-    No          Capture disabled
-    Triggered   Capture value at trigger point
-    Difference  Capture difference within captured frame                       F
-    Average     Average of values at either end of captured frame              F
-    Extended    Capture full 48-bit encoder value at trigger point
-    =========== ============================================================== =
-
-``pos_out adc``
-    =========== ============================================================== =
-    No          Capture disabled
-    Triggered   Capture value at trigger point
-    Average     Average ADC samples within captured frame                      F
-    =========== ============================================================== =
-
-``ext_out`` (except ``ext_out timestamp``)
-    =========== ============================================================== =
-    No          Capture disabled
-    Capture     Capture value at trigger point
-    =========== ============================================================== =
-
-``ext_out timestamp``
-    =========== ============================================================== =
-    No          Capture disabled
-    Trigger     Capture timestamp at trigger point
-    Frame       Capture timestamp at start of frame                            F
-    =========== ============================================================== =
-
-Key:
-    :F: Framing mode is enabled
+``ext_out``
+    =============== ========================================================
+    Value           Description
+    =============== ========================================================
+    No              This field will not be captured.
+    Capture         This field will be captured.
+    =============== ========================================================
 
 
 Data Capture Port
