@@ -146,7 +146,7 @@ zpkg: etc/panda-server.list $(PANDA_KO) $(SERVER) $(SLOW_LOAD)
 # ------------------------------------------------------------------------------
 # Run automatic tests
 
-tests: simserver
+tests: sim_server
 	make -C tests
 
 .PHONY: tests

@@ -10,13 +10,12 @@ struct type_methods {
     const char *name;
 
     /* This creates and initialises any type specific data needed. */
-    error__t (*init)(const char **string, unsigned int count, void **type_data);
+    error__t (*init)(
+        const char **string, unsigned int count, void **type_data,
+        struct indent_parser *parser);
     /* By default type_data will be freed on destruction.  This optional method
      * implements any more complex destruction process needed. */
     void (*destroy)(void *type_data, unsigned int count);
-
-    /* This is called during startup to process an attribute line. */
-    error__t (*add_attribute_line)(void *type_data, const char **string);
 
     /* This converts a string to a writeable integer.  If the entire string is
      * not consumed by the parse an error will be reported by the caller. */
@@ -86,7 +85,8 @@ error__t type_put(struct type *type, unsigned int number, const char *string);
 error__t create_type(
     const char **line, const char *default_type, unsigned int count,
     const struct register_methods *reg, void *reg_data,
-    struct hash_table *attr_map, struct type **type);
+    struct hash_table *attr_map, struct type **type,
+    struct indent_parser *parser);
 
 /* Releases internal resources associated with type. */
 void destroy_type(struct type *type);
@@ -97,7 +97,3 @@ const char *get_type_name(const struct type *type);
 
 /* Associated enumeration or NULL. */
 const struct enumeration *get_type_enumeration(const struct type *type);
-
-
-/* Adds attribute line to specified type.  Used to add enumeration options. */
-error__t type_parse_attribute(struct type *type, const char **line);

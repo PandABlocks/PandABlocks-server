@@ -77,5 +77,4 @@ struct indent_parser {
 
 /* Uses intent_parser methods to parse the given file. */
 error__t parse_indented_file(
-    const char *file_name, unsigned int max_indent,
-    const struct indent_parser *parser);
+    const char *file_name, const struct indent_parser *parser);

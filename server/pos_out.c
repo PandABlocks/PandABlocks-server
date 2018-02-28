@@ -497,7 +497,8 @@ static bool pos_bus_index_used[POS_BUS_COUNT];
 
 static error__t pos_out_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     struct pos_out *pos_out = malloc(
         sizeof(struct pos_out) + count * sizeof(struct pos_out_field));

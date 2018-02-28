@@ -41,13 +41,6 @@ static void base_destroy(void *class_data)
 }
 
 
-static error__t base_parse_attribute(void *class_data, const char **line)
-{
-    struct base_state *state = class_data;
-    return type_parse_attribute(state->type, line);
-}
-
-
 static error__t base_parse_register(
     void *class_data, struct field *field, unsigned int block_base,
     const char **line)
@@ -77,7 +70,6 @@ static const struct enumeration *base_get_enumeration(void *class_data)
 /* The following methods defined above are shared among all three classes. */
 #define BASE_METHODS \
     .destroy = base_destroy, \
-    .parse_attribute = base_parse_attribute, \
     .parse_register = base_parse_register, \
     .describe = base_describe, \
     .get_enumeration = base_get_enumeration
@@ -135,7 +127,8 @@ struct simple_state {
 static error__t simple_register_init(
     struct register_methods *methods,
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     size_t fields_size = count * sizeof(struct simple_field);
     struct simple_state *state = malloc(
@@ -151,7 +144,8 @@ static error__t simple_register_init(
     *class_data = state;
 
     return create_type(
-        line, "uint", count, methods, state, attr_map, &state->base.type);
+        line, "uint", count, methods, state, attr_map, &state->base.type,
+        parser);
 }
 
 
@@ -216,11 +210,12 @@ static error__t parse_default_param(
 
 static error__t param_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     return
         simple_register_init(
-            &param_methods, line, count, attr_map, class_data)  ?:
+            &param_methods, line, count, attr_map, class_data, parser)  ?:
         parse_default_param(line, count, *class_data);
 }
 
@@ -309,10 +304,11 @@ static struct register_methods read_methods = {
 
 static error__t read_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     return simple_register_init(
-        &read_methods, line, count, attr_map, class_data);
+        &read_methods, line, count, attr_map, class_data, parser);
 }
 
 
@@ -345,13 +341,15 @@ static struct register_methods write_methods = {
 
 static error__t write_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     struct base_state *state = calloc(1, sizeof(struct base_state));
     *class_data = state;
 
     return create_type(
-        line, "uint", count, &write_methods, state, attr_map, &state->type);
+        line, "uint", count, &write_methods, state, attr_map, &state->type,
+        parser);
 }
 
 

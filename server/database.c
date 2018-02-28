@@ -47,16 +47,6 @@ static error__t config_parse_metadata_header(
 }
 
 
-/* For some types we can add extra attribute lines.  In particular, enumerations
- * are defined as attribute lines. */
-static error__t config_parse_attribute(
-    void *context, const char **line, struct indent_parser *parser)
-{
-    struct field *field = context;
-    return field_parse_attribute(field, line);
-}
-
-
 /* Parses a field definition of the form:
  *      <name>      <class>     [<type>]
  * The type description is optional. */
@@ -64,8 +54,7 @@ static error__t config_parse_field_line(
     void *context, const char **line, struct indent_parser *parser)
 {
     struct block *block = context;
-    parser->parse_line = config_parse_attribute;
-    return create_field(line, (struct field **) &parser->context, block);
+    return create_field(line, block, parser);
 }
 
 
@@ -78,7 +67,7 @@ static error__t config_parse_normal_header(
     /* Parse input of form <name> [ "[" <count> "]" ]. */
     char block_name[MAX_NAME_LENGTH];
     unsigned int count = 1;
-    parser->parse_line = config_parse_field_line;
+    struct block *block;
     return
         parse_name(line, block_name, sizeof(block_name))  ?:
         IF(read_char(line, '['),
@@ -86,7 +75,10 @@ static error__t config_parse_normal_header(
             parse_char(line, ']'))  ?:
         parse_eos(line)  ?:
 
-        create_block((struct block **) &parser->context, block_name, count);
+        create_block(&block, block_name, count)  ?:
+        DO(*parser = (struct indent_parser) {
+            .context = block,
+            .parse_line = config_parse_field_line });
 }
 
 
@@ -107,7 +99,7 @@ static error__t load_config_database(const char *config_dir)
     log_message("Loading configuration database from \"%s\"", db_name);
 
     struct indent_parser parser = { .parse_line = config_parse_header_line, };
-    return parse_indented_file(db_name, 2, &parser);
+    return parse_indented_file(db_name, &parser);
 }
 
 
@@ -247,7 +239,7 @@ static error__t load_register_database(const char *config_dir)
 
     struct indent_parser parser = { .parse_line = register_parse_line, };
     return
-        parse_indented_file(db_name, 1, &parser)  ?:
+        parse_indented_file(db_name, &parser)  ?:
         TEST_OK_(hw_checked, "*REG block missing from register file");
 }
 
@@ -297,7 +289,7 @@ static error__t load_description_database(const char *config_dir)
 
     struct indent_parser parser = {
         .parse_line = description_parse_block_line, };
-    return parse_indented_file(db_name, 1, &parser);
+    return parse_indented_file(db_name, &parser);
 }
 
 

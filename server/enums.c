@@ -263,27 +263,9 @@ void write_enum_labels(
 /* enums type */
 
 
-/* Starts the loading of an enumeration. */
-static error__t enum_init(
-    const char **string, unsigned int count, void **type_data)
-{
-    unsigned int enum_count;
-    return
-        parse_whitespace(string)  ?:
-        parse_uint(string, &enum_count)  ?:
-        DO(*type_data = create_dynamic_enumeration(enum_count));
-}
-
-
-/* Called during shutdown to release allocated resources. */
-static void enum_destroy(void *type_data, unsigned int count)
-{
-    destroy_enumeration(type_data);
-}
-
-
 /* Adds a single enumeration label to the enumeration set. */
-static error__t enum_add_label(void *type_data, const char **string)
+static error__t enum_add_label(
+    void *type_data, const char **string, struct indent_parser *parser)
 {
     unsigned int ix;
     return
@@ -292,6 +274,33 @@ static error__t enum_add_label(void *type_data, const char **string)
         add_enumeration(type_data, *string, ix)  ?:
         /* Skip to end of string to complete the parse. */
         DO(*string = strchr(*string, '\0'));
+}
+
+
+/* Starts the loading of an enumeration. */
+static error__t enum_init(
+    const char **string, unsigned int count, void **type_data,
+    struct indent_parser *parser)
+{
+    unsigned int enum_count;
+    return
+        parse_whitespace(string)  ?:
+        parse_uint(string, &enum_count)  ?:
+        DO(
+            *type_data = create_dynamic_enumeration(enum_count);
+            /* We expect the field definition to be followed by enumeration
+             * definitions. */
+            *parser = (struct indent_parser) {
+                .context = *type_data,
+                .parse_line = enum_add_label,
+            });
+}
+
+
+/* Called during shutdown to release allocated resources. */
+static void enum_destroy(void *type_data, unsigned int count)
+{
+    destroy_enumeration(type_data);
 }
 
 
@@ -344,7 +353,6 @@ const struct enumeration *enum_get_enumeration(void *type_data)
 const struct type_methods enum_type_methods = {
     "enum",
     .init = enum_init, .destroy = enum_destroy,
-    .add_attribute_line = enum_add_label,
     .parse = enum_parse, .format = enum_format,
     .get_enumeration = enum_get_enumeration,
 };

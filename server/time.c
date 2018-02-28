@@ -71,7 +71,8 @@ struct time_class_state {
 
 static error__t time_class_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     size_t fields_size = count * sizeof(struct time_field);
     struct time_class_state *state =
@@ -307,7 +308,8 @@ struct time_type_state {
 
 
 static error__t time_type_init(
-    const char **string, unsigned int count, void **type_data)
+    const char **string, unsigned int count, void **type_data,
+    struct indent_parser *parser)
 {
     struct time_type_state *state = malloc(
         sizeof(struct time_type_state) + count * sizeof(unsigned int));

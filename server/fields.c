@@ -677,36 +677,28 @@ static struct field *create_field_block(
 
 
 error__t create_field(
-    const char **line, struct field **field, struct block *block)
+    const char **line, struct block *block, struct indent_parser *parser)
 {
     char field_name[MAX_NAME_LENGTH];
     char class_name[MAX_NAME_LENGTH];
     const struct class_methods *methods = NULL;
+    struct field *field;
     return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         parse_whitespace(line)  ?:
         parse_name(line, class_name, sizeof(class_name))  ?:
         lookup_class(class_name, &methods)  ?:
 
-        DO(*field = create_field_block(block, field_name, methods))  ?:
+        DO(field = create_field_block(block, field_name, methods))  ?:
         methods->init(
-            line, block->count, (*field)->attrs, &(*field)->class_data)  ?:
+            line, block->count, field->attrs, &field->class_data,
+            parser)  ?:
 
-        create_field_attributes(*field)  ?:
+        create_field_attributes(field)  ?:
         /* Insert the field into the blocks map of fields. */
         TEST_OK_(
-            hash_table_insert(
-                block->fields, (*field)->name, *field) == NULL,
+            hash_table_insert(block->fields, field->name, field) == NULL,
             "Field %s.%s already exists", block->name, field_name);
-}
-
-
-error__t field_parse_attribute(struct field *field, const char **line)
-{
-    return
-        TEST_OK_(field->methods->parse_attribute,
-            "Cannot add attribute to this field")  ?:
-        field->methods->parse_attribute(field->class_data, line);
 }
 
 

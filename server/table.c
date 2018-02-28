@@ -48,8 +48,10 @@ static void field_set_destroy(struct field_set *set)
 
 
 static error__t field_set_parse_attribute(
-    struct field_set *set, const char **line)
+    void *context, const char **line, struct indent_parser *parser)
 {
+    struct field_set *set = context;
+
     /* Alas we don't know how many fields are coming, so just realloc fields as
      * necessary. */
     set->field_count += 1;
@@ -269,7 +271,8 @@ static error__t start_table_write(
 
 static error__t table_init(
     const char **line, unsigned int block_count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     struct table_state *state = malloc(
         sizeof(struct table_state) +
@@ -278,6 +281,11 @@ static error__t table_init(
         .block_count = block_count,
     };
     initialise_table_blocks(state->blocks, block_count);
+
+    *parser = (struct indent_parser) {
+        .context = &state->field_set,
+        .parse_line = field_set_parse_attribute,
+    };
 
     *class_data = state;
     return ERROR_OK;
@@ -295,13 +303,6 @@ static void table_destroy(void *class_data)
     if (state->table)
         hw_close_table(state->table);
     free(state);
-}
-
-
-static error__t table_parse_attribute(void *class_data, const char **line)
-{
-    struct table_state *state = class_data;
-    return field_set_parse_attribute(&state->field_set, line);
 }
 
 
@@ -465,7 +466,6 @@ static error__t table_fields_get_many(
 const struct class_methods table_class_methods = {
     "table",
     .init = table_init,
-    .parse_attribute = table_parse_attribute,
     .parse_register = table_parse_register,
     .destroy = table_destroy,
     .get_many = table_get_many,

@@ -186,6 +186,11 @@ error__t parse_utf8_string(const char **input, const char **result)
 /* Indented file parser. */
 
 
+/* Somewhat arbitrary limit on maximum valid indentation, but if you indent more
+ * than this then you're doing it wrong!  (Or just increase this number...) */
+#define MAX_INDENT      10
+
+
 struct indent_state {
     size_t indent;          // Character up to this indentation
 
@@ -196,11 +201,10 @@ struct indent_state {
 
 /* Opens a new indentation. */
 static error__t open_indent(
-    struct indent_state stack[], unsigned int *sp,
-    unsigned int max_indent, size_t indent)
+    struct indent_state stack[], unsigned int *sp, size_t indent)
 {
     return
-        TEST_OK_(*sp < max_indent, "Too much indentation")  ?:
+        TEST_OK_(*sp < MAX_INDENT, "Too much indentation")  ?:
         DO(stack[++*sp].indent = indent);
 }
 
@@ -234,8 +238,7 @@ static error__t close_indents(
 /* Processing for a single line: skip comments and blank lines, keep track of
  * indentation of indentation stack, and parse line using the parser. */
 static error__t parse_one_line(
-    unsigned int max_indent, const char **line,
-    struct indent_state indent_stack[], unsigned int *sp)
+    const char **line, struct indent_state indent_stack[], unsigned int *sp)
 {
     /* Find indent of the current line. */
     const char *line_in = *line;
@@ -250,7 +253,7 @@ static error__t parse_one_line(
             IF_ELSE(indent > indent_stack[*sp].indent,
                 /* New indent, check we can accomodate it and that we have a
                  * parser for this new level. */
-                open_indent(indent_stack, sp, max_indent, indent),
+                open_indent(indent_stack, sp, indent),
             //else
                 /* Close any indentations until flush with current line. */
                 close_indents(indent_stack, sp, indent));
@@ -273,8 +276,7 @@ static error__t parse_one_line(
 
 
 error__t parse_indented_file(
-    const char *file_name, unsigned int max_indent,
-    const struct indent_parser *parser)
+    const char *file_name, const struct indent_parser *parser)
 {
     FILE *file;
     error__t error = TEST_OK_IO_(file = fopen(file_name, "r"),
@@ -287,10 +289,10 @@ error__t parse_indented_file(
         /* The indentation stack is used to keep track of indents as they're
          * opened and closed. */
         unsigned int sp = 0;
-        /* We need max_indent+2 entries in the stack: parsing with max_indent=0
+        /* We need MAX_INDENT+2 entries in the stack: parsing with MAX_INDENT=0
          * requires one entry for the current parser, and an extra entry for the
          * (unusable) sub-parser. */
-        struct indent_state indent_stack[max_indent + 2];
+        struct indent_state indent_stack[MAX_INDENT + 2];
         /* Start with the given parser and context. */
         indent_stack[0] = (struct indent_state) {
             .indent = 0,
@@ -307,7 +309,7 @@ error__t parse_indented_file(
             line_no += 1;
             /* Skip whitespace and compute the current indentation. */
             const char *parsed_line = line;
-            error = parse_one_line(max_indent, &parsed_line, indent_stack, &sp);
+            error = parse_one_line(&parsed_line, indent_stack, &sp);
 
             /* In this case extend the error with the file name and line number
              * for more helpful reporting. */

@@ -135,7 +135,8 @@ static bool check_for_option(const char *string)
  * attribute of this type. */
 
 static error__t uint_init(
-    const char **string, unsigned int count, void **type_data)
+    const char **string, unsigned int count, void **type_data,
+    struct indent_parser *parser)
 {
     unsigned int *max_value = malloc(sizeof(unsigned int));
     *max_value = UINT32_MAX;
@@ -215,7 +216,8 @@ struct scalar_state {
 
 
 static error__t scalar_init(
-    const char **string, unsigned int count, void **type_data)
+    const char **string, unsigned int count, void **type_data,
+    struct indent_parser *parser)
 {
     struct scalar_state *state = malloc(sizeof(struct scalar_state));
     *type_data = state;
@@ -321,7 +323,8 @@ struct lut_state {
 
 
 static error__t lut_init(
-    const char **string, unsigned int count, void **type_data)
+    const char **string, unsigned int count, void **type_data,
+    struct indent_parser *parser)
 {
     struct lut_state *state = malloc(
         sizeof(struct lut_state) + count * sizeof(struct lut_field));
@@ -475,15 +478,6 @@ const struct enumeration *get_type_enumeration(const struct type *type)
 }
 
 
-error__t type_parse_attribute(struct type *type, const char **line)
-{
-    return
-        TEST_OK_(type->methods->add_attribute_line,
-            "Cannot add attribute to type")  ?:
-        type->methods->add_attribute_line(type->type_data, line);
-}
-
-
 void destroy_type(struct type *type)
 {
     if (type->methods->destroy)
@@ -557,7 +551,8 @@ static void create_type_attributes(
 error__t create_type(
     const char **line, const char *default_type, unsigned int count,
     const struct register_methods *reg, void *reg_data,
-    struct hash_table *attr_map, struct type **type)
+    struct hash_table *attr_map, struct type **type,
+    struct indent_parser *parser)
 {
     char type_name[MAX_NAME_LENGTH];
     const struct type_methods *methods = NULL;
@@ -571,7 +566,7 @@ error__t create_type(
         parse_name(line, type_name, sizeof(type_name))  ?:
         lookup_type(type_name, &methods)  ?:
         IF(methods->init,
-            methods->init(line, count, &type_data))  ?:
+            methods->init(line, count, &type_data, parser))  ?:
         DO(
             *type = create_type_block(methods, reg, reg_data, count, type_data);
             create_type_attributes(*type, attr_map));

@@ -18,10 +18,9 @@ struct class_methods {
      * class has already been identified. */
     error__t (*init)(
         const char **line, unsigned int count,
-        struct hash_table *attr_map, void **class_data);
+        struct hash_table *attr_map, void **class_data,
+        struct indent_parser *parser);
 
-    /* Parses the attribute definition line for this field. */
-    error__t (*parse_attribute)(void *class_data, const char **line);
     /* Parses the register definition line for this field. */
     error__t (*parse_register)(
         void *class_data, struct field *field, unsigned int block_base,
@@ -172,12 +171,10 @@ error__t block_set_register(struct block *block, unsigned int base);
 error__t block_set_description(struct block *block, const char *description);
 
 
-/* Call this to create each field. */
+/* Call this to create each field.  If further lines are needed to define this
+ * field then *parser should be updated accordingly. */
 error__t create_field(
-    const char **line, struct field **field, struct block *block);
-
-/* Called to add attribute lines while parsing config file. */
-error__t field_parse_attribute(struct field *field, const char **line);
+    const char **line, struct block *block, struct indent_parser *parser);
 
 /* Parse register setting for field. */
 error__t field_parse_registers(struct field *field, const char **line);

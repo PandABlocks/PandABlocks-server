@@ -269,7 +269,8 @@ static error__t create_ext_out(
 
 static error__t ext_out_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     enum ext_out_type ext_type = 0;
     unsigned int bit_group = 0;

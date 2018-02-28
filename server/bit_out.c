@@ -84,7 +84,8 @@ static error__t parse_default_param(
 
 static error__t bit_mux_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     struct bit_mux_state *state = malloc(
         sizeof(struct bit_mux_state) + count * sizeof(struct bit_mux_value));
@@ -239,7 +240,8 @@ static void bit_out_change_set(
 
 static error__t bit_out_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     struct bit_out_state *state = malloc(
         sizeof(struct bit_out_state) + count * sizeof(unsigned int));

@@ -83,7 +83,8 @@ struct pos_mux_state {
 
 static error__t pos_mux_init(
     const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data)
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
 {
     struct pos_mux_state *state = malloc(
         sizeof(struct pos_mux_state) + count * sizeof(struct pos_mux_value));
