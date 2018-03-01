@@ -58,7 +58,7 @@ PULSE[4]
     MISSED_CNT      read
 
 SEQ[4]
-    TABLE           table
+    TABLE           table       4
         15:0    REPEATS
         19:16   TRIGGER     enum
             0   Immediate

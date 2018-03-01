@@ -56,6 +56,8 @@ struct field_set {
     unsigned int field_count;
     unsigned int capacity;
     struct table_subfield **ordered_fields;
+    unsigned int row_words;
+    bool *used_bits;
 };
 
 
@@ -74,14 +76,24 @@ static void field_set_destroy(struct field_set *set)
         free(field);
     }
     free(set->ordered_fields);
+    free(set->used_bits);
 }
 
 
 static error__t check_field_range(
     struct field_set *set, unsigned int left, unsigned int right)
 {
-    return ERROR_OK;
-    return FAIL_("Range check not implemented yet");
+    unsigned int row_bits = 32 * set->row_words;
+    error__t error =
+        TEST_OK_(left >= right, "Invalid ordering of bit field")  ?:
+        TEST_OK_(left < row_bits, "Bit field extends outside row");
+    for (unsigned int i = right; !error  &&  i <= left; i ++)
+    {
+        error = TEST_OK_(!set->used_bits[i],
+            "Bit field overlaps at bit %u", i);
+        set->used_bits[i] = true;
+    }
+    return error;
 }
 
 
@@ -404,9 +416,9 @@ static error__t start_table_write(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table methods. */
 
-static error__t table_init(
-    const char **line, unsigned int block_count,
-    struct hash_table *attr_map, void **class_data,
+
+static struct table_state *create_table(
+    unsigned int block_count, unsigned int row_words,
     struct indent_parser *parser)
 {
     struct table_state *state = malloc(
@@ -416,6 +428,8 @@ static error__t table_init(
         .block_count = block_count,
         .field_set = {
             .fields = hash_table_create(false),
+            .row_words = row_words,
+            .used_bits = calloc(sizeof(bool), 32 * row_words),
         },
     };
     initialise_table_blocks(state->blocks, block_count);
@@ -424,9 +438,21 @@ static error__t table_init(
         .context = &state->field_set,
         .parse_line = field_set_parse_attribute,
     };
+    return state;
+}
 
-    *class_data = state;
-    return ERROR_OK;
+
+static error__t table_init(
+    const char **line, unsigned int block_count,
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
+{
+    unsigned int row_words = 1;
+    return
+        IF(**line == ' ',
+            parse_whitespace(line)  ?:
+            parse_uint(line, &row_words))  ?:
+        DO(*class_data = create_table(block_count, row_words, parser));
 }
 
 
