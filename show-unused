@@ -1,0 +1,13 @@
+#!/bin/bash
+# Script to dump list of symbols that have been defined but not used.
+
+HERE="$(dirname "$0")"
+
+BUILD="${1:-$HERE/build/sim_server}"
+
+# From list of symbols from nm extract two separate lists: the list of undefined
+# symbols (representing use points) and the list of defined functions and
+# variables (defined symbols).
+diff <(nm "$BUILD"/*.o |sed -n  '/ * U /    {s///;p}' |sort |uniq) \
+     <(nm "$BUILD"/*.o |sed -nr '/.* (T|R) /{s///;p}' |sort |uniq) |
+sed -n '/^> /{s///;p}'
