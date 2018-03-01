@@ -50,13 +50,16 @@ PULSE       10
     MISSED_CNT      10
 
 SEQ         11
-    PRESCALE        5
-    TABLE_CYCLE     8
-    ENABLE          0 16
-    INPA            1 17
-    INPB            2 18
-    INPC            3 19
-    INPD            4 20
+    TABLE           short   512    13 14 15
+    PRESCALE        0
+    REPEATS         1
+    ENABLE          2 10
+    BITA            3 4
+    BITB            5 6
+    BITC            7 8
+    POSA            9
+    POSB            11
+    POSC            16
     OUTA            38 39 40 41
     OUTB            42 43 44 45
     OUTC            46 47 48 49
@@ -64,10 +67,10 @@ SEQ         11
     OUTE            54 55 56 57
     OUTF            58 59 60 61
     ACTIVE          62 63 64 65
-    CUR_FRAME       9
-    CUR_FCYCLE      10
-    CUR_TCYCLE      11
-    TABLE           short   512    13 14 15
+    TABLE_REPEAT    17
+    TABLE_LINE      18
+    LINE_REPEAT     19
+    STATE           20
 
 INENC       12
     PROTOCOL        0

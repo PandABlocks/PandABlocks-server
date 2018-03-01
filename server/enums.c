@@ -268,12 +268,12 @@ static error__t enum_add_label(
     void *type_data, const char **string, struct indent_parser *parser)
 {
     unsigned int ix;
+    const char *enum_string;
     return
         parse_uint(string, &ix)  ?:
         parse_whitespace(string)  ?:
-        add_enumeration(type_data, *string, ix)  ?:
-        /* Skip to end of string to complete the parse. */
-        DO(*string = strchr(*string, '\0'));
+        parse_utf8_string(string, &enum_string)  ?:
+        add_enumeration(type_data, enum_string, ix);
 }
 
 

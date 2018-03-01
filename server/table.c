@@ -16,6 +16,7 @@
 #include "config_server.h"
 #include "fields.h"
 #include "attributes.h"
+#include "enums.h"
 #include "base64.h"
 #include "locking.h"
 
@@ -31,19 +32,104 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Field sets. */
 
+/* Copied from enums.h with the consts removed.  Need to refactor this properly
+ * another time. */
+struct table_enum_entry { unsigned int value; char *name; };
+struct table_enum_set { struct table_enum_entry *enums; size_t count; };
+
+struct table_field {
+    unsigned int left;
+    unsigned int right;
+    char *field_name;
+    struct table_enum_set enums;    // If .count >0 then report field as an enum
+};
+
 /* This is used to implement a list of fields loaded from the config register
  * and reported to the client on demand. */
 struct field_set {
     unsigned int field_count;
-    char **fields;
+    unsigned int capacity;
+    struct table_field *fields;
 };
 
 
 static void field_set_destroy(struct field_set *set)
 {
     for (unsigned int i = 0; i < set->field_count; i ++)
-        free(set->fields[i]);
+    {
+        struct table_field *field = &set->fields[i];
+        free(field->field_name);
+        for (unsigned int j = 0; j < field->enums.count; j ++)
+            free(field->enums.enums[j].name);
+        free(field->enums.enums);
+    }
     free(set->fields);
+}
+
+
+static error__t check_field_range(
+    struct field_set *set, unsigned int left, unsigned int right)
+{
+    return ERROR_OK;
+    return FAIL_("Range check not implemented yet");
+}
+
+
+static error__t add_table_enum(
+    struct table_enum_set *enums, unsigned int value, const char *enum_string)
+{
+    enums->enums = realloc(
+        enums->enums, (enums->count + 1) * sizeof(struct table_enum_entry));
+    enums->enums[enums->count++] = (struct table_enum_entry) {
+        .value = value,
+        .name = strdup(enum_string),
+    };
+    /* Ought to check for duplicates, but then we're getting closer to
+     * duplicating a true enum. */
+    return ERROR_OK;
+}
+
+
+static error__t parse_field_enum(
+    void *context, const char **line, struct indent_parser *parser)
+{
+    struct table_enum_set *enums = context;
+    unsigned int value;
+    const char *enum_string;
+    return
+        parse_uint(line, &value)  ?:
+        parse_whitespace(line)  ?:
+        parse_utf8_string(line, &enum_string)  ?:
+
+        add_table_enum(enums, value, enum_string);
+}
+
+
+static void add_new_field(
+    struct field_set *set, unsigned int left, unsigned int right,
+    const char *field_name, struct indent_parser *parser)
+{
+    /* Ensure we have enough capacity. */
+    if (set->field_count >= set->capacity)
+    {
+        set->capacity *= 2;
+        set->fields =
+            realloc(set->fields, set->capacity * sizeof(struct table_field));
+    }
+
+    /* Assign the new field. */
+    struct table_field *field = &set->fields[set->field_count++];
+    *field = (struct table_field) {
+        .left = left,
+        .right = right,
+        .field_name = strdup(field_name),
+    };
+
+    /* Allow for parsing enums associated with this field. */
+    *parser = (struct indent_parser) {
+        .context = &field->enums,
+        .parse_line = parse_field_enum,
+    };
 }
 
 
@@ -51,16 +137,18 @@ static error__t field_set_parse_attribute(
     void *context, const char **line, struct indent_parser *parser)
 {
     struct field_set *set = context;
-
-    /* Alas we don't know how many fields are coming, so just realloc fields as
-     * necessary. */
-    set->field_count += 1;
-    set->fields = realloc(set->fields, set->field_count * sizeof(char *));
-
-    const char *description;
+    unsigned int left;
+    unsigned int right;
+    char field_name[MAX_NAME_LENGTH];
     return
-        parse_utf8_string(line, &description)  ?:
-        DO(set->fields[set->field_count - 1] = strdup(description));
+        parse_uint(line, &left)  ?:
+        parse_char(line, ':')  ?:
+        parse_uint(line, &right)  ?:
+        parse_whitespace(line)  ?:
+        parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
+
+        check_field_range(set, left, right)  ?:
+        DO(add_new_field(set, left, right, field_name, parser));
 }
 
 
@@ -68,7 +156,12 @@ static error__t field_set_fields_get_many(
     struct field_set *set, struct connection_result *result)
 {
     for (unsigned int i = 0; i < set->field_count; i ++)
-        result->write_many(result->write_context, set->fields[i]);
+    {
+        struct table_field *field = &set->fields[i];
+        format_many_result(result,
+            "%u:%u %s%s", field->left, field->right, field->field_name,
+            field->enums.count ? " enum" : "");
+    }
     return ERROR_OK;
 }
 
@@ -268,6 +361,7 @@ static error__t start_table_write(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table methods. */
 
+#define INITIAL_CAPACITY    4
 
 static error__t table_init(
     const char **line, unsigned int block_count,
@@ -279,6 +373,10 @@ static error__t table_init(
         block_count * sizeof(struct table_block));
     *state = (struct table_state) {
         .block_count = block_count,
+        .field_set = {
+            .capacity = INITIAL_CAPACITY,
+            .fields = calloc(INITIAL_CAPACITY, sizeof(struct table_field)),
+        },
     };
     initialise_table_blocks(state->blocks, block_count);
 
