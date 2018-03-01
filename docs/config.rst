@@ -86,8 +86,8 @@ Field
     written directly to the hardware on startup.
 
 ``read`` field-subtype
-    A ``read`` field is used for read-only registers.  The `field-subtype` must be
-    specified.
+    A ``read`` field is used for read-only registers.  The `field-subtype` must
+    be specified.
 
 ``write`` field-subtype
     A ``write`` field is used for write-only registers which trigger immediate

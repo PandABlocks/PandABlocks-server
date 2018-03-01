@@ -122,6 +122,18 @@ error__t lookup_attr(
 }
 
 
+error__t lookup_table_subfield(
+    const struct field *field, const char *name,
+    struct table_subfield **subfield)
+{
+    return
+        TEST_OK_(field->methods->get_subfield, "Field is not a table")  ?:
+        TEST_OK_(
+            *subfield = field->methods->get_subfield(field->class_data, name),
+            "Table sub-field not found");
+}
+
+
 const char *get_block_description(struct block *block)
 {
     return block->description;

@@ -63,6 +63,9 @@ struct class_methods {
     /* Returns enumeration if class has an associated enumeration. */
     const struct enumeration *(*get_enumeration)(void *class_data);
 
+    /* Returns subfield for array field. */
+    struct table_subfield *(*get_subfield)(void *class_data, const char *name);
+
     /* Class specific attributes. */
     const struct attr_methods *attrs;
     unsigned int attr_count;
@@ -79,6 +82,7 @@ struct class_methods {
 struct block;               // Top level hardware entity
 struct field;               // Controllable fields for each block
 struct attr;                // Type specific attributes for individual fields
+struct table_subfield;      // Subfields for arrays
 
 
 /* Returns block with the given name. */
@@ -92,6 +96,11 @@ error__t lookup_field(
 /* Returns attribute with the given name for this field. */
 error__t lookup_attr(
     const struct field *field, const char *name, struct attr **attr);
+
+/* Returns array subfield if defined. */
+error__t lookup_table_subfield(
+    const struct field *field, const char *name,
+    struct table_subfield **subfield);
 
 
 /* Description field access. */

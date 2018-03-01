@@ -60,7 +60,7 @@ PULSE[4]
 SEQ[4]
     TABLE           table
         15:0    REPEATS
-        19:16   TRIGGER
+        19:16   TRIGGER     enum
             0   Immediate
             1   BITA=0
             2   BITA=1

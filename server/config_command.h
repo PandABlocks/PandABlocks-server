@@ -24,3 +24,15 @@ struct entity_context {
 error__t parse_block_entity(
     const char **input, struct entity_context *parse,
     bool *number_present, bool *star_present);
+
+/* Parser for array subfield handling.  Should be called directly after
+ * parse_block_entity() and will fill in array_context if the following syntax
+ * is recognised:
+ *
+ *  block [number] "." field "[" "]" "." subfield
+ *
+ */
+struct table_subfield;
+error__t parse_table_subfield(
+    const char **input, const struct entity_context *entity,
+    struct table_subfield **subfield);

@@ -27,6 +27,7 @@
 #include "enums.h"
 #include "version.h"
 #include "metadata.h"
+#include "table.h"
 
 #include "system_command.h"
 
@@ -232,29 +233,37 @@ static error__t put_changes(
 
 /* *DESC.block?
  * *DESC.block.field?
+ * *DESC.block.field[].subfield?
  *
  * Returns description field for block or field. */
 static error__t get_desc(const char *command, struct connection_result *result)
 {
     const char *string = NULL;
     struct entity_context parse;
+    struct table_subfield *subfield = NULL;
     return
         parse_char(&command, '.')  ?:
         parse_block_entity(&command, &parse, NULL, NULL)  ?:
+        parse_table_subfield(&command, &parse, &subfield)  ?:
         parse_eos(&command)  ?:
 
         IF_ELSE(parse.attr,
             TEST_OK_(string = get_attr_description(parse.attr),
                 "No description for attribute"),
         //else
-            IF_ELSE(parse.field,
-                /* Field follows: *DESC.block.field? */
-                TEST_OK_(string = get_field_description(parse.field),
-                    "No description set for field"),
-            //else
-                /* Just a block: *DESC.block? */
-                TEST_OK_(string = get_block_description(parse.block),
-                    "No description set for block")))  ?:
+        IF_ELSE(subfield,
+            /* Table subfield: *DESC.block.field[].subfield? */
+            TEST_OK_(string = get_table_subfield_description(subfield),
+                "No description for table sub-field"),
+        //else
+        IF_ELSE(parse.field,
+            /* Field follows: *DESC.block.field? */
+            TEST_OK_(string = get_field_description(parse.field),
+                "No description set for field"),
+        //else
+            /* Just a block: *DESC.block? */
+            TEST_OK_(string = get_block_description(parse.block),
+                "No description set for block"))))  ?:
         format_one_result(result, "%s", string);
 }
 
@@ -320,16 +329,19 @@ static error__t put_verbose(
 
 /* *ENUMS.block.field?
  * *ENUMS.block.field.attr?
+ * *ENUMS.block.field[].subfield?
  *
  * Returns list of enumeration labels, if appropriate. */
 static error__t get_enums(const char *command, struct connection_result *result)
 {
     struct entity_context parse;
     const struct enumeration *enumeration;
+    struct table_subfield *subfield = NULL;
     result->response = RESPONSE_MANY;
     return
         parse_char(&command, '.')  ?:
         parse_block_entity(&command, &parse, NULL, NULL)  ?:
+        parse_table_subfield(&command, &parse, &subfield)  ?:
         parse_eos(&command)  ?:
 
         TEST_OK_(parse.field, "Missing field name")  ?:
@@ -337,8 +349,12 @@ static error__t get_enums(const char *command, struct connection_result *result)
             TEST_OK_(enumeration = get_attr_enumeration(parse.attr),
                 "Attribute is not an enumeration"),
         //else
+        IF_ELSE(subfield,
+            TEST_OK_(enumeration = get_table_subfield_enumeration(subfield),
+                "Table sub-field is not an enumeration"),
+        //else
             TEST_OK_(enumeration = get_field_enumeration(parse.field),
-                "Field is not an enumeration"))  ?:
+                "Field is not an enumeration")))  ?:
         DO(write_enum_labels(enumeration, result));
 }
 

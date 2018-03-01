@@ -19,6 +19,7 @@
 #include "enums.h"
 #include "base64.h"
 #include "locking.h"
+#include "hashtable.h"
 
 #include "table.h"
 
@@ -27,6 +28,8 @@
  * that the persistence layer can read lines back a line at a time -- which
  * needs each line to be a multiple of 4 bytes. */
 #define BASE64_LINE_BYTES   48U     // Converts to 64 characters
+
+#define INITIAL_CAPACITY    4
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -37,33 +40,40 @@
 struct table_enum_entry { unsigned int value; char *name; };
 struct table_enum_set { struct table_enum_entry *enums; size_t count; };
 
-struct table_field {
+struct table_subfield {
     unsigned int left;
     unsigned int right;
     char *field_name;
-    struct table_enum_set enums;    // If .count >0 then report field as an enum
+    bool enum_type;
+    struct table_enum_set enums;
 };
 
 /* This is used to implement a list of fields loaded from the config register
- * and reported to the client on demand. */
+ * and reported to the client on demand.  We maintain the list of fields in
+ * order so that they can be reported in order. */
 struct field_set {
+    struct hash_table *fields;
     unsigned int field_count;
     unsigned int capacity;
-    struct table_field *fields;
+    struct table_subfield **ordered_fields;
 };
 
 
 static void field_set_destroy(struct field_set *set)
 {
+    hash_table_destroy(set->fields);
+
     for (unsigned int i = 0; i < set->field_count; i ++)
     {
-        struct table_field *field = &set->fields[i];
+        struct table_subfield *field = set->ordered_fields[i];
         free(field->field_name);
+
         for (unsigned int j = 0; j < field->enums.count; j ++)
             free(field->enums.enums[j].name);
         free(field->enums.enums);
+        free(field);
     }
-    free(set->fields);
+    free(set->ordered_fields);
 }
 
 
@@ -105,31 +115,58 @@ static error__t parse_field_enum(
 }
 
 
-static void add_new_field(
-    struct field_set *set, unsigned int left, unsigned int right,
-    const char *field_name, struct indent_parser *parser)
+const struct enumeration *get_table_subfield_enumeration(
+    struct table_subfield *subfield)
 {
-    /* Ensure we have enough capacity. */
-    if (set->field_count >= set->capacity)
-    {
-        set->capacity *= 2;
-        set->fields =
-            realloc(set->fields, set->capacity * sizeof(struct table_field));
-    }
+printf("get enum %s\n", subfield->field_name);
+    return NULL;
+}
 
-    /* Assign the new field. */
-    struct table_field *field = &set->fields[set->field_count++];
-    *field = (struct table_field) {
+
+const char *get_table_subfield_description(struct table_subfield *subfield)
+{
+    return "Description place-holder";
+}
+
+
+static error__t add_new_field(
+    struct field_set *set,
+    unsigned int left, unsigned int right, const char *field_name,
+    bool enum_type, struct indent_parser *parser)
+{
+    /* Create the new field. */
+    struct table_subfield *field = malloc(sizeof(struct table_subfield));
+    *field = (struct table_subfield) {
         .left = left,
         .right = right,
         .field_name = strdup(field_name),
+        .enum_type = enum_type,
     };
 
-    /* Allow for parsing enums associated with this field. */
-    *parser = (struct indent_parser) {
-        .context = &field->enums,
-        .parse_line = parse_field_enum,
-    };
+    /* Ensure we have enough capacity and add the field to the ordered list. */
+    if (set->field_count >= set->capacity)
+    {
+        if (set->capacity)
+            set->capacity *= 2;
+        else
+            set->capacity = INITIAL_CAPACITY;
+        set->ordered_fields = realloc(
+            set->ordered_fields,
+            set->capacity * sizeof(struct table_subfield *));
+    }
+    set->ordered_fields[set->field_count++] = field;
+
+    if (enum_type)
+        /* Allow for parsing enums associated with this field. */
+        *parser = (struct indent_parser) {
+            .context = &field->enums,
+            .parse_line = parse_field_enum,
+        };
+
+    /* Insert the hash table. */
+    return TEST_OK_(
+        !hash_table_insert(set->fields, field->field_name, field),
+        "Duplicate table field");
 }
 
 
@@ -140,15 +177,21 @@ static error__t field_set_parse_attribute(
     unsigned int left;
     unsigned int right;
     char field_name[MAX_NAME_LENGTH];
+    bool enum_type = false;
     return
         parse_uint(line, &left)  ?:
         parse_char(line, ':')  ?:
         parse_uint(line, &right)  ?:
         parse_whitespace(line)  ?:
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
+        IF(**line == ' ',
+            parse_whitespace(line)  ?:
+            TEST_OK_(read_string(line, "enum"),
+                "Only 'enum' sub-field type allowed")  ?:
+            DO(enum_type = true))  ?:
 
         check_field_range(set, left, right)  ?:
-        DO(add_new_field(set, left, right, field_name, parser));
+        add_new_field(set, left, right, field_name, enum_type, parser);
 }
 
 
@@ -157,10 +200,10 @@ static error__t field_set_fields_get_many(
 {
     for (unsigned int i = 0; i < set->field_count; i ++)
     {
-        struct table_field *field = &set->fields[i];
+        struct table_subfield *field = set->ordered_fields[i];
         format_many_result(result,
             "%u:%u %s%s", field->left, field->right, field->field_name,
-            field->enums.count ? " enum" : "");
+            field->enum_type ? " enum" : "");
     }
     return ERROR_OK;
 }
@@ -361,8 +404,6 @@ static error__t start_table_write(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table methods. */
 
-#define INITIAL_CAPACITY    4
-
 static error__t table_init(
     const char **line, unsigned int block_count,
     struct hash_table *attr_map, void **class_data,
@@ -374,8 +415,7 @@ static error__t table_init(
     *state = (struct table_state) {
         .block_count = block_count,
         .field_set = {
-            .capacity = INITIAL_CAPACITY,
-            .fields = calloc(INITIAL_CAPACITY, sizeof(struct table_field)),
+            .fields = hash_table_create(false),
         },
     };
     initialise_table_blocks(state->blocks, block_count);
@@ -515,6 +555,14 @@ static error__t table_put_table(
 }
 
 
+static struct table_subfield *table_get_subfield(
+    void *class_data, const char *name)
+{
+    struct table_state *table = class_data;
+    return hash_table_lookup(table->field_set.fields, name);
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Attributes. */
 
@@ -568,6 +616,7 @@ const struct class_methods table_class_methods = {
     .destroy = table_destroy,
     .get_many = table_get_many,
     .put_table = table_put_table,
+    .get_subfield = table_get_subfield,
     .change_set = table_change_set,
     .change_set_index = CHANGE_IX_TABLE,
     .attrs = (struct attr_methods[]) {

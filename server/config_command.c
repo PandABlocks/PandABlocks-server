@@ -241,6 +241,28 @@ error__t parse_block_entity(
 }
 
 
+error__t parse_table_subfield(
+    const char **input, const struct entity_context *entity,
+    struct table_subfield **subfield)
+{
+    if (entity->field  &&  !entity->attr  &&  **input == '[')
+    {
+        char subfield_name[MAX_NAME_LENGTH];
+        return
+            parse_char(input, '[')  ?:
+            parse_char(input, ']')  ?:
+            parse_char(input, '.')  ?:
+            parse_name(input, subfield_name, sizeof(subfield_name))  ?:
+            lookup_table_subfield(entity->field, subfield_name, subfield);
+    }
+    else
+    {
+        *subfield = NULL;
+        return ERROR_OK;
+    }
+}
+
+
 /* One of the following four commands is parsed and the *actions field is set
  * accordingly:
  *
