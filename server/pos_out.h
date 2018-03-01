@@ -6,11 +6,6 @@ struct capture_info;
 error__t initialise_pos_out(void);
 void terminate_pos_out(void);
 
-/* Returns scaling information for given pos_out field. */
-size_t get_pos_out_info(
-    struct pos_out *pos_out, unsigned int number,
-    double *scale, double *offset, char units[], size_t length);
-
 /* Update cached pos_out values up to date with values read from hardware. */
 void do_pos_out_refresh(uint64_t change_index);
 

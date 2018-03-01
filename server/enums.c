@@ -344,7 +344,7 @@ static error__t enum_format(
 }
 
 
-const struct enumeration *enum_get_enumeration(void *type_data)
+static const struct enumeration *enum_get_enumeration(void *type_data)
 {
     return type_data;
 }

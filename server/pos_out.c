@@ -128,39 +128,6 @@ static void pos_out_change_set(
 }
 
 
-/* Most annoying.  This function is missing from the C library, possibly best
- * explained here: https://lwn.net/Articles/507319/
- *    Never mind, it's easy to write. */
-static size_t strlcpy(char dst[], const char *src, size_t size)
-{
-    size_t src_len = strlen(src);
-    memcpy(dst, src, MIN(src_len + 1, size));
-    if (size > 0)  dst[size - 1] = '\0';
-    return src_len;
-}
-
-
-size_t get_pos_out_info(
-    struct pos_out *pos_out, unsigned int number,
-    double *scale, double *offset, char units[], size_t length)
-{
-    LOCK(pos_out->mutex);
-    const struct pos_out_field *field = &pos_out->values[number];
-    *scale = field->scale;
-    *offset = field->offset;
-    size_t result = strlcpy(units, field->units ?: "", length);
-    UNLOCK(pos_out->mutex);
-    return result;
-}
-
-
-static void write_data_delay(struct pos_out *pos_out, unsigned int number)
-{
-    struct pos_out_field *field = &pos_out->values[number];
-    hw_write_data_delay(field->capture_index, field->data_delay);
-}
-
-
 /******************************************************************************/
 /* Attributes. */
 
@@ -397,7 +364,7 @@ static error__t pos_out_data_delay_put(
         parse_uint(&string, &delay)  ?:
         TEST_OK_(delay <= MAX_DATA_DELAY, "Delay too long")  ?:
         DO( field->data_delay = delay;
-            write_data_delay(pos_out, number));
+            hw_write_data_delay(field->capture_index, delay));
 }
 
 

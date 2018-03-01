@@ -69,6 +69,3 @@ error__t parse_enumeration(
 error__t format_enumeration(
     const struct enumeration *enumeration,
     unsigned int value, char string[], size_t length);
-
-/* Simply returns type_data as an enumeration. */
-const struct enumeration *enum_get_enumeration(void *type_data);

@@ -214,6 +214,7 @@ error__t initialise_output(void)
 void terminate_output(void)
 {
     terminate_ext_out();
+    terminate_bit_out();
     terminate_pos_out();
     terminate_pos_mux();
 
