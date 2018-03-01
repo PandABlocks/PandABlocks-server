@@ -75,7 +75,7 @@
 > OK
 > OK
 > OK
-> ERR Label not found
+> ERR Invalid bit bus selection
 > OK
 > OK
 > OK
@@ -191,7 +191,7 @@
 > OK =50-Ohm
 
 < TTLIN2.TERM=blah
-> ERR Label not found
+> ERR Invalid enumeration value
 
 < INENC3.BITS=33
 > OK
@@ -240,6 +240,11 @@
 < 1 2 3 4 5 6 7 8
 < 9
 <
+> ERR Table write is not a whole number of rows
+
+< SEQ2.TABLE<
+< 1 2 3 4 5 6 7 8
+<
 > OK
 
 < SEQ2.TABLE<B
@@ -248,19 +253,25 @@
 > ERR Invalid data length
 
 < SEQ2.TABLE<B
-< 123456789AB=
+< 123456789AB123456789AB=
+<
+> ERR Malformed base64 string
+
+< SEQ2.TABLE<B
+< 123456789AB123456789AB==
 <
 > OK
 
 < SEQ2.TABLE<<
 < 1 2 3 4 5 6 7 8
-< 9
 <
 > OK
 
 < SEQ2.TABLE?
 > !3891817943
 > !16055470
+> !964615029
+> !4046827
 > !1
 > !2
 > !3
@@ -269,7 +280,6 @@
 > !6
 > !7
 > !8
-> !9
 > .
 
 
@@ -423,7 +433,7 @@
 
 < PCAP.BITS0.CAPTURE=1
 < PCAP.BITS0.CAPTURE=Capture
-> ERR Not a valid capture option
+> ERR Invalid capture option
 > OK
 
 < *CAPTURE?
@@ -503,13 +513,23 @@
 > .
 
 < SEQ1.TABLE.FIELDS?
-> !31:0    NREPEATS
-> !35:32   INPUT_MASK
-> !39:36   TRIGGER_MASK
-> !45:40   OUT_PH_A
-> !51:46   OUT_PH_B
-> !95:64   TIME_PH_A
-> !127:96  TIME_PH_B
+> !15:0 REPEATS
+> !19:16 TRIGGER enum
+> !63:32 POSITION
+> !95:64 TIME1
+> !20:20 OUTA1
+> !21:21 OUTB1
+> !22:22 OUTC1
+> !23:23 OUTD1
+> !24:24 OUTE1
+> !25:25 OUTF1
+> !127:96 TIME2
+> !26:26 OUTA2
+> !27:27 OUTB2
+> !28:28 OUTC2
+> !29:29 OUTD2
+> !30:30 OUTE2
+> !31:31 OUTF2
 > .
 
 < SEQ1.TABLE.MAX_LENGTH?

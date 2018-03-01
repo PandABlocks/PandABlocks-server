@@ -58,12 +58,6 @@ extern const struct type_methods enum_type_methods;
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Helper methods for building types from an unwrapped enumeration. */
 
-/* Parses string according to enumeration and assign result to *value if
- * possible. */
-error__t parse_enumeration(
-    const struct enumeration *enumeration,
-    const char *string, unsigned int *value);
-
 /* Formats value according to the given enumeration into string, returning a
  * suitable error on failure. */
 error__t format_enumeration(

@@ -139,7 +139,9 @@ static error__t pos_mux_put(
 {
     struct pos_mux_state *state = class_data;
     unsigned int mux_value;
-    error__t error = parse_enumeration(pos_mux_lookup, string, &mux_value);
+    error__t error = TEST_OK_(
+        enum_name_to_index(pos_mux_lookup, string, &mux_value),
+        "Invalid position selection");
     if (!error)
     {
         struct pos_mux_value *value = &state->values[number];

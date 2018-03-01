@@ -304,21 +304,15 @@ static void enum_destroy(void *type_data, unsigned int count)
 }
 
 
-/* Parses valid enumeration into corresponding value, otherwise error. */
-error__t parse_enumeration(
-    const struct enumeration *enumeration,
-    const char *string, unsigned int *value)
-{
-    return TEST_OK_(
-        enum_name_to_index(enumeration, string, value), "Label not found");
-}
-
 static error__t enum_parse(
     void *type_data, unsigned int number,
     const char **string, unsigned int *value)
 {
+    struct enumeration *enumeration = type_data;
     return
-        parse_enumeration(type_data, *string, value)  ?:
+        TEST_OK_(
+            enum_name_to_index(enumeration, *string, value),
+            "Invalid enumeration value")  ?:
         DO(*string += strlen(*string));
 }
 

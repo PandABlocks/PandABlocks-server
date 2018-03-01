@@ -142,7 +142,9 @@ static error__t bit_mux_put(
 {
     struct bit_mux_state *state = class_data;
     unsigned int mux_value;
-    error__t error = parse_enumeration(bit_mux_lookup, string, &mux_value);
+    error__t error = TEST_OK_(
+        enum_name_to_index(bit_mux_lookup, string, &mux_value),
+        "Invalid bit bus selection");
     if (!error)
     {
         struct bit_mux_value *value = &state->values[number];

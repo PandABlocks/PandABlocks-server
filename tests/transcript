@@ -75,7 +75,7 @@
 > OK
 > OK
 > OK
-> ERR Label not found
+> ERR Invalid bit bus selection
 > OK
 > OK
 > OK
@@ -191,7 +191,7 @@
 > OK =50-Ohm
 
 < TTLIN2.TERM=blah
-> ERR Label not found
+> ERR Invalid enumeration value
 
 < INENC3.BITS=33
 > OK
@@ -207,29 +207,24 @@
 < INENC1.SETP=23
 > OK
 
-# Unimplemented functionality
 
 < PCOMP2.TABLE<
 < 1 2 3 4 5 6 7 8
-< 9
 <
 > OK
 
 < PCOMP2.TABLE.LENGTH?
-> OK =9
+> OK =8
 
-< PCOMP2.TABLE<B
-< 123456789ab
-< ABCdef
+< PCOMP2.TABLE<
+< 1 2 3 4
 <
-> OK
-
 < PCOMP2.TABLE.LENGTH?
-> OK =3
+> OK
+> OK =4
 
 < PCOMP2.TABLE<<
 < 1 2 3 4 5 6 7 8
-< 9
 <
 > OK
 
@@ -238,7 +233,6 @@
 
 < SEQ2.TABLE<
 < 1 2 3 4 5 6 7 8
-< 9
 <
 > OK
 
@@ -250,17 +244,14 @@
 < SEQ2.TABLE<B
 < 123456789AB=
 <
-> OK
+> ERR Table write is not a whole number of rows
 
 < SEQ2.TABLE<<
 < 1 2 3 4 5 6 7 8
-< 9
 <
 > OK
 
 < SEQ2.TABLE?
-> !3891817943
-> !16055470
 > !1
 > !2
 > !3
@@ -269,7 +260,14 @@
 > !6
 > !7
 > !8
-> !9
+> !1
+> !2
+> !3
+> !4
+> !5
+> !6
+> !7
+> !8
 > .
 
 
@@ -426,7 +424,7 @@
 
 < PCAP.BITS0.CAPTURE=1
 < PCAP.BITS0.CAPTURE=Capture
-> ERR Not a valid capture option
+> ERR Invalid capture option
 > OK
 
 < *CAPTURE?
@@ -503,16 +501,6 @@
 > !LENGTH
 > !FIELDS
 > !INFO
-> .
-
-< SEQ1.TABLE.FIELDS?
-> !31:0    NREPEATS
-> !35:32   INPUT_MASK
-> !39:36   TRIGGER_MASK
-> !45:40   OUT_PH_A
-> !51:46   OUT_PH_B
-> !95:64   TIME_PH_A
-> !127:96  TIME_PH_B
 > .
 
 < SEQ1.TABLE.MAX_LENGTH?

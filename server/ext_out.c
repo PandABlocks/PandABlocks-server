@@ -105,7 +105,7 @@ static error__t ext_out_capture_put(
     return
         TEST_OK_(
             enum_name_to_index(ext_out_capture_enum, value, &capture),
-            "Not a valid capture option")  ?:
+            "Invalid capture option")  ?:
         DO(ext_out->capture = capture);
 }
 
