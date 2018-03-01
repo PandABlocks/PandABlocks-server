@@ -244,8 +244,9 @@ static error__t dummy_table_write(void *context, const char *line)
     return ERROR_OK;
 }
 
-static void dummy_table_close(void *context, bool write_ok)
+static error__t dummy_table_close(void *context, bool write_ok)
 {
+    return ERROR_OK;
 }
 
 /* Dummy table writer used to accept table data stream if .put_table fails. */
@@ -297,13 +298,15 @@ error__t process_put_table_command(
 
     /* Handle the rest of the input. */
     error__t put_error = do_put_table(table_read_line, &writer);
-    writer.close(writer.context, !put_error);
+    error__t close_error = writer.close(writer.context, !put_error);
 
     /* Now we may have multiple errors.  Return the first one and discard the
-     * second, if necessary. */
-    if (error  &&  put_error)
+     * rest, if necessary. */
+    if (error)
         error_discard(put_error);
-    return error  ?:  put_error;
+    if (error  ||  put_error)
+        error_discard(close_error);
+    return error  ?:  put_error  ?:  close_error;
 }
 
 

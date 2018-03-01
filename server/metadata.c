@@ -181,7 +181,7 @@ static error__t write_multiline_put(void *context, const char *line)
 }
 
 
-static void close_multiline_put(void *context, bool write_ok)
+static error__t close_multiline_put(void *context, bool write_ok)
 {
     struct multiline_writer *writer = context;
     if (write_ok)
@@ -200,6 +200,7 @@ static void close_multiline_put(void *context, bool write_ok)
         free(writer->text);
         free(writer);
     }
+    return ERROR_OK;
 }
 
 

@@ -360,13 +360,16 @@ static error__t write_table_line(void *context, const char *line)
 /* When a write is complete we copy the write data over to the live data.  This
  * is done under a write lock on the read/write lock.  Before releasing the
  * locks, we also do any required hardware finalisation. */
-static void complete_table_write(void *context, bool write_ok)
+static error__t complete_table_write(void *context, bool write_ok)
 {
     struct table_block *block = context;
     struct table_state *state =
         container_of(block, struct table_state, blocks[block->number]);
 
-    if (write_ok)
+    error__t error = IF(write_ok,
+        TEST_OK_(block->write_length % state->field_set.row_words == 0,
+            "Table write is not a whole number of rows"));
+    if (write_ok  &&  !error)
     {
         LOCKW(block->read_lock);
 
@@ -382,6 +385,8 @@ static void complete_table_write(void *context, bool write_ok)
     }
 
     UNLOCK(block->write_lock);
+
+    return error;
 }
 
 
@@ -451,7 +456,8 @@ static error__t table_init(
     return
         IF(**line == ' ',
             parse_whitespace(line)  ?:
-            parse_uint(line, &row_words))  ?:
+            parse_uint(line, &row_words)  ?:
+            TEST_OK_(row_words > 0, "Invalid table row size"))  ?:
         DO(*class_data = create_table(block_count, row_words, parser));
 }
 

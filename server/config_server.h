@@ -129,7 +129,7 @@ struct put_table_writer {
     error__t (*write)(void *context, const char *line);
     /* This must be called when this writer is finished with.  If write_ok is
      * not true then the entire write is discarded. */
-    void (*close)(void *context, bool write_ok);
+    error__t (*close)(void *context, bool write_ok);
 };
 
 
