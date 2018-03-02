@@ -237,11 +237,6 @@ void start_logging(const char *ident);
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* The following miscellaneous macros are extra to the error mechanism. */
 
-/* This macro is a workaround: passing a statement of the form { , } to a macro
- * doesn't work because the comma isn't guarded.  This macro adds the braces on
- * late enough to pass this form through. */
-#define BRACES(args...)                 { args }
-
 /* For ignoring return values even when warn_unused_result is in force. */
 #define IGNORE(e)       do if(e) {} while (0)
 
@@ -254,11 +249,6 @@ void start_logging(const char *ident);
 #define _id_STATIC_COMPILE_ASSERT(f, e) \
     static inline void f(void) { COMPILE_ASSERT(e); }
 #define STATIC_COMPILE_ASSERT(e)    _id_STATIC_COMPILE_ASSERT(UNIQUE_ID(), e)
-
-
-/* Use this to mark functions that can be constant folded, ie depend only on
- * their arguments and global state. */
-#define _pure __attribute__((pure))
 
 
 /* A rather randomly placed helper routine.  This and its equivalents are
