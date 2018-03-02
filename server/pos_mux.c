@@ -46,7 +46,7 @@ static struct enumeration *pos_mux_lookup;
 
 error__t initialise_pos_mux(void)
 {
-    pos_mux_lookup = create_dynamic_enumeration(POS_BUS_COUNT + 1);
+    pos_mux_lookup = create_dynamic_enumeration();
     return add_enumeration(pos_mux_lookup, "ZERO", POS_BUS_ZERO);
 }
 

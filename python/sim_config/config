@@ -1,5 +1,5 @@
 TTLIN[6]
-    TERM            param       enum 2
+    TERM            param       enum
         0   High-Z
         1   50-Ohm
     VAL             bit_out
@@ -23,10 +23,10 @@ LUT[8]
     OUT             bit_out
 
 SRGATE[4]
-    SET_EDGE        param       enum 2
+    SET_EDGE        param       enum
         0   Falling
         1   Rising
-    RST_EDGE        param       enum 2
+    RST_EDGE        param       enum
         0   Falling
         1   Rising
     FORCE_SET       write       action
@@ -37,7 +37,7 @@ SRGATE[4]
 
 DIV[4]
     DIVISOR         param
-    FIRST_PULSE     param       enum 2
+    FIRST_PULSE     param       enum
         0   OutN
         1   OutD
     INP             bit_mux
@@ -108,7 +108,7 @@ SEQ[4]
     TABLE_REPEAT    read
     TABLE_LINE      read
     LINE_REPEAT     read
-    STATE           read    enum 5
+    STATE           read    enum
         0   WAIT_ENABLE
         1   LOAD_TABLE
         2   WAIT_TRIGGER
@@ -116,7 +116,7 @@ SEQ[4]
         4   PHASE2
 
 INENC[4]
-    PROTOCOL        param       enum 4
+    PROTOCOL        param       enum
         0   Quadrature
         1   SSI
         2   BISS
@@ -148,7 +148,7 @@ QDEC[4]
     OUT             pos_out
 
 OUTENC[4]
-    PROTOCOL        param       enum 5
+    PROTOCOL        param       enum
         0   Quadrature
         1   SSI
         2   BISS
@@ -162,7 +162,7 @@ OUTENC[4]
     Z               bit_mux
     VAL             pos_mux
     CONN            bit_mux
-    QSTATE          read        enum 3
+    QSTATE          read        enum
         0   Disabled
         1   At position
         2   Slewing
@@ -171,12 +171,12 @@ POSENC[4]
     INP             pos_mux
     QPERIOD         param       time
     ENABLE          bit_mux
-    PROTOCOL        param       enum 2
+    PROTOCOL        param       enum
         0   Quadrature
         1   Step/Direction
     A               bit_out
     B               bit_out
-    QSTATE          read        enum 3
+    QSTATE          read        enum
         0   Disabled
         1   At position
         2   Slewing
@@ -186,14 +186,14 @@ ADDER[2]
     INPB            pos_mux
     INPC            pos_mux
     INPD            pos_mux
-    SCALE           param       enum 3
+    SCALE           param       enum
         0   /1
         1   /2
         2   /4
     OUT             pos_out
 
 COUNTER[8]
-    DIR             param       enum 2
+    DIR             param       enum
         0   Up
         1   Down
     START           param
@@ -209,7 +209,7 @@ PGEN[2]
     TRIG            bit_mux
     OUT             pos_out
     TABLE           table
-    TABLE_STATUS    read        enum 4
+    TABLE_STATUS    read        enum
         0   Ok
         1   Table not ready
         2   Table end reached
@@ -220,25 +220,25 @@ PCOMP[4]
     STEP            param
     WIDTH           param
     PNUM            param
-    RELATIVE        param       enum 2
+    RELATIVE        param       enum
         0   Absolute
         1   Relative
-    DIR             param       enum 2
+    DIR             param       enum
         0   Positive
         1   Negative
     DELTAP          param
-    USE_TABLE       param       enum 2
+    USE_TABLE       param       enum
         0   No
         1   Yes
     ENABLE          bit_mux
     INP             pos_mux
     ACTIVE          bit_out
     OUT             bit_out
-    ERROR           read        enum 2
+    ERROR           read        enum
         0   Ok
         1   Pulse error
     TABLE           table
-    TABLE_STATUS    read        enum 4
+    TABLE_STATUS    read        enum
         0   Ok
         1   Table not ready
         2   Table end reached
@@ -251,12 +251,12 @@ PCAP
     ENABLE          bit_mux
     GATE            bit_mux
     CAPTURE         bit_mux
-    CAPTURE_EDGE    param       enum 3
+    CAPTURE_EDGE    param       enum
         0   Rising
         1   Falling
         2   Rising or Falling
     SHIFT_SUM       param       uint 8
-    HEALTH          read        enum 4
+    HEALTH          read        enum
         0   Ok
         1   Capture events too close together
         2   Samples overflow

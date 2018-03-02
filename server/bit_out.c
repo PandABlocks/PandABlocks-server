@@ -307,7 +307,7 @@ static error__t offset_format(
 
 error__t initialise_bit_out(void)
 {
-    bit_mux_lookup = create_dynamic_enumeration(BIT_BUS_COUNT + 2);
+    bit_mux_lookup = create_dynamic_enumeration();
     return
         add_enumeration(bit_mux_lookup, "ZERO", BIT_BUS_ZERO)  ?:
         add_enumeration(bit_mux_lookup, "ONE", BIT_BUS_ONE);

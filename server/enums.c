@@ -19,7 +19,9 @@
 
 /* Somewhere around this number it's quicker to use a hash table than to do a
  * linear search. */
-#define HASH_TABLE_THRESHOLD    3
+#define HASH_TABLE_THRESHOLD    4
+
+#define INITIAL_CAPACITY        4
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -27,18 +29,18 @@
 
 
 struct enumeration {
-    bool dynamic;               // Set if enum_set can be populated dynamically
-    bool direct_index;          // Set if number matches position in enum_set
+    size_t set_capacity;        // Capacity of set for dynamic allocation
     struct enum_set enum_set;   // Array of strings and associated number
     struct hash_table *map;     // String to index, optional
 };
 
 
-static const char *binary_search(
-    const struct enum_set *enum_set, unsigned int value)
+/* Returns index of largest enum set less than or equal to value. */
+static size_t binary_search(
+    const struct enum_set *enum_set, size_t value)
 {
     size_t left = 0;
-    size_t right = enum_set->count - 1;
+    size_t right = enum_set->count;
     while (right > left)
     {
         size_t centre = (left + right) / 2;
@@ -47,40 +49,37 @@ static const char *binary_search(
         else
             left = centre + 1;
     }
-    if (enum_set->enums[left].value == value)
-        return enum_set->enums[left].name;
-    else
-        return NULL;
+    return left;
 }
 
 
 const char *enum_index_to_name(
     const struct enumeration *enumeration, unsigned int value)
 {
-    if (enumeration->direct_index)
-    {
-        if (value < enumeration->enum_set.count)
-            return enumeration->enum_set.enums[value].name;
-        else
-            return NULL;
-    }
+    const struct enum_set *enum_set = &enumeration->enum_set;
+    size_t ix = binary_search(enum_set, value);
+    if (ix < enum_set->count  &&  enum_set->enums[ix].value == value)
+        return enum_set->enums[ix].name;
     else
-        return binary_search(&enumeration->enum_set, value);
+        return NULL;
 }
 
 
 /* For sufficiently small lists a linear search is actually cheaper than a hash
  * table lookup. */
-static const struct enum_entry *linear_search(
-    const struct enum_set *enum_set, const char *name)
+static bool linear_search(
+    const struct enum_set *enum_set, const char *name, unsigned int *value)
 {
     for (size_t i = 0; i < enum_set->count; i ++)
     {
         const struct enum_entry *entry = &enum_set->enums[i];
         if (entry->name  &&  strcmp(entry->name, name) == 0)
-            return entry;
+        {
+            *value = entry->value;
+            return true;
+        }
     }
-    return NULL;
+    return false;
 }
 
 
@@ -90,14 +89,18 @@ bool enum_name_to_index(
 {
     /* If we have a hash table use that, otherwise it'll have to be a linear
      * search through the keys. */
-    const struct enum_entry *entry =
-        enumeration->map ?
-            hash_table_lookup(enumeration->map, name)
-        :
-            linear_search(&enumeration->enum_set, name);
-    if (entry)
-        *value = entry->value;
-    return entry;
+    if (enumeration->map)
+    {
+        void *hashed_value;
+        bool found = hash_table_lookup_bool(
+            enumeration->map, name, &hashed_value);
+        /* An annoying impedance mismatch between the hash table values and what
+         * we actually want to return.  Never mind... */
+        *value = (unsigned int) (uintptr_t) hashed_value;
+        return found;
+    }
+    else
+        return linear_search(&enumeration->enum_set, name, value);
 }
 
 
@@ -119,40 +122,38 @@ bool walk_enumerations(
 }
 
 
-/* This checks whether a static enumeration set is suitable for direct indexing:
- * this is possible if every populated entry has the same value as its position
- * in the array. */
-static bool check_direct_index(const struct enum_set *enum_set)
-{
-    for (size_t i = 0; i < enum_set->count; i ++)
-    {
-        const struct enum_entry *entry = &enum_set->enums[i];
-        if (entry->name  &&  entry->value != i)
-            return false;
-    }
-    return true;
-}
-
-
 /* This checks whether a static enumeration is suitable for binary search.  In
- * this case all entries must be populated and in strictly ascending order. */
-static bool check_binary_search(const struct enum_set *enum_set)
+ * this case all entries must be in strictly ascending order. */
+static bool check_sorted_enum_set(const struct enum_set *enum_set)
 {
     if (enum_set->count == 0)
-        return false;
+        return true;
     else
     {
-        if (!enum_set->enums[0].name)
-            return false;
         unsigned int value = enum_set->enums[0].value;
         for (size_t i = 1; i < enum_set->count; i ++)
         {
             const struct enum_entry *entry = &enum_set->enums[i];
-            if (!entry->name  ||  entry->value <= value)
+            if (entry->value <= value)
                 return false;
             value = entry->value;
         }
         return true;
+    }
+}
+
+
+/* Called when the set size grows large enough that a hash table is better than
+ * a straight linear search. */
+static void create_hash_table(struct enumeration *enumeration)
+{
+    const struct enum_set *enum_set = &enumeration->enum_set;
+    enumeration->map = hash_table_create(false);
+    for (size_t i = 0; i < enum_set->count; i ++)
+    {
+        const struct enum_entry *entry = &enum_set->enums[i];
+        ASSERT_OK(!hash_table_insert_const(
+            enumeration->map, entry->name, (void *) (uintptr_t) entry->value));
     }
 }
 
@@ -162,90 +163,111 @@ const struct enumeration *create_static_enumeration(
 {
     struct enumeration *enumeration = malloc(sizeof(struct enumeration));
     *enumeration = (struct enumeration) {
-        .dynamic = false,
-        .direct_index = check_direct_index(enum_set),
         .enum_set = *enum_set,
     };
 
     /* At present it's a fatal static error if the enum set can't be indexed
      * directly or by binary search. */
-    ASSERT_OK(enumeration->direct_index  ||  check_binary_search(enum_set));
+    ASSERT_OK(check_sorted_enum_set(enum_set));
 
     if (enum_set->count > HASH_TABLE_THRESHOLD)
-    {
-        enumeration->map = hash_table_create(false);
-        for (size_t i = 0; i < enum_set->count; i ++)
-        {
-            const struct enum_entry *entry = &enum_set->enums[i];
-            ASSERT_OK(!hash_table_insert_const(
-                enumeration->map, entry->name, entry));
-        }
-    }
+        create_hash_table(enumeration);
+
     return enumeration;
 }
 
 
-struct enumeration *create_dynamic_enumeration(size_t count)
+struct enumeration *create_dynamic_enumeration(void)
 {
     struct enumeration *enumeration = malloc(sizeof(struct enumeration));
     *enumeration = (struct enumeration) {
-        .dynamic = true,
-        .direct_index = true,
+        .set_capacity = INITIAL_CAPACITY,
         .enum_set = {
-            .enums = calloc(count, sizeof(struct enum_entry)),
-            .count = count,
+            .enums = calloc(INITIAL_CAPACITY, sizeof(struct enum_entry)),
+            .count = 0,
         },
     };
-    if (count > HASH_TABLE_THRESHOLD)
-        enumeration->map = hash_table_create(false);
     return enumeration;
+}
+
+
+/* Helper for add_enumeration to complete adding of enumeration at given index
+ * once validation has been completed. */
+static void insert_new_enum(
+    struct enumeration *enumeration, struct enum_entry *entry, size_t ix)
+{
+    struct enum_set *enum_set = &enumeration->enum_set;
+
+    /* We're basically doing an insertion sort here! */
+    size_t to_move = enum_set->count - ix;
+    memmove(
+        &enum_set->enums[ix + 1], &enum_set->enums[ix],
+        to_move * sizeof(struct enum_entry));
+    enum_set->enums[ix] = *entry;
+    enum_set->count += 1;
+
+    if (enumeration->map)
+        ASSERT_OK(!hash_table_insert_const(
+            enumeration->map, entry->name,
+            (void *) (uintptr_t) entry->value));
 }
 
 
 error__t add_enumeration(
-    struct enumeration *enumeration, const char *string, unsigned int ix)
+    struct enumeration *enumeration, const char *string, unsigned int value)
 {
-    ASSERT_OK(enumeration->dynamic);
+    ASSERT_OK(enumeration->set_capacity > 0);
 
-    char *string_copy = strdup(string);
-    const struct enum_entry *entry = &enumeration->enum_set.enums[ix];
+    /* Prepare the new enumeration entry. */
+    struct enum_entry entry = {
+        .name = strdup(string),
+        .value = value,
+    };
+
+    /* Ensure we have enough capacity in the enum set for our new value. */
+    struct enum_set *enum_set = &enumeration->enum_set;
+    if (enum_set->count >= enumeration->set_capacity)
+    {
+        enumeration->set_capacity *= 2;
+        enum_set->enums = realloc(
+            enum_set->enums,
+            enumeration->set_capacity * sizeof(struct enum_entry));
+    }
+
+    /* Create hash table if appropriate.  If so we need to copy everything from
+     * the enum_set into the hash table. */
+    if (!enumeration->map  &&  enum_set->count >= HASH_TABLE_THRESHOLD)
+        create_hash_table(enumeration);
+
+    /* Now figure out where to insert the new entry and ensure it's new. */
+    size_t ix = binary_search(enum_set, entry.value);
+    size_t to_move = enum_set->count - ix;
+    unsigned int test_ix;
     return
-        TEST_OK_(ix < enumeration->enum_set.count,
-            "Enumeration index out of range")  ?:
-        TEST_OK_(entry->name == NULL,
+        TEST_OK_(
+            to_move == 0  ||  entry.value < enum_set->enums[ix].value,
             "Repeated enumeration index")  ?:
-        /* Add the string to our hash table, if we're using one, otherwise at
-         * least make sure the key isn't already present. */
-        TEST_OK_(enumeration->map
-            ?
-                !hash_table_insert_const(enumeration->map, string_copy, entry)
-            :
-                !linear_search(&enumeration->enum_set, string_copy),
-            "Enumeration value already in use")  ?:
-        DO(
-            *CAST_FROM_TO(
-                const struct enum_entry *, struct enum_entry *, entry) =
-                (struct enum_entry) {
-                    .name = string_copy,
-                    .value = ix,
-                });
+        TEST_OK_(!enum_name_to_index(enumeration, entry.name, &test_ix),
+            "Repeated enumeration name")  ?:
+        DO(insert_new_enum(enumeration, &entry, ix));
 }
 
 
-void destroy_enumeration(const struct enumeration *enumeration)
+void destroy_enumeration(const struct enumeration *enumeration_)
 {
-    if (enumeration->dynamic)
+    struct enumeration *enumeration = CAST_FROM_TO(
+        const struct enumeration *, struct enumeration *, enumeration_);
+    if (enumeration->set_capacity > 0)
     {
-        for (size_t i = 0; i < enumeration->enum_set.count; i ++)
+        struct enum_set *enum_set = &enumeration->enum_set;
+        for (size_t i = 0; i < enum_set->count; i ++)
             free(CAST_FROM_TO(
-                const char *, char *, enumeration->enum_set.enums[i].name));
-        free(CAST_FROM_TO(
-            const struct enum_entry *, struct enum_entry *,
-            enumeration->enum_set.enums));
+                const char *, char *, enum_set->enums[i].name));
+        free(enumeration->enum_set.enums);
     }
     if (enumeration->map)
         hash_table_destroy(enumeration->map);
-    free(CAST_FROM_TO(const void *, void *, enumeration));
+    free(enumeration);
 }
 
 
@@ -282,18 +304,16 @@ static error__t enum_init(
     const char **string, unsigned int count, void **type_data,
     struct indent_parser *parser)
 {
-    unsigned int enum_count;
-    return
-        parse_whitespace(string)  ?:
-        parse_uint(string, &enum_count)  ?:
-        DO(
-            *type_data = create_dynamic_enumeration(enum_count);
-            /* We expect the field definition to be followed by enumeration
-             * definitions. */
-            *parser = (struct indent_parser) {
-                .context = *type_data,
-                .parse_line = enum_add_label,
-            });
+    *type_data = create_dynamic_enumeration();
+
+    /* We expect the field definition to be followed by enumeration
+     * definitions. */
+    *parser = (struct indent_parser) {
+        .context = *type_data,
+        .parse_line = enum_add_label,
+    };
+
+    return ERROR_OK;
 }
 
 

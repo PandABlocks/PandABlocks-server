@@ -26,7 +26,7 @@
 #define TIME_SECS   1
 
 static const struct enum_set time_units_enum_set = {
-    .enums = (const struct enum_entry[]) {
+    .enums = (struct enum_entry[]) {
         { 0, "min" },
         { 1, "s" },
         { 2, "ms" },

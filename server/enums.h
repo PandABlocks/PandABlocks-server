@@ -6,7 +6,7 @@ struct enumeration;
 /* An enumeration can be specified from a static list of entries, or can be
  * built dynamically. */
 struct enum_entry { unsigned int value; const char *name; };
-struct enum_set { const struct enum_entry *enums; size_t count; };
+struct enum_set { struct enum_entry *enums; size_t count; };
 
 
 
@@ -39,7 +39,7 @@ const struct enumeration *create_static_enumeration(
     const struct enum_set *enum_set);
 
 /* Constructs dynamic enumeration with the given number of index entries. */
-struct enumeration *create_dynamic_enumeration(size_t count);
+struct enumeration *create_dynamic_enumeration(void);
 
 /* Destroys enumeration created by either of the calls above. */
 void destroy_enumeration(const struct enumeration *enumeration);
