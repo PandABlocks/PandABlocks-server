@@ -125,7 +125,7 @@ Field
     ``param`` fields.  As for ``param`` a default value can be assigned to
     ``bit_mux``, but the only useful value is 129 (``ONE``).
 
-``table``
+``table`` [ row-words ]
     Tables are treated specially.
 
 Field subtype
@@ -143,13 +143,13 @@ Type
 ``bit``
 ``action``
 ``lut``
-``enum`` count
+``enum``
 ``position``
 ``time``
 ============================================================================== =
 
-Note that ``enum`` must be followed by `count` indented lines each consisting of
-a number followed by a string: the string is the enumeration value written to
+Note that ``enum`` must be followed by indented lines each consisting of a
+number followed by a string: the string is the enumeration value written to
 the user, the number is the value written to the register.
 
 

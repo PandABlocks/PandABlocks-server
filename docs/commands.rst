@@ -118,11 +118,17 @@ below:
 +-------------------------------+----------------------------------------------+
 | ``*BLOCKS?``                  | List device blocks.                          |
 +-------------------------------+----------------------------------------------+
-| ``*DESC.``\ block[\ ``.``\    | Block, field, attribute description.         |
-| field[\ ``.``\ attr]]\ ``?``  |                                              |
+| | ``*DESC.`` block\ ``.``\    | Show description for field, attribute, or    |
+|   field[\ ``.``\ attr]\ ``?`` | table subfield.                              |
+| | ``*DESC.`` block\ ``.``\    |                                              |
+|   field\ ``[].``\ subfield\   |                                              |
+|   ``?``                       |                                              |
 +-------------------------------+----------------------------------------------+
-| ``*ENUMS.`` block\ ``.``\     | List enumerations for field and attribute.   |
-| field[\ ``.``\ attr]\ ``?``   |                                              |
+| | ``*ENUMS.`` block\ ``.``\   | List enumerations for field, attribute, or   |
+|   field[\ ``.``\ attr]\ ``?`` | table subfield.                              |
+| | ``*ENUMS.`` block\ ``.``\   |                                              |
+|   field\ ``[].``\ subfield\   |                                              |
+|   ``?``                       |                                              |
 +-------------------------------+----------------------------------------------+
 | ``*CHANGES``\ [\ ``.``\       | Report changes to values.  `group` can be    |
 | group]\ ``?``                 | any of ``CONFIG``, ``BITS``, ``POSN``,       |
@@ -199,8 +205,10 @@ below:
 | ``*DESC.``\ block\ ``?``
 | ``*DESC.``\ block\ ``.``\ field\ ``?``
 | ``*DESC.``\ block\ ``.``\ field\ ``.``\ attr\ ``?``
+| ``*DESC.``\ block\ ``.``\ field\ ``[].``\ subfield\ ``?``
 
-    Returns description string for specified block, field, or attribute eg::
+    Returns description string for specified block, field, attribute, or table
+    subfield eg::
 
         < *DESC.TTLIN?
         > OK =TTL input
@@ -211,8 +219,10 @@ below:
 
 | ``*ENUMS.``\ block\ ``.``\ field\ ``?``
 | ``*ENUMS.``\ block\ ``.``\ field\ ``.``\ attr\ ``?``
+| ``*ENUMS.``\ block\ ``.``\ field\ ``[].``\ subfield\ ``?``
 
-    Returns list of enumerations for given field or attribute, if appropriate.
+    Returns list of enumerations for given field, attribute, or table subfield,
+    if appropriate.
 
 | ``*CHANGES?``
 | ``*CHANGES.CONFIG?``
