@@ -260,7 +260,7 @@ static error__t description_parse_field_line(
         lookup_field(block, field_name, &field)  ?:
         parse_whitespace(line)  ?:
         parse_utf8_string(line, &description)  ?:
-        field_set_description(field, description);
+        field_set_description(field, description, parser);
 }
 
 

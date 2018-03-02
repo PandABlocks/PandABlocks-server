@@ -30,6 +30,11 @@ struct class_methods {
     /* Called during shutdown to release all class resources. */
     void (*destroy)(void *class_data);
 
+    /* Option for parsing indented extra description lines, designed for array
+     * subfields. */
+    void (*set_description_parse)(
+        void *class_data, struct indent_parser *parser);
+
     /* Implements  block.field? for a single value. */
     error__t (*get)(
         void *class_data, unsigned int number, char result[], size_t length);
@@ -189,7 +194,8 @@ error__t create_field(
 error__t field_parse_registers(struct field *field, const char **line);
 
 /* Sets description string for field. */
-error__t field_set_description(struct field *field, const char *description);
+error__t field_set_description(
+    struct field *field, const char *description, struct indent_parser *parser);
 
 
 /* Parses validates and assigns register, ensuring that the register is unique

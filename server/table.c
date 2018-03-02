@@ -40,6 +40,7 @@ struct table_subfield {
     unsigned int right;
     char *field_name;
     struct enumeration *enums;
+    char *description;
 };
 
 /* This is used to implement a list of fields loaded from the config register
@@ -65,6 +66,7 @@ static void field_set_destroy(struct field_set *set)
         free(field->field_name);
         if (field->enums)
             destroy_enumeration(field->enums);
+        free(field->description);
         free(field);
     }
     free(set->ordered_fields);
@@ -98,7 +100,7 @@ const struct enumeration *get_table_subfield_enumeration(
 
 const char *get_table_subfield_description(struct table_subfield *subfield)
 {
-    return "Description place-holder";
+    return subfield->description;
 }
 
 
@@ -179,6 +181,25 @@ static error__t field_set_fields_get_many(
             field->enums ? " enum" : "");
     }
     return ERROR_OK;
+}
+
+
+/* Parses a single line of description for a sub field. */
+static error__t table_parse_description(
+    void *context, const char **line, struct indent_parser *parser)
+{
+    struct field_set *set = context;
+    char field_name[MAX_NAME_LENGTH];
+    struct table_subfield *field;
+    const char *description;
+    return
+        parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
+        TEST_OK_(field = hash_table_lookup(set->fields, field_name),
+            "Sub-field not in table")  ?:
+        TEST_OK_(!field->description, "Field already described")  ?:
+        parse_whitespace(line)  ?:
+        parse_utf8_string(line, &description)  ?:
+        DO(field->description = strdup(description));
 }
 
 
@@ -513,6 +534,17 @@ static error__t table_parse_register(
 }
 
 
+static void table_set_description_parse(
+    void *class_data, struct indent_parser *parser)
+{
+    struct table_state *state = class_data;
+    *parser = (struct indent_parser) {
+        .context = &state->field_set,
+        .parse_line = table_parse_description,
+    };
+}
+
+
 static error__t table_get_many(
     void *class_data, unsigned int number,
     struct connection_result *result)
@@ -607,6 +639,7 @@ const struct class_methods table_class_methods = {
     .init = table_init,
     .parse_register = table_parse_register,
     .destroy = table_destroy,
+    .set_description_parse = table_set_description_parse,
     .get_many = table_get_many,
     .put_table = table_put_table,
     .get_subfield = table_get_subfield,

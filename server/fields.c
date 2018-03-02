@@ -726,11 +726,15 @@ error__t field_parse_registers(struct field *field, const char **line)
 }
 
 
-error__t field_set_description(struct field *field, const char *description)
+error__t field_set_description(
+    struct field *field, const char *description, struct indent_parser *parser)
 {
     return
         TEST_OK_(field->description == NULL, "Description already set")  ?:
-        DO(field->description = strdup(description));
+        DO(field->description = strdup(description))  ?:
+        IF(field->methods->set_description_parse,
+            DO(field->methods->set_description_parse(
+                field->class_data, parser)));
 }
 
 
