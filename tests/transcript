@@ -669,3 +669,20 @@
 < PCAP.TS_START.CAPTURE?
 > OK
 > OK =Capture
+
+# Test table field enumerations
+< *ENUMS.SEQ1.TABLE[].TRIGGER?
+> !Immediate
+> !BITA=0
+> !BITA=1
+> !BITB=0
+> !BITB=1
+> !BITC=0
+> !BITC=1
+> !POSA>=POSITION
+> !POSA<=POSITION
+> !POSB>=POSITION
+> !POSB<=POSITION
+> !POSC>=POSITION
+> !POSC<=POSITION
+> .
