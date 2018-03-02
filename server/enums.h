@@ -50,6 +50,10 @@ void destroy_enumeration(const struct enumeration *enumeration);
 error__t add_enumeration(
     struct enumeration *enumeration, const char *name, unsigned int index);
 
+/* Helper for adding parsed indent lines to dynamic enumeration. */
+void set_enumeration_parser(
+    struct enumeration *enumeration, struct indent_parser *parser);
+
 
 /* Type methods for enum. */
 extern const struct type_methods enum_type_methods;

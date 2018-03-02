@@ -35,17 +35,11 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Field sets. */
 
-/* Copied from enums.h with the consts removed.  Need to refactor this properly
- * another time. */
-struct table_enum_entry { unsigned int value; char *name; };
-struct table_enum_set { struct table_enum_entry *enums; size_t count; };
-
 struct table_subfield {
     unsigned int left;
     unsigned int right;
     char *field_name;
-    bool enum_type;
-    struct table_enum_set enums;
+    struct enumeration *enums;
 };
 
 /* This is used to implement a list of fields loaded from the config register
@@ -69,10 +63,8 @@ static void field_set_destroy(struct field_set *set)
     {
         struct table_subfield *field = set->ordered_fields[i];
         free(field->field_name);
-
-        for (unsigned int j = 0; j < field->enums.count; j ++)
-            free(field->enums.enums[j].name);
-        free(field->enums.enums);
+        if (field->enums)
+            destroy_enumeration(field->enums);
         free(field);
     }
     free(set->ordered_fields);
@@ -97,41 +89,10 @@ static error__t check_field_range(
 }
 
 
-static error__t add_table_enum(
-    struct table_enum_set *enums, unsigned int value, const char *enum_string)
-{
-    enums->enums = realloc(
-        enums->enums, (enums->count + 1) * sizeof(struct table_enum_entry));
-    enums->enums[enums->count++] = (struct table_enum_entry) {
-        .value = value,
-        .name = strdup(enum_string),
-    };
-    /* Ought to check for duplicates, but then we're getting closer to
-     * duplicating a true enum. */
-    return ERROR_OK;
-}
-
-
-static error__t parse_field_enum(
-    void *context, const char **line, struct indent_parser *parser)
-{
-    struct table_enum_set *enums = context;
-    unsigned int value;
-    const char *enum_string;
-    return
-        parse_uint(line, &value)  ?:
-        parse_whitespace(line)  ?:
-        parse_utf8_string(line, &enum_string)  ?:
-
-        add_table_enum(enums, value, enum_string);
-}
-
-
 const struct enumeration *get_table_subfield_enumeration(
     struct table_subfield *subfield)
 {
-printf("get enum %s\n", subfield->field_name);
-    return NULL;
+    return subfield->enums;
 }
 
 
@@ -152,7 +113,6 @@ static error__t add_new_field(
         .left = left,
         .right = right,
         .field_name = strdup(field_name),
-        .enum_type = enum_type,
     };
 
     /* Ensure we have enough capacity and add the field to the ordered list. */
@@ -168,12 +128,13 @@ static error__t add_new_field(
     }
     set->ordered_fields[set->field_count++] = field;
 
+    /* If enums requested then create enumeration and set up to parse the enum
+     * definitions which follow. */
     if (enum_type)
-        /* Allow for parsing enums associated with this field. */
-        *parser = (struct indent_parser) {
-            .context = &field->enums,
-            .parse_line = parse_field_enum,
-        };
+    {
+        field->enums = create_dynamic_enumeration();
+        set_enumeration_parser(field->enums, parser);
+    }
 
     /* Insert the hash table. */
     return TEST_OK_(
@@ -215,7 +176,7 @@ static error__t field_set_fields_get_many(
         struct table_subfield *field = set->ordered_fields[i];
         format_many_result(result,
             "%u:%u %s%s", field->left, field->right, field->field_name,
-            field->enum_type ? " enum" : "");
+            field->enums ? " enum" : "");
     }
     return ERROR_OK;
 }

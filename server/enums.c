@@ -299,20 +299,24 @@ static error__t enum_add_label(
 }
 
 
+void set_enumeration_parser(
+    struct enumeration *enumeration, struct indent_parser *parser)
+{
+    *parser = (struct indent_parser) {
+        .context = enumeration,
+        .parse_line = enum_add_label,
+    };
+}
+
+
 /* Starts the loading of an enumeration. */
 static error__t enum_init(
     const char **string, unsigned int count, void **type_data,
     struct indent_parser *parser)
 {
-    *type_data = create_dynamic_enumeration();
-
-    /* We expect the field definition to be followed by enumeration
-     * definitions. */
-    *parser = (struct indent_parser) {
-        .context = *type_data,
-        .parse_line = enum_add_label,
-    };
-
+    struct enumeration *enumeration = create_dynamic_enumeration();
+    *type_data = enumeration;
+    set_enumeration_parser(enumeration, parser);
     return ERROR_OK;
 }
 
