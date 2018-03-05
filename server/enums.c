@@ -35,13 +35,14 @@ struct enumeration {
 };
 
 
-/* Returns index of largest enum set less than or equal to value. */
+/* Returns index of largest enum set less than or equal to value, or returns
+ * length of set if all indices less than value. */
 static size_t binary_search(
     const struct enum_set *enum_set, size_t value)
 {
     size_t left = 0;
     size_t right = enum_set->count;
-    while (right > left)
+    while (left < right)
     {
         size_t centre = (left + right) / 2;
         if (value <= enum_set->enums[centre].value)
@@ -104,24 +105,6 @@ bool enum_name_to_index(
 }
 
 
-bool walk_enumerations(
-    const struct enumeration *enumeration,
-    size_t *ix, struct enum_entry *entry_out)
-{
-    for (; *ix < enumeration->enum_set.count; (*ix) ++)
-    {
-        const struct enum_entry *entry = &enumeration->enum_set.enums[*ix];
-        if (entry->name)
-        {
-            *entry_out = *entry;
-            *ix += 1;
-            return true;
-        }
-    }
-    return false;
-}
-
-
 /* This checks whether a static enumeration is suitable for binary search.  In
  * this case all entries must be in strictly ascending order. */
 static bool check_sorted_enum_set(const struct enum_set *enum_set)
@@ -161,14 +144,13 @@ static void create_hash_table(struct enumeration *enumeration)
 const struct enumeration *create_static_enumeration(
     const struct enum_set *enum_set)
 {
+    /* The enumeration set passed in must be sorted. */
+    ASSERT_OK(check_sorted_enum_set(enum_set));
+
     struct enumeration *enumeration = malloc(sizeof(struct enumeration));
     *enumeration = (struct enumeration) {
         .enum_set = *enum_set,
     };
-
-    /* At present it's a fatal static error if the enum set can't be indexed
-     * directly or by binary search. */
-    ASSERT_OK(check_sorted_enum_set(enum_set));
 
     if (enum_set->count > HASH_TABLE_THRESHOLD)
         create_hash_table(enumeration);
@@ -208,8 +190,7 @@ static void insert_new_enum(
 
     if (enumeration->map)
         ASSERT_OK(!hash_table_insert_const(
-            enumeration->map, entry->name,
-            (void *) (uintptr_t) entry->value));
+            enumeration->map, entry->name, (void *) (uintptr_t) entry->value));
 }
 
 
@@ -274,10 +255,9 @@ void destroy_enumeration(const struct enumeration *enumeration_)
 void write_enum_labels(
     const struct enumeration *enumeration, struct connection_result *result)
 {
-    struct enum_entry entry;
-    size_t ix = 0;
-    while (walk_enumerations(enumeration, &ix, &entry))
-        result->write_many(result->write_context, entry.name);
+    const struct enum_set *enum_set = &enumeration->enum_set;
+    for (size_t i = 0; i < enum_set->count; i ++)
+        result->write_many(result->write_context, enum_set->enums[i].name);
 }
 
 

@@ -21,13 +21,6 @@ bool enum_name_to_index(
     const char *name, unsigned int *value);
 
 
-/* Used to iterate over the list of enumeration values.  Use in the same way as
- * hash_table_walk: start by setting *ix=0 and call repeatedly until false is
- * returned. */
-bool walk_enumerations(
-    const struct enumeration *enumeration,
-    size_t *ix, struct enum_entry *entry);
-
 /* Outputs list of enumerations to given connection. */
 void write_enum_labels(
     const struct enumeration *enumeration, struct connection_result *result);
