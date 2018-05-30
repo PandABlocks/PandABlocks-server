@@ -416,7 +416,7 @@ static struct table_state *create_table(
         .field_set = {
             .fields = hash_table_create(false),
             .row_words = row_words,
-            .used_bits = calloc(sizeof(bool), 32 * row_words),
+            .used_bits = calloc(32 * row_words, sizeof(bool)),
         },
     };
     initialise_table_blocks(state->blocks, block_count);

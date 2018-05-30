@@ -90,6 +90,7 @@ Field type          Description
 ``bit_mux``         Bit input with configurable delay.
 ``pos_mux``         Position input multiplexer selection.
 ``table``           Table data with special access methods.
+``xadc``            Special readout of Zynq XADC internal ADC.
 =================== ============================================================
 
 ``param`` subtype
@@ -326,6 +327,11 @@ Field type          Description
         This returns a list of strings which can be used to interpret the
         content of the table.  Currently the content of this list is not
         defined.
+
+``xadc``
+    This type supports direct access to sysfs nodes which read directly from the
+    Zynq internal ADC.  Values are returned as floating point numbers
+    representing degrees C or volts, depending on the source.
 
 
 Field Sub-Types

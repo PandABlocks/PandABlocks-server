@@ -76,6 +76,7 @@ Field
 ``bit_mux`` [ ``=`` value ]
 ``pos_mux``
 ``table``
+``xadc``
 ============================================================================== =
 
 ``param`` field-subtype [ ``=`` value ]
@@ -188,10 +189,15 @@ Class                   Register syntax
 ``pos_mux``             register
 ``table``               ``short`` size init-reg fill-reg length-reg
 ``table``               ``long`` ``2^``\ size base-reg length-reg
+``xadc``                file-name
 ======================= ========================================================
 
 where the syntax ``(...)N`` means that the given register number is repeated N
 times where N is the number of instances of the block.
+
+The ``xadc`` `file-name` is a full path to the device node with the last part
+(``_raw``, ``_offset``, ``_scale``) omitted, for example:
+``/sys/devices/soc0/amba/f8007100.adc/iio:device0/in_temp0``.
 
 Description file ``description``
 --------------------------------

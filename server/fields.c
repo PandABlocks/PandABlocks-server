@@ -24,6 +24,7 @@
 #include "table.h"
 #include "locking.h"
 #include "metadata.h"
+#include "special.h"
 
 #include "fields.h"
 
@@ -572,6 +573,8 @@ static const struct class_methods *classes_table[] = {
     &pos_mux_class_methods,         // pos_mux
 
     &table_class_methods,           // table
+
+    &xadc_class_methods,            // xadc
 };
 
 
