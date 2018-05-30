@@ -216,6 +216,12 @@ bool get_samples_capture_info(struct capture_info *capture_info)
 }
 
 
+bool check_pcap_valid(void)
+{
+    return samples_ext_out;
+}
+
+
 /*****************************************************************************/
 /* Startup and shutdown. */
 

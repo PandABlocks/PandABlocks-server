@@ -22,6 +22,7 @@
 #include "capture.h"
 #include "locking.h"
 #include "base64.h"
+#include "ext_out.h"
 
 #include "data_server.h"
 
@@ -190,13 +191,17 @@ static error__t start_data_capture(void)
 error__t arm_capture(void)
 {
     unsigned int readers, active;
-    return WITH_LOCK(data_thread_mutex,
-        TEST_OK_(!data_capture_enabled, "Data capture already in progress")  ?:
-        /* If data capture is not enabled then we can safely expect the buffer
-         * status to be idle. */
-        TEST_OK(!read_buffer_status(data_buffer, &readers, &active))  ?:
-        TEST_OK_(active == 0, "Data clients still taking data")  ?:
-        start_data_capture());
+    return
+        TEST_OK_(check_pcap_valid(),
+            "PCAP not supported with this configuration")  ?:
+        WITH_LOCK(data_thread_mutex,
+            TEST_OK_(!data_capture_enabled,
+                "Data capture already in progress")  ?:
+            /* If data capture is not enabled then we can safely expect the
+             * buffer status to be idle. */
+            TEST_OK(!read_buffer_status(data_buffer, &readers, &active))  ?:
+            TEST_OK_(active == 0, "Data clients still taking data")  ?:
+            start_data_capture());
 }
 
 

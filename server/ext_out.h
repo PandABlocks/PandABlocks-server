@@ -20,4 +20,8 @@ unsigned int get_ext_out_capture_info(
  * configured for capture. */
 bool get_samples_capture_info(struct capture_info *capture_info);
 
+/* Returns true if the appropriate PCAP fields have been defined, otherwise we
+ * are not ready to perform any capture operations. */
+bool check_pcap_valid(void);
+
 extern const struct class_methods ext_out_class_methods;
