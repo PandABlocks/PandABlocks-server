@@ -32,6 +32,9 @@ void report_capture_list(struct connection_result *result);
  * selected for capture. */
 void report_capture_labels(struct connection_result *result);
 
+/* *POSITIONS? implementation, reports all pos_mux position names. */
+void report_capture_positions(struct connection_result *result);
+
 
 enum capture_mode {
     CAPTURE_MODE_SCALED32,          // int32 with scaling

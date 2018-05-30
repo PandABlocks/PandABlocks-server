@@ -178,6 +178,17 @@ void report_capture_labels(struct connection_result *result)
 }
 
 
+void report_capture_positions(struct connection_result *result)
+{
+    for (unsigned int i = 0; i < output_field_count; i ++)
+    {
+        struct output_field *field = &output_fields[i];
+        if (field->output_type == OUTPUT_POS)
+            result->write_many(result->write_context, field->field_name);
+    }
+}
+
+
 bool iterate_captured_values(
     unsigned int *ix, unsigned int *captured,
     struct capture_info capture_info[])

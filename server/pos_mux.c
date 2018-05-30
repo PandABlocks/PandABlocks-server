@@ -172,13 +172,6 @@ static const struct enumeration *pos_mux_get_enumeration(void *class_data)
 }
 
 
-/* Returns list of all position bus entries. */
-void report_capture_positions(struct connection_result *result)
-{
-    write_enum_labels(pos_mux_lookup, result);
-}
-
-
 /*****************************************************************************/
 /* Published class definitions. */
 

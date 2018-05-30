@@ -12,9 +12,6 @@ error__t add_mux_indices(
 error__t add_pos_mux_index(
     struct field *field, const unsigned int array[], size_t length);
 
-/* *POSITIONS? implementation, reports all pos_mux position names. */
-void report_capture_positions(struct connection_result *result);
-
 error__t initialise_pos_mux(void);
 void terminate_pos_mux(void);
 
