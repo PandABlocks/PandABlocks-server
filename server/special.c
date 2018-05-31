@@ -51,7 +51,8 @@ static error__t read_file_value(
 {
     FILE *file;
     return
-        TEST_OK(file = fopen(filename, "r"))  ?:
+        TEST_OK_(file = fopen(filename, "r"),
+            "Unable to open node \"%s\"", filename)  ?:
         DO_FINALLY(
             TEST_OK(fscanf(file, format, result) == 1),
         // finally
