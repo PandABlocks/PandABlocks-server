@@ -135,7 +135,7 @@ clean-docs:
 # ------------------------------------------------------------------------------
 # Build installation package
 
-zpkg: etc/panda-server.list $(PANDA_KO) $(SERVER) $(SLOW_LOAD)
+zpkg: etc/panda-server.list $(PANDA_KO) $(SERVER) $(SLOW_LOAD) $(DOCS_BUILD_DIR)/index.html
 	rm -f $(BUILD_DIR)/*.zpg
 	$(MAKE_ZPKG) -t $(TOP) -b $(BUILD_DIR) -d $(BUILD_DIR) \
             $< $(GIT_VERSION)
