@@ -252,7 +252,7 @@ error__t parse_table_subfield(
             parse_char(input, '[')  ?:
             parse_char(input, ']')  ?:
             parse_char(input, '.')  ?:
-            parse_name(input, subfield_name, sizeof(subfield_name))  ?:
+            parse_alphanum_name(input, subfield_name, sizeof(subfield_name))  ?:
             lookup_table_subfield(entity->field, subfield_name, subfield);
     }
     else

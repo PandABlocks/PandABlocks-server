@@ -569,6 +569,9 @@
 > !dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbQo=
 > .
 
+< *DESC.SEQ1.TABLE[].TIME1?
+> OK =The time the optional phase 1 should take
+
 # Test some malformed table writes
 
 # First, writes are taken until blank line, even if malformed
