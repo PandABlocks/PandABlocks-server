@@ -40,7 +40,7 @@ do_start()
         i=$((i+1))
     done
 
-    $panda_server -c $panda_config -f $panda_state -P $pidfile -D
+    $panda_server -c $panda_config -f $panda_state -P $pidfile -D -R
 }
 
 do_stop()
