@@ -80,7 +80,7 @@ static const char *ext_out_describe(void *class_data)
 static const struct enum_set ext_out_capture_enum_set = {
     .enums = (struct enum_entry[]) {
         { 0, "No", },
-        { 1, "Capture", },
+        { 1, "Value", },
     },
     .count = 2,
 };
@@ -163,19 +163,6 @@ static enum capture_mode get_capture_mode(enum ext_out_type ext_type)
 }
 
 
-static const char *get_capture_string(enum ext_out_type ext_type)
-{
-    switch (ext_type)
-    {
-        case EXT_OUT_TIMESTAMP: return "Timestamp";
-        case EXT_OUT_SAMPLES:   return "Samples";
-        case EXT_OUT_BITS:      return "Bits";
-        default:
-            ASSERT_FAIL();
-    }
-}
-
-
 static void get_capture_info(
     struct ext_out *ext_out, struct capture_info *capture_info)
 {
@@ -186,7 +173,7 @@ static void get_capture_info(
                 CAPTURE_EXT_BUS(ext_out->registers[1]) },
         },
         .capture_mode = get_capture_mode(ext_out->ext_type),
-        .capture_string = get_capture_string(ext_out->ext_type),
+        .capture_string = "Value",
         /* Scaling info only used for timestamp fields. */
         .scale = 1.0 / CLOCK_FREQUENCY,
         .offset = 0.0,

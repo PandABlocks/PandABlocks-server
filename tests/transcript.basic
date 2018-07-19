@@ -428,16 +428,16 @@
 
 < *ENUMS.PCAP.BITS0.CAPTURE?
 > !No
-> !Capture
+> !Value
 > .
 
 < PCAP.BITS0.CAPTURE=1
-< PCAP.BITS0.CAPTURE=Capture
+< PCAP.BITS0.CAPTURE=Value
 > ERR Invalid capture option
 > OK
 
 < *CAPTURE?
-> !PCAP.BITS0 Capture
+> !PCAP.BITS0 Value
 > .
 
 < INENC2.VAL.CAPTURE=Value
@@ -445,7 +445,7 @@
 
 < *CAPTURE?
 > !INENC2.VAL Value
-> !PCAP.BITS0 Capture
+> !PCAP.BITS0 Value
 > .
 
 # Change reporting
@@ -705,11 +705,11 @@
 < *ENUMS.PCAP.TS_START.CAPTURE?
 < PCAP.TS_START?
 > !No
-> !Capture
+> !Value
 > .
 > ERR Field not readable
 
-< PCAP.TS_START.CAPTURE=Capture
+< PCAP.TS_START.CAPTURE=Value
 < PCAP.TS_START.CAPTURE?
 > OK
-> OK =Capture
+> OK =Value

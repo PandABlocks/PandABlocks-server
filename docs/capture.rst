@@ -32,7 +32,7 @@ as follows:
     Value           Description
     =============== ========================================================
     No              This field will not be captured.
-    Capture         This field will be captured.
+    Value           This field will be captured.
     =============== ========================================================
 
 

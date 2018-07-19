@@ -421,7 +421,7 @@ unsigned int get_pos_out_capture_info(
             GET_CAPTURE_INFO(VALUE,   UNUSED,   SCALED32, "Value");
             break;
         case POS_OUT_CAPTURE_DIFF:
-            GET_CAPTURE_INFO(DIFF,    UNUSED,   SCALED32, "Difference");
+            GET_CAPTURE_INFO(DIFF,    UNUSED,   SCALED32, "Diff");
             break;
         case POS_OUT_CAPTURE_SUM:
             GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, SCALED64, "Sum");
