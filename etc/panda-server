@@ -35,7 +35,7 @@ do_start()
     # After inserting Panda module wait for devices to appear
     i=0  &&
     while [ $i -lt 10 ]; do
-        sleep 0.1
+        sleep 0.5
         [ -e /dev/panda.map ]  &&  break
         i=$((i+1))
     done
