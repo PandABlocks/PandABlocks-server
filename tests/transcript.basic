@@ -513,23 +513,23 @@
 > .
 
 < SEQ1.TABLE.FIELDS?
-> !15:0 REPEATS
+> !15:0 REPEATS uint
 > !19:16 TRIGGER enum
-> !63:32 POSITION
-> !95:64 TIME1
-> !20:20 OUTA1
-> !21:21 OUTB1
-> !22:22 OUTC1
-> !23:23 OUTD1
-> !24:24 OUTE1
-> !25:25 OUTF1
-> !127:96 TIME2
-> !26:26 OUTA2
-> !27:27 OUTB2
-> !28:28 OUTC2
-> !29:29 OUTD2
-> !30:30 OUTE2
-> !31:31 OUTF2
+> !63:32 POSITION int
+> !95:64 TIME1 uint
+> !20:20 OUTA1 uint
+> !21:21 OUTB1 uint
+> !22:22 OUTC1 uint
+> !23:23 OUTD1 uint
+> !24:24 OUTE1 uint
+> !25:25 OUTF1 uint
+> !127:96 TIME2 uint
+> !26:26 OUTA2 uint
+> !27:27 OUTB2 uint
+> !28:28 OUTC2 uint
+> !29:29 OUTD2 uint
+> !30:30 OUTE2 uint
+> !31:31 OUTF2 uint
 > .
 
 < SEQ1.TABLE.MAX_LENGTH?

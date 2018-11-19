@@ -39,6 +39,7 @@ struct table_subfield {
     unsigned int left;
     unsigned int right;
     char *field_name;
+    char *subtype;
     struct enumeration *enums;
     char *description;
 };
@@ -64,6 +65,7 @@ static void field_set_destroy(struct field_set *set)
     {
         struct table_subfield *field = set->ordered_fields[i];
         free(field->field_name);
+        free(field->subtype);
         if (field->enums)
             destroy_enumeration(field->enums);
         free(field->description);
@@ -107,7 +109,7 @@ const char *get_table_subfield_description(struct table_subfield *subfield)
 static error__t add_new_field(
     struct field_set *set,
     unsigned int left, unsigned int right, const char *field_name,
-    bool enum_type, struct indent_parser *parser)
+    const char *subtype, struct indent_parser *parser)
 {
     /* Create the new field. */
     struct table_subfield *field = malloc(sizeof(struct table_subfield));
@@ -115,6 +117,7 @@ static error__t add_new_field(
         .left = left,
         .right = right,
         .field_name = strdup(field_name),
+        .subtype = strdup(subtype),
     };
 
     /* Ensure we have enough capacity and add the field to the ordered list. */
@@ -132,7 +135,7 @@ static error__t add_new_field(
 
     /* If enums requested then create enumeration and set up to parse the enum
      * definitions which follow. */
-    if (enum_type)
+    if (strcmp(subtype, "enum") == 0)
     {
         field->enums = create_dynamic_enumeration();
         set_enumeration_parser(field->enums, parser);
@@ -145,6 +148,17 @@ static error__t add_new_field(
 }
 
 
+static error__t validate_subtype(const char *subtype)
+{
+    /* We only support a limited set of subtype names here. */
+    static const char *valid_subtypes[] = { "uint", "int", "enum" };
+    for (unsigned int i = 0; i < ARRAY_SIZE(valid_subtypes); i ++)
+        if (strcmp(subtype, valid_subtypes[i]) == 0)
+            return ERROR_OK;
+    return FAIL_("Invalid table field subtype");
+}
+
+
 static error__t field_set_parse_attribute(
     void *context, const char **line, struct indent_parser *parser)
 {
@@ -152,7 +166,7 @@ static error__t field_set_parse_attribute(
     unsigned int left;
     unsigned int right;
     char field_name[MAX_NAME_LENGTH];
-    bool enum_type = false;
+    char subtype[MAX_NAME_LENGTH] = "uint";
     return
         parse_uint(line, &left)  ?:
         parse_char(line, ':')  ?:
@@ -161,12 +175,11 @@ static error__t field_set_parse_attribute(
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         IF(**line == ' ',
             parse_whitespace(line)  ?:
-            TEST_OK_(read_string(line, "enum"),
-                "Only 'enum' sub-field type allowed")  ?:
-            DO(enum_type = true))  ?:
+            parse_name(line, subtype, sizeof(subtype))  ?:
+            validate_subtype(subtype))  ?:
 
         check_field_range(set, left, right)  ?:
-        add_new_field(set, left, right, field_name, enum_type, parser);
+        add_new_field(set, left, right, field_name, subtype, parser);
 }
 
 
@@ -177,8 +190,8 @@ static error__t field_set_fields_get_many(
     {
         struct table_subfield *field = set->ordered_fields[i];
         format_many_result(result,
-            "%u:%u %s%s", field->left, field->right, field->field_name,
-            field->enums ? " enum" : "");
+            "%u:%u %s %s", field->left, field->right, field->field_name,
+            field->subtype);
     }
     return ERROR_OK;
 }
