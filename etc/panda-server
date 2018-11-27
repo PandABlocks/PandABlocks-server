@@ -14,6 +14,7 @@ panda_server=/opt/bin/panda_server
 panda_config=/opt/share/panda/config_d
 panda_module=/opt/share/panda/panda.ko
 panda_state=/opt/state/panda.state
+panda_mac=/qspi/MAC.panda
 slow_load=/opt/bin/slow_load
 
 
@@ -38,9 +39,14 @@ do_start()
         sleep 0.5
         [ -e /dev/panda.map ]  &&  break
         i=$((i+1))
-    done
+    done  &&
 
-    $panda_server -c $panda_config -f $panda_state -P $pidfile -D -R
+    if [ -e $panda_mac ]; then
+        $panda_server -c $panda_config -f $panda_state -P $pidfile -D -R \
+            -M $panda_mac
+    else
+        $panda_server -c $panda_config -f $panda_state -P $pidfile -D -R
+    fi
 }
 
 do_stop()
