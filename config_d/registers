@@ -32,6 +32,9 @@
     PCAP_ARM                13
     PCAP_DISARM             14
 
+    # Range of MAC addresses
+    MAC_ADDRESS_BASE        16 .. 23
+
     # This array of registers is used to program data delays on the capture bus
     PCAP_DATA_DELAY         32 .. 63
 

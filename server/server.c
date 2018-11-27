@@ -24,6 +24,7 @@
 #include "persistence.h"
 #include "version.h"
 #include "metadata.h"
+#include "special.h"
 
 
 static unsigned int config_port = 8888;
@@ -38,6 +39,9 @@ static const char *persistence_file;
 static unsigned int persistence_poll = 2;
 static unsigned int persistence_holdoff = 10;
 static unsigned int persistence_backoff = 60;
+
+/* Option for loading MAC addresses at startup. */
+static const char *mac_address_filename = NULL;
 
 /* Daemon state. */
 static bool daemon_mode = false;
@@ -83,6 +87,7 @@ static void usage(const char *argv0)
 "   -D  Run server as a daemon\n"
 "   -P: Write process id to given file name\n"
 "   -T  Run in test mode and terminate immediately after initialisation\n"
+"   -M: Load MAC addresses from specified file\n"
         , argv0, config_port, data_port);
 }
 
@@ -93,7 +98,7 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:T"))
+        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:TM:"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   config_port = (unsigned int) atoi(optarg);      break;
@@ -105,6 +110,7 @@ static error__t process_options(int argc, char *const argv[])
             case 'D':   daemon_mode = true;                             break;
             case 'P':   pid_filename = optarg;                          break;
             case 'T':   test_config_only = true;                        break;
+            case 'M':   mac_address_filename = optarg;                  break;
             default:
                 return FAIL_("Try `%s -h` for usage", argv0);
             case -1:
@@ -209,6 +215,8 @@ int main(int argc, char *const argv[])
             initialise_persistence(
                 persistence_file,
                 persistence_poll, persistence_holdoff, persistence_backoff))  ?:
+        IF(mac_address_filename,
+            load_mac_address_file(mac_address_filename))  ?:
         initialise_data_server()  ?:
         initialise_socket_server(config_port, data_port, reuse_addr)  ?:
 

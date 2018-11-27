@@ -69,6 +69,10 @@ void hw_read_positions(
 void hw_read_versions(
     uint32_t *fpga_version, uint32_t *fpga_build, uint32_t *user_version);
 
+/* Writes to one of the dedicated MAC address registers. */
+#define MAC_ADDRESS_COUNT   4   // Offset must be smaller than this
+void hw_write_mac_address(unsigned int offset, uint64_t mac_address);
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table API. */
