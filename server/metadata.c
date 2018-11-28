@@ -77,7 +77,6 @@ error__t add_metadata_key(const char *key, const char **line)
     };
     char type_name[MAX_NAME_LENGTH];
     return
-        parse_whitespace(line)  ?:
         parse_name(line, type_name, sizeof(type_name))  ?:
         lookup_type(type_name, &value->multiline)  ?:
         TEST_OK_(hash_table_insert(metadata_map, key, value) == 0,

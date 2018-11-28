@@ -121,7 +121,6 @@ static error__t bit_mux_parse_register(
     struct bit_mux_state *state = class_data;
     state->block_base = block_base;
     return
-        parse_whitespace(line)  ?:
         check_parse_register(field, line, &state->mux_reg) ?:
         parse_whitespace(line)  ?:
         check_parse_register(field, line, &state->delay_reg);
@@ -261,7 +260,6 @@ static error__t bit_out_parse_register(
 {
     struct bit_out_state *state = class_data;
     return
-        parse_whitespace(line)  ?:
         parse_uint_array(line, state->index_array, state->count)  ?:
         add_mux_indices(
             bit_mux_lookup, field, state->index_array, state->count);

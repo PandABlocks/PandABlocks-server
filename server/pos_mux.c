@@ -109,9 +109,7 @@ static error__t pos_mux_parse_register(
 {
     struct pos_mux_state *state = class_data;
     state->block_base = block_base;
-    return
-        parse_whitespace(line)  ?:
-        check_parse_register(field, line, &state->mux_reg);
+    return check_parse_register(field, line, &state->mux_reg);
 }
 
 

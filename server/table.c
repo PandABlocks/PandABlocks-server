@@ -503,7 +503,6 @@ static error__t long_table_parse_register(
     unsigned int base_reg;
     unsigned int length_reg;
     return
-        parse_whitespace(line)  ?:
         parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
         parse_uint(line, &table_order)  ?:
         parse_whitespace(line)  ?:
@@ -535,11 +534,12 @@ static error__t table_parse_register(
 {
     struct table_state *state = class_data;
     return
-        parse_whitespace(line)  ?:
         IF_ELSE(read_string(line, "short"),
+            parse_whitespace(line)  ?:
             short_table_parse_register(state, field, block_base, line),
         //else
         IF_ELSE(read_string(line, "long"),
+            parse_whitespace(line)  ?:
             long_table_parse_register(state, field, block_base, line),
         //else
             FAIL_("Table type not recognised")))  ?:

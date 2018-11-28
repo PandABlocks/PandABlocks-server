@@ -29,6 +29,7 @@ static error__t config_parse_metadata_field(
     char field_name[MAX_NAME_LENGTH];
     return
         parse_name(line, field_name, sizeof(field_name))  ?:
+        parse_whitespace(line)  ?:
         add_metadata_key(field_name, line);
         parse_eos(line);
 }
@@ -197,6 +198,7 @@ static error__t register_parse_normal_field(
     return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         lookup_field(block, field_name, &field)  ?:
+        parse_whitespace(line)  ?:
         field_parse_registers(field, line);
 }
 

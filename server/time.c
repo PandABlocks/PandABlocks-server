@@ -102,7 +102,6 @@ static error__t time_parse_register(
     struct time_class_state *state = class_data;
     state->block_base = block_base;
     return
-        parse_whitespace(line)  ?:
         check_parse_register(field, line, &state->low_register)  ?:
         parse_whitespace(line)  ?:
         check_parse_register(field, line, &state->high_register)  ?:

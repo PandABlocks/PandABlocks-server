@@ -2,7 +2,7 @@
 
 # Simple hardware simulation server.
 #
-# Lists on a socket port and performs the appropriate exchange to implement
+# Listens on a socket port and performs the appropriate exchange to implement
 # hardware reading and writing.
 #
 # The simulation we run here is a dumb and basic as it possibly can be.  For a

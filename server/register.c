@@ -47,9 +47,7 @@ static error__t base_parse_register(
 {
     struct base_state *state = class_data;
     state->block_base = block_base;
-    return
-        parse_whitespace(line)  ?:
-        check_parse_register(field, line, &state->field_register);
+    return check_parse_register(field, line, &state->field_register);
 }
 
 
