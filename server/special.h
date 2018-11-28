@@ -1,5 +1,4 @@
 /* Special field classs support. */
 
-extern const struct class_methods xadc_class_methods;
-
+/* Loads MAC address file and writes values to dedicated registers. */
 error__t load_mac_address_file(const char *filename);
