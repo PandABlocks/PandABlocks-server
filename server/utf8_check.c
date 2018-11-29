@@ -23,8 +23,9 @@
 
 #include "utf8_check.h"
 
-const unsigned char *utf8_check(const unsigned char *s)
+const char *utf8_check(const char *cs)
 {
+    const unsigned char *s = (const unsigned char *) cs;
     while (*s) {
         if (*s < 0x80)
             /* 0xxxxxxx */
@@ -61,5 +62,5 @@ const unsigned char *utf8_check(const unsigned char *s)
             break;
     }
 
-    return s;
+    return (const char *) s;
 }
