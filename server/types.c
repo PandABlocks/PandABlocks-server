@@ -212,18 +212,46 @@ static const struct type_methods int_type_methods = {
 
 struct scalar_state {
     double scale;
+    double offset;
+    char *units;
 };
 
+
+static struct scalar_state *create_scalar_state(
+    double scale, double offset, const char *units)
+{
+    struct scalar_state *state = malloc(sizeof(struct scalar_state));
+    *state = (struct scalar_state) {
+        .scale = scale,
+        .offset = offset,
+        .units = units ? strdup(units) : NULL,
+    };
+    return state;
+}
 
 static error__t scalar_init(
     const char **string, unsigned int count, void **type_data,
     struct indent_parser *parser)
 {
-    struct scalar_state *state = malloc(sizeof(struct scalar_state));
-    *type_data = state;
+    double scale = 1.0;
+    double offset = 0.0;
+    const char *units = NULL;
     return
         parse_char(string, ' ')  ?:
-        parse_double(string, &state->scale);
+        parse_double(string, &scale)  ?:
+        IF(read_char(string, ' '),
+            parse_double(string, &offset)  ?:
+            IF(read_char(string, ' '),
+                parse_utf8_string(string, &units)))  ?:
+        DO(*type_data = create_scalar_state(scale, offset, units));
+}
+
+
+static void scalar_destroy(void *type_data, unsigned int count)
+{
+    struct scalar_state *state = type_data;
+    free(state->units);
+    free(state);
 }
 
 
@@ -235,10 +263,10 @@ static error__t scalar_parse(
     double result;
     return
         parse_double(string, &result)  ?:
-        DO(result /= state->scale)  ?:
+        DO(result = round((result - state->offset) / state->scale))  ?:
         TEST_OK_(INT_MIN <= result  &&  result <= INT_MAX,
             "Value out of range")  ?:
-        DO(*value = (unsigned int) lround(result));
+        DO(*value = (unsigned int) result);
 }
 
 
@@ -247,19 +275,30 @@ static error__t scalar_format(
     unsigned int value, char string[], size_t length)
 {
     struct scalar_state *state = type_data;
-    return format_double(string, length, state->scale * value);
+    return format_double(string, length, state->scale * value + state->offset);
+}
+
+
+static error__t scalar_units_format(
+    void *owner, void *data, unsigned int number, char result[], size_t length)
+{
+    struct scalar_state *state = owner;
+    return format_string(result, length, "%s", state->units ?: "");
 }
 
 
 static const struct type_methods scalar_type_methods = {
     "scalar",
     .init = scalar_init,
+    .destroy = scalar_destroy,
     .parse = scalar_parse, .format = scalar_format,
     .attrs = (struct attr_methods[]) {
         {   "RAW", "Underlying integer value",
             .format = raw_format_int, .put = raw_put_int, },
+        {   "UNITS", "Units associated with value",
+            .format = scalar_units_format, },
     },
-    .attr_count = 1,
+    .attr_count = 2,
 };
 
 

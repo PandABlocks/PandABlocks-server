@@ -139,7 +139,7 @@ Type
 ============================================================================== =
 ``uint`` [ max-value ]
 ``int``
-``scalar`` scale
+``scalar`` scale [ offset [ units ]]
 ``bit``
 ``action``
 ``lut``

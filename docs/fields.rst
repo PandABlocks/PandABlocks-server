@@ -334,7 +334,7 @@ Field Sub-Types
 The following field sub-types can be used for ``param``, ``read`` and ``write``
 fields.
 
-``uint``
+``uint`` [*max-value*]
     This is the most basic type: the value read or written is an unsigned 32-bit
     number.  There is one fixed attribute:
 
@@ -344,10 +344,12 @@ fields.
 ``int``
     Similar to ``uint``, but signed, and there is no upper limit on the value.
 
-``scalar`` *scale*
+``scalar`` *scale* [*offset* [*units*]]
     Floating point values can be read or written, and are converted from and to
-    the underlying signed integer type by multiplication and division by the
-    given scale factor.
+    the underlying signed integer type via the equations below:
+
+        | value = scale * raw + offset
+        | raw = (value - offset) / scale
 
 ``bit``
     A value which is 0 or 1, there are no extra attributes.
@@ -413,7 +415,7 @@ Sub-type    Attributes      Description
 =========== =============== ====================================================
 uint        MAX             Possibly bounded 32-bit unsigned integer value
 int                         Unbounded 32-bit signed integer value
-scalar      RAW             Scaled signed floating point value
+scalar      RAW, UNITS      Scaled signed floating point value
 bit                         Bit: 0 or 1
 action                      Write only, no value
 lut         RAW             5 input lookup table logical formula
@@ -431,6 +433,7 @@ Field (sub)type Attribute       Description                             R W C M
 (all)           INFO            Returns type of field                   R
 uint            MAX             Maximum allowed integer value           R
 scalar          RAW             Underlying integer value                R W
+\               UNITS           Configured units for scalar             R
 lut             RAW             Computed Lookup Table 32-bit value      R
 time            UNITS           Units and scaling selection for time    R W C
 \               RAW             Raw time in FPGA clock cycles           R W
