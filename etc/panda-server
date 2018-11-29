@@ -14,7 +14,7 @@ panda_server=/opt/bin/panda_server
 panda_config=/opt/share/panda/config_d
 panda_module=/opt/share/panda/panda.ko
 panda_state=/opt/state/panda.state
-panda_mac=/qspi/MAC.panda
+panda_mac=/qspi/MAC.FPGA
 slow_load=/opt/bin/slow_load
 
 
