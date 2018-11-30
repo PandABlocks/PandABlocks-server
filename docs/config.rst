@@ -176,9 +176,9 @@ follows:
 ======================= ========================================================
 Class                   Register syntax
 ======================= ========================================================
-``param``               register
-``read``                register
-``write``               register
+``param``               register | extension | register extension
+``read``                register | extension
+``write``               register | extension | register extension
 ``time``                low-register high-register
 ``bit_out``             ( bit-index )N
 ``pos_out``             ( pos-index )N
@@ -191,7 +191,21 @@ Class                   Register syntax
 ======================= ========================================================
 
 where the syntax ``(...)N`` means that the given register number is repeated N
-times where N is the number of instances of the block.
+times where N is the number of instances of the block.  See below for an
+explanation of `extension`.
+
+Extension register syntax
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the extension server is enabled (with the ``-X`` command line option on the
+server) then ``param``, ``read``, and ``write`` subtypes can all be redirected
+to the extension server using the `extension` syntax::
+
+    extension = "X" module-name [extra-args]
+
+In this syntax the `module-name` field must name an extension module which can
+be loaded by the server, and the `extra-args` are interpreted by this module.
+
 
 Description file ``description``
 --------------------------------
