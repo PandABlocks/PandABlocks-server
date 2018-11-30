@@ -22,7 +22,6 @@
 #include "sim_hardware.h"
 
 
-#define SERVER_NAME     "localhost"
 #define SERVER_PORT     9999
 
 
@@ -258,16 +257,11 @@ error__t initialise_hardware(void)
 {
     struct sockaddr_in s_in = {
         .sin_family = AF_INET,
-        .sin_addr.s_addr = INADDR_ANY,
+        .sin_addr.s_addr = htonl(INADDR_LOOPBACK),
         .sin_port = htons(SERVER_PORT)
     };
-    struct hostent *hostent;
     int one = 1;
     return
-        TEST_OK_IO(hostent = gethostbyname(SERVER_NAME))  ?:
-        DO(memcpy(
-            &s_in.sin_addr.s_addr, hostent->h_addr,
-            (size_t) hostent->h_length))  ?:
         TEST_IO(sock = socket(AF_INET, SOCK_STREAM, 0))  ?:
         TEST_IO_(connect(sock, (struct sockaddr *) &s_in, sizeof(s_in)),
             "Unable to connect to simulation server")  ?:
