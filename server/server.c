@@ -24,11 +24,13 @@
 #include "persistence.h"
 #include "version.h"
 #include "metadata.h"
+#include "extension.h"
 #include "mac_address.h"
 
 
 static unsigned int config_port = 8888;
 static unsigned int data_port = 8889;
+static unsigned int extension_port = 0;
 static bool reuse_addr = false;
 
 /* Paths to configuration databases. */
@@ -69,6 +71,15 @@ static error__t parse_persistence_times(const char *arg)
         parse_eos(&arg);
 }
 
+/* Parses unsigned integer. */
+static error__t parse_port(const char *arg, unsigned int *port)
+{
+    return
+        parse_uint(&arg, port)  ?:
+        parse_eos(&arg)  ?:
+        TEST_OK_(0 < *port && *port < 65536, "Invalid port number");
+}
+
 
 static void usage(const char *argv0)
 {
@@ -88,6 +99,7 @@ static void usage(const char *argv0)
 "   -P: Write process id to given file name\n"
 "   -T  Run in test mode and terminate immediately after initialisation\n"
 "   -M: Load MAC addresses from specified file\n"
+"   -X: Use extension server on specified port\n"
         , argv0, config_port, data_port);
 }
 
@@ -98,11 +110,11 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:TM:"))
+        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:TM:X:"))
         {
             case 'h':   usage(argv0);                                   exit(0);
-            case 'p':   config_port = (unsigned int) atoi(optarg);      break;
-            case 'd':   data_port   = (unsigned int) atoi(optarg);      break;
+            case 'p':   error = parse_port(optarg, &config_port);       break;
+            case 'd':   error = parse_port(optarg, &data_port);         break;
             case 'R':   reuse_addr = true;                              break;
             case 'c':   config_dir = optarg;                            break;
             case 'f':   persistence_file = optarg;                      break;
@@ -111,6 +123,7 @@ static error__t process_options(int argc, char *const argv[])
             case 'P':   pid_filename = optarg;                          break;
             case 'T':   test_config_only = true;                        break;
             case 'M':   mac_address_filename = optarg;                  break;
+            case 'X':   error = parse_port(optarg, &extension_port);    break;
             default:
                 return FAIL_("Try `%s -h` for usage", argv0);
             case -1:
@@ -209,6 +222,8 @@ int main(int argc, char *const argv[])
 
         initialise_signals()  ?:
         initialise_hardware()  ?:
+        IF(extension_port,
+            initialise_extension_server(extension_port))  ?:
         load_config_databases(config_dir)  ?:
 
         IF(persistence_file,
@@ -241,6 +256,7 @@ int main(int argc, char *const argv[])
      * to cope with being called even if it was never initialised. */
     terminate_data_server_early();
     terminate_socket_server();
+    terminate_extension_server();
     terminate_persistence();
 
     terminate_data_server();

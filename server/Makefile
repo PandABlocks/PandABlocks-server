@@ -107,6 +107,7 @@ SRCS += register.c              # param, read, write class support
 SRCS += base64.c                # base64 conversion support
 SRCS += metadata.c              # Support for *METADATA command
 SRCS += mac_address.c           # Support for FPGA MAC address loading
+SRCS += extension.c             # Support for extension server registers
 
 
 # Program for loading slow FPGA on carrier card.
