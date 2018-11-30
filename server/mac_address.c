@@ -1,27 +1,20 @@
-/* Special field types. */
+/* FPGA MAC address support. */
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <unistd.h>
 #include <string.h>
-#include <limits.h>
-#include <pthread.h>
 
 #include "error.h"
 #include "parse.h"
 #include "hardware.h"
-#include "config_server.h"
-#include "fields.h"
-#include "locking.h"
 
-#include "special.h"
+#include "mac_address.h"
 
 
-
-/******************************************************************************/
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Load MAC addresses. */
 
 

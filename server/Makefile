@@ -106,7 +106,7 @@ SRCS += table.c                 # table classes support
 SRCS += register.c              # param, read, write class support
 SRCS += base64.c                # base64 conversion support
 SRCS += metadata.c              # Support for *METADATA command
-SRCS += special.c               # Support for special casel field classes
+SRCS += mac_address.c           # Support for FPGA MAC address loading
 
 
 # Program for loading slow FPGA on carrier card.
