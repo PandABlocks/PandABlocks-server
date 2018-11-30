@@ -14,6 +14,7 @@ DEBUG=(valgrind --leak-check=full --track-origins=yes)
 # By default run local simulation
 SIM_SERVER="$HERE"/python/sim_server
 EXT_SERVER="$HERE"/python/extension_server
+EXT_DIR="$HERE"/python/test_extension
 EXT_PORT=9998
 CONFIG_DIR='@@BUILD_DIR@@/config_d'
 SIM_ARGS=()
@@ -68,7 +69,7 @@ echo Running simulation "$SIM_SERVER"
 "$PYTHON" "$SIM_SERVER" "${SIM_ARGS[@]}" -d "$CONFIG_DIR"  &&
 
 # Run up the extension server
-"$PYTHON" "$EXT_SERVER" "${EXT_ARGS[@]}" -d -p$EXT_PORT  &&
+"$PYTHON" "$EXT_SERVER" "${EXT_ARGS[@]}" -d -p$EXT_PORT "$EXT_DIR"  &&
 
 exec "${DEBUG[@]}" \
     '@@BUILD_DIR@@'/sim_server/sim_server \

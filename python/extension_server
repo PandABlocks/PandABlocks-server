@@ -5,6 +5,7 @@
 import argparse
 import os
 import sys
+import imp
 import socket
 import traceback
 
@@ -16,7 +17,14 @@ parser.add_argument(
     '-v', '--verbose', action = 'store_true', help = 'Log register access')
 parser.add_argument(
     '-p', '--port', default = 9998, type = int, help = 'Specify socket port')
+parser.add_argument(
+    'extensions', help = 'Extension directory')
 args = parser.parse_args()
+
+
+# Initialise the extensions module
+extensions_module = imp.new_module('extensions')
+sys.modules['extensions'] = extensions_module
 
 
 # We daemonise the server by double forking, but we leave the controlling
@@ -29,6 +37,19 @@ def daemonise():
     if os.fork():
         sys.exit(0)
 
+
+# This imports the named module from the extensions directory and ensures that
+# it is installed as module extensions.name. */
+def import_extension_module(name):
+    module_name = 'extensions.%s' % name
+    try:
+        return sys.modules[module_name]
+    except KeyError:
+        file, path, desc = imp.find_module(name, [args.extensions])
+        module = imp.load_module(module_name, file, path, desc)
+        sys.modules[module_name] = module
+        setattr(extensions_module, name, module)
+        return module
 
 
 class Extensions:
@@ -56,7 +77,7 @@ class Extensions:
             except ValueError:
                 module_name, parse_args = line[1:], ''
 
-            module = __import__(module_name)
+            module = import_extension_module(module_name)
             parse = module.parse(rw, parse_args)
 
             assert rw in 'RW', 'Invalid R/W field in parse'
