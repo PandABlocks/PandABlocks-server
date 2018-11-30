@@ -1,0 +1,137 @@
+#!/usr/bin/env python2
+
+# Simple template for a support server.
+
+import argparse
+import os
+import sys
+import socket
+import traceback
+
+
+parser = argparse.ArgumentParser(description = 'PandA Support Server')
+parser.add_argument(
+    '-d', '--daemon', action = 'store_true', help = 'Run as daemon process')
+parser.add_argument(
+    '-v', '--verbose', action = 'store_true', help = 'Log register access')
+parser.add_argument(
+    '-p', '--port', default = 9998, type = int, help = 'Specify socket port')
+args = parser.parse_args()
+
+
+# We daemonise the server by double forking, but we leave the controlling
+# terminal and other file connections alone.
+def daemonise():
+    if os.fork():
+        # Exit first parent
+        sys.exit(0)
+    # Do second fork to avoid generating zombies
+    if os.fork():
+        sys.exit(0)
+
+
+
+class Extensions:
+    def __init__(self):
+        self.id_table = {}
+        self.next_id = 0
+
+    # Adds an entity to the id table and returns the associated id.
+    def add_entity(self, entity):
+        id = self.next_id
+        self.next_id += 1
+        self.id_table[id] = entity
+        return id
+
+    def parse(self, line):
+        try:
+            # Initial parsing of line before handing over to module.  The syntax
+            # is
+            #       ("R"|"W") " " block-num " " module-name [ " " parse-args ]
+            #
+            rw, block, module_args = line.split(' ', 2)
+            # The fiddly bit is splitting module_args
+            try:
+                module_name, parse_args = module_args.split(' ', 1)
+            except ValueError:
+                module_name, parse_args = module_args, ''
+
+            assert rw in 'RW', 'Invalid R/W field in parse'
+            block = int(block)
+
+            module = __import__(module_name)
+            parse = module.parse(rw, block, parse_args)
+
+            if rw == 'R':
+                assert hasattr(parse, 'read'), 'Read method not supported'
+            elif rw == 'W':
+                assert hasattr(parse, 'write'), 'Write method not supported'
+
+            return (False, self.add_entity(parse))
+        except Exception as e:
+            if args.verbose:
+                print >>sys.stderr, 'Caught exception during parse', e
+                traceback.print_exc()
+
+            # Convert parse exception into an error message.
+            e = str(e)
+            if not e:
+                e = 'Unknown error'
+            return (True, e)
+
+    def write(self, line):
+        id, number, value = map(int, line.split(' ', 2))
+        self.id_table[id].write(number, value)
+
+    def read(self, line):
+        id, number = map(int, line.split(' ', 1))
+        return self.id_table[id].read(number)
+
+
+def run_support_server(sock, verbose):
+    sock_file = sock.makefile()
+    extensions = Extensions()
+    while True:
+        line = sock_file.readline()[:-1]    # Prune trailing \n
+        if not line:
+            break
+
+        try:
+            if args.verbose:
+                print >>sys.stderr, 'Read:', repr(line)
+            cmd, line = line[0], line[1:]
+            if cmd == 'P':
+                error, response = extensions.parse(line)
+                if error:
+                    sock_file.write('E%s\n' % response)
+                else:
+                    sock_file.write('P%u\n' % response)
+                sock_file.flush()
+            elif cmd == 'W':
+                extensions.write(line)
+            elif cmd == 'R':
+                value = extensions.read(line)
+                sock_file.write('R%u\n' % value)
+                sock_file.flush()
+            else:
+                assert False, 'Invalid command character \'%c\'' % cmd
+        except:
+            traceback.print_exc()
+
+
+server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server_sock.bind(('localhost', args.port))
+server_sock.listen(0)
+
+print >>sys.stderr, 'Support server ready'
+# Need to daemonise after the listening port is ready but before calling accept.
+# This ensures that when our caller gets control the connection will succeed.
+if args.daemon:
+    daemonise()
+
+(conn, addr) = server_sock.accept()
+server_sock.close()
+
+conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+run_support_server(conn, args.verbose)
