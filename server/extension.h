@@ -12,8 +12,7 @@ struct extension_address;
 /* Parses an extension address definition and returns an appropriate structure
  * which can be used for subsequent register read and write operations. */
 error__t parse_extension_address(
-    const char **line, unsigned int block_base, bool write_not_read,
-    struct extension_address **address);
+    const char **line, bool write_not_read, struct extension_address **address);
 
 void destroy_extension_address(struct extension_address *address);
 

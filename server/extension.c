@@ -79,16 +79,14 @@ void terminate_extension_server(void)
 /* Sends parse request to server, parses response, which should either be a
  * parse error message or a successful parse response id. */
 static error__t extension_server_parse(
-    unsigned int block_base, bool write_not_read, const char *request,
-    unsigned int *parse_id)
+    bool write_not_read, const char *request, unsigned int *parse_id)
 {
     char buffer[80];
     const char *response = buffer;
     return
         SERVER_EXCHANGE(
             write_formatted_string(server.file,
-                "P%c %d %s\n",
-                write_not_read ? 'W' : 'R', block_base, request)  &&
+                "P%c%s\n", write_not_read ? 'W' : 'R', request)  &&
             read_line(server.file, buffer, sizeof(buffer), true))  ?:
         IF_ELSE(read_char(&response, 'P'),
             // Successful parse.  Response should be a single integer
@@ -150,16 +148,14 @@ static struct extension_address *create_extension_address(
 
 
 error__t parse_extension_address(
-    const char **line, unsigned int block_base, bool write_not_read,
-    struct extension_address **address)
+    const char **line, bool write_not_read, struct extension_address **address)
 {
     const char *request;
     unsigned int parse_id;
     return
         parse_whitespace(line)  ?:
         parse_utf8_string(line, &request)  ?:
-        extension_server_parse(
-            block_base, write_not_read, request, &parse_id)  ?:
+        extension_server_parse(write_not_read, request, &parse_id)  ?:
         DO(*address = create_extension_address(parse_id));
 }
 

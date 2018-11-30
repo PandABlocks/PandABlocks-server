@@ -13,11 +13,11 @@ DATA_PORT=8889
 DEBUG=(valgrind --leak-check=full --track-origins=yes)
 # By default run local simulation
 SIM_SERVER="$HERE"/python/sim_server
-EXTENSION_SERVER="$HERE"/python/extension_server
-EXTENSION_PORT=9998
+EXT_SERVER="$HERE"/python/extension_server
+EXT_PORT=9998
 CONFIG_DIR='@@BUILD_DIR@@/config_d'
 SIM_ARGS=()
-EXTENSION_ARGS=()
+EXT_ARGS=()
 
 
 # Allow some settings to be overridden.
@@ -27,10 +27,11 @@ while getopts 'nf:p:d:vc:V:P-h' option; do
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
     f)  SIM_SERVER="$OPTARG/common/python/sim_server"
-        CONFIG_DIR="$OPTARG/build/PandABox/config_d" ;;
+        CONFIG_DIR="$OPTARG/build/PandABox/config_d"
+        EXT_DIR="$OPTARG/common/python/extension" ;;
     c)  CONFIG_DIR="$OPTARG" ;;
     v)  SIM_ARGS=("${SIM_ARGS[@]}" -v)
-        EXTENSION_ARGS=("${EXTENSION_ARGS[@]}" -v) ;;
+        EXT_ARGS=("${EXT_ARGS[@]}" -v) ;;
     V)  DEBUG=("${DEBUG[@]}" "$OPTARG") ;;
     P)  rm -f "$PERSISTENCE" ;;
     -)  ;;
@@ -59,6 +60,7 @@ shift $((OPTIND-1))
 # Force any previously running instance of the simulation server to go away --
 # this can happen if sim_server failed on startup for any reason.
 nc localhost 9999 </dev/null
+nc localhost $EXT_PORT </dev/null
 
 # Run the simulation server as a daemon.  It will ensure its socket is up and
 # running before taking itself into the background.
@@ -66,10 +68,10 @@ echo Running simulation "$SIM_SERVER"
 "$PYTHON" "$SIM_SERVER" "${SIM_ARGS[@]}" -d "$CONFIG_DIR"  &&
 
 # Run up the extension server
-"$PYTHON" "$EXTENSION_SERVER" "${EXTENSION_ARGS[@]}" -d -p$EXTENSION_PORT  &&
+"$PYTHON" "$EXT_SERVER" "${EXT_ARGS[@]}" -d -p$EXT_PORT  &&
 
 exec "${DEBUG[@]}" \
     '@@BUILD_DIR@@'/sim_server/sim_server \
     -f"$PERSISTENCE" -p$CONFIG_PORT -d$DATA_PORT -R -c"$CONFIG_DIR" \
-    -X$EXTENSION_PORT \
+    -X$EXT_PORT \
     "$@"

@@ -9,7 +9,7 @@ import socket
 import traceback
 
 
-parser = argparse.ArgumentParser(description = 'PandA Support Server')
+parser = argparse.ArgumentParser(description = 'PandA Extension Server')
 parser.add_argument(
     '-d', '--daemon', action = 'store_true', help = 'Run as daemon process')
 parser.add_argument(
@@ -47,21 +47,19 @@ class Extensions:
         try:
             # Initial parsing of line before handing over to module.  The syntax
             # is
-            #       ("R"|"W") " " block-num " " module-name [ " " parse-args ]
+            #       ("R"|"W") module-name [ " " parse-args ]
             #
-            rw, block, module_args = line.split(' ', 2)
-            # The fiddly bit is splitting module_args
+            # The fiddly bit is splitting module-nane and the args
+            rw = line[0]
             try:
-                module_name, parse_args = module_args.split(' ', 1)
+                module_name, parse_args = line[1:].split(' ', 1)
             except ValueError:
-                module_name, parse_args = module_args, ''
-
-            assert rw in 'RW', 'Invalid R/W field in parse'
-            block = int(block)
+                module_name, parse_args = line[1:], ''
 
             module = __import__(module_name)
-            parse = module.parse(rw, block, parse_args)
+            parse = module.parse(rw, parse_args)
 
+            assert rw in 'RW', 'Invalid R/W field in parse'
             if rw == 'R':
                 assert hasattr(parse, 'read'), 'Read method not supported'
             elif rw == 'W':
@@ -73,7 +71,9 @@ class Extensions:
                 print >>sys.stderr, 'Caught exception during parse', e
                 traceback.print_exc()
 
-            # Convert parse exception into an error message.
+            # Convert parse exception into an error message.  It can happen that
+            # the error message is empty, eg an unqualified assert fail, so
+            # let's return something less obscure.
             e = str(e)
             if not e:
                 e = 'Unknown error'
@@ -115,7 +115,8 @@ def run_support_server(sock, verbose):
                 sock_file.flush()
             else:
                 assert False, 'Invalid command character \'%c\'' % cmd
-        except:
+        except Exception as e:
+            print >>sys.stderr, 'Unexpected exception', e
             traceback.print_exc()
 
 
@@ -124,7 +125,7 @@ server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server_sock.bind(('localhost', args.port))
 server_sock.listen(0)
 
-print >>sys.stderr, 'Support server ready'
+print >>sys.stderr, 'Extension server ready'
 # Need to daemonise after the listening port is ready but before calling accept.
 # This ensures that when our caller gets control the connection will succeed.
 if args.daemon:
@@ -134,4 +135,8 @@ if args.daemon:
 server_sock.close()
 
 conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-run_support_server(conn, args.verbose)
+try:
+    run_support_server(conn, args.verbose)
+except KeyboardInterrupt:
+    pass
+print >>sys.stderr, 'Extension server closed'
