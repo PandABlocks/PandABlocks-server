@@ -22,34 +22,17 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-# Initialise the extensions module
-extensions_module = imp.new_module('extensions')
-sys.modules['extensions'] = extensions_module
+# Initialise the extensions module from the path given to us.  We load this
+# directory as a package.
+imp.load_module(
+    'extensions', None, args.extensions, ('', '', imp.PKG_DIRECTORY))
 
 
-# We daemonise the server by double forking, but we leave the controlling
-# terminal and other file connections alone.
-def daemonise():
-    if os.fork():
-        # Exit first parent
-        sys.exit(0)
-    # Do second fork to avoid generating zombies
-    if os.fork():
-        sys.exit(0)
-
-
-# This imports the named module from the extensions directory and ensures that
-# it is installed as module extensions.name. */
+# Imports the named module from the extensions directory.  We use __import__
+# rather than importlib simply to keep Python 2.6 compatibility for now.
 def import_extension_module(name):
-    module_name = 'extensions.%s' % name
-    try:
-        return sys.modules[module_name]
-    except KeyError:
-        file, path, desc = imp.find_module(name, [args.extensions])
-        module = imp.load_module(module_name, file, path, desc)
-        sys.modules[module_name] = module
-        setattr(extensions_module, name, module)
-        return module
+    extensions = __import__('extensions', None, None, [name])
+    return getattr(extensions, name)
 
 
 class Extensions:
@@ -109,7 +92,7 @@ class Extensions:
         return self.id_table[id].read(number)
 
 
-def run_support_server(sock, verbose):
+def run_extensions_server(sock, verbose):
     sock_file = sock.makefile()
     extensions = Extensions()
     while True:
@@ -141,6 +124,17 @@ def run_support_server(sock, verbose):
             traceback.print_exc()
 
 
+# We daemonise the server by double forking, but we leave the controlling
+# terminal and other file connections alone.
+def daemonise():
+    if os.fork():
+        # Exit first parent
+        sys.exit(0)
+    # Do second fork to avoid generating zombies
+    if os.fork():
+        sys.exit(0)
+
+
 server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server_sock.bind(('localhost', args.port))
@@ -157,7 +151,7 @@ server_sock.close()
 
 conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 try:
-    run_support_server(conn, args.verbose)
+    run_extensions_server(conn, args.verbose)
 except KeyboardInterrupt:
     pass
 print >>sys.stderr, 'Extension server closed'
