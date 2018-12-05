@@ -83,17 +83,22 @@ SERVER_BUILD_ENV += VPATH=$(TOP)/server
 SERVER_BUILD_ENV += TOP=$(TOP)
 SERVER_BUILD_ENV += PYTHON=$(PYTHON)
 
-$(SERVER): $(SERVER_BUILD_DIR) $(SERVER_FILES)
-	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) CC=$(CC)
+$(SERVER): $(SERVER_FILES)
+	mkdir -p $(SERVER_BUILD_DIR)
+	$(MAKE) -C $(SERVER_BUILD_DIR) -f $(TOP)/server/Makefile \
+            $(SERVER_BUILD_ENV) CC=$(CC)
 
 # Two differences with building sim_server: we use the native compiler, not the
 # cross-compiler, and we only build the sim_server target.
-$(SIM_SERVER): $(SIM_SERVER_BUILD_DIR) $(SERVER_FILES)
-	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) sim_server
+$(SIM_SERVER): $(SERVER_FILES)
+	mkdir -p $(SIM_SERVER_BUILD_DIR)
+	$(MAKE) -C $(SERVER_BUILD_DIR) -f $(TOP)/server/Makefile \
+            $(SERVER_BUILD_ENV) sim_server
 
-$(SLOW_LOAD): $(SERVER_BUILD_DIR) server/slow_load.c
-	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) CC=$(CC) \
-            slow_load
+$(SLOW_LOAD): server/slow_load.c
+	mkdir -p $(SERVER_BUILD_DIR)
+	$(MAKE) -C $(SERVER_BUILD_DIR) -f $(TOP)/server/Makefile \
+            $(SERVER_BUILD_ENV) CC=$(CC) slow_load
 
 
 # Construction of simserver launch script.
@@ -135,7 +140,9 @@ clean-docs:
 # ------------------------------------------------------------------------------
 # Build installation package
 
-zpkg: etc/panda-server.list $(PANDA_KO) $(SERVER) $(SLOW_LOAD) $(DOCS_BUILD_DIR)/index.html
+ZPKG_DEPENDS = $(PANDA_KO) $(SERVER) $(SLOW_LOAD) $(DOCS_BUILD_DIR)/index.html
+
+zpkg: etc/panda-server.list $(ZPKG_DEPENDS)
 	rm -f $(BUILD_DIR)/*.zpg
 	$(MAKE_ZPKG) -t $(TOP) -b $(BUILD_DIR) -d $(BUILD_DIR) \
             $< $(GIT_VERSION)
