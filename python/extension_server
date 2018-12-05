@@ -107,7 +107,8 @@ def run_extensions_server(sock, verbose):
             if cmd == 'P':
                 error, response = extensions.parse(line)
                 if error:
-                    sock_file.write('E%s\n' % response)
+                    # Truncate error response to avoid overrun errors
+                    sock_file.write('E%s\n' % response[:250])
                 else:
                     sock_file.write('P%u\n' % response)
                 sock_file.flush()

@@ -81,7 +81,7 @@ void terminate_extension_server(void)
 static error__t extension_server_parse(
     bool write_not_read, const char *request, unsigned int *parse_id)
 {
-    char buffer[80];
+    char buffer[256];
     const char *response = buffer;
     return
         SERVER_EXCHANGE(
