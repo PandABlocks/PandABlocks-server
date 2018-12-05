@@ -7,15 +7,20 @@
 # File locations
 pidfile=/var/run/panda-server.pid
 
-carrier_firmware=/opt/share/panda/panda_top.bit
-slow_firmware=/opt/share/panda/slow_top.bin
-
 panda_server=/opt/bin/panda_server
-panda_config=/opt/share/panda/config_d
-panda_module=/opt/share/panda/panda.ko
+panda_config=/opt/share/panda-fpga/config_d
+panda_module=/opt/share/panda-server/panda.ko
 panda_state=/opt/state/panda.state
 panda_mac=/qspi/MAC.FPGA
-slow_load=/opt/bin/slow_load
+
+extension_server=/opt/share/panda-server/extension_server
+extension_dir=/opt/share/panda-fpga/extensions
+
+load_panda_firmware=/opt/share/panda-fpga/load-panda-firmware
+
+
+panda_server_command=\
+"$panda_server -c $panda_config -f $panda_state -P $pidfile -D -R -X 9999"
 
 
 fail()
@@ -27,10 +32,22 @@ fail()
 
 do_start()
 {
-    { [ -e $carrier_firmware -a -e $slow_firmware ]  ||
-        fail "Firmware not installed"; }  &&
-    cat $carrier_firmware >/dev/xdevcfg  &&
-    $slow_load <$slow_firmware  &&
+    # Only set the MAC addresses if the file is present
+    if [ -e $panda_mac ]; then
+        $panda_server="$panda_server -M $panda_mac"
+    fi
+
+    [ -x $load_panda_firmware ]  ||  fail 'PandA firmware not installed'
+
+    # Remove the kernel module before reloading the FPGA.  Don't care if this
+    # returns an error code.
+    rmmod panda
+
+    # Load the Panda FPGA firmware.  This can fail, in which case the poor user
+    # will have to inspect the logs!
+    $load_panda_firmware  &&
+
+    # Now we can load the module and go
     insmod $panda_module  &&
 
     # After inserting Panda module wait for devices to appear
@@ -41,12 +58,11 @@ do_start()
         i=$((i+1))
     done  &&
 
-    if [ -e $panda_mac ]; then
-        $panda_server -c $panda_config -f $panda_state -P $pidfile -D -R \
-            -M $panda_mac
-    else
-        $panda_server -c $panda_config -f $panda_state -P $pidfile -D -R
-    fi
+    # Now start the extension server
+    $extension_server -d $extension_dir  &&
+
+    # Finally start the PANDA server
+    $panda_server_command
 }
 
 do_stop()

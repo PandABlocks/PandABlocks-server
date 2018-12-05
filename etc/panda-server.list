@@ -1,15 +1,26 @@
-d share/panda
+# List of files to be installed on target system.
+
+# First create all the appropriate target directories.
+d share/panda-server
 d share/www
 d bin
 d state
 d etc/init.d
 d etc/rc.d
 d etc/www
+
+# Copy top level documentation link where it can be found by web server, install
+# the rest of the documentation.
 t etc/www etc/panda-server.docs.html
-b share/panda driver/panda.ko
+r share/www/panda-server html
+
+# Install the Panda components
 b bin/panda_server server/server
 b bin/slow_load server/slow_load
+b share/panda-server driver/panda.ko
+t share/panda-server python/extension_server
+
+# Install and configure the startup scripts
 t etc/init.d etc/panda-server
 l etc/rc.d/S200panda-server ../init.d/panda-server
 l etc/rc.d/K200panda-server ../init.d/panda-server
-r share/www/panda-server html

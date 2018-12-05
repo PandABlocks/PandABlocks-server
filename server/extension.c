@@ -52,7 +52,7 @@ error__t initialise_extension_server(unsigned int port)
         TEST_IO(sock = socket(AF_INET, SOCK_STREAM, 0))  ?:
         DO(server.file = create_buffered_file(sock, 4096, 4096))  ?:
         TEST_IO_(connect(sock, (struct sockaddr *) &s_in, sizeof(s_in)),
-            "Unable to connect to simulation server")  ?:
+            "Unable to connect to extension server")  ?:
         set_timeout(sock, SO_SNDTIMEO, 1)  ?:
         set_timeout(sock, SO_RCVTIMEO, 1)  ?:
         TEST_IO(setsockopt(

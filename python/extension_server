@@ -16,7 +16,7 @@ parser.add_argument(
 parser.add_argument(
     '-v', '--verbose', action = 'store_true', help = 'Log register access')
 parser.add_argument(
-    '-p', '--port', default = 9998, type = int, help = 'Specify socket port')
+    '-p', '--port', default = 9999, type = int, help = 'Specify socket port')
 parser.add_argument(
     'extensions', help = 'Extension directory')
 args = parser.parse_args()
