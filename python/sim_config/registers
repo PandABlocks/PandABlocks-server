@@ -242,3 +242,8 @@ SFP         27
     SFP_CLK2        7
     SFP_CLK3        8
     SOFT_RESET      9
+
+SYSTEM          9 system
+    TEMP_PSU        0
+    TEMP_ZYNQ       X in_temp0
+    VCCINT          X in_voltage0_vccint

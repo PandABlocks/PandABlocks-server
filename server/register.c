@@ -63,10 +63,13 @@ static error__t base_parse_register(
 {
     state->block_base = block_base;
     state->field_register = UNUSED_REGISTER;
+    struct extension_block *extension =
+        get_block_extension(get_field_block(field));
     return
         IF_ELSE(read_char(line, 'X'),
             // Extension register only
-            parse_extension_address(line, write_not_read, &state->extension),
+            parse_extension_address(
+                line, extension, write_not_read, &state->extension),
         //else
             // Otherwise there must be a normal register, maybe followed by an
             // extension register
@@ -76,7 +79,7 @@ static error__t base_parse_register(
                 TEST_OK_(write_not_read,
                     "Cannot specify two registers for read")  ?:
                 parse_extension_address(
-                    line, write_not_read, &state->extension)));
+                    line, extension, write_not_read, &state->extension)));
 
 }
 

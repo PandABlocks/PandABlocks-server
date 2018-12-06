@@ -19,20 +19,24 @@ parser.add_argument(
     '-p', '--port', default = 9999, type = int, help = 'Specify socket port')
 parser.add_argument(
     'extensions', help = 'Extension directory')
-args = parser.parse_args()
+command_args = parser.parse_args()
 
 
 # Initialise the extensions module from the path given to us.  We load this
 # directory as a package.
 imp.load_module(
-    'extensions', None, args.extensions, ('', '', imp.PKG_DIRECTORY))
+    'extensions', None, command_args.extensions, ('', '', imp.PKG_DIRECTORY))
 
 
 # Imports the named module from the extensions directory.  We use __import__
 # rather than importlib simply to keep Python 2.6 compatibility for now.
 def import_extension_module(name):
     extensions = __import__('extensions', None, None, [name])
-    return getattr(extensions, name)
+    try:
+        return getattr(extensions, name)
+    except AttributeError:
+        # Convert default error message into something more helpful
+        raise Exception('Extension module \'%s\' not found' % name)
 
 
 class Extensions:
@@ -47,82 +51,122 @@ class Extensions:
         self.id_table[id] = entity
         return id
 
-    def parse(self, line):
-        try:
-            # Initial parsing of line before handing over to module.  The syntax
-            # is
-            #       ("R"|"W") module-name [ " " parse-args ]
-            #
-            # The fiddly bit is splitting module-nane and the args
-            rw = line[0]
+    # Decorator function for converting a simple action which can raise an
+    # exception into a function returning either (True, success) or (False,
+    # error message).
+    def try_action(action):
+        def caught_action(self, *args):
             try:
-                module_name, parse_args = line[1:].split(' ', 1)
-            except ValueError:
-                module_name, parse_args = line[1:], ''
+                return (True, action(self, *args))
+            except Exception as e:
+                if command_args.verbose:
+                    print >>sys.stderr, 'Caught exception during parse', e
+                    traceback.print_exc()
 
-            module = import_extension_module(module_name)
-            parse = module.parse(rw, parse_args)
+                # Convert parse exception into an error message.  It can happen
+                # that the error message is empty, eg an unqualified assert
+                # fail, so let's return something less obscure.
+                e = str(e)
+                if not e:
+                    e = 'Unknown error'
+                return (False, e)
+        return caught_action
 
-            assert rw in 'RW', 'Invalid R/W field in parse'
-            if rw == 'R':
-                assert hasattr(parse, 'read'), 'Read method not supported'
-            elif rw == 'W':
-                assert hasattr(parse, 'write'), 'Write method not supported'
+    @try_action
+    def parse_block(self, line):
+        # Syntax:   field-count module-name
+        count, module_name = line.split()
+        count = int(count)
+        block = import_extension_module(module_name).Extension(count)
+        return self.add_entity(block)
 
-            return (False, self.add_entity(parse))
-        except Exception as e:
-            if args.verbose:
-                print >>sys.stderr, 'Caught exception during parse', e
-                traceback.print_exc()
+    @try_action
+    def parse_field(self, line):
+        # Syntax:   ("R"|"W") block-id parse-args
+        rw = line[0]
+        block_id, parse_args = line[1:].split(' ', 1)
+        block_id = int(block_id)
 
-            # Convert parse exception into an error message.  It can happen that
-            # the error message is empty, eg an unqualified assert fail, so
-            # let's return something less obscure.
-            e = str(e)
-            if not e:
-                e = 'Unknown error'
-            return (True, e)
+        parse = self.id_table[block_id].parse(rw, parse_args)
 
-    def write(self, line):
-        id, number, value = map(int, line.split(' ', 2))
-        self.id_table[id].write(number, value)
+        assert rw in 'RW', 'Invalid R/W field in parse'
+        if rw == 'R':
+            assert hasattr(parse, 'read'), 'Read method not supported'
+        elif rw == 'W':
+            assert hasattr(parse, 'write'), 'Write method not supported'
 
+        return self.add_entity(parse)
+
+    @try_action
     def read(self, line):
+        # Syntax:   parse-id field-num
         id, number = map(int, line.split(' ', 1))
         return self.id_table[id].read(number)
 
+    def write(self, line):
+        # Syntax:   parse-id field-num value
+        id, number, value = map(int, line.split(' ', 2))
+        self.id_table[id].write(number, value)
 
-def run_extensions_server(sock, verbose):
-    sock_file = sock.makefile()
-    extensions = Extensions()
-    while True:
-        line = sock_file.readline()[:-1]    # Prune trailing \n
-        if not line:
-            break
 
-        try:
-            if args.verbose:
-                print >>sys.stderr, 'Read:', repr(line)
-            cmd, line = line[0], line[1:]
-            if cmd == 'P':
-                error, response = extensions.parse(line)
-                if error:
-                    # Truncate error response to avoid overrun errors
-                    sock_file.write('E%s\n' % response[:250])
-                else:
-                    sock_file.write('P%u\n' % response)
-                sock_file.flush()
-            elif cmd == 'W':
-                extensions.write(line)
-            elif cmd == 'R':
-                value = extensions.read(line)
-                sock_file.write('R%u\n' % value)
-                sock_file.flush()
-            else:
-                assert False, 'Invalid command character \'%c\'' % cmd
-        except Exception as e:
-            print >>sys.stderr, 'Unexpected exception', e
-            traceback.print_exc()
+class Server:
+    def __init__(self, port, verbose):
+        self.verbose = verbose
+
+        self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_sock.bind(('localhost', port))
+        self.server_sock.listen(0)
+
+    def process_response(self, prefix, action, line):
+        success, response = action(line)
+        if success:
+            self.file.write('%c%u\n' % (prefix, response))
+        else:
+            # Truncate error response to avoid overrun errors
+            self.file.write('E%s\n' % response[:250])
+        self.file.flush()
+
+    def process_write(self, line):
+        pass
+
+    def process_command(self, line):
+        if self.verbose:
+            print >>sys.stderr, 'Read:', repr(line)
+        cmd, line = line[0], line[1:]
+
+        if cmd == 'B':
+            self.process_response('B', self.ext.parse_block, line)
+        elif cmd == 'P':
+            self.process_response('P', self.ext.parse_field, line)
+        elif cmd == 'R':
+            self.process_response('R', self.ext.read, line)
+        elif cmd == 'W':
+            self.ext.write(line)
+        else:
+            assert False, 'Invalid command character \'%c\'' % cmd
+
+    def run_service(self):
+        while True:
+            line = self.file.readline()[:-1]    # Prune trailing \n
+            if not line:
+                break
+
+            try:
+                self.process_command(line)
+            except Exception as e:
+                print >>sys.stderr, 'Unexpected exception', e
+                traceback.print_exc()
+
+    def run(self):
+        conn, _ = self.server_sock.accept()
+        self.server_sock.close()
+
+        conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+        self.file = conn.makefile()
+        self.ext = Extensions()
+
+        self.run_service()
 
 
 # We daemonise the server by double forking, but we leave the controlling
@@ -136,23 +180,17 @@ def daemonise():
         sys.exit(0)
 
 
-server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server_sock.bind(('localhost', args.port))
-server_sock.listen(0)
-
+# Create the server right away and listen for one connection.
+server = Server(command_args.port, command_args.verbose)
 print >>sys.stderr, 'Extension server ready'
+
 # Need to daemonise after the listening port is ready but before calling accept.
 # This ensures that when our caller gets control the connection will succeed.
-if args.daemon:
+if command_args.daemon:
     daemonise()
 
-(conn, addr) = server_sock.accept()
-server_sock.close()
-
-conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 try:
-    run_extensions_server(conn, args.verbose)
+    server.run()
 except KeyboardInterrupt:
     pass
 print >>sys.stderr, 'Extension server closed'

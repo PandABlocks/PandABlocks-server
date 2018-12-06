@@ -263,3 +263,8 @@ SFP         SFP Block Status
     SFP_CLK2        SFP2 CLK clock freq
     SFP_CLK3        SFP3 CLK clock freq
     SOFT_RESET      GTX Soft Reset
+
+SYSTEM          System control FPGA
+    TEMP_PSU        On-board temperature [Power Supply]
+    TEMP_ZYNQ       On-board zynq temperature
+    VCCINT          On-board voltage sensor

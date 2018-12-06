@@ -24,6 +24,7 @@
 #include "table.h"
 #include "locking.h"
 #include "metadata.h"
+#include "extension.h"
 
 #include "fields.h"
 
@@ -41,6 +42,7 @@ struct block {
     unsigned int base;          // Block register base
     struct hash_table *fields;  // Map from field name to fields
     char *description;          // User readable description
+    struct extension_block *extension;
     uint32_t reg_used[BLOCK_REGISTER_COUNT / 32];   // Register assignment map
 };
 
@@ -142,6 +144,17 @@ const char *get_block_description(struct block *block)
 const char *get_field_description(struct field *field)
 {
     return field->description;
+}
+
+
+struct block *get_field_block(const struct field *field)
+{
+    return field->block;
+}
+
+struct extension_block *get_block_extension(const struct block *block)
+{
+    return block->extension;
 }
 
 
@@ -539,6 +552,7 @@ static void destroy_block(struct block *block)
     hash_table_destroy(block->fields);
     free(block->name);
     free(block->description);
+    destroy_extension_block(block->extension);
     free(block);
 }
 
@@ -596,12 +610,15 @@ error__t create_block(
 }
 
 
-error__t block_set_register(struct block *block, unsigned int base)
+error__t parse_block_set_register(
+    const char **line, struct block *block, unsigned int base)
 {
     return
         TEST_OK_(block->base == UNASSIGNED_REGISTER,
             "Register already assigned")  ?:
-        DO(block->base = base);
+        DO(block->base = base)  ?:
+        IF(read_char(line, ' '),
+            parse_extension_block(line, block->count, &block->extension));
 }
 
 

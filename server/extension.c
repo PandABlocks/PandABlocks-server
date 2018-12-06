@@ -76,19 +76,19 @@ void terminate_extension_server(void)
         "Extension server communication failure"))
 
 
-/* Sends parse request to server, parses response, which should either be a
- * parse error message or a successful parse response id. */
-static error__t extension_server_parse(
-    bool write_not_read, const char *request, unsigned int *parse_id)
+/* A server parse exchange is pretty sterotyped: we send a newline terminated
+ * request string, and either get a response with the same prefix character and
+ * a single number, or an error response. */
+static error__t extension_server_response(
+    char prefix, const char *request, unsigned int *parse_id)
 {
     char buffer[256];
     const char *response = buffer;
     return
         SERVER_EXCHANGE(
-            write_formatted_string(server.file,
-                "P%c%s\n", write_not_read ? 'W' : 'R', request)  &&
+            write_formatted_string(server.file, "%c%s\n", prefix, request)  &&
             read_line(server.file, buffer, sizeof(buffer), true))  ?:
-        IF_ELSE(read_char(&response, 'P'),
+        IF_ELSE(read_char(&response, prefix),
             // Successful parse.  Response should be a single integer
             parse_uint(&response, parse_id)  ?:
             parse_eos(&response),
@@ -96,6 +96,43 @@ static error__t extension_server_parse(
             // The only other valid response is an error message
             parse_char(&response, 'E')  ?:
             FAIL_("%s", response));
+}
+
+
+/* Sends parse request to server, parses response, which should either be a
+ * parse error message or a successful parse response id. */
+static error__t extension_server_parse_block(
+    unsigned int count, const char *request, unsigned int *parse_id)
+{
+    char buffer[80];
+    snprintf(buffer, sizeof(buffer), "%d %s", count, request);
+    return extension_server_response('B', buffer, parse_id);
+}
+
+
+/* Sends parse request to server, parses response, which should either be a
+ * parse error message or a successful parse response id. */
+static error__t extension_server_parse_field(
+    unsigned int block_id, bool write_not_read, const char *request,
+    unsigned int *parse_id)
+{
+    char buffer[80];
+    snprintf(buffer, sizeof(buffer),
+        "%c%d %s", write_not_read ? 'W' : 'R', block_id, request);
+    return extension_server_response('P', buffer, parse_id);
+}
+
+
+static uint32_t extension_server_read(
+    unsigned int parse_id, unsigned int number)
+{
+    unsigned int result = 0;
+    char buffer[80];
+    snprintf(buffer, sizeof(buffer), "%u %u", parse_id, number);
+    ERROR_REPORT(
+        extension_server_response('R', buffer, &result),
+        "Error reading from extension server");
+    return result;
 }
 
 
@@ -109,21 +146,39 @@ static void extension_server_write(
 }
 
 
-static uint32_t extension_server_read(
-    unsigned int parse_id, unsigned int number)
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Block interface. */
+
+struct extension_block {
+    unsigned int block_id;
+};
+
+
+static struct extension_block *create_extension_block(unsigned int block_id)
 {
-    char buffer[80];
-    const char *response = buffer;
-    uint32_t result = 0;
-    error_report(
-        SERVER_EXCHANGE(
-            write_formatted_string(server.file,
-                "R%u %u\n", parse_id, number)  &&
-            read_line(server.file, buffer, sizeof(buffer), true))  ?:
-        parse_char(&response, 'R')  ?:
-        parse_uint32(&response, &result)  ?:
-        parse_eos(&response));
-    return result;
+    struct extension_block *block = malloc(sizeof(struct extension_block));
+    *block = (struct extension_block) {
+        .block_id = block_id,
+    };
+    return block;
+}
+
+
+error__t parse_extension_block(
+    const char **line, unsigned int count, struct extension_block **block)
+{
+    const char *request;
+    unsigned int block_id;
+    return
+        parse_utf8_string(line, &request)  ?:
+        extension_server_parse_block(count, request, &block_id)  ?:
+        DO(*block = create_extension_block(block_id));
+}
+
+
+void destroy_extension_block(struct extension_block *block)
+{
+    free(block);
 }
 
 
@@ -148,14 +203,17 @@ static struct extension_address *create_extension_address(
 
 
 error__t parse_extension_address(
-    const char **line, bool write_not_read, struct extension_address **address)
+    const char **line, struct extension_block *block,
+    bool write_not_read, struct extension_address **address)
 {
     const char *request;
     unsigned int parse_id;
     return
+        TEST_OK_(block, "No extensions defined for this block")  ?:
         parse_whitespace(line)  ?:
         parse_utf8_string(line, &request)  ?:
-        extension_server_parse(write_not_read, request, &parse_id)  ?:
+        extension_server_parse_field(
+            block->block_id, write_not_read, request, &parse_id)  ?:
         DO(*address = create_extension_address(parse_id));
 }
 

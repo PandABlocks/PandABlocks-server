@@ -213,13 +213,13 @@ static error__t register_parse_normal_header(
     struct block *block;
     return
         parse_name(line, block_name, sizeof(block_name))  ?:
-        parse_whitespace(line)  ?:
-        parse_uint(line, &base)  ?:
-        parse_eos(line)  ?:
-
         lookup_block(block_name, &block, NULL)  ?:
         DO(parser->context = block)  ?:
-        block_set_register(block, base);
+
+        parse_whitespace(line)  ?:
+        parse_uint(line, &base)  ?:
+        parse_block_set_register(line, block, base)  ?:
+        parse_eos(line);
 }
 
 

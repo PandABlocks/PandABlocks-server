@@ -332,7 +332,11 @@ SFP
     SFP_CLK3        read
     SOFT_RESET      write       action
 
+SYSTEM[1]
+    TEMP_PSU        read int
+    TEMP_ZYNQ       read scalar 0.001 0 deg
+    VCCINT          read scalar 0.001 0 deg
+
 *METADATA
     MODEL           string
     YAML            multiline
-
