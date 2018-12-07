@@ -86,14 +86,14 @@ class Extensions:
         rw = line[0]
         block_id, parse_args = line[1:].split(' ', 1)
         block_id = int(block_id)
+        block = self.id_table[block_id]
 
-        parse = self.id_table[block_id].parse(rw, parse_args)
-
-        assert rw in 'RW', 'Invalid R/W field in parse'
         if rw == 'R':
-            assert hasattr(parse, 'read'), 'Read method not supported'
+            parse = block.parse_read(parse_args)
         elif rw == 'W':
-            assert hasattr(parse, 'write'), 'Write method not supported'
+            parse = block.parse_write(parse_args)
+        else:
+            raise Exception('Invalid R/W field in parse')
 
         return self.add_entity(parse)
 
@@ -144,7 +144,7 @@ class Server:
         elif cmd == 'W':
             self.ext.write(line)
         else:
-            assert False, 'Invalid command character \'%c\'' % cmd
+            raise Exception('Invalid command character \'%c\'' % cmd)
 
     def run_service(self):
         while True:

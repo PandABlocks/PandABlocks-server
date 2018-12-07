@@ -79,14 +79,20 @@ void terminate_extension_server(void)
 /* A server parse exchange is pretty sterotyped: we send a newline terminated
  * request string, and either get a response with the same prefix character and
  * a single number, or an error response. */
-static error__t extension_server_response(
-    char prefix, const char *request, unsigned int *parse_id)
+static error__t extension_server_exchange(
+    unsigned int *parse_id, const char *format, ...)
 {
     char buffer[256];
+    va_list args;
+    va_start(args, format);
+    int length = vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    char prefix = buffer[0];
     const char *response = buffer;
     return
         SERVER_EXCHANGE(
-            write_formatted_string(server.file, "%c%s\n", prefix, request)  &&
+            write_string(server.file, buffer, (size_t) length)  &&
             read_line(server.file, buffer, sizeof(buffer), true))  ?:
         IF_ELSE(read_char(&response, prefix),
             // Successful parse.  Response should be a single integer
@@ -104,9 +110,7 @@ static error__t extension_server_response(
 static error__t extension_server_parse_block(
     unsigned int count, const char *request, unsigned int *parse_id)
 {
-    char buffer[80];
-    snprintf(buffer, sizeof(buffer), "%d %s", count, request);
-    return extension_server_response('B', buffer, parse_id);
+    return extension_server_exchange(parse_id, "B%d %s\n", count, request);
 }
 
 
@@ -116,10 +120,8 @@ static error__t extension_server_parse_field(
     unsigned int block_id, bool write_not_read, const char *request,
     unsigned int *parse_id)
 {
-    char buffer[80];
-    snprintf(buffer, sizeof(buffer),
-        "%c%d %s", write_not_read ? 'W' : 'R', block_id, request);
-    return extension_server_response('P', buffer, parse_id);
+    return extension_server_exchange(parse_id,
+        "P%c%d %s\n", write_not_read ? 'W' : 'R', block_id, request);
 }
 
 
@@ -127,10 +129,8 @@ static uint32_t extension_server_read(
     unsigned int parse_id, unsigned int number)
 {
     unsigned int result = 0;
-    char buffer[80];
-    snprintf(buffer, sizeof(buffer), "%u %u", parse_id, number);
     ERROR_REPORT(
-        extension_server_response('R', buffer, &result),
+        extension_server_exchange(&result, "R%u %u\n", parse_id, number),
         "Error reading from extension server");
     return result;
 }
