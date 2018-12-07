@@ -44,7 +44,7 @@ error__t initialise_extension_server(unsigned int port)
     struct sockaddr_in s_in = {
         .sin_family = AF_INET,
         .sin_addr.s_addr = htonl(INADDR_LOOPBACK),
-        .sin_port = htons(port)
+        .sin_port = htons((in_port_t) port)
     };
     int one = 1;
     int sock;
