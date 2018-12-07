@@ -47,6 +47,7 @@
 > !COUNTER 8
 > !ADDER 2
 > !CLOCKS 1
+> !SYSTEM 1
 > !BITS 1
 > !QDEC 4
 > .
