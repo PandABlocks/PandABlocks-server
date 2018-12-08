@@ -85,6 +85,21 @@ error__t parse_alphanum_name(
 }
 
 
+error__t parse_block_name(
+    const char **string, char result[], size_t max_length)
+{
+    const char *start = *string;
+    return
+        parse_alphanum_name(string, result, max_length)  ?:
+        DO(
+            /* Finally remove any trailing digits from the parse. */
+            while (isdigit((*string)[-1]))
+                *string -= 1;
+            result[*string - start] = '\0';
+        );
+}
+
+
 bool read_char(const char **string, char ch)
 {
     if (**string == ch)

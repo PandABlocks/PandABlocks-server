@@ -134,14 +134,14 @@ static const struct entity_actions field_attr_actions = {
  *  block [number] "."
  *
  * and sets *number_present accordingly. */
-static error__t parse_block_name(
+static error__t parse_and_lookup_block(
     const char **input, struct entity_context *context,
     unsigned int *max_number, bool *number_present)
 {
     char block_name[MAX_NAME_LENGTH];
     return
         /* Parse and look up the block name. */
-        parse_name(input, block_name, sizeof(block_name))  ?:
+        parse_block_name(input, block_name, sizeof(block_name))  ?:
         lookup_block(block_name, &context->block, max_number)  ?:
 
         /* Parse the number or flag its absence, and if present check that it's
@@ -213,7 +213,7 @@ error__t parse_block_entity(
 
     return
         /* Parse block name */
-        parse_block_name(input, parse, &max_number, number_present)  ?:
+        parse_and_lookup_block(input, parse, &max_number, number_present)  ?:
 
         /* Check for field following. */
         IF(read_char(input, '.'),

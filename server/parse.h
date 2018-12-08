@@ -16,6 +16,11 @@ error__t parse_name(const char **string, char result[], size_t max_length);
 error__t parse_alphanum_name(
     const char **string, char result[], size_t max_length);
 
+/* Block names are alphanumeric, but have the special case that they're not
+ * allowed to end in digits. */
+error__t parse_block_name(
+    const char **string, char result[], size_t max_length);
+
 /* Tests whether the next character in *string is ch and if so consumes it and
  * returns true, otherwise returns false. */
 bool read_char(const char **string, char ch);

@@ -70,7 +70,7 @@ static error__t config_parse_normal_header(
     unsigned int count = 1;
     struct block *block;
     return
-        parse_name(line, block_name, sizeof(block_name))  ?:
+        parse_block_name(line, block_name, sizeof(block_name))  ?:
         IF(read_char(line, '['),
             parse_uint(line, &count)  ?:
             parse_char(line, ']'))  ?:
@@ -212,7 +212,7 @@ static error__t register_parse_normal_header(
     unsigned int base;
     struct block *block;
     return
-        parse_name(line, block_name, sizeof(block_name))  ?:
+        parse_block_name(line, block_name, sizeof(block_name))  ?:
         lookup_block(block_name, &block, NULL)  ?:
         DO(parser->context = block)  ?:
 
@@ -274,7 +274,7 @@ static error__t description_parse_block_line(
     struct block *block;
     const char *description;
     return
-        parse_name(line, block_name, sizeof(block_name))  ?:
+        parse_block_name(line, block_name, sizeof(block_name))  ?:
         lookup_block(block_name, &block, NULL)  ?:
         DO(parser->context = block)  ?:
         parse_whitespace(line)  ?:
