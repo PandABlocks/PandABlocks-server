@@ -53,8 +53,7 @@ struct capture_buffer {
 
 void start_write(struct capture_buffer *buffer)
 {
-    ASSERT_OK(buffer->state == STATE_IDLE);
-    ASSERT_OK(!buffer->active_count);
+    /* ASSERT: buffer->state == STATE_IDLE  &&  !buffer->active_count */
 
     LOCK(buffer->mutex);
     buffer->buffer_cycle = 0;
@@ -76,15 +75,14 @@ static void *get_buffer(struct capture_buffer *buffer, size_t ix)
 
 void *get_write_block(struct capture_buffer *buffer)
 {
-    ASSERT_OK(buffer->state == STATE_ACTIVE);
+    /* ASSERT: buffer->state == STATE_ACTIVE */
     return get_buffer(buffer, buffer->in_ptr);
 }
 
 
 void release_write_block(struct capture_buffer *buffer, size_t written)
 {
-    ASSERT_OK(buffer->state == STATE_ACTIVE);
-    ASSERT_OK(written);
+    /* ASSERT: buffer->state == STATE_ACTIVE  &&  written */
 
     LOCK(buffer->mutex);
     /* Keep track of the total number of bytes in recycled blocks: we'll need
@@ -111,7 +109,7 @@ void release_write_block(struct capture_buffer *buffer, size_t written)
  * are no active clients. */
 static void advance_capture(struct capture_buffer *buffer)
 {
-    ASSERT_OK(buffer->active_count == 0);
+    /* ASSERT: buffer->active_count == 0 */
     buffer->state = STATE_IDLE;
     buffer->capture_cycle += 1;
 }
@@ -119,7 +117,7 @@ static void advance_capture(struct capture_buffer *buffer)
 
 void end_write(struct capture_buffer *buffer)
 {
-    ASSERT_OK(buffer->state == STATE_ACTIVE);
+    /* ASSERT: buffer->state == STATE_ACTIVE */
     LOCK(buffer->mutex);
     /* If there are active readers we need to go into the clearing state, and
      * let them know that we've read the end of the capture. */
@@ -138,7 +136,7 @@ void end_write(struct capture_buffer *buffer)
  * closing or by premature destruction. */
 static void complete_capture(struct capture_buffer *buffer)
 {
-    ASSERT_OK(buffer->state != STATE_IDLE);
+    /* ASSERT: buffer->state != STATE_IDLE */
     buffer->active_count -= 1;
     if (buffer->active_count == 0  &&  buffer->state == STATE_CLEARING)
         advance_capture(buffer);
@@ -368,7 +366,7 @@ static bool check_block_status(
     struct reader_state *reader,
     unsigned int reader_buffer_cycle, size_t out_ptr)
 {
-    ASSERT_OK(reader->status == READER_STATUS_CLOSED);
+    /* ASSERT: reader->status == READER_STATUS_CLOSED */
 
     struct capture_buffer *buffer = reader->buffer;
     LOCK(buffer->mutex);
@@ -413,9 +411,9 @@ static void wait_for_block_ready(
     struct capture_buffer *buffer = reader->buffer;
     while (!buffer->shutdown)
     {
-        ASSERT_OK(
-            buffer->capture_cycle == reader->capture_cycle  &&
-            buffer->state != STATE_IDLE);
+        /* ASSERT:
+         *  buffer->capture_cycle == reader->capture_cycle  &&
+         *  buffer->state != STATE_IDLE */
 
         bool waiting =
             buffer->buffer_cycle == reader->buffer_cycle  &&
