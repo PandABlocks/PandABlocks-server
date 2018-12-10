@@ -39,9 +39,12 @@ do_start()
 
     [ -x $load_panda_firmware ]  ||  fail 'PandA firmware not installed'
 
-    # Remove the kernel module before reloading the FPGA.  Don't care if this
-    # returns an error code.
-    rmmod panda
+
+    # Remove the kernel module before reloading the FPGA if loaded.  If this
+    # rmmod fails then we can't proceed.
+    if lsmod | grep '^panda\>'; then
+        rmmod panda
+    fi  &&
 
     # Load the Panda FPGA firmware.  This can fail, in which case the poor user
     # will have to inspect the logs!
