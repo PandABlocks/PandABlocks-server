@@ -22,7 +22,6 @@ parse_lut_test: parse_lut_test.c $(TOP)/server/parse_lut.c
 # Exchange tests.
 
 test_exchange:
-	./run_with_server ./test_exchange.py -q transcript.basic
 	./run_with_server ./test_exchange.py -q transcript
 
 .PHONY: test_exchange

@@ -211,26 +211,36 @@
 
 < PCOMP2.TABLE<
 < 1 2 3 4 5 6 7 8
+< 9
 <
 > OK
 
 < PCOMP2.TABLE.LENGTH?
-> OK =8
+> OK =9
 
-< PCOMP2.TABLE<
-< 1 2 3 4
+< PCOMP2.TABLE<B
+< 123456789ab
+< ABCdef
 <
-< PCOMP2.TABLE.LENGTH?
 > OK
-> OK =4
+
+< PCOMP2.TABLE.LENGTH?
+> OK =3
 
 < PCOMP2.TABLE<<
 < 1 2 3 4 5 6 7 8
+< 9
 <
 > OK
 
 < PCOMP2.TABLE.LENGTH?
 > OK =12
+
+< SEQ2.TABLE<
+< 1 2 3 4 5 6 7 8
+< 9
+<
+> ERR Table write is not a whole number of rows
 
 < SEQ2.TABLE<
 < 1 2 3 4 5 6 7 8
@@ -243,9 +253,14 @@
 > ERR Invalid data length
 
 < SEQ2.TABLE<B
-< 123456789AB=
+< 123456789AB123456789AB=
 <
-> ERR Table write is not a whole number of rows
+> ERR Malformed base64 string
+
+< SEQ2.TABLE<B
+< 123456789AB123456789AB==
+<
+> OK
 
 < SEQ2.TABLE<<
 < 1 2 3 4 5 6 7 8
@@ -253,14 +268,10 @@
 > OK
 
 < SEQ2.TABLE?
-> !1
-> !2
-> !3
-> !4
-> !5
-> !6
-> !7
-> !8
+> !3891817943
+> !16055470
+> !964615029
+> !4046827
 > !1
 > !2
 > !3
@@ -504,6 +515,26 @@
 > !INFO
 > .
 
+< SEQ1.TABLE.FIELDS?
+> !15:0 REPEATS uint
+> !19:16 TRIGGER enum
+> !63:32 POSITION int
+> !95:64 TIME1 uint
+> !20:20 OUTA1 uint
+> !21:21 OUTB1 uint
+> !22:22 OUTC1 uint
+> !23:23 OUTD1 uint
+> !24:24 OUTE1 uint
+> !25:25 OUTF1 uint
+> !127:96 TIME2 uint
+> !26:26 OUTA2 uint
+> !27:27 OUTB2 uint
+> !28:28 OUTC2 uint
+> !29:29 OUTD2 uint
+> !30:30 OUTE2 uint
+> !31:31 OUTF2 uint
+> .
+
 < SEQ1.TABLE.MAX_LENGTH?
 > OK =512
 
@@ -541,6 +572,9 @@
 > !dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbQo=
 > .
 
+< *DESC.SEQ1.TABLE[].TIME1?
+> OK =The time the optional phase 1 should take
+
 # Test some malformed table writes
 
 # First, writes are taken until blank line, even if malformed
@@ -577,9 +611,11 @@
 < BITS.A=0
 < BITS.OUTA?
 < BITS.A=1
+< BITS.OUTA?
 > OK
 > OK =0
 > OK
+> OK =0
 
 # Turn the clocks off!
 < CLOCKS.A_PERIOD=0
@@ -602,12 +638,23 @@
 > .
 
 # Ok, this is what we expect
+< BITS.OUTA?
 < BITS.A=0
 < BITS.OUTA?
 < BITS.A=1
+< BITS.OUTA?
+> OK =0
 > OK
 > OK =0
 > OK
+> OK =0
+
+< BITS.A=0
+< *CHANGES.BITS?
+< *CHANGES.BITS?
+> OK
+> .
+> .
 
 # Add some position capture tests
 < PCAP.*?
