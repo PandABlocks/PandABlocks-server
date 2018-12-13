@@ -186,9 +186,9 @@ void hw_write_mac_address(unsigned int offset, uint64_t mac_address)
 {
     ASSERT_OK(offset < MAC_ADDRESS_COUNT);
     write_named_register(MAC_ADDRESS_BASE + 2*offset,
-        (uint32_t) (mac_address & 0xffffffff));
+        (uint32_t) (mac_address & 0xffffff));
     write_named_register(MAC_ADDRESS_BASE + 2*offset + 1,
-        (uint32_t) (mac_address >> 32));
+        (uint32_t) ((mac_address >> 24) & 0xffffff));
 }
 
 
