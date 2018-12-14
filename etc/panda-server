@@ -42,7 +42,7 @@ do_start()
 
     # Remove the kernel module before reloading the FPGA if loaded.  If this
     # rmmod fails then we can't proceed.
-    if lsmod | grep '^panda\>'; then
+    if lsmod | grep -q '^panda\>'; then
         rmmod panda
     fi  &&
 
