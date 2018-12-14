@@ -340,3 +340,4 @@ SYSTEM[1]
 *METADATA
     MODEL           string
     YAML            multiline
+    LABEL_BLAH1     string

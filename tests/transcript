@@ -734,3 +734,10 @@
 > !POSC>=POSITION
 > !POSC<=POSITION
 > .
+
+# Simple tests of metadata
+< *METADATA.LABEL_BLAH1=This is a test string
+> OK
+
+< *METADATA.LABEL_BLAH1?
+> OK =This is a test string

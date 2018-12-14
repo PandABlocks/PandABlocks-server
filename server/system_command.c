@@ -75,7 +75,7 @@ static error__t get_metadata(
             parse_eos(&command)  ?:
             get_metadata_keys(result),
         //else
-            parse_name(&command, key, sizeof(key))  ?:
+            parse_alphanum_name(&command, key, sizeof(key))  ?:
             parse_eos(&command)  ?:
             get_metadata_value(key, result));
 }
@@ -89,7 +89,7 @@ static error__t put_metadata(
     const char *string;
     return
         parse_char(&command, '.')  ?:
-        parse_name(&command, key, sizeof(key))  ?:
+        parse_alphanum_name(&command, key, sizeof(key))  ?:
         parse_eos(&command)  ?:
         parse_utf8_string(&value, &string)  ?:
         put_metadata_value(key, string);
@@ -102,7 +102,7 @@ static error__t put_table_metadata(
     char key[MAX_NAME_LENGTH];
     return
         parse_char(&command, '.')  ?:
-        parse_name(&command, key, sizeof(key))  ?:
+        parse_alphanum_name(&command, key, sizeof(key))  ?:
         parse_eos(&command)  ?:
         put_metadata_table(key, writer);
 }
