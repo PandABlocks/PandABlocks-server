@@ -245,7 +245,7 @@ PCOMP[4]
         3   DMA overrun
 
 ADC[8]
-    OUT             pos_out
+    OUT             pos_out 123 0.5 some units
 
 PCAP
     ENABLE          bit_mux

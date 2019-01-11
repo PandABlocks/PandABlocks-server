@@ -71,7 +71,7 @@ Field
 ``write`` field-subtype
 ``time``
 ``bit_out``
-``pos_out``
+``pos_out`` [ scale [ offset [ units ]]]
 ``ext_out`` ( ``timestamp`` | ``samples`` | ``bits`` group )
 ``bit_mux`` [ ``=`` value ]
 ``pos_mux``
@@ -101,8 +101,10 @@ Field
 ``bit_out``
     This identifies an output bit.
 
-``pos_out``
-    This identifies a position bus output.
+``pos_out`` [ scale [ offset [ units ]]]
+    This identifies a position bus output.  Optionally default values for the
+    scale, offset, and units fields can be specified in the config file.  Note
+    that these are only effective when there is no persistence file to load.
 
 ``ext_out`` ext-extra
     This identifies an entry on the extension bus which needs special treatment.

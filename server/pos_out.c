@@ -462,10 +462,9 @@ unsigned int get_pos_out_capture_info(
 static bool pos_bus_index_used[POS_BUS_COUNT];
 
 
-static error__t pos_out_init(
-    const char **line, unsigned int count,
-    struct hash_table *attr_map, void **class_data,
-    struct indent_parser *parser)
+static struct pos_out *create_pos_out(
+    unsigned int count, struct hash_table *attr_map,
+    double scale, double offset, const char *units)
 {
     struct pos_out *pos_out = malloc(
         sizeof(struct pos_out) + count * sizeof(struct pos_out_field));
@@ -477,11 +476,32 @@ static error__t pos_out_init(
     };
     for (unsigned int i = 0; i < count; i ++)
         pos_out->values[i] = (struct pos_out_field) {
-            .scale = 1.0,
+            .scale = scale,
+            .offset = offset,
+            .units = units ? strdup(units) : NULL,
         };
-    *class_data = pos_out;
+    return pos_out;
+}
 
-    return ERROR_OK;
+
+static error__t pos_out_init(
+    const char **line, unsigned int count,
+    struct hash_table *attr_map, void **class_data,
+    struct indent_parser *parser)
+{
+    double scale = 1.0;
+    double offset = 0.0;
+    const char *units = NULL;
+    return
+        /* The pos_out can optionally be followed by a scale, offset, and units.
+         * If present these are used as defaults for the created pos_out. */
+        IF(read_char(line, ' '),
+            parse_double(line, &scale)  ?:
+            IF(read_char(line, ' '),
+                parse_double(line, &offset)  ?:
+                IF(read_char(line, ' '),
+                    parse_utf8_string(line, &units))))  ?:
+        DO(*class_data = create_pos_out(count, attr_map, scale, offset, units));
 }
 
 
