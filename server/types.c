@@ -287,6 +287,22 @@ static error__t scalar_units_format(
 }
 
 
+static error__t scalar_scale_format(
+    void *owner, void *data, unsigned int number, char result[], size_t length)
+{
+    struct scalar_state *state = data;
+    return format_double(result, length, state->scale);
+}
+
+
+static error__t scalar_offset_format(
+    void *owner, void *data, unsigned int number, char result[], size_t length)
+{
+    struct scalar_state *state = data;
+    return format_double(result, length, state->offset);
+}
+
+
 static const struct type_methods scalar_type_methods = {
     "scalar",
     .init = scalar_init,
@@ -297,8 +313,12 @@ static const struct type_methods scalar_type_methods = {
             .format = raw_format_int, .put = raw_put_int, },
         {   "UNITS", "Units associated with value",
             .format = scalar_units_format, },
+        {   "SCALE", "Scaling from raw data to value",
+            .format = scalar_scale_format, },
+        {   "OFFSET", "Offset from scaled data to value",
+            .format = scalar_offset_format, },
     },
-    .attr_count = 2,
+    .attr_count = 4,
 };
 
 

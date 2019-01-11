@@ -351,6 +351,20 @@ fields.
         | value = scale * raw + offset
         | raw = (value - offset) / scale
 
+    The following attributes are supported:
+
+    ``UNITS``
+        Returns the configured units string.
+
+    ``RAW``
+        Returns the underlying unconverted integer value.
+
+    ``SCALE``
+        Returns the configured scaling factor.
+
+    ``OFFSET``
+        Returns the configured scaling offset.
+
 ``bit``
     A value which is 0 or 1, there are no extra attributes.
 
@@ -395,7 +409,7 @@ fields.
 
 ``time``
     Converts between time in specified units and time in FPGA clock ticks.  The
-    following fields are supported:
+    following attributes are supported:
 
     ``UNITS``
         This attribute can be set to any of the strings ``min``, ``s``, ``ms``,
@@ -415,7 +429,8 @@ Sub-type    Attributes      Description
 =========== =============== ====================================================
 uint        MAX             Possibly bounded 32-bit unsigned integer value
 int                         Unbounded 32-bit signed integer value
-scalar      RAW, UNITS      Scaled signed floating point value
+scalar      RAW, UNITS,     Scaled signed floating point value
+            SCALE, OFFSET
 bit                         Bit: 0 or 1
 action                      Write only, no value
 lut         RAW             5 input lookup table logical formula
@@ -434,6 +449,8 @@ Field (sub)type Attribute       Description                             R W C M
 uint            MAX             Maximum allowed integer value           R
 scalar          RAW             Underlying integer value                R W
 \               UNITS           Configured units for scalar             R
+\               SCALE           Configured scaling factor for scalar    R
+\               OFFSET          Configured scaling offset for scalar    R
 lut             RAW             Computed Lookup Table 32-bit value      R
 time            UNITS           Units and scaling selection for time    R W C
 \               RAW             Raw time in FPGA clock cycles           R W
