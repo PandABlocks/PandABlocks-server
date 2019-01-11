@@ -282,7 +282,7 @@ static error__t scalar_format(
 static error__t scalar_units_format(
     void *owner, void *data, unsigned int number, char result[], size_t length)
 {
-    struct scalar_state *state = owner;
+    struct scalar_state *state = data;
     return format_string(result, length, "%s", state->units ?: "");
 }
 
