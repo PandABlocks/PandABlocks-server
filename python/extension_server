@@ -7,7 +7,7 @@ import os
 import sys
 import imp
 import socket
-import traceback
+import logging.handlers
 
 
 parser = argparse.ArgumentParser(description = 'PandA Extension Server')
@@ -18,8 +18,25 @@ parser.add_argument(
 parser.add_argument(
     '-p', '--port', default = 9999, type = int, help = 'Specify socket port')
 parser.add_argument(
+    '-l', '--logfile', help = 'Specify log file to write to')
+parser.add_argument(
     'extensions', help = 'Extension directory')
 command_args = parser.parse_args()
+
+
+# If we are logging to a file log there, otherwise to stdout
+if command_args.verbose:
+    level = logging.DEBUG
+else:
+    level = logging.INFO
+if command_args.logfile:
+    file_handler = logging.handlers.RotatingFileHandler(
+        command_args.logfile, maxBytes=1000000, backupCount=4)
+    logging.root.addHandler(file_handler)
+    logging.root.setLevel(level)
+else:
+    logging.basicConfig(level=level, format="%(levelname)6s %(message)s")
+logging.info("Starting Extension server")
 
 
 # Initialise the extensions module from the path given to us.  We load this
@@ -37,6 +54,7 @@ def import_extension_module(name):
     except AttributeError:
         # Convert default error message into something more helpful
         raise Exception('Extension module \'%s\' not found' % name)
+
 
 
 class Extensions:
@@ -59,9 +77,7 @@ class Extensions:
             try:
                 return (True, action(self, *args))
             except Exception as e:
-                if command_args.verbose:
-                    print >>sys.stderr, 'Caught exception during parse', e
-                    traceback.print_exc()
+                logging.debug("Caught exception during parse", exc_info=True)
 
                 # Convert parse exception into an error message.  It can happen
                 # that the error message is empty, eg an unqualified assert
@@ -70,6 +86,7 @@ class Extensions:
                 if not e:
                     e = 'Unknown error'
                 return (False, e)
+
         return caught_action
 
     @try_action
@@ -110,13 +127,14 @@ class Extensions:
 
 
 class Server:
-    def __init__(self, port, verbose):
-        self.verbose = verbose
-
+    def __init__(self, port):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_sock.bind(('localhost', port))
         self.server_sock.listen(0)
+        # Will be filled in by self.run()
+        self.file = None
+        self.ext = None
 
     def process_response(self, prefix, action, line):
         success, response = action(line)
@@ -131,8 +149,7 @@ class Server:
         pass
 
     def process_command(self, line):
-        if self.verbose:
-            print >>sys.stderr, 'Read:', repr(line)
+        logging.debug('Read: %r', line)
         cmd, line = line[0], line[1:]
 
         if cmd == 'B':
@@ -154,9 +171,8 @@ class Server:
 
             try:
                 self.process_command(line)
-            except Exception as e:
-                print >>sys.stderr, 'Unexpected exception', e
-                traceback.print_exc()
+            except Exception:
+                logging.exception('Unexpected exception')
 
     def run(self):
         conn, _ = self.server_sock.accept()
@@ -169,28 +185,44 @@ class Server:
         self.run_service()
 
 
-# We daemonise the server by double forking, but we leave the controlling
-# terminal and other file connections alone.
-def daemonise():
+# We daemonise the server by double forking
+def daemonise(*keep_fds):
     if os.fork():
         # Exit first parent
-        sys.exit(0)
+        os._exit(0)
     # Do second fork to avoid generating zombies
     if os.fork():
-        sys.exit(0)
+        os._exit(0)
+    # Detach from any controlling terminal and close stdout and stderr
+    os.setsid()
+
+    # Close parent FDs
+    # http://code.activestate.com/recipes/278731/
+    import resource             # Resource usage information.
+    maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+    if maxfd == resource.RLIM_INFINITY:
+       maxfd = 1024
+
+    # Iterate through and close all file descriptors.
+    for fd in range(0, maxfd):
+        if fd not in keep_fds:
+            try:
+                os.close(fd)
+            except OSError:  # ERROR, fd wasn't open to begin with (ignored)
+                pass
 
 
 # Create the server right away and listen for one connection.
-server = Server(command_args.port, command_args.verbose)
-print >>sys.stderr, 'Extension server ready'
+server = Server(command_args.port)
+logging.info('Extension server ready')
 
 # Need to daemonise after the listening port is ready but before calling accept.
 # This ensures that when our caller gets control the connection will succeed.
 if command_args.daemon:
-    daemonise()
+    daemonise(server.server_sock.fileno())
 
 try:
     server.run()
 except KeyboardInterrupt:
     pass
-print >>sys.stderr, 'Extension server closed'
+logging.info('Extension server closed')
