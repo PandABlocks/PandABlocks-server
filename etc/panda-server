@@ -35,7 +35,7 @@ do_start()
 {
     # Only set the MAC addresses if the file is present
     if [ -e $panda_mac ]; then
-        $panda_server="$panda_server -M $panda_mac"
+        panda_server="$panda_server -M $panda_mac"
     fi
 
     [ -x $load_panda_firmware ]  ||  fail 'PandA firmware not installed'
