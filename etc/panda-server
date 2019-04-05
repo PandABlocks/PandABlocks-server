@@ -20,10 +20,6 @@ extension_log=/var/log/panda-extension-server.log
 load_panda_firmware=/opt/share/panda-fpga/load-panda-firmware
 
 
-panda_server_command=\
-"$panda_server -c $panda_config -f $panda_state -P $pidfile -D -R -X 9999"
-
-
 fail()
 {
     echo >&2 "$@"
@@ -67,7 +63,9 @@ do_start()
     $extension_server -d $extension_dir -l $extension_log  &&
 
     # Finally start the PANDA server
-    $panda_server_command $panda_server_mac
+    $panda_server \
+        -c $panda_config -f $panda_state -P $pidfile -D -R -X 9999 \
+        $panda_server_mac
 }
 
 do_stop()
