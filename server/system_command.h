@@ -4,7 +4,7 @@
 extern const struct config_command_set system_commands;
 
 /* This is called during system startup. */
-error__t initialise_system_command(void);
+error__t initialise_system_command(const char *rootfs_version);
 
 /* Releases any resources managed by this module. */
 void terminate_system_command(void);

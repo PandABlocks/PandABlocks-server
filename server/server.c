@@ -53,6 +53,9 @@ static const char *pid_filename = NULL;
  * checks.  This is used for testing and configuration file validation. */
 static bool test_config_only = false;
 
+/* String used to report rootfs_version on system startup via *IDN? command. */
+static const char *rootfs_version = "(unknown)";
+
 
 /* Parses a persistence time specification in the form
  *
@@ -100,6 +103,7 @@ static void usage(const char *argv0)
 "   -T  Run in test mode and terminate immediately after initialisation\n"
 "   -M: Load MAC addresses from specified file\n"
 "   -X: Use extension server on specified port\n"
+"   -r: Specify rootfs version to report via *IDN? command\n"
         , argv0, config_port, data_port);
 }
 
@@ -110,7 +114,7 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:TM:X:"))
+        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:TM:X:r:"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   error = parse_port(optarg, &config_port);       break;
@@ -124,6 +128,7 @@ static error__t process_options(int argc, char *const argv[])
             case 'T':   test_config_only = true;                        break;
             case 'M':   mac_address_filename = optarg;                  break;
             case 'X':   error = parse_port(optarg, &extension_port);    break;
+            case 'r':   rootfs_version = optarg;                        break;
             default:
                 return FAIL_("Try `%s -h` for usage", argv0);
             case -1:
@@ -218,7 +223,7 @@ int main(int argc, char *const argv[])
         initialise_fields()  ?:
         initialise_output()  ?:
         initialise_time()  ?:
-        initialise_system_command()  ?:
+        initialise_system_command(rootfs_version)  ?:
 
         initialise_signals()  ?:
         initialise_hardware()  ?:

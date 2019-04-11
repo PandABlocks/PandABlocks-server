@@ -74,5 +74,5 @@ echo Running simulation "$SIM_SERVER"
 exec "${DEBUG[@]}" \
     '@@BUILD_DIR@@'/sim_server/sim_server \
     -f"$PERSISTENCE" -p$CONFIG_PORT -d$DATA_PORT -R -c"$CONFIG_DIR" \
-    -X$EXT_PORT \
+    -X$EXT_PORT -r "Test Server" \
     "$@"

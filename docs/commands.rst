@@ -160,11 +160,14 @@ below:
 ``*IDN?``
     Returns system identification string, for example the following::
 
-        OK =PandA SW: 330bd94-dirty FPGA: 0.1.9 d1275f61 00000000
+        OK =PandA SW: 1.1 FPGA: 0.1.9 d1275f61 00000000 rootfs: PandA 1.1
 
     The first field after "PandA" is the software version, the second field is
     the FPGA version, the third the firmware build number, and the fourth field
-    identifies the supporting firmware.
+    identifies the supporting firmware.  The final fields (prefixed ``rootfs:``)
+    identify the underlying system on which the server is running.
+
+    Note that the ``rootfs:`` identification is new to version 1.1 of PandA.
 
 ``*ECHO string?``
     Returns string back to caller.  Not terribly useful.  Note that the echoed

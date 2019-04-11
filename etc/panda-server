@@ -65,6 +65,7 @@ do_start()
     # Finally start the PANDA server
     $panda_server \
         -c $panda_config -f $panda_state -P $pidfile -D -R -X 9999 \
+        -r "$(head -n1 /etc/version)" \
         $panda_server_mac
 }
 

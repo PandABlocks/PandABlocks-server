@@ -33,6 +33,8 @@
 #include "system_command.h"
 
 
+static const char *rootfs_version;
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Individual system commands. */
@@ -55,8 +57,9 @@ static error__t get_idn(const char *command, struct connection_result *result)
         fpga_version & 0xFF);
     if (fpga_version >> 24)
         sprintf(fpga_string + len, "C%u", fpga_version >> 24);
-    return format_one_result(result, "%s SW: %s FPGA: %s %08x %08x",
-        server_name, server_version, fpga_string, fpga_build, user_version);
+    return format_one_result(result, "%s SW: %s FPGA: %s %08x %08x rootfs: %s",
+        server_name, server_version, fpga_string, fpga_build, user_version,
+        rootfs_version);
 }
 
 
@@ -532,8 +535,10 @@ const struct config_command_set system_commands = {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-error__t initialise_system_command(void)
+error__t initialise_system_command(const char *_rootfs_version)
 {
+    rootfs_version = _rootfs_version;
+
     /* Don't need to copy the keys, they're in the command table! */
     command_table = hash_table_create(false);
     for (unsigned int i = 0; i < ARRAY_SIZE(command_table_list); i ++)
