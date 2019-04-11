@@ -18,3 +18,6 @@ error__t start_persistence(void);
 /* This will ensure that the persistence state is updated, so should be called
  * after all active threads have been closed. */
 void terminate_persistence(void);
+
+/* This forces an immediate save of the persistence state. */
+error__t save_persistent_state(void);

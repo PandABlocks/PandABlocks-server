@@ -28,6 +28,7 @@
 #include "version.h"
 #include "metadata.h"
 #include "table.h"
+#include "persistence.h"
 
 #include "system_command.h"
 
@@ -420,6 +421,20 @@ static error__t get_pcap(const char *command, struct connection_result *result)
 }
 
 
+/* *SAVESTATE=
+ *
+ * Processing this command forces current persistence state to be written
+ * immediately before returning. */
+static error__t put_savestate(
+    struct connection_context *connection,
+    const char *command, const char *value)
+{
+    return
+        parse_eos(&value)  ?:
+        save_persistent_state();
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
 
@@ -449,6 +464,7 @@ static const struct command_table_entry command_table_list[] = {
     { "VERBOSE",    false, .put = put_verbose, },
     { "ENUMS",      true,  .get = get_enums, },
     { "PCAP",       true,  .get = get_pcap,     .put = put_pcap, },
+    { "SAVESTATE",  false, .put = put_savestate, },
 };
 
 static struct hash_table *command_table;

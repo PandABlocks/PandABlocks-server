@@ -153,6 +153,9 @@ below:
 | ``*PCAP.``\ field\ ``=``      | Position capture actions.  `field` can be    |
 |                               | either ``ARM``, or ``DISARM``.               |
 +-------------------------------+----------------------------------------------+
+| ``*SAVESTATE=``               | Triggers immediate save to file of the       |
+|                               | persistence file state.                      |
++-------------------------------+----------------------------------------------+
 
 ``*IDN?``
     Returns system identification string, for example the following::
@@ -360,3 +363,9 @@ below:
                 progress, or no fields configured for capture.
     DISARM      Halts ongoing data capture.
     =========== ================================================================
+
+``*SAVESTATE=``
+    Updates the persistence state file (as configured on the command line when
+    launched) with the current state.  Returns after a file system ``sync``
+    call, so it is safe to power-off the system after this command has
+    completed.

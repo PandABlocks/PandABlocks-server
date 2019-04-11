@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
@@ -211,9 +212,10 @@ static void write_changed_state(void)
         generate_change_sets(&result, CHANGES_TABLE, true);
         generate_change_sets(&result, CHANGES_METADATA, true);
 
-        fclose(out_file);
-
-        error = TEST_IO(rename(backup_file_name, file_name));
+        error =
+            TEST_IO(fclose(out_file))  ?:
+            TEST_IO(rename(backup_file_name, file_name))  ?:
+            DO(sync());
     }
 
     if (error)
@@ -269,7 +271,11 @@ static void *persistence_thread(void *context)
              * current state: typically changes will occur in a burst as things
              * are being configured. */
             interruptible_timeout(holdoff_interval);
+
+            LOCK(mutex);
             write_changed_state();
+            UNLOCK(mutex);
+
             /* Now back off a bit so that we don't generate too many updates if
              * there are continual changes going on. */
             interruptible_timeout(backoff_interval);
@@ -278,7 +284,11 @@ static void *persistence_thread(void *context)
 
     /* On exit perform a final state check. */
     if (check_state_changed())
+    {
+        LOCK(mutex);
         write_changed_state();
+        UNLOCK(mutex);
+    }
 
     return NULL;
 }
@@ -328,4 +338,23 @@ void terminate_persistence(void)
         ASSERT_PTHREAD(pthread_join(persistence_thread_id, NULL));
     }
     free(backup_file_name);
+}
+
+
+error__t save_persistent_state(void)
+{
+    if (thread_running)
+    {
+        /* Because we want to block until the write has completed, we trigger a
+         * write directly under the feed of the persistence_thread.  The
+         * alternative of waking the thread and waiting for a completion event
+         * is unnecessarily complicated. */
+        LOCK(mutex);
+        write_changed_state();
+        UNLOCK(mutex);
+        return ERROR_OK;
+    }
+    else
+        /* If persistence was never initialised we can't do anything here. */
+        return FAIL_("No persistence state configured");
 }
