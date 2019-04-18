@@ -10,7 +10,15 @@
 
 
 #define UNASSIGNED_REGISTER ((unsigned int) -1)
-#define BLOCK_REGISTER_COUNT    (1U << 6)   // 6 bits per register field
+/* The following fields determine the structure of the block register addressing
+ * scheme.  We have a fixed number of block types, each block has a possible
+ * number of instances, each instance has a number of registers. */
+#define BLOCK_TYPE_BITS         5       // 32 possible block types
+#define BLOCK_INSTANCE_BITS     4       // up to 16 instances per block
+#define BLOCK_REGISTER_BITS     6       // 64 registers per block
+#define BLOCK_TYPE_COUNT        (1U << BLOCK_TYPE_BITS)
+#define BLOCK_INSTANCE_COUNT    (1U << BLOCK_INSTANCE_BITS)
+#define BLOCK_REGISTER_COUNT    (1U << BLOCK_REGISTER_BITS)
 
 
 /* Special codings for reserved bit bus and position bus indices. */

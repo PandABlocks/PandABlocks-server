@@ -209,7 +209,6 @@ static error__t register_parse_normal_header(
 {
     parser->parse_line = register_parse_normal_field;
     char block_name[MAX_NAME_LENGTH];
-    unsigned int base;
     struct block *block;
     return
         parse_block_name(line, block_name, sizeof(block_name))  ?:
@@ -217,8 +216,7 @@ static error__t register_parse_normal_header(
         DO(parser->context = block)  ?:
 
         parse_whitespace(line)  ?:
-        parse_uint(line, &base)  ?:
-        parse_block_set_register(line, block, base)  ?:
+        parse_block_set_register(line, block)  ?:
         parse_eos(line);
 }
 

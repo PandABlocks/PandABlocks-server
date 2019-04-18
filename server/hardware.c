@@ -37,13 +37,22 @@ static volatile uint32_t *register_map;
 static size_t register_map_size;
 
 
+struct register_fields {
+    unsigned int reg : BLOCK_REGISTER_BITS;
+    unsigned int number : BLOCK_INSTANCE_BITS;
+    unsigned int type : BLOCK_TYPE_BITS;
+};
+
+
 static unsigned int make_offset(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
-    return
-        ((block_base & 0x1f) << 10) |   // 5 bits for block identifier
-        ((block_number & 0xf) << 6) |   // 4 bits for block number
-        (reg & 0x3f);                   // 6 bits for register within block
+    struct register_fields offset = {
+        .reg = reg & (BLOCK_REGISTER_COUNT-1),
+        .number = block_number & (BLOCK_INSTANCE_COUNT-1),
+        .type = block_base & (BLOCK_TYPE_COUNT-1),
+    };
+    return CAST_FROM_TO(typeof(offset), unsigned int, offset);
 }
 
 

@@ -243,7 +243,15 @@ SFP         27
     SFP_CLK3        8
     SOFT_RESET      9
 
-SYSTEM          9 system
+SYSTEM          28 system
     TEMP_PSU        0
     TEMP_ZYNQ       X in_temp0
     VCCINT          X in_voltage0_vccint
+
+SFP_RX      S31
+    PARAM           0
+    BITA            127
+
+SFP_TX      S31
+    PARAM           1
+    BITA            2 3

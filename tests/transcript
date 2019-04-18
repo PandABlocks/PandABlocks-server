@@ -30,12 +30,14 @@
 > !OUTENC 4
 > !PCAP 1
 > !PCOMP 4
+> !SFP_TX 1
 > !TTLOUT 10
 > !ADC 8
 > !DIV 4
 > !INENC 4
 > !SLOW 1
 > !PGEN 2
+> !SFP_RX 1
 > !LVDSIN 2
 > !POSENC 4
 > !SEQ 4

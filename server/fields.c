@@ -43,7 +43,6 @@ struct block {
     struct hash_table *fields;  // Map from field name to fields
     char *description;          // User readable description
     struct extension_block *extension;
-    uint32_t reg_used[BLOCK_REGISTER_COUNT / 32];   // Register assignment map
 };
 
 
@@ -62,6 +61,16 @@ struct field {
     bool initialised;               // Checked during finalisation
 };
 
+
+/* The following array is used to keep track of which block types have been used
+ * and of which registers are used within each block.  This is used to validate
+ * the configuration to ensure that multiple fields don't reference the same
+ * register. */
+static struct {
+    bool used;
+    bool shared;
+    uint32_t reg_used[BLOCK_REGISTER_COUNT / 32];
+} block_types_used[BLOCK_TYPE_COUNT];
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -610,12 +619,24 @@ error__t create_block(
 }
 
 
-error__t parse_block_set_register(
-    const char **line, struct block *block, unsigned int base)
+error__t parse_block_set_register(const char **line, struct block *block)
 {
+    unsigned int base;
+    bool shared = read_char(line, 'S');
     return
+        parse_uint(line, &base)  ?:
         TEST_OK_(block->base == UNASSIGNED_REGISTER,
             "Register already assigned")  ?:
+        TEST_OK_(base < BLOCK_TYPE_COUNT, "Block base too large")  ?:
+        IF_ELSE(block_types_used[base].used,
+            /* If the block is already in use check that it is marked for
+             * sharing and that we're asking for a shared block. */
+            TEST_OK_(shared  &&  block_types_used[base].shared,
+                "Block base %u already assigned and not shared", base),
+        //else
+            /* We're first to use this block, set it up. */
+            DO( block_types_used[base].shared = shared;
+                block_types_used[base].used = true))  ?:
         DO(block->base = base)  ?:
         IF(read_char(line, ' '),
             parse_extension_block(line, block->count, &block->extension));
@@ -633,13 +654,14 @@ error__t block_set_description(struct block *block, const char *description)
 error__t check_parse_register(
     struct field *field, const char **line, unsigned int *reg)
 {
+    uint32_t *reg_used = block_types_used[field->block->base].reg_used;
     return
         parse_uint(line, reg)  ?:
         TEST_OK_(*reg < BLOCK_REGISTER_COUNT, "Register value too large")  ?:
         TEST_OK_(
-            (field->block->reg_used[*reg / 32] & (1U << (*reg % 32))) == 0,
+            (reg_used[*reg / 32] & (1U << (*reg % 32))) == 0,
             "Register %u already in use", *reg)  ?:
-        DO(field->block->reg_used[*reg / 32] |= 1U << (*reg % 32));
+        DO(reg_used[*reg / 32] |= 1U << (*reg % 32));
 }
 
 

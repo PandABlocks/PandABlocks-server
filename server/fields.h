@@ -187,8 +187,7 @@ error__t create_block(
     struct block **block, const char *name, unsigned int count);
 
 /* Sets base address for block. */
-error__t parse_block_set_register(
-    const char **line, struct block *block, unsigned int base);
+error__t parse_block_set_register(const char **line, struct block *block);
 
 /* Sets description string for block. */
 error__t block_set_description(struct block *block, const char *description);

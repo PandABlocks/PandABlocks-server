@@ -268,3 +268,11 @@ SYSTEM          System control FPGA
     TEMP_PSU        On-board temperature [Power Supply]
     TEMP_ZYNQ       On-board zynq temperature
     VCCINT          On-board voltage sensor
+
+SFP_RX        Sync receive
+    PARAM           A parameter
+    BITA            BITA from other PandA
+
+SFP_TX        Sync transmit
+    PARAM           A parameter
+    BITA            BITA that will be sent to other PandA

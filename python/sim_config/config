@@ -337,6 +337,14 @@ SYSTEM[1]
     TEMP_ZYNQ       read scalar 0.001 0 deg
     VCCINT          read scalar 0.001 0 deg
 
+SFP_RX
+    PARAM           param
+    BITA            bit_out
+
+SFP_TX
+    PARAM           param
+    BITA            bit_mux
+
 *METADATA
     MODEL           string
     YAML            multiline

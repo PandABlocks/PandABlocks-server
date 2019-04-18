@@ -1,26 +1,26 @@
 # This is a sequence of test configurations
 
 # Empty test
--- t001
+-- t001 1
 
 # Empty config file
--- t002
+-- t002 1
 - config
 
 # Config file with uint parse error
--- t003
+-- t003 1
 - config
 BLOCK[1]
     FIELD   param   uint    x
 
 # Config file with uint default parse error
--- t004
+-- t004 1
 - config
 BLOCK[1]
     FIELD   param   uint    = x
 
 # A minimal configuration that actually gets the server started
--- t005
+-- t005 0
 - config
 PCAP
     TS  ext_out timestamp
@@ -34,32 +34,59 @@ PCAP 1
 - description
 
 # Repeated block definition
--- t006
+-- t006 1
 - config
 BLOCK
 BLOCK
 
 # Repeated field definition
--- t007
+-- t007 1
 - config
 BLOCK
     FIELD param
     FIELD param
 
 # Invalid Metadata
--- t008
+-- t008 1
 - config
 *INVALID
 
 # Metadata with bad field
--- t009
+-- t009 1
 - config
 *METADATA
     FIELD
 
 # Metadata with repeated valid field
--- t010
+-- t010 1
 - config
 *METADATA
     FIELD string
     FIELD string
+
+# Blocks with shared registers
+-- t011 1
+- config
+BONE
+    FIELD   param
+BTWO
+    FIELD   param
+- registers
+BONE  2
+    FIELD 0
+BTWO  2
+    FIELD 0
+
+# Blocks with shared registers
+-- t012 0
+- config
+BONE
+    FIELD   param
+BTWO
+    FIELD   param
+- registers
+BONE  S2
+    FIELD 0
+BTWO  S2
+    FIELD 1
+- description

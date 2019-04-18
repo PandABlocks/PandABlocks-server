@@ -44,10 +44,12 @@ TESTS=($(
     while read -r; do
         case "$REPLY" in
             --*)
-                TEST="${REPLY#-- }"
+                read prefix TEST RC <<<"$REPLY"
                 echo "$TEST"
+                [[ -n $RC ]]  ||  RC=0
                 TEST_DIR="$TEMP_DIR/$TEST"
                 mkdir "${TEST_DIR}"
+                echo "$RC" >"$TEST_DIR"/rc
                 cp "$TOP"/config_d/* "${TEST_DIR}"
                 ;;
             -*)
@@ -70,6 +72,7 @@ failed=0
 for test in "${TESTS[@]}"; do
     config="$TEMP_DIR/$test"
     if [[ -d "$config" ]]; then
+        target_rc="$(cat "$config"/rc)"
         result="$("$TOP"/simserver -P -c "$config" -V-q -- -T 2>&1 >/dev/null)"
         rc=$?
         if grep -q '^==' <<<"$result"; then
@@ -82,9 +85,13 @@ for test in "${TESTS[@]}"; do
                 ((VERBOSE > 1))  &&  cat <<<"$result"
                 ((rc = 0))  &&  failed=$((failed + 1))
             fi
-        else
+        elif (($rc == $target_rc)); then
             echo $test Ok $rc
             ((VERBOSE > 2))  &&  cat <<<"$result"
+        else
+            echo $test Wrong RC $rc != $target_rc
+            ((VERBOSE > 0))  &&  cat <<<"$result"
+            failed=$((failed + 1))
         fi
     else
         echo $test not found

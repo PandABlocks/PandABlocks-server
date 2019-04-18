@@ -165,12 +165,20 @@ replaced by a type specific register definition.
 
 So a block definition is::
 
-    block-name block-register
+    block-name [ "S" ] block-register [ extension-string ]
         [ field-definition ]*
 
-and a field definition is::
+If the `block-register` number is prefixed with ``S`` then the same block
+register number can be shared with multiple blocks: this allows a single
+hardware implementation to be presented as multiple software blocks.
 
-    field-name register-specification
+The register number can be followed by an `extension-string` which is used to
+identify this block to the extension server, and will enable use of the
+extension register syntax defined below.
+
+A field definition is::
+
+    field-definition = field-name register-specification
 
 where `register-specification` depends on the associated field type as
 follows:
