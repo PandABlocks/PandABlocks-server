@@ -41,6 +41,8 @@ struct register_fields {
     unsigned int reg : BLOCK_REGISTER_BITS;
     unsigned int number : BLOCK_INSTANCE_BITS;
     unsigned int type : BLOCK_TYPE_BITS;
+    unsigned int _fill :
+        32 - BLOCK_REGISTER_BITS - BLOCK_INSTANCE_BITS - BLOCK_TYPE_BITS;
 };
 
 
