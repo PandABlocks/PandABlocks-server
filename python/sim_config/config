@@ -346,6 +346,6 @@ SFP_TX
     BITA            bit_mux
 
 *METADATA
-    MODEL           string
+    MODEL           constant  =String describing model
     YAML            multiline
     LABEL_BLAH1     string

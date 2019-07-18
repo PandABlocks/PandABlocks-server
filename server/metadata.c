@@ -17,8 +17,14 @@
 #include "metadata.h"
 
 
+enum metadata_type {
+    METADATA_STRING,        // Single string
+    METADATA_MULTILINE,     // Multiline value
+    METADATA_CONSTANT,      // Read-only constant string
+};
+
 struct metadata_value {
-    bool multiline;
+    enum metadata_type type;
     char *value;
     uint64_t update_index;
     pthread_mutex_t mutex;
@@ -55,16 +61,31 @@ void terminate_metadata(void)
 }
 
 
-static error__t lookup_type(const char *type_name, bool *multiline)
+static error__t lookup_type(const char *type_name, enum metadata_type *type)
 {
     return
         IF_ELSE(strcmp(type_name, "string") == 0,
-            DO(*multiline = false),
+            DO(*type = METADATA_STRING),
         //else
         IF_ELSE(strcmp(type_name, "multiline") == 0,
-            DO(*multiline = true),
+            DO(*type = METADATA_MULTILINE),
         //else
-            FAIL_("Invalid metadata type")));
+        IF_ELSE(strcmp(type_name, "constant") == 0,
+            DO(*type = METADATA_CONSTANT),
+        //else
+            FAIL_("Invalid metadata type"))));
+}
+
+
+static error__t parse_metadata_constant(
+    struct metadata_value *value, const char **line)
+{
+    const char *string;
+    return
+        parse_whitespace(line)  ?:
+        parse_char(line, '=')  ?:
+        parse_utf8_string(line, &string)  ?:
+        DO(value->value = strdup(string));
 }
 
 
@@ -78,7 +99,9 @@ error__t add_metadata_key(const char *key, const char **line)
     char type_name[MAX_NAME_LENGTH];
     return
         parse_name(line, type_name, sizeof(type_name))  ?:
-        lookup_type(type_name, &value->multiline)  ?:
+        lookup_type(type_name, &value->type)  ?:
+        IF(value->type == METADATA_CONSTANT,
+            parse_metadata_constant(value, line))  ?:
         TEST_OK_(hash_table_insert(metadata_map, key, value) == 0,
             "Metadata key %s repeated", key);
 }
@@ -102,18 +125,24 @@ error__t get_metadata_keys(struct connection_result *result)
 static error__t format_value(
     struct metadata_value *value, struct connection_result *result)
 {
-    if (value->multiline)
+    switch (value->type)
     {
-        /* Multi-line data is stored as a sequence of null terminated strings
-         * with a final empty string to terminate. */
-        for (const char *string = value->value; string  &&  *string;
-                string += strlen(string) + 1)
-            result->write_many(result->write_context, string);
-        result->response = RESPONSE_MANY;
-        return ERROR_OK;
+        case METADATA_MULTILINE:
+            /* Multi-line data is stored as a sequence of null terminated
+             * strings with a final empty string to terminate. */
+            for (const char *string = value->value; string  &&  *string;
+                    string += strlen(string) + 1)
+                result->write_many(result->write_context, string);
+            result->response = RESPONSE_MANY;
+            return ERROR_OK;
+
+        case METADATA_STRING:
+        case METADATA_CONSTANT:
+            return format_one_result(result, "%s", value->value ?: "");
+
+        default:
+            ASSERT_FAIL();
     }
-    else
-        return format_one_result(result, "%s", value->value ?: "");
 }
 
 
@@ -131,7 +160,7 @@ error__t put_metadata_value(const char *key, const char *string)
     struct metadata_value *value = hash_table_lookup(metadata_map, key);
     error__t error =
         TEST_OK_(value, "Metadata key %s not found", key)  ?:
-        TEST_OK_(!value->multiline, "Cannot write this field");
+        TEST_OK_(value->type == METADATA_STRING, "Cannot write to this field");
     if (!error)
     {
         LOCK(value->mutex);
@@ -208,7 +237,7 @@ error__t put_metadata_table(const char *key, struct put_table_writer *writer)
     struct metadata_value *value = hash_table_lookup(metadata_map, key);
     error__t error =
         TEST_OK_(value, "Metadata key %s not found", key)  ?:
-        TEST_OK_(value->multiline, "Not a multi-line field");
+        TEST_OK_(value->type == METADATA_MULTILINE, "Not a multi-line field");
 
     if (!error)
     {
@@ -263,23 +292,26 @@ void generate_metadata_change_set(
 
         if (changed)
         {
-            if (value->multiline)
+            switch (value->type)
             {
-                format_many_result(result, "*METADATA.%s<", key);
-                if (print_table)
-                {
-                    error_report(get_metadata_value(key, result));
-                    result->write_many(result->write_context, "");
-                }
-            }
-            else
-            {
-                LOCK(value->mutex);
-                snprintf(result->string, result->length,
-                    "*METADATA.%s=%s", key, value->value ?: "");
-                UNLOCK(value->mutex);
-                /* We avoid writing while holding the lock. */
-                result->write_many(result->write_context, result->string);
+                case METADATA_MULTILINE:
+                    format_many_result(result, "*METADATA.%s<", key);
+                    if (print_table)
+                    {
+                        error_report(get_metadata_value(key, result));
+                        result->write_many(result->write_context, "");
+                    }
+                    break;
+
+                case METADATA_STRING:
+                case METADATA_CONSTANT:
+                    LOCK(value->mutex);
+                    snprintf(result->string, result->length,
+                        "*METADATA.%s=%s", key, value->value ?: "");
+                    UNLOCK(value->mutex);
+                    /* We avoid writing while holding the lock. */
+                    result->write_many(result->write_context, result->string);
+                    break;
             }
         }
     }

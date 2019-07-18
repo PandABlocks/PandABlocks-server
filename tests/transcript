@@ -743,3 +743,9 @@
 
 < *METADATA.LABEL_BLAH1?
 > OK =This is a test string
+
+< *METADATA.MODEL?
+> OK =String describing model
+
+< *METADATA.MODEL=BOO
+> ERR Cannot write to this field
