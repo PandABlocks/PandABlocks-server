@@ -85,7 +85,10 @@ static error__t parse_metadata_constant(
         parse_whitespace(line)  ?:
         parse_char(line, '=')  ?:
         parse_utf8_string(line, &string)  ?:
-        DO(value->value = strdup(string));
+        /* For constants force the update index to 0 to suppress change
+         * reporting. */
+        DO( value->value = strdup(string);
+            value->update_index = 0);
 }
 
 
@@ -265,7 +268,8 @@ bool check_metadata_change_set(uint64_t report_index)
     bool changed = false;
     size_t ix = 0;
     struct metadata_value *value;
-    while (hash_table_walk(metadata_map, &ix, NULL, (void *) &value))
+    while (!changed  &&
+        hash_table_walk(metadata_map, &ix, NULL, (void *) &value))
     {
         LOCK(value->mutex);
         if (value->update_index > report_index)
@@ -304,13 +308,16 @@ void generate_metadata_change_set(
                     break;
 
                 case METADATA_STRING:
-                case METADATA_CONSTANT:
                     LOCK(value->mutex);
                     snprintf(result->string, result->length,
                         "*METADATA.%s=%s", key, value->value ?: "");
                     UNLOCK(value->mutex);
                     /* We avoid writing while holding the lock. */
                     result->write_many(result->write_context, result->string);
+                    break;
+
+                case METADATA_CONSTANT:
+                    /* This should never occur. */
                     break;
             }
         }
