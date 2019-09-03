@@ -6,6 +6,7 @@
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/mod_devicetable.h>
 #include <linux/io.h>
 
 #include "error.h"
