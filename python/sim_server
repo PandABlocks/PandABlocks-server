@@ -21,12 +21,6 @@ parser.add_argument(
     '-d', '--daemon', action = 'store_true', help = 'Run as daemon process')
 parser.add_argument(
     '-v', '--verbose', action = 'store_true', help = 'Log register access')
-parser.add_argument(
-    'config_dir',
-    help = '''\
-Path to configuration directory.
-This field is ignored for the basic simulation server, but is provided for
-compatibility with the full server in PandaFPGA.''')
 args = parser.parse_args()
 
 

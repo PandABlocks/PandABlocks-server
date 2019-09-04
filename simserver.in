@@ -22,15 +22,14 @@ EXT_ARGS=()
 
 
 # Allow some settings to be overridden.
-while getopts 'nf:p:d:vc:V:P-h' option; do
+while getopts 'nf:p:d:vV:P-h' option; do
     case "$option" in
     n)  DEBUG=() ;;
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
-    f)  SIM_SERVER="$OPTARG/common/python/sim_server"
-        CONFIG_DIR="$OPTARG/build/PandABox/config_d"
-        EXT_DIR="$OPTARG/common/python/extension" ;;
-    c)  CONFIG_DIR="$OPTARG" ;;
+    f)  SIM_SERVER="$OPTARG/autogen/sim_server"
+        CONFIG_DIR="$OPTARG/autogen/config_d"
+        EXT_ARGS=("${EXT_ARGS[@]}" -D) ;;
     v)  SIM_ARGS=("${SIM_ARGS[@]}" -v)
         EXT_ARGS=("${EXT_ARGS[@]}" -v) ;;
     V)  DEBUG=("${DEBUG[@]}" "$OPTARG") ;;
@@ -40,8 +39,7 @@ while getopts 'nf:p:d:vc:V:P-h' option; do
 ./simserver [options] [-- command options]
 options can be one of:
     -n  Run without valgrind memory checking
-    -f: Run with FPGA simulation from specified directory
-    -c: Specify configuration directory
+    -f: Run with PandABox-FPGA/build/apps/<app> FPGA simulation
     -p: Specify configuration port (default 8888)
     -d: Specify data port (default 8889)
     -v  Run simulation in verbose mode
@@ -66,7 +64,7 @@ nc localhost $EXT_PORT </dev/null
 # Run the simulation server as a daemon.  It will ensure its socket is up and
 # running before taking itself into the background.
 echo Running simulation "$SIM_SERVER"
-"$PYTHON" "$SIM_SERVER" "${SIM_ARGS[@]}" -d "$CONFIG_DIR"  &&
+"$PYTHON" "$SIM_SERVER" "${SIM_ARGS[@]}" -d  &&
 
 # Run up the extension server
 "$PYTHON" "$EXT_SERVER" "${EXT_ARGS[@]}" -d -p$EXT_PORT "$EXT_DIR"  &&

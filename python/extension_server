@@ -20,6 +20,8 @@ parser.add_argument(
 parser.add_argument(
     '-l', '--logfile', help = 'Specify log file to write to')
 parser.add_argument(
+    '-D', '--dummy', action = 'store_true', help = 'Always use dummy extension')
+parser.add_argument(
     'extensions', help = 'Extension directory')
 command_args = parser.parse_args()
 
@@ -94,6 +96,8 @@ class Extensions:
         # Syntax:   field-count module-name
         count, module_name = line.split()
         count = int(count)
+        if command_args.dummy:
+            module_name = "dummy"
         block = import_extension_module(module_name).Extension(count)
         return self.add_entity(block)
 
