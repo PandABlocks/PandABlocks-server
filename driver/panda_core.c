@@ -76,6 +76,7 @@ static int panda_probe(struct platform_device *pdev)
 
     /* Pick up the register area and assigned IRQ from the device tree. */
     struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    pcap->base_page = res->start >> PAGE_SHIFT;
     pcap->length = resource_size(res);
     pcap->reg_base = devm_ioremap_resource(&pdev->dev, res);
     TEST_PTR(pcap->reg_base, rc, no_res, "Unable to map resource");
