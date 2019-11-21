@@ -1,6 +1,8 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # Script to save the state of the given Panda.
+
+from __future__ import print_function
 
 import argparse
 import socket
@@ -51,28 +53,28 @@ def read_response(input, command):
 
 def save_state(input, output, command):
     for line in read_response(input, command):
-        print >>output, line
+        print(line, file = output)
 
 
 def save_table(input, output, table):
     assert table[-1] == '<'
-    print >>output, table + 'B'
+    print(table + 'B', file = output)
     for line in read_response(input, table[:-1] + '.B?'):
-        print >>output, line
-    print >>output
+        print(line, file = output)
+    print(file = output)
 
 
 def save_metatable(input, output, table):
-    print >>output, table
+    print(table, file = output)
     for line in read_response(input, table[:-1] + '?'):
-        print >>output, line
-    print >>output
+        print(line, file = output)
+    print(file = output)
 
 def save_metadata(input, output, line):
     if line[-1] == '<':
         save_metatable(input, output, line)
     else:
-        print >>output, line
+        print(line, file = output)
 
 
 # Argument processing

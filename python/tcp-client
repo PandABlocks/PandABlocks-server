@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import socket
 try:
     import readline
@@ -65,7 +67,7 @@ class Client(object):
                 while msg:
                     msg = self.prompt_and_send()
             for resp in self.recv_all():
-                print "> %s" % resp
+                print("> %s" % resp)
 
 
 from argparse import ArgumentParser

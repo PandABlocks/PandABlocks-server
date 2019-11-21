@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # Simple hardware simulation server.
 #
@@ -8,6 +8,8 @@
 # The simulation we run here is a dumb and basic as it possibly can be.  For a
 # more detailed and realistic hardware simulation, use the simulation server
 # provided as part of PandaFPGA.
+
+from __future__ import print_function
 
 import argparse
 import os
@@ -62,12 +64,12 @@ def run_simulation(conn, verbose):
             # Read one register, always returns zero
             conn.sendall(struct.pack('I', 0))
             if verbose:
-                print 'R', block, num, reg
+                print('R', block, num, reg)
         elif command == 'W':
             # Write one register, we throw the value away
             value, = struct.unpack('I', read(conn, 4))
             if verbose:
-                print 'W', block, num, reg, '<=', value, hex(value)
+                print('W', block, num, reg, '<=', value, hex(value))
         elif command == 'T':
             # Write data array to large table, we throw this away
             length, = struct.unpack('I', read(conn, 4))
@@ -77,7 +79,7 @@ def run_simulation(conn, verbose):
             length, = struct.unpack('I', read(conn, 4))
             conn.sendall(struct.pack('i', -1))
         else:
-            print 'Unexpected command', repr(command_word)
+            print('Unexpected command', repr(command_word))
             raise SocketFail('Unexpected command')
 
 
@@ -86,7 +88,7 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.bind(('localhost', 9999))
 sock.listen(0)
 
-print 'Dummy simulating server ready'
+print('Dummy simulating server ready')
 if args.daemon:
     daemonise()
 
@@ -97,4 +99,4 @@ conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 try:
     run_simulation(conn, args.verbose)
 except (SocketFail, KeyboardInterrupt) as e:
-    print 'Simulation closed:', repr(e)
+    print('Simulation closed:', repr(e))

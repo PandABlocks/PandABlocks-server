@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import argparse
 import sys
 import socket
@@ -101,19 +103,19 @@ while True:
             server.send(line + '\n')
         response = read_response(len(rx))
         end = time.time()
-    except Exception, e:
-        print tx[0], e, 'on line', line_no
+    except Exception as e:
+        print(tx[0], e, 'on line', line_no)
         break
     else:
         if response == rx:
             if not args.quiet:
-                print tx[0], 'OK %.2f ms' % (1e3 * (end - start))
+                print(tx[0], 'OK %.2f ms' % (1e3 * (end - start)))
         else:
-            print tx[0], 'response error', response, 'on line', line_no
+            print(tx[0], 'response error', response, 'on line', line_no)
             failed += 1
 
 if failed:
-    print failed, 'tests failed'
+    print(failed, 'tests failed')
     sys.exit(1)
 else:
-    print 'all ok'
+    print('all ok')

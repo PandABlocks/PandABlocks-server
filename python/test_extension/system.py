@@ -1,6 +1,8 @@
-# Support for xadc readout
+# Support for xadc readout.  Dummy example code.
 
 # This file is loaded by the extension server
+
+from __future__ import print_function
 
 import os.path
 
@@ -8,13 +10,8 @@ XADC_PATH = '/sys/devices/soc0/amba/f8007100.adc/iio:device0'
 
 class XADC:
     def __init__(self, node):
-        print 'XADC', repr(node)
+        print('XADC', repr(node))
         self.node = node
-#         try:
-#             self.offset = self.read_node('offset')
-#         except:
-#             self.offset = 0
-#         self.scale = self.read_node('scale')
         self.offset = 0
         self.scale = 1
 
