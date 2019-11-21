@@ -23,9 +23,6 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Core error reporting mechanism. */
 
-/* For debug, used to check if we've leaked any error codes. */
-static int error_count = 0;
-
 
 /* This encapsulates an error message. */
 struct error__t {
@@ -46,7 +43,6 @@ error__t _error_create(char *extra, const char *format, ...)
     ASSERT_IO(vasprintf(&message, format, args));
     va_end(args);
 
-    __sync_add_and_fetch(&error_count, 1);
     struct error__t *error = malloc(sizeof(struct error__t));
     if (extra)
         *error = (struct error__t) {
@@ -78,7 +74,6 @@ void error_discard(error__t error)
             free(error->messages[i]);
         free(error->formatted);
         free(error);
-        __sync_add_and_fetch(&error_count, -1);
     }
 }
 
