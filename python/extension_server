@@ -37,8 +37,8 @@ if command_args.logfile:
     logging.root.addHandler(file_handler)
     logging.root.setLevel(level)
 else:
-    logging.basicConfig(level=level, format="%(levelname)6s %(message)s")
-logging.info("Starting Extension server")
+    logging.basicConfig(level=level, format='%(levelname)6s %(message)s')
+logging.info('Starting Extension server')
 
 
 # Initialise the extensions module from the path given to us.  We load this
@@ -79,7 +79,7 @@ class Extensions:
             try:
                 return (True, action(self, *args))
             except Exception as e:
-                logging.debug("Caught exception during parse", exc_info=True)
+                logging.debug('Caught exception during parse', exc_info=True)
 
                 # Convert parse exception into an error message.  It can happen
                 # that the error message is empty, eg an unqualified assert
@@ -97,7 +97,7 @@ class Extensions:
         count, module_name = line.split()
         count = int(count)
         if command_args.dummy:
-            module_name = "dummy"
+            module_name = 'dummy'
         block = import_extension_module(module_name).Extension(count)
         return self.add_entity(block)
 
