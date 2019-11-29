@@ -6,7 +6,7 @@ TOP := $(CURDIR)
 # Build defaults that can be overwritten by the CONFIG file if present
 
 BUILD_DIR = $(TOP)/build
-PYTHON = python2
+PYTHON = python
 SPHINX_BUILD = sphinx-build
 CROSS_COMPILE = arm-xilinx-linux-gnueabi-
 BINUTILS_DIR =

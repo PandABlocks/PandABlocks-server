@@ -60,7 +60,7 @@ do_start()
     done  &&
 
     # Now start the extension server
-    $extension_server -d $extension_dir -l $extension_log  &&
+    $extension_server -d -l $extension_log $extension_dir  &&
 
     # Finally start the PANDA server
     $panda_server \

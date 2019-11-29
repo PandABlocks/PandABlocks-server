@@ -5,7 +5,7 @@
 import argparse
 import os
 import sys
-import imp
+from importlib import import_module
 import socket
 import logging.handlers
 
@@ -41,19 +41,16 @@ else:
 logging.info('Starting Extension server')
 
 
-# Initialise the extensions module from the path given to us.  We load this
-# directory as a package.
-imp.load_module(
-    'extensions', None, command_args.extensions, ('', '', imp.PKG_DIRECTORY))
+# Ensure we can see the extensions directory
+extension_dir, extension_module = os.path.split(command_args.extensions)
+sys.path.insert(0, extension_dir)
 
 
-# Imports the named module from the extensions directory.  We use __import__
-# rather than importlib simply to keep Python 2.6 compatibility for now.
+# Imports the named module from the extensions directory.
 def import_extension_module(name):
-    extensions = __import__('extensions', None, None, [name])
     try:
-        return getattr(extensions, name)
-    except AttributeError:
+        return import_module('%s.%s' % (extension_module, name))
+    except Exception as e:
         # Convert default error message into something more helpful
         raise Exception('Extension module \'%s\' not found' % name)
 
@@ -183,7 +180,7 @@ class Server:
         self.server_sock.close()
 
         conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-        self.file = conn.makefile()
+        self.file = conn.makefile('rw')
         self.ext = Extensions()
 
         self.run_service()

@@ -47,8 +47,8 @@ class ParseFail(Exception):
 # Implements line reading so that we can keep track of line numbers.  Also
 # supports one level of undo on the process of iterating through the lines
 class read_lines:
-    def __init__(self, input):
-        self.__input = input
+    def __init__(self, input_file):
+        self.__input = input_file
         self.__last = None
         self.__undo = False
         self.line_no = 0
@@ -56,18 +56,19 @@ class read_lines:
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if not self.__undo:
             self.__last = self.read_line()
         self.__undo = False
         return self.__last
+    next = __next__     # For Python2 compatibility
 
     def undo(self):
         self.__undo = True
 
     def read_line(self):
         while True:
-            line = self.__input.next()
+            line = next(self.__input)
             self.line_no += 1
             content = line.lstrip(' ')
             if content[0] not in '#\n':
@@ -98,7 +99,7 @@ def parse_indent_level(new_indent, lines):
     return result
 
 def parse_indented_file(file_name):
-    lines = read_lines(file(file_name))
+    lines = read_lines(open(file_name))
     return parse_indent_level(0, lines)
 
 

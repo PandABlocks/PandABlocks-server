@@ -44,7 +44,7 @@ class SocketFail(Exception):
 
 # Ensures exactly n bytes are read from sock
 def read(sock, n):
-    result = ''
+    result = b''
     while len(result) < n:
         rx = sock.recv(n - len(result))
         if not rx:
@@ -60,21 +60,21 @@ def run_simulation(conn, verbose):
     while True:
         command_word = read(conn, 4)
         command, block, num, reg = struct.unpack('cBBB', command_word)
-        if command == 'R':
+        if command == b'R':
             # Read one register, always returns zero
             conn.sendall(struct.pack('I', 0))
             if verbose:
                 print('R', block, num, reg)
-        elif command == 'W':
+        elif command == b'W':
             # Write one register, we throw the value away
             value, = struct.unpack('I', read(conn, 4))
             if verbose:
                 print('W', block, num, reg, '<=', value, hex(value))
-        elif command == 'T':
+        elif command == b'T':
             # Write data array to large table, we throw this away
             length, = struct.unpack('I', read(conn, 4))
             data = read(conn, length * 4)
-        elif command == 'D':
+        elif command == b'D':
             # Retrieve increment of data stream: we never send anything!
             length, = struct.unpack('I', read(conn, 4))
             conn.sendall(struct.pack('i', -1))
