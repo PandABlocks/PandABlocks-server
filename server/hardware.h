@@ -152,9 +152,6 @@ const char *hw_decode_completion(unsigned int completion);
  * *data_end==true the data capture engine should be treated as locked. */
 void hw_write_arm(bool enable);
 
-/* Writes the capture delay register. */
-void hw_write_data_delay(unsigned int capture_index, unsigned int delay);
-
 
 /* Macros for formatting position and extension bus entries into capture field
  * values.  The bit layout for each type is as follows:

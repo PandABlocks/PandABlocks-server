@@ -49,7 +49,6 @@ struct pos_out {
 
         unsigned int capture_index;     // position bus capture index
         enum pos_out_capture capture;   // Capture state
-        unsigned int data_delay;        // Capture data delay
     } values[];
 };
 
@@ -341,33 +340,6 @@ static const struct attr_methods pos_out_capture_attr = {
 };
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Delay control. */
-
-static error__t pos_out_data_delay_format(
-    void *owner, void *data, unsigned int number,
-    char result[], size_t length)
-{
-    struct pos_out *pos_out = data;
-    struct pos_out_field *field = &pos_out->values[number];
-    return format_string(result, length, "%u", field->data_delay);
-}
-
-
-static error__t pos_out_data_delay_put(
-    void *owner, void *data, unsigned int number, const char *string)
-{
-    struct pos_out *pos_out = data;
-    struct pos_out_field *field = &pos_out->values[number];
-    unsigned int delay;
-    return
-        parse_uint(&string, &delay)  ?:
-        TEST_OK_(delay <= MAX_DATA_DELAY, "Delay too long")  ?:
-        DO( field->data_delay = delay;
-            hw_write_data_delay(field->capture_index, delay));
-}
-
-
 /******************************************************************************/
 /* Field info. */
 
@@ -587,11 +559,6 @@ const struct class_methods pos_out_class_methods = {
             .in_change_set = true,
             .format = pos_out_units_format,
             .put = pos_out_units_put,
-        },
-        { "DATA_DELAY", "Configure data delay for this field",
-            .in_change_set = true,
-            .format = pos_out_data_delay_format,
-            .put = pos_out_data_delay_put,
         },
         // "CAPTURE" added in constructor
     },

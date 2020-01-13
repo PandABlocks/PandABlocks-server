@@ -200,11 +200,6 @@ Field type          Description
                         captured.
         =============== ========================================================
 
-    ``DATA_DELAY``
-        This is a fine delay in clock ticks (between 0 and 31) which is applied
-        to the raw position data before being processed for capture.  This is
-        useful for compensating for internal delays.
-
     The following attributes support formatting of the field when reading it:
     the current value is returned subject to the formatting rules described
     below.
@@ -460,7 +455,6 @@ bit_out         CAPTURE_WORD    Capturable word containing this bit     R
 bit_mux         DELAY           Bit input delay in FPGA ticks           R W C
 \               MAX_DELAY       Maximum valid delay                     R
 pos_out         CAPTURE         Position capture control                R W C
-\               DATA_DELAY      Data capture delay control              R W C
 \               OFFSET          Position offset                         R W C
 \               SCALE           Position scaling                        R W C
 \               UNITS           Position units                          R W C
