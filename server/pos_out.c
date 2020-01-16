@@ -562,5 +562,5 @@ const struct class_methods pos_out_class_methods = {
         },
         // "CAPTURE" added in constructor
     },
-    .attr_count = 5,
+    .attr_count = 4,
 };
