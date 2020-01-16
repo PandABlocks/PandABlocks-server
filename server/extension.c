@@ -91,6 +91,7 @@ static error__t extension_server_exchange(
     char prefix = buffer[0];
     const char *response = buffer;
     return
+        TEST_OK_(server.file, "Extension server not running")  ?:
         SERVER_EXCHANGE(
             write_string(server.file, buffer, (size_t) length)  &&
             read_line(server.file, buffer, sizeof(buffer), true))  ?:
