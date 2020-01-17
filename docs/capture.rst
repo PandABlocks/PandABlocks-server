@@ -190,9 +190,9 @@ Disarmed            Experiment manually completed by ``*PCAP.DISARM=`` command.
 Early disconnect    Client disconnect detected.
 Data overrun        Client not taking data quickly or network congestion,
                     internal buffer overflow.
-Framing error       Data capture too fast or incorrectly configured capture.
+Framing error       Triggers too fast for configured data capture.
 Driver data overrun Probable CPU overload on PandA, should not occur.
-DMA data error      Internal data error, should not occur.
+DMA data error      Data capture too fast for memory bandwidth.
 =================== ============================================================
 
 

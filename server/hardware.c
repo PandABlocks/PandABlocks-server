@@ -260,17 +260,20 @@ unsigned int hw_read_streamed_completion(void)
 
 const char *hw_decode_completion(unsigned int completion)
 {
-    static const char *completion_strings[] = {
-        [PANDA_COMPLETION_OK]       = "Ok",
-        [PANDA_COMPLETION_DISARM]   = "Disarmed",
-        [PANDA_COMPLETION_FRAMING]  = "Framing error",
-        [PANDA_COMPLETION_DMA]      = "DMA data error",
-        [PANDA_COMPLETION_OVERRUN]  = "Driver data overrun",
-    };
-    const char *result =
-        completion < ARRAY_SIZE(completion_strings) ?
-        completion_strings[completion] : NULL;
-    return result ?: "Unexpected completion error";
+    /* Test bits in the completion code until a bit is found.  The order here
+     * determines the priority of report. */
+    if (completion == 0)
+        return "Ok";
+    else if (completion & PANDA_COMPLETION_DMA)
+        return "DMA data error";
+    else if (completion & PANDA_COMPLETION_OVERRUN)
+        return "Driver data overrun";
+    else if (completion & PANDA_COMPLETION_FRAMING)
+        return "Framing error";
+    else if (completion & PANDA_COMPLETION_DISARM)
+        return "Disarmed";
+    else
+        return "Unexpected completion error";
 }
 
 
