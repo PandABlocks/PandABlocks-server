@@ -329,7 +329,6 @@
 # Testing position fields
 < INENC1.VAL.*?
 > !UNITS
-> !DATA_DELAY
 > !SCALED
 > !OFFSET
 > !SCALE
