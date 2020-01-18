@@ -353,7 +353,7 @@ const struct class_methods bit_mux_class_methods = {
     .get_enumeration = bit_mux_get_enumeration,
     .change_set = bit_mux_change_set,
     .change_set_index = CHANGE_IX_CONFIG,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         { "DELAY", "Clock delay on input",
             .in_change_set = true,
             .format = bit_mux_delay_format,
@@ -362,8 +362,7 @@ const struct class_methods bit_mux_class_methods = {
         { "MAX_DELAY", "Maximum valid input delay",
             .format = bit_mux_max_delay_format,
         },
-    },
-    .attr_count = 2,
+    ),
 };
 
 
@@ -374,13 +373,12 @@ const struct class_methods bit_out_class_methods = {
     .get = bit_out_get, .refresh = bit_out_refresh,
     .change_set = bit_out_change_set,
     .change_set_index = CHANGE_IX_BITS,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         { "CAPTURE_WORD", "Name of field containing this bit",
             .format = capture_word_format,
         },
         { "OFFSET", "Position of this bit in captured word",
             .format = offset_format,
         },
-    },
-    .attr_count = 2,
+    ),
 };

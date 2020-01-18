@@ -193,11 +193,10 @@ static const struct type_methods uint_type_methods = {
     "uint",
     .init = uint_init,
     .parse = uint_parse, .format = uint_format,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         { "MAX", "Maximum valid value for this field",
           .format = uint_max_format, },
-    },
-    .attr_count = 1,
+    ),
 };
 
 static const struct type_methods int_type_methods = {
@@ -308,7 +307,7 @@ static const struct type_methods scalar_type_methods = {
     .init = scalar_init,
     .destroy = scalar_destroy,
     .parse = scalar_parse, .format = scalar_format,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         {   "RAW", "Underlying integer value",
             .format = raw_format_int, .put = raw_put_int, },
         {   "UNITS", "Units associated with value",
@@ -317,8 +316,7 @@ static const struct type_methods scalar_type_methods = {
             .format = scalar_scale_format, },
         {   "OFFSET", "Offset from scaled data to value",
             .format = scalar_offset_format, },
-    },
-    .attr_count = 4,
+    ),
 };
 
 
@@ -481,10 +479,10 @@ static const struct type_methods lut_type_methods = {
     "lut",
     .init = lut_init, .destroy = lut_destroy,
     .parse = lut_parse, .format = lut_format,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         { "RAW", "Bit pattern written to register",
-          .format = lut_raw_format, }, },
-    .attr_count = 1,
+          .format = lut_raw_format, },
+    ),
 };
 
 

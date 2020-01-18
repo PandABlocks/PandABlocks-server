@@ -658,7 +658,7 @@ const struct class_methods table_class_methods = {
     .get_subfield = table_get_subfield,
     .change_set = table_change_set,
     .change_set_index = CHANGE_IX_TABLE,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         { "LENGTH", "Number of entries in table",
           .format = table_length_format, },
         { "MAX_LENGTH", "Maximum number of entries in table",
@@ -667,6 +667,5 @@ const struct class_methods table_class_methods = {
           .get_many = table_fields_get_many, },
         { "B", "Table in base-64 representation",
           .get_many = table_b_get_many, },
-    },
-    .attr_count = 4,
+    ),
 };

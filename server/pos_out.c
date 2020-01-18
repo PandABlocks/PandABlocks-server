@@ -546,7 +546,7 @@ const struct class_methods pos_out_class_methods = {
     .get = pos_out_get, .refresh = pos_out_refresh,
     .change_set = pos_out_change_set,
     .change_set_index = CHANGE_IX_POSITION,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         { "SCALED", "Value with scaling applied",
             .format = pos_out_scaled_format, },
         { "SCALE", "Scale factor",
@@ -561,6 +561,5 @@ const struct class_methods pos_out_class_methods = {
             .put = pos_out_units_put,
         },
         // "CAPTURE" added in constructor
-    },
-    .attr_count = 4,
+    ),
 };

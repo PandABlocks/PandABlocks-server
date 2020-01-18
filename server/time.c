@@ -395,7 +395,7 @@ const struct class_methods time_class_methods = {
     .put = time_put,
     .change_set = time_change_set,
     .change_set_index = CHANGE_IX_CONFIG,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         { "RAW", "Time in ticks",
             .format = time_raw_format,
             .put = time_raw_put,
@@ -409,8 +409,7 @@ const struct class_methods time_class_methods = {
         { "MIN", "Minimum programmable time",
             .format = time_min_format,
         },
-    },
-    .attr_count = 3,
+    ),
 };
 
 
@@ -418,7 +417,7 @@ const struct type_methods time_type_methods = {
     "time",
     .init = time_type_init,
     .parse = time_parse, .format = time_format,
-    .attrs = (struct attr_methods[]) {
+    DEFINE_ATTRIBUTES(
         { "RAW", "Time in ticks",
             .format = raw_format_uint,
             .put = raw_put_uint,
@@ -429,6 +428,5 @@ const struct type_methods time_type_methods = {
             .put = time_type_units_put,
             .get_enumeration = time_units_get_enumeration,
         },
-    },
-    .attr_count = 2,
+    ),
 };

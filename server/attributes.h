@@ -77,3 +77,10 @@ void add_attributes(
 /* Thus function walks the given map of attributes and deletes all attributes.
  * The map should be deleted after this. */
 void delete_attributes(struct hash_table *attr_map);
+
+
+/* This macro should be used when statically initialising lists of attributes to
+ * ensure that the number of attributes is correctly initialised. */
+#define DEFINE_ATTRIBUTES(attributes...) \
+    .attrs = (struct attr_methods[]) { attributes }, \
+    .attr_count = ARRAY_SIZE(((struct attr_methods[]) { attributes }))
