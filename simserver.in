@@ -22,17 +22,18 @@ EXT_ARGS=()
 
 
 # Allow some settings to be overridden.
-while getopts 'nf:p:d:vV:P-h' option; do
+while getopts 'np:d:f:c:vV:P-h' option; do
     case "$option" in
     n)  DEBUG=() ;;
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
     f)  SIM_SERVER="$OPTARG/autogen/sim_server"
         CONFIG_DIR="$OPTARG/autogen/config_d"
-        EXT_ARGS=("${EXT_ARGS[@]}" -D) ;;
-    v)  SIM_ARGS=("${SIM_ARGS[@]}" -v)
-        EXT_ARGS=("${EXT_ARGS[@]}" -v) ;;
-    V)  DEBUG=("${DEBUG[@]}" "$OPTARG") ;;
+        EXT_ARGS+=(-D) ;;
+    c)  CONFIG_DIR="$OPTARG" ;;
+    v)  SIM_ARGS+=(-v)
+        EXT_ARGS+=(-v) ;;
+    V)  DEBUG+=("$OPTARG") ;;
     P)  rm -f "$PERSISTENCE" ;;
     -)  ;;
     h)  cat <<EOF
@@ -40,6 +41,7 @@ while getopts 'nf:p:d:vV:P-h' option; do
 options can be one of:
     -n  Run without valgrind memory checking
     -f: Run with PandABox-FPGA/build/apps/<app> FPGA simulation
+    -c: Specify configuration directory
     -p: Specify configuration port (default 8888)
     -d: Specify data port (default 8889)
     -v  Run simulation in verbose mode
