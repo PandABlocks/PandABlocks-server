@@ -11,8 +11,8 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
-#include "fields.h"
 #include "attributes.h"
+#include "fields.h"
 
 #include "config_command.h"
 

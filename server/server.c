@@ -17,6 +17,7 @@
 #include "data_server.h"
 #include "database.h"
 #include "system_command.h"
+#include "attributes.h"
 #include "fields.h"
 #include "output.h"
 #include "time.h"

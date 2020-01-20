@@ -34,6 +34,13 @@ struct attr_methods {
     const struct enumeration *(*get_enumeration)(void *data);
 };
 
+/* Used to represent an array of attributes.  MUST be initialised with
+ * DEFINE_ATTRIBUTES macro below. */
+struct attr_array {
+    struct attr_methods *methods;
+    unsigned int count;
+};
+
 
 /* Retrieves current value of attribute:  block<n>.field.attr?  */
 error__t attr_get(
@@ -70,7 +77,7 @@ struct attr *add_one_attribute(
 /* Creates a list of attributes and adds them to the given attr_map.  If an
  * attribute with the same name is already present it is silently replaced. */
 void add_attributes(
-    const struct attr_methods methods[], unsigned int attr_count,
+    const struct attr_array *array,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map);
 
@@ -82,5 +89,7 @@ void delete_attributes(struct hash_table *attr_map);
 /* This macro should be used when statically initialising lists of attributes to
  * ensure that the number of attributes is correctly initialised. */
 #define DEFINE_ATTRIBUTES(attributes...) \
-    .attrs = (struct attr_methods[]) { attributes }, \
-    .attr_count = ARRAY_SIZE(((struct attr_methods[]) { attributes }))
+    (struct attr_array) { \
+        .methods = (struct attr_methods[]) { attributes }, \
+        .count = ARRAY_SIZE(((struct attr_methods[]) { attributes })) \
+    }

@@ -131,12 +131,12 @@ struct attr *add_one_attribute(
 
 
 void add_attributes(
-    const struct attr_methods methods[], unsigned int attr_count,
+    const struct attr_array *array,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map)
 {
-    for (unsigned int i = 0; i < attr_count; i ++)
-        add_one_attribute(&methods[i], owner, data, count, attr_map);
+    for (unsigned int i = 0; i < array->count; i ++)
+        add_one_attribute(&array->methods[i], owner, data, count, attr_map);
 }
 
 

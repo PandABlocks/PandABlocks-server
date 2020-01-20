@@ -33,8 +33,7 @@ struct type_methods {
 
     /* Type specific attributes, automatically instantiated when type instance
      * created. */
-    const struct attr_methods *attrs;
-    unsigned int attr_count;
+    const struct attr_array attrs;
 };
 
 

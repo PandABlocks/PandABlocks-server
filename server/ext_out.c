@@ -13,8 +13,8 @@
 #include "parse.h"
 #include "config_server.h"
 #include "data_server.h"
-#include "fields.h"
 #include "attributes.h"
+#include "fields.h"
 #include "types.h"
 #include "enums.h"
 #include "bit_out.h"
@@ -255,7 +255,7 @@ static error__t create_ext_out(
     *class_data = ext_out;
 
     if (ext_type == EXT_OUT_BITS)
-        add_attributes(&bits_attr_methods, 1, NULL, ext_out, 1, attr_map);
+        add_one_attribute(&bits_attr_methods, NULL, ext_out, 1, attr_map);
     return ERROR_OK;
 }
 

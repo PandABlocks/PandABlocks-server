@@ -14,9 +14,9 @@
 #include "hardware.h"
 #include "parse.h"
 #include "hashtable.h"
+#include "attributes.h"
 #include "fields.h"
 #include "types.h"
-#include "attributes.h"
 #include "locking.h"
 #include "extension.h"
 

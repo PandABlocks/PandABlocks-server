@@ -11,8 +11,8 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
-#include "types.h"
 #include "attributes.h"
+#include "types.h"
 
 #include "enums.h"
 

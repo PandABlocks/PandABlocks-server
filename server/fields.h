@@ -72,8 +72,7 @@ struct class_methods {
     struct table_subfield *(*get_subfield)(void *class_data, const char *name);
 
     /* Class specific attributes. */
-    const struct attr_methods *attrs;
-    unsigned int attr_count;
+    const struct attr_array attrs;
 };
 
 

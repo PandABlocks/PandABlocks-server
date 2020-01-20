@@ -395,7 +395,7 @@ const struct class_methods time_class_methods = {
     .put = time_put,
     .change_set = time_change_set,
     .change_set_index = CHANGE_IX_CONFIG,
-    DEFINE_ATTRIBUTES(
+    .attrs = DEFINE_ATTRIBUTES(
         { "RAW", "Time in ticks",
             .format = time_raw_format,
             .put = time_raw_put,
@@ -417,7 +417,7 @@ const struct type_methods time_type_methods = {
     "time",
     .init = time_type_init,
     .parse = time_parse, .format = time_format,
-    DEFINE_ATTRIBUTES(
+    .attrs = DEFINE_ATTRIBUTES(
         { "RAW", "Time in ticks",
             .format = raw_format_uint,
             .put = raw_put_uint,

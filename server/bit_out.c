@@ -13,8 +13,8 @@
 #include "parse.h"
 #include "config_server.h"
 #include "data_server.h"
-#include "fields.h"
 #include "attributes.h"
+#include "fields.h"
 #include "types.h"
 #include "enums.h"
 #include "locking.h"
@@ -353,7 +353,7 @@ const struct class_methods bit_mux_class_methods = {
     .get_enumeration = bit_mux_get_enumeration,
     .change_set = bit_mux_change_set,
     .change_set_index = CHANGE_IX_CONFIG,
-    DEFINE_ATTRIBUTES(
+    .attrs = DEFINE_ATTRIBUTES(
         { "DELAY", "Clock delay on input",
             .in_change_set = true,
             .format = bit_mux_delay_format,
@@ -373,7 +373,7 @@ const struct class_methods bit_out_class_methods = {
     .get = bit_out_get, .refresh = bit_out_refresh,
     .change_set = bit_out_change_set,
     .change_set_index = CHANGE_IX_BITS,
-    DEFINE_ATTRIBUTES(
+    .attrs = DEFINE_ATTRIBUTES(
         { "CAPTURE_WORD", "Name of field containing this bit",
             .format = capture_word_format,
         },

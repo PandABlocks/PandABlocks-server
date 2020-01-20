@@ -193,7 +193,7 @@ static const struct type_methods uint_type_methods = {
     "uint",
     .init = uint_init,
     .parse = uint_parse, .format = uint_format,
-    DEFINE_ATTRIBUTES(
+    .attrs = DEFINE_ATTRIBUTES(
         { "MAX", "Maximum valid value for this field",
           .format = uint_max_format, },
     ),
@@ -307,7 +307,7 @@ static const struct type_methods scalar_type_methods = {
     .init = scalar_init,
     .destroy = scalar_destroy,
     .parse = scalar_parse, .format = scalar_format,
-    DEFINE_ATTRIBUTES(
+    .attrs = DEFINE_ATTRIBUTES(
         {   "RAW", "Underlying integer value",
             .format = raw_format_int, .put = raw_put_int, },
         {   "UNITS", "Units associated with value",
@@ -479,7 +479,7 @@ static const struct type_methods lut_type_methods = {
     "lut",
     .init = lut_init, .destroy = lut_destroy,
     .parse = lut_parse, .format = lut_format,
-    DEFINE_ATTRIBUTES(
+    .attrs = DEFINE_ATTRIBUTES(
         { "RAW", "Bit pattern written to register",
           .format = lut_raw_format, },
     ),
@@ -600,8 +600,7 @@ static void create_type_attributes(
     struct type *type, struct hash_table *attr_map)
 {
     add_attributes(
-        type->methods->attrs, type->methods->attr_count,
-        type, type->type_data, type->count, attr_map);
+        &type->methods->attrs, type, type->type_data, type->count, attr_map);
 }
 
 

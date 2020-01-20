@@ -12,6 +12,7 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
+#include "attributes.h"
 #include "fields.h"
 #include "enums.h"
 #include "locking.h"

@@ -14,8 +14,8 @@
 #include "parse.h"
 #include "hardware.h"
 #include "config_server.h"
-#include "fields.h"
 #include "attributes.h"
+#include "fields.h"
 #include "enums.h"
 #include "base64.h"
 #include "locking.h"
@@ -658,7 +658,7 @@ const struct class_methods table_class_methods = {
     .get_subfield = table_get_subfield,
     .change_set = table_change_set,
     .change_set_index = CHANGE_IX_TABLE,
-    DEFINE_ATTRIBUTES(
+    .attrs = DEFINE_ATTRIBUTES(
         { "LENGTH", "Number of entries in table",
           .format = table_length_format, },
         { "MAX_LENGTH", "Maximum number of entries in table",

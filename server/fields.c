@@ -12,8 +12,8 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "config_server.h"
-#include "types.h"
 #include "attributes.h"
+#include "types.h"
 #include "pos_mux.h"
 #include "pos_out.h"
 #include "ext_out.h"
@@ -702,10 +702,10 @@ static error__t lookup_class(
 static error__t create_field_attributes(struct field *field)
 {
     add_attributes(
-        field->methods->attrs, field->methods->attr_count,
+        &field->methods->attrs,
         field, field->class_data, field->block->count, field->attrs);
-    add_attributes(
-        &info_attribute, 1, field, field->class_data,
+    add_one_attribute(
+        &info_attribute, field, field->class_data,
         field->block->count, field->attrs);
     return ERROR_OK;
 }
