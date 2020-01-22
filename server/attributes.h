@@ -38,7 +38,6 @@ struct attr_methods {
  * DEFINE_ATTRIBUTES macro below. */
 struct attr_array {
     struct attr_methods *methods;
-    unsigned int count;
 };
 
 
@@ -87,9 +86,14 @@ void delete_attributes(struct hash_table *attr_map);
 
 
 /* This macro should be used when statically initialising lists of attributes to
- * ensure that the number of attributes is correctly initialised. */
+ * ensure that the number of attributes is correctly initialised.
+ *    Unfortunately the compiler version we're using for this project generates
+ * an "initializer element is not constant" error when compiling
+ * sizeof(attributes) in gnu99 mode (this seems to be a known bug fixed in later
+ * compilers and back ported to RHEL7).  So instead we use a sentinel, setting
+ * the .name field to NULL, to identify the end of the list.  This means that
+ * the attributes list *must* end with a comma. */
 #define DEFINE_ATTRIBUTES(attributes...) \
-    (struct attr_array) { \
-        .methods = (struct attr_methods[]) { attributes }, \
-        .count = ARRAY_SIZE(((struct attr_methods[]) { attributes })) \
+    { \
+        .methods = (struct attr_methods[]) { attributes { .name = NULL, }, }, \
     }

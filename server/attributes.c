@@ -135,8 +135,10 @@ void add_attributes(
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map)
 {
-    for (unsigned int i = 0; i < array->count; i ++)
-        add_one_attribute(&array->methods[i], owner, data, count, attr_map);
+    /* See DEFINE_ATTRIBUTES: we rely on .name==NULL to detect end of list. */
+    if (array->methods)
+        for (unsigned int i = 0; array->methods[i].name; i ++)
+            add_one_attribute(&array->methods[i], owner, data, count, attr_map);
 }
 
 
