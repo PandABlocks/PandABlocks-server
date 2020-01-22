@@ -131,14 +131,14 @@ struct attr *add_one_attribute(
 
 
 void add_attributes(
-    const struct attr_array *array,
+    const struct attr_array array,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map)
 {
     /* See DEFINE_ATTRIBUTES: we rely on .name==NULL to detect end of list. */
-    if (array->methods)
-        for (unsigned int i = 0; array->methods[i].name; i ++)
-            add_one_attribute(&array->methods[i], owner, data, count, attr_map);
+    if (array.methods)
+        for (unsigned int i = 0; array.methods[i].name; i ++)
+            add_one_attribute(&array.methods[i], owner, data, count, attr_map);
 }
 
 

@@ -76,7 +76,7 @@ struct attr *add_one_attribute(
 /* Creates a list of attributes and adds them to the given attr_map.  If an
  * attribute with the same name is already present it is silently replaced. */
 void add_attributes(
-    const struct attr_array *array,
+    const struct attr_array array,
     void *owner, void *data, unsigned int count,
     struct hash_table *attr_map);
 

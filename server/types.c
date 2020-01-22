@@ -600,7 +600,7 @@ static void create_type_attributes(
     struct type *type, struct hash_table *attr_map)
 {
     add_attributes(
-        &type->methods->attrs, type, type->type_data, type->count, attr_map);
+        type->methods->attrs, type, type->type_data, type->count, attr_map);
 }
 
 

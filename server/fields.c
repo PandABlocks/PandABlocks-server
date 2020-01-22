@@ -702,7 +702,7 @@ static error__t lookup_class(
 static error__t create_field_attributes(struct field *field)
 {
     add_attributes(
-        &field->methods->attrs,
+        field->methods->attrs,
         field, field->class_data, field->block->count, field->attrs);
     add_one_attribute(
         &info_attribute, field, field->class_data,
