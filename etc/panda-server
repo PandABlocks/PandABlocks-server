@@ -15,7 +15,6 @@ panda_mac=/qspi/MAC.FPGA
 
 extension_server=/opt/share/panda-server/extension_server
 extension_dir=/opt/share/panda-fpga/extensions
-extension_log=/var/log/panda-extension-server.log
 
 load_panda_firmware=/opt/share/panda-fpga/load-panda-firmware
 
@@ -60,7 +59,7 @@ do_start()
     done  &&
 
     # Now start the extension server
-    $extension_server -d -l $extension_log $extension_dir  &&
+    $extension_server -d -s $extension_dir  &&
 
     # Finally start the PANDA server
     $panda_server \
