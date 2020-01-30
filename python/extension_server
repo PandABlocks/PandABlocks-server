@@ -38,7 +38,7 @@ parser.add_argument(
 parser.add_argument(
     '-p', '--port', default = 9999, type = int, help = 'Specify socket port')
 parser.add_argument(
-    '-l', '--logfile', help = 'Specify log file to write to')
+    '-s', '--syslog', action = 'store_true', help = 'Log to syslog not stdout')
 parser.add_argument(
     '-D', '--dummy', action = 'store_true', help = 'Always use dummy extension')
 parser.add_argument(
@@ -57,10 +57,9 @@ if command_args.verbose:
     level = logging.DEBUG
 else:
     level = logging.INFO
-if command_args.logfile:
-    file_handler = logging.handlers.RotatingFileHandler(
-        command_args.logfile, maxBytes=1000000, backupCount=4)
-    logging.root.addHandler(file_handler)
+if command_args.syslog:
+    handler = logging.handlers.SysLogHandler("/dev/log", "daemon")
+    logging.root.addHandler(handler)
     logging.root.setLevel(level)
 else:
     logging.basicConfig(level=level, format='%(levelname)6s %(message)s')
