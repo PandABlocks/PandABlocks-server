@@ -53,8 +53,8 @@ error__t initialise_extension_server(unsigned int port)
         DO(server.file = create_buffered_file(sock, 4096, 4096))  ?:
         TEST_IO_(connect(sock, (struct sockaddr *) &s_in, sizeof(s_in)),
             "Unable to connect to extension server")  ?:
-        set_timeout(sock, SO_SNDTIMEO, 1)  ?:
-        set_timeout(sock, SO_RCVTIMEO, 1)  ?:
+        set_timeout(sock, SO_SNDTIMEO, 5)  ?:
+        set_timeout(sock, SO_RCVTIMEO, 5)  ?:
         TEST_IO(setsockopt(
             sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)));
 }
