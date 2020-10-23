@@ -109,11 +109,6 @@ SRCS += metadata.c              # Support for *METADATA command
 SRCS += mac_address.c           # Support for FPGA MAC address loading
 SRCS += extension.c             # Support for extension server registers
 
-
-# Program for loading slow FPGA on carrier card.
-slow_load: slow_load.c
-
-
 # For the true hardware target and simulation targets we need to take a bit of
 # care.  The source file hardware.c needs to be compiled twice with two
 # differing targets.

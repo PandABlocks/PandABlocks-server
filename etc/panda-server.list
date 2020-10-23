@@ -16,7 +16,6 @@ r share/www/panda-server html
 
 # Install the Panda components
 b bin/panda_server server/server
-b bin/slow_load server/slow_load
 b share/panda-server driver/panda.ko
 t share/panda-server python/extension_server
 
