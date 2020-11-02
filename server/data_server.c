@@ -434,18 +434,20 @@ static bool write_block_base64(
 }
 
 
+static void set_frame_header(void *buffer, uint32_t frame_length) {
+    /* Update the first four bytes of the buffer with a header followed by a
+     * frame byte count. */
+    memcpy(buffer, "BIN ", 4);
+    CAST_FROM_TO(void *, uint32_t *, buffer)[1] = frame_length;
+}
+
+
 /* Send the output buffer in the appropriate format. */
 static bool send_output_buffer(
     struct data_capture_state *state, unsigned int samples)
 {
     if (state->connection->options.data_format == DATA_FORMAT_FRAMED)
-    {
-        /* Update the first four bytes of the buffer with a header followed by a
-         * frame byte count. */
-        memcpy(state->output_buffer, "BIN ", 4);
-        CAST_FROM_TO(void *, uint32_t *, state->output_buffer)[1] =
-            (uint32_t) state->output_buffer_count;
-    }
+        set_frame_header(state->output_buffer, state->output_buffer_count);
 
     switch (state->connection->options.data_format)
     {
@@ -508,6 +510,54 @@ static bool process_capture_block(
 }
 
 
+/* If in RAW and FRAMED mode, we avoid extra memcpys by taking the input
+ * buffer and writing blocks directly from it. We always send a integer
+ * number of samples to the user, copying the residual to the output_buffer
+ * to hold onto it until the next buffer. The contents of output_buffer
+ * is an 8 byte header (which is filled in just before it is sent) plus
+ * any residual from the last buffer.
+ * Returns false if unable to send data, returns true otherwise.  *data_ok is
+ * set to false and data processing is abandoned if buffer overrun is seen. */
+static bool passthrough_capture_block(
+    struct data_capture_state *state, const void *buffer, size_t length,
+    uint64_t *sent_samples, bool *data_ok)
+{
+    /* The number of samples of residual + buffer we will send */
+    unsigned int samples =
+        (state->output_buffer_count + length) / state->raw_sample_length;
+    /* The bytes of the buffer to send this time */
+    unsigned int buffer_to_send =
+        samples * state->raw_sample_length - state->output_buffer_count;
+    /* The length of the residual including header */
+    unsigned int residual = 8 + state->output_buffer_count;
+
+    /* Put the frame length at the start of the residual output buffer */
+    set_frame_header(state->output_buffer, residual + buffer_to_send);
+
+    /* Send frame header and residual output buffer, then the current buffer */
+    bool sent_ok =
+        write_block(state->connection->file, state->output_buffer, residual) &&
+        write_block(state->connection->file, buffer, buffer_to_send);
+    /* Transmit the output buffer, if we can.  If this fails, just bail out. */
+    if (!sent_ok)
+        return false;
+
+    /* Reset the buffer count to have space for "BIN <frame_length>" again
+     * and add any residue to the output buffer */
+    buffer += buffer_to_send;
+    length -= buffer_to_send;
+    memcpy(state->output_buffer + 8, buffer, length);
+    state->output_buffer_count = length;
+
+    *sent_samples += samples;
+    /* Check here if the reader has just stamped on our data. If it did, then
+     * we're too late to save the bad data we just sent, but signal that we
+     * overrun so the client can discard it */
+    *data_ok = check_read_block(state->connection->reader);
+    return true;
+}
+
+
 /* Sends the data stream until end of stream or there's a problem with the
  * client connection.  Any client connection problem is stored in the
  * connection, so is not returned. */
@@ -529,6 +579,9 @@ static void send_data_stream(
     /* Read and process buffers. */
     bool ok = true;
     bool data_ok = true;
+    bool passthrough =
+        state.connection->options.data_format == DATA_FORMAT_FRAMED &&
+        state.connection->options.data_process == DATA_PROCESS_RAW;
     while (ok  &&  data_ok)
     {
         size_t in_length;
@@ -546,8 +599,14 @@ static void send_data_stream(
         }
 
         if (in_length > 0)
-            ok = process_capture_block(
-                &state, buffer, in_length, sent_samples, &data_ok);
+        {
+            if (passthrough)
+                ok = passthrough_capture_block(
+                    &state, buffer, in_length, sent_samples, &data_ok);
+            else
+                ok = process_capture_block(
+                    &state, buffer, in_length, sent_samples, &data_ok);
+        }
 
         /* We flush the output buffer at this stage in case we're running slowly
          * so that the client will see progress. */
