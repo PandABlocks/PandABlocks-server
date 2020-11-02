@@ -296,7 +296,11 @@ static error__t process_session(const struct listen_socket *listen_socket)
 {
     struct session *session = create_session();
     session->parent = listen_socket;
-
+    /* Pin this thread to CPU1, so it is on a different CPU to data capture
+     * thread */
+    cpu_set_t cpu_set;
+    CPU_ZERO(&cpu_set);
+    CPU_SET(1, &cpu_set);
     return
         TRY_CATCH(
             TEST_IO_(session->sock = accept(listen_socket->sock, NULL, NULL),
@@ -307,7 +311,9 @@ static error__t process_session(const struct listen_socket *listen_socket)
                 set_timeout(session->sock, SO_SNDTIMEO, TRANSMIT_TIMEOUT)  ?:
                 get_client_name(session->sock, session->name)  ?:
                 TEST_PTHREAD(pthread_create(
-                    &session->thread, NULL, session_thread, session)),
+                    &session->thread, NULL, session_thread, session)) ?:
+                TEST_PTHREAD(pthread_setaffinity_np(
+                    session->thread, sizeof(cpu_set_t), &cpu_set)),
 
             //catch
                 /* If thread session fails we have to close the socket. */

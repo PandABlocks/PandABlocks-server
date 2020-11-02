@@ -23,8 +23,8 @@
 
 
 /* Module parameters for buffer blocks. */
-static int block_shift = 8;     // In log2 pages, default is 1MB
-static int block_count = 3;     // Number of buffers in circular buffer
+static int block_shift = 9;     // In log2 pages, default is 2MB
+static int block_count = 32;    // Number of buffers in circular buffer
 static int block_timeout = 12500000;    // 100ms in 125MHz FPGA clock ticks
 static int verbose = 0;
 
@@ -222,6 +222,7 @@ static int allocate_blocks(struct stream_open *open)
     struct device *dev = &open->pcap->pdev->dev;
     int rc = 0;
     int blk = 0;
+    printk(KERN_INFO "Allocate %dx %d blocks\n", block_count, BUF_BLOCK_SIZE);
     for (; blk < block_count; blk ++)
     {
         struct block *block = &open->blocks[blk];
