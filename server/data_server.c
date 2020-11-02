@@ -28,8 +28,8 @@
 
 
 /* Central circular data buffer.  The block size is chosen to match the driver
- * block size, and we choose a reasonably large number of blocks. */
-#define DATA_BLOCK_SIZE         (1U << 18)
+ * block size, and we choose a reasonably large number of 2MB blocks. */
+#define DATA_BLOCK_SIZE         (1U << 21)
 #define DATA_BLOCK_COUNT        128
 
 /* File buffers.  These are only used for text buffered text communication on
@@ -693,6 +693,7 @@ error__t process_data_socket(int scon)
 error__t initialise_data_server(void)
 {
     pwait_initialise(&data_thread_event);
+    log_message("Allocate %dx %d blocks", DATA_BLOCK_COUNT, DATA_BLOCK_SIZE);
     data_buffer = create_buffer(DATA_BLOCK_SIZE, DATA_BLOCK_COUNT);
     return ERROR_OK;
 }
@@ -715,13 +716,19 @@ error__t start_data_server(void)
      * options are described in sched_setscheduler(2).  Of course we can only do
      * this on the real target system. */
     struct sched_param sched_param = { .sched_priority = 20 };
+    /* Pin this thread to CPU0, along with all the interrupts */
+    cpu_set_t cpu_set;
+    CPU_ZERO(&cpu_set);
+    CPU_SET(0, &cpu_set);
     return
         TEST_PTHREAD(pthread_create(
             &data_thread_id, NULL, data_thread, NULL))  ?:
         DO(data_thread_started = true)  ?:
         IF(!sim_hardware(),
             TEST_PTHREAD(pthread_setschedparam(
-                data_thread_id, SCHED_RR, &sched_param)));
+                data_thread_id, SCHED_RR, &sched_param))  ?:
+            TEST_PTHREAD(pthread_setaffinity_np(
+                data_thread_id, sizeof(cpu_set_t), &cpu_set)));
 }
 
 
