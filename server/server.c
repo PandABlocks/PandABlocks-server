@@ -39,8 +39,8 @@ static const char *config_dir;
 
 /* Persistence state. */
 static const char *persistence_file;
-static unsigned int persistence_poll = 2;
-static unsigned int persistence_holdoff = 10;
+static unsigned int persistence_poll = 20;
+static unsigned int persistence_holdoff = 30;
 static unsigned int persistence_backoff = 60;
 
 /* Option for loading MAC addresses at startup. */
