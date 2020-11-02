@@ -39,6 +39,7 @@ struct data_capture {
     size_t raw_sample_words;
 
     size_t sample_count_index;      // Offset of sample count if required
+    bool sample_count_anonymous;    // Sample count present but not in a group
 
     /* Counts, data indexes, and scaling indexes for fields with differing
      * process requirements.  For the 64-bit fields the index is in 32-bit words
@@ -403,7 +404,7 @@ static unsigned int emit_capture(
 /* Ensure that the sample count is available.  If it is already being captured
  * then work out where it will appear in the unscaled list, otherwise add it to
  * the anonymous capture group at the start. */
-static void ensure_sample_count(
+static bool ensure_sample_count(
     const struct captured_fields *fields, struct gather *gather)
 {
     struct data_capture *capture = gather->capture;
@@ -419,7 +420,8 @@ static void ensure_sample_count(
             /* Already being captured.  Because the unscaled group goes first
              * and we're the only entry, this is the right index. */
             capture->sample_count_index = i;
-            return;
+            /* Sample count is in a group, not anonymous */
+            return false;
         }
     }
 
@@ -427,6 +429,7 @@ static void ensure_sample_count(
      * we're first and only, we go into the anonymous group. */
     capture->sample_count_index =
         emit_capture(gather, fields->sample_count, 1, false);
+    return true;
 }
 
 
@@ -449,7 +452,9 @@ static void gather_data_capture(
     /* Work through the fields. */
     struct data_capture *capture = gather->capture;
     if (fields->averaged.count > 0)
-        ensure_sample_count(fields, gather);
+        capture->sample_count_anonymous = ensure_sample_count(fields, gather);
+    else
+        capture->sample_count_anonymous = false;
 
     prepare_output_group(
         gather, &fields->unscaled, &capture->unscaled, 1, false);
@@ -484,4 +489,9 @@ error__t prepare_data_capture(
         *capture = &data_capture_state;
     }
     return error;
+}
+
+
+bool sample_count_is_anonymous(const struct data_capture *capture) {
+    return capture->sample_count_anonymous;
 }
