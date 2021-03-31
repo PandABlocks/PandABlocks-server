@@ -140,10 +140,23 @@ static uint32_t extension_server_read(
 static void extension_server_write(
     unsigned int parse_id, unsigned int number, uint32_t value)
 {
-    error_report(SERVER_EXCHANGE(
-        write_formatted_string(server.file,
-            "W%u %u %u\n", parse_id, number, value)  &&
-        flush_out_buf(server.file)));
+    char buffer[256];
+    const char *response = buffer;
+    /* The code below is almost identical to extension_server_exchange and will
+     * need to be merged with it shortly. */
+    error_report(
+        TEST_OK_(server.file, "Extension server not running")  ?:
+        SERVER_EXCHANGE(
+            write_formatted_string(server.file,
+                "W%u %u %u\n", parse_id, number, value)  &&
+            read_line(server.file, buffer, sizeof(buffer), true))  ?:
+        IF_ELSE(read_char(&response, 'W'),
+            // Successful parse.  Response should be empty
+            parse_eos(&response),
+        //else
+            // The only other valid response is an error message
+            parse_char(&response, 'E')  ?:
+            FAIL_("%s", response)));
 }
 
 
