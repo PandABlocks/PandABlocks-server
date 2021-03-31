@@ -3,3 +3,4 @@
 /simserver
 *.pyc
 tests/fpga_sequences
+/venv
