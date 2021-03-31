@@ -26,14 +26,12 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Base state, common to all three class implementations here. */
 
-#define UNUSED_REGISTER     UINT_MAX
-
 /* Common shared state for all register functions. */
 struct base_state {
     struct type *type;              // Type implementation for value conversion
     unsigned int block_base;        // Base number for block
-    /* Optionally one or both of field_register or extension can be defined for
-     * writeable field, but only one for read only fields. */
+    /* Either field_register or extension is defined: if extension is non NULL
+     * then field_register is ignored. */
     unsigned int field_register;    // Register to be read or written
     struct extension_address *extension;    // Extension address
 };
@@ -62,25 +60,15 @@ static error__t base_parse_register(
     const char **line, bool write_not_read)
 {
     state->block_base = block_base;
-    state->field_register = UNUSED_REGISTER;
-    struct extension_block *extension =
-        get_block_extension(get_field_block(field));
-    return
-        IF_ELSE(read_char(line, 'X'),
-            // Extension register only
-            parse_extension_address(
-                line, extension, write_not_read, &state->extension),
-        //else
-            // Otherwise there must be a normal register, maybe followed by an
-            // extension register
-            check_parse_register(field, line, &state->field_register)  ?:
-            IF(read_char(line, ' '),
-                parse_char(line, 'X')  ?:
-                TEST_OK_(write_not_read,
-                    "Cannot specify two registers for read")  ?:
-                parse_extension_address(
-                    line, extension, write_not_read, &state->extension)));
 
+    /* The syntax for extension registers is most simply identified by checking
+     * for an X in the line. */
+    if (strchr(*line, 'X'))
+        return parse_extension_register(
+            line, get_block_extension(get_field_block(field)),
+            write_not_read, &state->extension);
+    else
+        return check_parse_register(field, line, &state->field_register);
 }
 
 static error__t read_parse_register(
@@ -142,18 +130,20 @@ static error__t base_put(
 static void write_register(
     struct base_state *state, unsigned int number, uint32_t value)
 {
-    if (state->field_register != UINT_MAX)
+    if (state->extension)
+        extension_write_register(
+            state->extension, state->block_base, number, value);
+    else
         hw_write_register(
             state->block_base, number, state->field_register, value);
-    if (state->extension)
-        extension_write_register(state->extension, number, value);
 }
 
 
 static uint32_t read_register(struct base_state *state, unsigned int number)
 {
     if (state->extension)
-        return extension_read_register(state->extension, number);
+        return extension_read_register(
+            state->extension, state->block_base, number);
     else
         return hw_read_register(
             state->block_base, number, state->field_register);

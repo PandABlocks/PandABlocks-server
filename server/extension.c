@@ -199,36 +199,65 @@ void destroy_extension_block(struct extension_block *block)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Register interface. */
 
+#define UNUSED_REGISTER     UINT_MAX
+
 struct extension_address {
     unsigned int parse_id;
+    unsigned int field_register;
 };
 
 
 static struct extension_address *create_extension_address(
-    unsigned int parse_id)
+    unsigned int parse_id, unsigned field_register)
 {
     struct extension_address *address =
         malloc(sizeof(struct extension_address));
     *address = (struct extension_address) {
         .parse_id = parse_id,
+        .field_register = field_register,
     };
     return address;
 }
 
 
-error__t parse_extension_address(
-    const char **line, struct extension_block *block,
-    bool write_not_read, struct extension_address **address)
+static error__t parse_extension_address(
+    const char **line, unsigned int block_id,
+    bool write_not_read, unsigned int *parse_id)
 {
     const char *request;
-    unsigned int parse_id;
     return
-        TEST_OK_(block, "No extensions defined for this block")  ?:
         parse_whitespace(line)  ?:
         parse_utf8_string(line, &request)  ?:
         extension_server_parse_field(
-            block->block_id, write_not_read, request, &parse_id)  ?:
-        DO(*address = create_extension_address(parse_id));
+            block_id, write_not_read, request, parse_id);
+}
+
+
+error__t parse_extension_register(
+    const char **line, struct extension_block *block,
+    bool write_not_read, struct extension_address **address)
+{
+    unsigned int field_register = UNUSED_REGISTER;
+    unsigned int parse_id;
+    return
+        TEST_OK_(block, "No extensions defined for this block")  ?:
+        IF_ELSE(read_char(line, 'X'),
+            // Extension register only
+            parse_extension_address(
+                line, block->block_id, write_not_read, &parse_id),
+        //else
+            // Otherwise there must be a normal register followed by an
+            // extension register
+            parse_uint(line, &field_register)  ?:
+            TEST_OK_(field_register < BLOCK_REGISTER_COUNT,
+                "Register value too large")  ?:
+            parse_char(line, ' ')  ?:
+            parse_char(line, 'X')  ?:
+            TEST_OK_(write_not_read,
+                "Cannot specify two registers for read")  ?:
+            parse_extension_address(
+                line, block->block_id, write_not_read, &parse_id))  ?:
+        DO(*address = create_extension_address(parse_id, field_register));
 }
 
 
@@ -240,16 +269,19 @@ void destroy_extension_address(struct extension_address *address)
 
 /* Writes the given value to the given extension register. */
 void extension_write_register(
-    const struct extension_address *address, unsigned int number,
-    uint32_t value)
+    const struct extension_address *address,
+    unsigned int block_base, unsigned int number, uint32_t value)
 {
+    if (address->field_register != UNUSED_REGISTER)
+        hw_write_register(block_base, number, address->field_register, value);
     extension_server_write(address->parse_id, number, value);
 }
 
 
 /* Returns current value of the given extension register. */
 uint32_t extension_read_register(
-    const struct extension_address *address, unsigned int number)
+    const struct extension_address *address,
+    unsigned int block_base, unsigned int number)
 {
     return extension_server_read(address->parse_id, number);
 }
