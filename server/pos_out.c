@@ -65,9 +65,6 @@ static uint64_t pos_update_index[] = { [0 ... POS_BUS_COUNT-1] = 1 };
 
 
 
-#define MAX_DATA_DELAY   31
-
-
 /* The refresh methods are called when we need a fresh value.  We retrieve
  * values and changed bits from the hardware and update settings accordingly. */
 
