@@ -434,11 +434,14 @@ static bool write_block_base64(
 }
 
 
-static void set_frame_header(void *buffer, uint32_t frame_length) {
+static void set_frame_header(void *buffer, size_t frame_length)
+{
+    ASSERT_OK(frame_length <= UINT32_MAX);
+
     /* Update the first four bytes of the buffer with a header followed by a
      * frame byte count. */
     memcpy(buffer, "BIN ", 4);
-    CAST_FROM_TO(void *, uint32_t *, buffer)[1] = frame_length;
+    CAST_FROM_TO(void *, uint32_t *, buffer)[1] = (uint32_t) frame_length;
 }
 
 
@@ -523,13 +526,13 @@ static bool passthrough_capture_block(
     uint64_t *sent_samples, bool *data_ok)
 {
     /* The number of samples of residual + buffer we will send */
-    unsigned int samples =
+    size_t samples =
         (state->output_buffer_count + length) / state->raw_sample_length;
     /* The bytes of the buffer to send this time */
-    unsigned int buffer_to_send =
+    size_t buffer_to_send =
         samples * state->raw_sample_length - state->output_buffer_count;
     /* The length of the residual including header */
-    unsigned int residual = 8 + state->output_buffer_count;
+    size_t residual = 8 + state->output_buffer_count;
 
     /* Put the frame length at the start of the residual output buffer */
     set_frame_header(state->output_buffer, residual + buffer_to_send);
