@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "error.h"
 #include "parse.h"
@@ -287,6 +288,20 @@ static void send_capture_info(
 
     struct xml_element element =
         start_element(file, "data", options->xml_header, false, true);
+    
+    // valerix begin
+    struct timespec ts;
+    struct tm tm;
+    char message[MAX_RESULT_LENGTH];
+    clock_gettime(CLOCK_REALTIME, &ts);
+    localtime_r(&ts.tv_sec, &tm);
+    snprintf(message, sizeof(message),
+        "%4d-%02d-%02d %02d:%02d:%02d.%03ld",
+        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+        tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000);
+    format_attribute(&element, "PCAP ARM time", "%s", message);
+    // valerix end
+    
     format_attribute(&element, "missed", "%"PRIu64, missed_samples);
     format_attribute(&element, "process", "%s", data_process);
     format_attribute(&element, "format", "%s", data_format);
