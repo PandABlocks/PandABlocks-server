@@ -2,7 +2,7 @@
 
 # This file is loaded by the extension server
 
-from __future__ import print_function
+import logging
 
 import os.path
 
@@ -10,7 +10,7 @@ XADC_PATH = '/sys/devices/soc0/amba/f8007100.adc/iio:device0'
 
 class XADC:
     def __init__(self, node):
-        print('XADC', repr(node))
+        logging.info('XADC %s', repr(node))
         self.node = node
         self.offset = 0
         self.scale = 1

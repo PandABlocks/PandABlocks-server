@@ -1,21 +1,34 @@
 # Dummy extension service
 
-class Dummy:
-    def __init__(self):
-        pass
+import logging
+
+
+class DummyField:
+    def __init__(self, parent):
+        logging.info('dummy field')
+        self.values = [0] * parent.count
 
     def read(self, number):
-        return 0
+        return self.values[number]
 
     def write(self, number, value):
-        pass
+        self.values[number] = value
+
 
 class Extension:
     def __init__(self, count):
-        pass
+        logging.info('dummy %d', count)
+        self.count = count
+        self.fields = {}
+
+    def make_field(self, name):
+        logging.info('make_field %s', name)
+        if name not in self.fields:
+            self.fields[name] = DummyField(self)
+        return self.fields[name]
 
     def parse_read(self, node):
-        return Dummy()
+        return self.make_field(node)
 
     def parse_write(self, node):
-        return Dummy()
+        return self.make_field(node)

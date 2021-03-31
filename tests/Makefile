@@ -38,6 +38,18 @@ test_configs:
 TESTS += test_configs
 
 # ------------------------------------------------------------------------------
+# Test interface to extension server
+
+test_extension:
+	-nc localhost 9999 </dev/null
+	$(TOP)/python/extension_server -d $(TOP)/python/test_extension
+	./test_extension.py extension_script
+
+.PHONY: test_extension
+TESTS += test_extension
+
+
+# ------------------------------------------------------------------------------
 
 tests: $(TESTS)
 .DEFAULT_GOAL = tests
