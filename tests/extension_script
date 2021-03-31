@@ -24,6 +24,21 @@ W
 R0 3
 R999
 
+# Create poly fields
+PR0 poly
+P2
+
+PW0 poly
+P3
+
+# Testing reading from a poly field
+R2 99 1 2 3 4
+R10
+
+# Writing to a poly field
+W3 99 1 2 3 4
+W4 3 2 1
+
 # Parse unknown block
 B1 unknown
 EExtension module 'unknown' not found
@@ -39,3 +54,7 @@ EInvalid block id '999'
 # Read with invalid field
 R999 99
 EInvalid field id 999
+
+# Send extra values to field which isn't expecting it
+R0 3 1 2 3 4
+ETypeError: read() takes exactly 2 arguments (6 given)

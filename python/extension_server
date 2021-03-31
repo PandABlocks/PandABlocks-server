@@ -75,14 +75,14 @@ class Extensions:
         return self.field_ids.add_entity(parse)
 
     def read(self, line):
-        # Syntax:   parse-id field-num
-        id, number = map(int, line.split(' ', 1))
-        return self.field_ids[id].read(number)
+        # Syntax:   parse-id field-num [read-regs]*
+        args = map(int, line.split(' '))
+        return self.field_ids[args[0]].read(*args[1:])
 
     def write(self, line):
-        # Syntax:   parse-id field-num value
-        id, number, value = map(int, line.split(' ', 2))
-        result = self.field_ids[id].write(number, value)
+        # Syntax:   parse-id field-num value [read-regs]*
+        args = map(int, line.split(' '))
+        result = self.field_ids[args[0]].write(*args[1:])
 
         # The return from result can be None, which we treat as an empty list,
         # otherwise it must be a tuple of register values to be written.
