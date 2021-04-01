@@ -54,8 +54,6 @@ class Extensions:
         # Syntax:   field-count module-name
         count, module_name = line.split()
         count = int(count)
-        if command_args.dummy:
-            module_name = 'dummy'
         block = import_extension_module(module_name).Extension(count)
         return self.block_ids.add_entity(block)
 
@@ -105,7 +103,7 @@ class Server:
     def send(self, message):
         # If message too long replace with error message
         if len(message) > 255:
-            message = 'EOverlong response discarded (%u chars)' % len(message)
+            message = 'EOverlong response discarded (%u chars)\n' % len(message)
         logging.debug('Write: %r', message)
         self.file.write(message)
         self.file.flush()
@@ -207,8 +205,6 @@ parser.add_argument(
     '-p', '--port', default = 9999, type = int, help = 'Specify socket port')
 parser.add_argument(
     '-s', '--syslog', action = 'store_true', help = 'Log to syslog not stdout')
-parser.add_argument(
-    '-D', '--dummy', action = 'store_true', help = 'Always use dummy extension')
 parser.add_argument(
     'extensions', help = 'Extension directory')
 command_args = parser.parse_args()
