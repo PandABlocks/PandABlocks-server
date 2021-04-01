@@ -47,14 +47,10 @@ static void base_destroy(void *class_data)
 }
 
 
-/* Depending on whether this is a read or a write register the register syntax
- * is either
- *
- *  reg | X extension | reg X extension         (for write only registers)
- *  reg | X extension                           (for read only registers)
- *
- * In the case where both a register and an extension are specified, both
- * registers are written to when appropriate. */
+/* The register specification is either a single register, specifying the
+ * hardware register accessed by this field, or is an extension register with a
+ * much more complex syntax.  Fortunately this can simply be identified by the
+ * presence of an X character in the specification. */
 static error__t base_parse_register(
     struct base_state *state, struct field *field, unsigned int block_base,
     const char **line, bool write_not_read)
@@ -66,7 +62,7 @@ static error__t base_parse_register(
     if (strchr(*line, 'X'))
         return parse_extension_register(
             line, get_block_extension(get_field_block(field)),
-            write_not_read, &state->extension);
+            block_base, write_not_read, &state->extension);
     else
         return check_parse_register(field, line, &state->field_register);
 }
@@ -131,8 +127,7 @@ static void write_register(
     struct base_state *state, unsigned int number, uint32_t value)
 {
     if (state->extension)
-        extension_write_register(
-            state->extension, state->block_base, number, value);
+        extension_write_register(state->extension, number, value);
     else
         hw_write_register(
             state->block_base, number, state->field_register, value);
@@ -142,8 +137,7 @@ static void write_register(
 static uint32_t read_register(struct base_state *state, unsigned int number)
 {
     if (state->extension)
-        return extension_read_register(
-            state->extension, state->block_base, number);
+        return extension_read_register(state->extension, number);
     else
         return hw_read_register(
             state->block_base, number, state->field_register);

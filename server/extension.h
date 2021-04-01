@@ -21,6 +21,7 @@ void destroy_extension_block(struct extension_block *block);
  * which can be used for subsequent register read and write operations. */
 error__t parse_extension_register(
     const char **line, struct extension_block *block,
+    unsigned int block_base,
     bool write_not_read, struct extension_address **address);
 
 void destroy_extension_address(struct extension_address *address);
@@ -28,9 +29,8 @@ void destroy_extension_address(struct extension_address *address);
 /* Writes the given value to the given extension register. */
 void extension_write_register(
     const struct extension_address *address,
-    unsigned int block_base, unsigned int number, uint32_t value);
+    unsigned int number, uint32_t value);
 
 /* Returns current value of the given extension register. */
 uint32_t extension_read_register(
-    const struct extension_address *address,
-    unsigned int block_base, unsigned int number);
+    const struct extension_address *address, unsigned int number);
