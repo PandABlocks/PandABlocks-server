@@ -85,14 +85,8 @@ typedef struct error__t *error__t;  // Alas error_t is already spoken for!
 bool error_report(error__t error);
 
 /* A helper macro to extend the reported error with context. */
-#define _id_ERROR_REPORT(error, expr, format...) \
-    ( { \
-        error__t error = (expr); \
-        if (error) \
-            error_extend(error, format); \
-        error_report(error); \
-    } )
-#define ERROR_REPORT(args...)  _id_ERROR_REPORT(UNIQUE_ID(), args)
+#define ERROR_REPORT(expr, format...) \
+    error_report(ERROR_EXTEND(expr, format))
 
 /* This function silently discards the error code. */
 void error_discard(error__t error);
@@ -102,6 +96,16 @@ void error_discard(error__t error);
  * the new message. */
 void error_extend(error__t error, const char *format, ...)
     __attribute__((format(printf, 2, 3)));
+
+/* Macro for using error_extend within a chain of errors. */
+#define _id_ERROR_EXTEND(error, expr, extend...) \
+    ({ \
+        error__t error = (expr); \
+        if (error) error_extend(error, extend); \
+        error; \
+    })
+#define ERROR_EXTEND(args...) _id_ERROR_EXTEND(UNIQUE_ID(), args)
+
 
 /* Converts an error code into a formatted string. */
 const char *error_format(error__t error);

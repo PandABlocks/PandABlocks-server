@@ -182,8 +182,7 @@ error__t parse_uint_array(
     error__t error = ERROR_OK;
     for (size_t i = 0; !error  &&  i < length; i ++)
         error =
-            IF(i > 0,
-                parse_whitespace(line))  ?:
+            IF(i > 0, parse_whitespace(line))  ?:
             parse_uint(line, &array[i]);
     return error;
 }
@@ -324,13 +323,12 @@ error__t parse_indented_file(
             line_no += 1;
             /* Skip whitespace and compute the current indentation. */
             const char *parsed_line = line;
-            error = parse_one_line(&parsed_line, indent_stack, &sp);
-
-            /* In this case extend the error with the file name and line number
-             * for more helpful reporting. */
-            if (error)
-                error_extend(error,
-                    "parsing line %d of \"%s\"", line_no, file_name);
+            error = ERROR_EXTEND(
+                parse_one_line(&parsed_line, indent_stack, &sp),
+                /* Extend the error with file name, line number, and column
+                 * where the parse error occurred. */
+                "Parsing line %d of \"%s\" at column %zd",
+                line_no, file_name, parsed_line - line + 1);
         }
         fclose(file);
 
