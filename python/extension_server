@@ -109,7 +109,7 @@ class Server:
         self.file.flush()
 
     def process_response(self, prefix, *response):
-        logging.info('response = %r', response)
+        logging.debug('response = %r', response)
         result = ' '.join(['%u' % r for r in response])
         self.send('%c%s\n' % (prefix, result))
 
@@ -204,7 +204,7 @@ parser.add_argument(
 parser.add_argument(
     '-p', '--port', default = 9999, type = int, help = 'Specify socket port')
 parser.add_argument(
-    '-s', '--syslog', action = 'store_true', help = 'Log to syslog not stdout')
+    '-s', '--syslog', action = 'store_true', help = 'Log to syslog not stderr')
 parser.add_argument(
     'extensions', help = 'Extension directory')
 command_args = parser.parse_args()

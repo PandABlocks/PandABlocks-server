@@ -28,8 +28,7 @@ while getopts 'np:d:f:c:vV:P-h' option; do
     p)  CONFIG_PORT=$OPTARG ;;
     d)  DATA_PORT=$OPTARG ;;
     f)  SIM_SERVER="$OPTARG/autogen/sim_server"
-        CONFIG_DIR="$OPTARG/autogen/config_d"
-        EXT_ARGS+=(-D) ;;
+        CONFIG_DIR="$OPTARG/autogen/config_d" ;;
     c)  CONFIG_DIR="$OPTARG" ;;
     v)  SIM_ARGS+=(-v)
         EXT_ARGS+=(-v) ;;
