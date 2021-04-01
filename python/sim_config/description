@@ -269,6 +269,12 @@ SYSTEM          System control FPGA
     TEMP_ZYNQ       On-board zynq temperature
     VCCINT          On-board voltage sensor
 
+DUMMY           Dummy test extension registers
+    DUMMY_R         Reads a single register
+    DUMMY_W         Writes a single register
+    POLY_R          Reads a group of registers
+    POLY_W          Writes a group of registers
+
 SFP_RX        Sync receive
     PARAM           A parameter
     BITA            BITA from other PandA

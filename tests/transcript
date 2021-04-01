@@ -33,6 +33,7 @@
 > !SFP_TX 1
 > !TTLOUT 10
 > !ADC 8
+> !DUMMY 5
 > !DIV 4
 > !INENC 4
 > !SLOW 1

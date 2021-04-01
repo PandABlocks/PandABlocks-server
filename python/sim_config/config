@@ -337,6 +337,12 @@ SYSTEM[1]
     TEMP_ZYNQ       read scalar 0.001 0 deg
     VCCINT          read scalar 0.001 0 deg
 
+DUMMY[5]
+    DUMMY_R         read
+    DUMMY_W         write
+    POLY_R          read
+    POLY_W          write
+
 SFP_RX
     PARAM           param
     BITA            bit_out

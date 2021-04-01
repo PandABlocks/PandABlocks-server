@@ -74,6 +74,9 @@ for (command, expected, line_no) in transcript:
         else:
             print('line %d: send %r received %r' % (line_no, command, received))
 
-if error_count > 0:
-    print('%d errors' % error_count)
+if error_count == 0:
+    print('Test ok', file = sys.stderr)
+    sys.exit(0)
+else:
+    print('%d errors' % error_count, file = sys.stderr)
     sys.exit(1)
