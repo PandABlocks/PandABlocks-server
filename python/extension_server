@@ -102,11 +102,18 @@ class Server:
         self.file = None
         self.ext = None
 
+    def send(self, message):
+        # If message too long replace with error message
+        if len(message) > 255:
+            message = 'EOverlong response discarded (%u chars)' % len(message)
+        logging.debug('Write: %r', message)
+        self.file.write(message)
+        self.file.flush()
+
     def process_response(self, prefix, *response):
         logging.info('response = %r', response)
         result = ' '.join(['%u' % r for r in response])
-        self.file.write('%c%s\n' % (prefix, result))
-        self.file.flush()
+        self.send('%c%s\n' % (prefix, result))
 
     def process_command(self, line):
         logging.debug('Read: %r', line)
@@ -133,12 +140,10 @@ class Server:
             try:
                 self.process_command(line)
             except ServerError as e:
-                self.file.write('E%s\n' % str(e))
-                self.file.flush()
+                self.send('E%s\n' % str(e))
             except Exception as e:
                 logging.exception('Caught exception', exc_info = True)
-                self.file.write('E%s: %s\n' % (e.__class__.__name__, str(e)))
-                self.file.flush()
+                self.send('E%s: %s\n' % (e.__class__.__name__, str(e)))
 
     def run(self):
         conn, _ = self.server_sock.accept()
