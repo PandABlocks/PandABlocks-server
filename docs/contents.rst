@@ -8,5 +8,6 @@ Contents
     capture
     building
     config
+    extension
     startup
     support

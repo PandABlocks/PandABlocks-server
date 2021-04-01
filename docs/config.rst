@@ -1,3 +1,5 @@
+..  _config:
+
 Configuration Files
 ===================
 
@@ -165,14 +167,14 @@ replaced by a type specific register definition.
 
 So a block definition is::
 
-    block-name [ "S" ] block-register [ extension-string ]
+    block-name [ "S" ] block-register [ extension-module ]
         [ field-definition ]*
 
 If the `block-register` number is prefixed with ``S`` then the same block
 register number can be shared with multiple blocks: this allows a single
 hardware implementation to be presented as multiple software blocks.
 
-The register number can be followed by an `extension-string` which is used to
+The register number can be followed by an `extension-module` which is used to
 identify this block to the extension server, and will enable use of the
 extension register syntax defined below.
 
@@ -186,9 +188,9 @@ follows:
 ======================= ========================================================
 Class                   Register syntax
 ======================= ========================================================
-``param``               register | extension | register extension
-``read``                register | extension
-``write``               register | extension | register extension
+``param``               register | write-extension
+``read``                register | read-extension
+``write``               register | write-extension
 ``time``                low-register high-register
 ``bit_out``             ( bit-index )N
 ``pos_out``             ( pos-index )N
@@ -202,19 +204,26 @@ Class                   Register syntax
 
 where the syntax ``(...)N`` means that the given register number is repeated N
 times where N is the number of instances of the block.  See below for an
-explanation of `extension`.
+explanation of `read-extension` and `write-extension`.
 
 Extension register syntax
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If the extension server is enabled (with the ``-X`` command line option on the
-server) then ``param``, ``read``, and ``write`` subtypes can all be redirected
-to the extension server using the `extension` syntax::
+server) and if an extension module has been loaded as part of the block
+specification then ``param``, ``read``, and ``write`` subtypes can all be
+redirected to the extension server using the `read-extension` and
+`write-extension` syntax::
 
-    extension = "X" module-name [extra-args]
+    read-extension = [ read-reg ]* "X" field-spec
+    write-extension = [ read-reg ]* [ "W" [ write-reg ]* ] "X" field-spec
 
-In this syntax the `module-name` field must name an extension module which can
-be loaded by the server, and the `extra-args` are interpreted by this module.
+In this syntax `field-spec` is passed through to the associated
+`extension-module` to create the binding between this field and the extension
+server.  The specified `read-reg`\ s and `write-reg`\ s will be used when
+processing this field.
+
+See :ref:`extension` for more details on extension fields.
 
 
 Description file ``description``
