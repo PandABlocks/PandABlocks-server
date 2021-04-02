@@ -144,11 +144,13 @@ static error__t pos_mux_put(
     if (!error)
     {
         struct pos_mux_value *value = &state->values[number];
-        LOCK(state->mutex);
-        value->value = mux_value;
-        value->update_index = get_change_index();
-        hw_write_register(state->block_base, number, state->mux_reg, mux_value);
-        UNLOCK(state->mutex);
+        WITH_MUTEX(state->mutex)
+        {
+            value->value = mux_value;
+            value->update_index = get_change_index();
+            hw_write_register(
+                state->block_base, number, state->mux_reg, mux_value);
+        }
     }
     return error;
 }
@@ -158,10 +160,9 @@ static void pos_mux_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct pos_mux_state *state = class_data;
-    LOCK(state->mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index > report_index;
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        for (unsigned int i = 0; i < state->count; i ++)
+            changes[i] = state->values[i].update_index > report_index;
 }
 
 

@@ -80,7 +80,7 @@ static error__t extension_server_exchange(
     const char *response = result_buffer;
     return
         TEST_OK_(server.file, "Extension server not running")  ?:
-        WITH_LOCK(server.mutex,
+        ERROR_WITH_MUTEX(server.mutex,
             TEST_OK_(
                 write_string(server.file, message, strlen(message))  &&
                 read_line(server.file,

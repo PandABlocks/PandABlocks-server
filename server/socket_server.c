@@ -100,9 +100,8 @@ static struct session *create_session(void)
     session->sock = -1;
     session->ref_count = 1;
 
-    LOCK(mutex);
-    list_add(&session->list, &active_sessions);
-    UNLOCK(mutex);
+    WITH_MUTEX(mutex)
+        list_add(&session->list, &active_sessions);
 
     return session;
 }
@@ -111,19 +110,20 @@ static struct session *create_session(void)
 /* Moves an active session to the closed sessions list, waiting to be joined. */
 static void close_session(struct session *session)
 {
-    LOCK(mutex);
-    if (session->sock != -1)
-        close(session->sock);
-    session->sock = -1;
-
-    /* Once the running flag is reset it's no longer safe to move these lists
-     * around as termination cleanup may be in progress. */
-    if (running)
+    WITH_MUTEX(mutex)
     {
-        list_del(&session->list);
-        list_add(&session->list, &closed_sessions);
+        if (session->sock != -1)
+            close(session->sock);
+        session->sock = -1;
+
+        /* Once the running flag is reset it's no longer safe to move these
+         * lists around as termination cleanup may be in progress. */
+        if (running)
+        {
+            list_del(&session->list);
+            list_add(&session->list, &closed_sessions);
+        }
     }
-    UNLOCK(mutex);
 }
 
 
@@ -131,12 +131,13 @@ static void close_session(struct session *session)
  * but it must be on a list. */
 static void destroy_session(struct session *session)
 {
-    LOCK(mutex);
-    list_del(&session->list);
-    session->ref_count -= 1;
-    if (session->ref_count == 0)
-        free(session);
-    UNLOCK(mutex);
+    WITH_MUTEX(mutex)
+    {
+        list_del(&session->list);
+        session->ref_count -= 1;
+        if (session->ref_count == 0)
+            free(session);
+    }
 }
 
 
@@ -144,15 +145,16 @@ static void join_sessions(struct list_head *list)
 {
     /* Move the entire list to our workspace under lock. */
     struct list_head work_list;
-    LOCK(mutex);
-    if (list_is_empty(list))
-        init_list_head(&work_list);
-    else
+    WITH_MUTEX(mutex)
     {
-        __list_add(&work_list, list->prev, list->next);
-        init_list_head(list);
+        if (list_is_empty(list))
+            init_list_head(&work_list);
+        else
+        {
+            __list_add(&work_list, list->prev, list->next);
+            init_list_head(list);
+        }
     }
-    UNLOCK(mutex);
 
     /* Perform a join on each entry in the list. */
     struct list_head *entry = work_list.next;
@@ -202,15 +204,16 @@ void generate_connection_list(struct connection_result *result)
 
     /* First grab a safe copy of the session list.  This all has to be done
      * under the lock. */
-    LOCK(mutex);
-    list_for_each_entry(struct session, list, session, &active_sessions)
+    WITH_MUTEX(mutex)
     {
-        struct session_copy *copy = malloc(sizeof(struct session_copy));
-        list_add(&copy->list, &copy_list);
-        copy->session = session;
-        session->ref_count += 1;
+        list_for_each_entry(struct session, list, session, &active_sessions)
+        {
+            struct session_copy *copy = malloc(sizeof(struct session_copy));
+            list_add(&copy->list, &copy_list);
+            copy->session = session;
+            session->ref_count += 1;
+        }
     }
-    UNLOCK(mutex);
 
     /* Now we can walk the list at our leisure and emit the results. */
     list_for_each_entry(struct session_copy, list, copy, &copy_list)
@@ -222,11 +225,12 @@ void generate_connection_list(struct connection_result *result)
     {
         struct session_copy *copy =
             container_of(copy_head, struct session_copy, list);
-        LOCK(mutex);
-        copy->session->ref_count -= 1;
-        if (copy->session->ref_count == 0)
-            free(copy->session);
-        UNLOCK(mutex);
+        WITH_MUTEX(mutex)
+        {
+            copy->session->ref_count -= 1;
+            if (copy->session->ref_count == 0)
+                free(copy->session);
+        }
         copy_head = copy_head->next;
         free(copy);
     }
@@ -411,10 +415,9 @@ void terminate_socket_server()
     list_for_each_entry(
         struct session, list, session, &active_sessions)
     {
-        LOCK(mutex);
-        if (session->sock != -1)
-            shutdown(session->sock, SHUT_RDWR);
-        UNLOCK(mutex);
+        WITH_MUTEX(mutex)
+            if (session->sock != -1)
+                shutdown(session->sock, SHUT_RDWR);
     }
 
     /* Now wait for everything to by joining all the pending sessions. */

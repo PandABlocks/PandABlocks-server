@@ -143,17 +143,15 @@ static void *data_thread(void *context)
     while (data_thread_running)
     {
         /* Wait for data capture to start. */
-        LOCK(data_thread_mutex);
-        while (data_thread_running  &&  !data_capture_enabled)
-            WAIT(data_thread_mutex, data_thread_event);
-        UNLOCK(data_thread_mutex);
+        WITH_MUTEX(data_thread_mutex)
+            while (data_thread_running  &&  !data_capture_enabled)
+                WAIT(data_thread_mutex, data_thread_event);
 
         if (data_thread_running)
             capture_experiment();
 
-        LOCK(data_thread_mutex);
-        data_capture_enabled = false;
-        UNLOCK(data_thread_mutex);
+        WITH_MUTEX(data_thread_mutex)
+            data_capture_enabled = false;
     }
     return NULL;
 }
@@ -162,10 +160,11 @@ static void *data_thread(void *context)
 /* Forces the data capture thread to exit in an orderly way. */
 static void stop_data_thread(void)
 {
-    LOCK(data_thread_mutex);
-    data_thread_running = false;
-    SIGNAL(data_thread_event);
-    UNLOCK(data_thread_mutex);
+    WITH_MUTEX(data_thread_mutex)
+    {
+        data_thread_running = false;
+        SIGNAL(data_thread_event);
+    }
 }
 
 
@@ -194,7 +193,7 @@ error__t arm_capture(void)
     return
         TEST_OK_(check_pcap_valid(),
             "PCAP not supported with this configuration")  ?:
-        WITH_LOCK(data_thread_mutex,
+        ERROR_WITH_MUTEX(data_thread_mutex,
             TEST_OK_(!data_capture_enabled,
                 "Data capture already in progress")  ?:
             /* If data capture is not enabled then we can safely expect the
@@ -229,7 +228,7 @@ error__t get_capture_count(struct connection_result *result)
 
 error__t get_capture_completion(struct connection_result *result)
 {
-    return WITH_LOCK(data_thread_mutex,
+    return ERROR_WITH_MUTEX(data_thread_mutex,
         format_one_result(result, "%s", data_capture_enabled ? "Busy" :
             hw_decode_completion(completion_code)));
 }

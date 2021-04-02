@@ -154,7 +154,7 @@ error__t get_metadata_value(const char *key, struct connection_result *result)
     struct metadata_value *value = hash_table_lookup(metadata_map, key);
     return
         TEST_OK_(value, "Metadata key %s not found", key)  ?:
-        WITH_LOCK(value->mutex, format_value(value, result));
+        ERROR_WITH_MUTEX(value->mutex, format_value(value, result));
 }
 
 
@@ -166,11 +166,12 @@ error__t put_metadata_value(const char *key, const char *string)
         TEST_OK_(value->type == METADATA_STRING, "Cannot write to this field");
     if (!error)
     {
-        LOCK(value->mutex);
-        free(value->value);
-        value->value = strdup(string);
-        value->update_index = get_change_index();
-        UNLOCK(value->mutex);
+        WITH_MUTEX(value->mutex)
+        {
+            free(value->value);
+            value->value = strdup(string);
+            value->update_index = get_change_index();
+        }
     }
     return error;
 }
@@ -219,12 +220,13 @@ static error__t close_multiline_put(void *context, bool write_ok)
     {
         append_string(writer, "");
         struct metadata_value *value = writer->value;
-        LOCK(value->mutex);
-        free(value->value);
-        value->value = realloc(writer->text, writer->length);
-        free(writer);
-        value->update_index = get_change_index();
-        UNLOCK(value->mutex);
+        WITH_MUTEX(value->mutex)
+        {
+            free(value->value);
+            value->value = realloc(writer->text, writer->length);
+            free(writer);
+            value->update_index = get_change_index();
+        }
     }
     else
     {
@@ -271,10 +273,9 @@ bool check_metadata_change_set(uint64_t report_index)
     while (!changed  &&
         hash_table_walk(metadata_map, &ix, NULL, (void *) &value))
     {
-        LOCK(value->mutex);
-        if (value->update_index > report_index)
-            changed = true;
-        UNLOCK(value->mutex);
+        WITH_MUTEX(value->mutex)
+            if (value->update_index > report_index)
+                changed = true;
     }
     return changed;
 }
@@ -290,9 +291,9 @@ void generate_metadata_change_set(
     while (hash_table_walk(
             metadata_map, &ix, (const void **) &key, (void *) &value))
     {
-        LOCK(value->mutex);
-        bool changed = value->update_index > report_index;
-        UNLOCK(value->mutex);
+        bool changed;
+        WITH_MUTEX(value->mutex)
+            changed = value->update_index > report_index;
 
         if (changed)
         {
@@ -308,10 +309,9 @@ void generate_metadata_change_set(
                     break;
 
                 case METADATA_STRING:
-                    LOCK(value->mutex);
-                    snprintf(result->string, result->length,
-                        "*METADATA.%s=%s", key, value->value ?: "");
-                    UNLOCK(value->mutex);
+                    WITH_MUTEX(value->mutex)
+                        snprintf(result->string, result->length,
+                            "*METADATA.%s=%s", key, value->value ?: "");
                     /* We avoid writing while holding the lock. */
                     result->write_many(result->write_context, result->string);
                     break;

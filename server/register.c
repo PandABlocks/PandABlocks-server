@@ -192,9 +192,8 @@ static error__t simple_register_init(
 static void simple_register_changed(void *reg_data, unsigned int number)
 {
     struct simple_state *state = reg_data;
-    LOCK(state->mutex);
-    state->values[number].update_index = get_change_index();
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        state->values[number].update_index = get_change_index();
 }
 
 
@@ -216,16 +215,10 @@ static error__t param_read(void *reg_data, unsigned int number, uint32_t *value)
 static error__t param_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct simple_state *state = reg_data;
-
-    LOCK(state->mutex);
-    error__t error = write_register(&state->base, number, value);
-    if (!error)
-    {
-        state->values[number].value = value;
-        state->values[number].update_index = get_change_index();
-    }
-    UNLOCK(state->mutex);
-    return error;
+    return ERROR_WITH_MUTEX(state->mutex,
+        write_register(&state->base, number, value)  ?:
+        DO( state->values[number].value = value;
+            state->values[number].update_index = get_change_index()));
 }
 
 
@@ -277,10 +270,9 @@ static void param_change_set(
     void *class_data, uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
-    LOCK(state->mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index > report_index;
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        for (unsigned int i = 0; i < state->count; i ++)
+            changes[i] = state->values[i].update_index > report_index;
 }
 
 
@@ -319,11 +311,8 @@ static error__t unlocked_read_read(
 static error__t read_read(void *reg_data, unsigned int number, uint32_t *value)
 {
     struct simple_state *state = reg_data;
-
-    LOCK(state->mutex);
-    error__t error = unlocked_read_read(state, number, value);
-    UNLOCK(state->mutex);
-    return error;
+    return ERROR_WITH_MUTEX(state->mutex,
+        unlocked_read_read(state, number, value));
 }
 
 
@@ -331,16 +320,15 @@ static void read_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
-    LOCK(state->mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-    {
-        uint32_t result;
-        ERROR_REPORT(
-            unlocked_read_read(state, i, &result),
-            "Error reading register while polling change set");
-        changes[i] = state->values[i].update_index > report_index;
-    }
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        for (unsigned int i = 0; i < state->count; i ++)
+        {
+            uint32_t result;
+            ERROR_REPORT(
+                unlocked_read_read(state, i, &result),
+                "Error reading register while polling change set");
+            changes[i] = state->values[i].update_index > report_index;
+        }
 }
 
 

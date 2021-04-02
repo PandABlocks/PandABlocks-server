@@ -119,13 +119,12 @@ static const struct enumeration *ext_out_capture_get_enumeration(void *data)
 
 void reset_ext_out_capture(struct ext_out *ext_out)
 {
-//     LOCK(ext_out->mutex);
+//     WITH_MUTEX(ext_out->mutex)
     if (ext_out->capture)
     {
         ext_out->capture = false;
         attr_changed(ext_out->capture_attr, 0);
     }
-//     UNLOCK(ext_out->mutex);
 }
 
 

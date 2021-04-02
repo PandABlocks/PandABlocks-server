@@ -396,14 +396,15 @@ static void refresh_change_index(
     struct change_set_context *change_set_context,
     enum change_set change_set, uint64_t report_index[])
 {
-    LOCK(change_mutex);
-    uint64_t change_index = update_change_index(
-        change_set_context, change_set, report_index);
-    if (change_set & CHANGES_BITS)
-        do_bit_out_refresh(change_index);
-    if (change_set & CHANGES_POSITION)
-        do_pos_out_refresh(change_index);
-    UNLOCK(change_mutex);
+    WITH_MUTEX(change_mutex)
+    {
+        uint64_t change_index = update_change_index(
+            change_set_context, change_set, report_index);
+        if (change_set & CHANGES_BITS)
+            do_bit_out_refresh(change_index);
+        if (change_set & CHANGES_POSITION)
+            do_pos_out_refresh(change_index);
+    }
 }
 
 
