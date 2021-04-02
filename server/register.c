@@ -123,24 +123,25 @@ static error__t base_put(
 
 /* Note that writing to a register can write to both a hardware and an extension
  * register if appropriate. */
-static void write_register(
+static error__t write_register(
     struct base_state *state, unsigned int number, uint32_t value)
 {
     if (state->extension)
-        extension_write_register(state->extension, number, value);
+        return extension_write_register(state->extension, number, value);
     else
-        hw_write_register(
-            state->block_base, number, state->field_register, value);
+        return DO(hw_write_register(
+            state->block_base, number, state->field_register, value));
 }
 
 
-static uint32_t read_register(struct base_state *state, unsigned int number)
+static error__t read_register(
+    struct base_state *state, unsigned int number, uint32_t *result)
 {
     if (state->extension)
-        return extension_read_register(state->extension, number);
+        return extension_read_register(state->extension, number, result);
     else
-        return hw_read_register(
-            state->block_base, number, state->field_register);
+        return DO(*result = hw_read_register(
+            state->block_base, number, state->field_register));
 }
 
 
@@ -217,11 +218,14 @@ static error__t param_write(void *reg_data, unsigned int number, uint32_t value)
     struct simple_state *state = reg_data;
 
     LOCK(state->mutex);
-    state->values[number].value = value;
-    state->values[number].update_index = get_change_index();
-    write_register(&state->base, number, value);
+    error__t error = write_register(&state->base, number, value);
+    if (!error)
+    {
+        state->values[number].value = value;
+        state->values[number].update_index = get_change_index();
+    }
     UNLOCK(state->mutex);
-    return ERROR_OK;
+    return error;
 }
 
 
@@ -262,9 +266,10 @@ static error__t param_init(
 static error__t param_finalise(void *class_data)
 {
     struct simple_state *state = class_data;
-    for (unsigned int i = 0; i < state->count; i ++)
-        write_register(&state->base, i, state->values[i].value);
-    return ERROR_OK;
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; error && i < state->count; i ++)
+        error = write_register(&state->base, i, state->values[i].value);
+    return error;
 }
 
 
@@ -299,16 +304,16 @@ const struct class_methods param_class_methods = {
  * control are somewhat different. */
 
 /* This must be called under a lock. */
-static uint32_t unlocked_read_read(
-    struct simple_state *state, unsigned int number)
+static error__t unlocked_read_read(
+    struct simple_state *state, unsigned int number, uint32_t *result)
 {
-    uint32_t result = read_register(&state->base, number);
-    if (result != state->values[number].value)
+    error__t error = read_register(&state->base, number, result);
+    if (!error  &&  *result != state->values[number].value)
     {
-        state->values[number].value = result;
+        state->values[number].value = *result;
         state->values[number].update_index = get_change_index();
     }
-    return result;
+    return error;
 }
 
 static error__t read_read(void *reg_data, unsigned int number, uint32_t *value)
@@ -316,9 +321,9 @@ static error__t read_read(void *reg_data, unsigned int number, uint32_t *value)
     struct simple_state *state = reg_data;
 
     LOCK(state->mutex);
-    *value = unlocked_read_read(state, number);
+    error__t error = unlocked_read_read(state, number, value);
     UNLOCK(state->mutex);
-    return ERROR_OK;
+    return error;
 }
 
 
@@ -329,7 +334,10 @@ static void read_change_set(
     LOCK(state->mutex);
     for (unsigned int i = 0; i < state->count; i ++)
     {
-        unlocked_read_read(state, i);
+        uint32_t result;
+        ERROR_REPORT(
+            unlocked_read_read(state, i, &result),
+            "Error reading register while polling change set");
         changes[i] = state->values[i].update_index > report_index;
     }
     UNLOCK(state->mutex);
@@ -371,8 +379,7 @@ const struct class_methods read_class_methods = {
 static error__t write_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct base_state *state = reg_data;
-    write_register(state, number, value);
-    return ERROR_OK;
+    return write_register(state, number, value);
 }
 
 static struct register_methods write_methods = {

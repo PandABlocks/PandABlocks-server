@@ -742,8 +742,7 @@ error__t create_field(
 
         DO(field = create_field_block(block, field_name, methods))  ?:
         methods->init(
-            line, block->count, field->attrs, &field->class_data,
-            parser)  ?:
+            line, block->count, field->attrs, &field->class_data, parser)  ?:
 
         create_field_attributes(field)  ?:
         /* Insert the field into the blocks map of fields. */

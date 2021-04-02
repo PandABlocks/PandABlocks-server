@@ -27,10 +27,11 @@ error__t parse_extension_register(
 void destroy_extension_address(struct extension_address *address);
 
 /* Writes the given value to the given extension register. */
-void extension_write_register(
+error__t extension_write_register(
     const struct extension_address *address,
     unsigned int number, uint32_t value);
 
 /* Returns current value of the given extension register. */
-uint32_t extension_read_register(
-    const struct extension_address *address, unsigned int number);
+error__t extension_read_register(
+    const struct extension_address *address, unsigned int number,
+    uint32_t *result);

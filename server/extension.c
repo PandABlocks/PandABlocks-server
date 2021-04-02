@@ -328,41 +328,39 @@ static error__t __attribute__((format(printf, 5, 6))) read_hardware_registers(
 
 
 /* Returns current value of the given extension register. */
-uint32_t extension_read_register(
-    const struct extension_address *address, unsigned int number)
+error__t extension_read_register(
+    const struct extension_address *address, unsigned int number,
+    uint32_t *result)
 {
     char message[256];
-    unsigned int result = 0;
-    ERROR_REPORT(
+    return
         read_hardware_registers(
             address, message, sizeof(message), number,
             "R%u %u", address->parse_id, number)  ?:
-        extension_server_exchange(message, 1, &result),
-        "Error reading extension register");
-    return (uint32_t) result;
+        extension_server_exchange(message, 1, result);
 }
 
 
 /* Writes the given value to the given extension register. */
-void extension_write_register(
+error__t extension_write_register(
     const struct extension_address *address,
     unsigned int number, uint32_t value)
 {
     char message[256];
     unsigned int results[address->write_count];
-    bool error_seen = ERROR_REPORT(
+    error__t error =
         read_hardware_registers(
             address, message, sizeof(message), number,
             "W%u %u %u", address->parse_id, number, value)  ?:
-        extension_server_exchange(message, address->write_count, results),
-        "Error writing extension register");
+        extension_server_exchange(message, address->write_count, results);
 
     /* If writing was successful write the registers. */
-    if (!error_seen)
+    if (!error)
     {
         for (unsigned int i = 0; i < address->write_count; i ++)
             hw_write_register(
                 address->block_base, number,
                 address->write_registers[i], results[i]);
     }
+    return error;
 }

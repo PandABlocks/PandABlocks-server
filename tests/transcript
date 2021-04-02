@@ -749,3 +749,9 @@
 
 < *METADATA.MODEL=BOO
 > ERR Cannot write to this field
+
+< SYSTEM.TEMP_ZYNQ?
+> ERR IOError: [Errno 2] No such file or directory: '/sys/devices/soc0/amba/f8007100.adc/iio:device0/in_temp0_raw'
+
+< DUMMY1.DUMMY_W=99
+> ERR TypeError: write() takes exactly 3 arguments (7 given)
