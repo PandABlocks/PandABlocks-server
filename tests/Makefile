@@ -42,7 +42,7 @@ TESTS += test_configs
 
 test_extension:
 	-nc localhost 9999 </dev/null
-	$(TOP)/python/extension_server -d $(TOP)/python/test_extension
+	$(TOP)/python/extension_server -d -qn $(TOP)/python/test_extension
 	./test_extension.py extension_script
 
 .PHONY: test_extension

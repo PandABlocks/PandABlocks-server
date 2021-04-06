@@ -22,7 +22,7 @@ EXT_ARGS=()
 
 
 # Allow some settings to be overridden.
-while getopts 'np:d:f:c:vV:P-h' option; do
+while getopts 'np:d:f:c:vV:P-E:S:h' option; do
     case "$option" in
     n)  DEBUG=() ;;
     p)  CONFIG_PORT=$OPTARG ;;
@@ -34,6 +34,8 @@ while getopts 'np:d:f:c:vV:P-h' option; do
         EXT_ARGS+=(-v) ;;
     V)  DEBUG+=("$OPTARG") ;;
     P)  rm -f "$PERSISTENCE" ;;
+    E)  EXT_ARGS+=("$OPTARG") ;;
+    S)  SIM_ARGS+=("$OPTARG") ;;
     -)  ;;
     h)  cat <<EOF
 ./simserver [options] [-- command options]
@@ -46,6 +48,8 @@ options can be one of:
     -v  Run simulation in verbose mode
     -V: Add arguments to valgrind
     -P  Reset persistence file before running
+    -E: Pass extra arguments through to extension server
+    -S: Pass extra arguments through to simulation server
     -h  Show this help
 Remaining command options are passed through to the server executable.
 EOF

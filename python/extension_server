@@ -140,8 +140,13 @@ class Server:
             except ServerError as e:
                 self.send('E%s\n' % str(e))
             except Exception as e:
-                logging.exception('Caught exception', exc_info = True)
-                self.send('E%s: %s\n' % (e.__class__.__name__, str(e)))
+                if not command_args.hide_exceptions:
+                    logging.exception('Caught exception', exc_info = True)
+                message = '%s: %s' % (e.__class__.__name__, str(e))
+                if command_args.normalise_exceptions:
+                    logging.info('Normalising exception %r', message)
+                    message = 'Extension server exception'
+                self.send('E%s\n' % message)
 
     def run(self):
         conn, _ = self.server_sock.accept()
@@ -205,6 +210,12 @@ parser.add_argument(
     '-p', '--port', default = 9999, type = int, help = 'Specify socket port')
 parser.add_argument(
     '-s', '--syslog', action = 'store_true', help = 'Log to syslog not stderr')
+parser.add_argument(
+    '-q', '--hide_exceptions', action = 'store_true',
+    help = 'Run quietly, don\'t log exceptions.  Use for testing only')
+parser.add_argument(
+    '-n', '--normalise_exceptions', action = 'store_true',
+    help = 'Normalise exception messages reported by server.  Testing only')
 parser.add_argument(
     'extensions', help = 'Extension directory')
 command_args = parser.parse_args()
