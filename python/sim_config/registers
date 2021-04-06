@@ -249,10 +249,10 @@ SYSTEM          28 system
     VCCINT          X in_voltage0_vccint
 
 DUMMY           29 dummy
-    DUMMY_R         0 1 2 3 X dummy
-    DUMMY_W         0 1 2 3 W 4 X dummy
-    POLY_R          0 1 2 3 X poly
-    POLY_W          0 1 2 3 W 0 1 2 3 4 X poly
+    DUMMY_R         X dummy
+    DUMMY_W         4 X dummy
+    POLY_R          X poly
+    POLY_W          0 X poly
 
 SFP_RX      S31
     PARAM           0

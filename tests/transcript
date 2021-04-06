@@ -754,4 +754,4 @@
 > ERR Extension server exception
 
 < DUMMY1.DUMMY_W=99
-> ERR Extension server exception
+> OK

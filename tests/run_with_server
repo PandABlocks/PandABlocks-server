@@ -10,7 +10,7 @@ TOP="$HERE/.."
 # Run up the simulation server.  We won't use valgrind for these validation
 # tests, really just to speed things up.  For a consistent state, we reset the
 # persistence file.
-"$TOP"/simserver -n -P -E-qn &
+"$TOP"/simserver -n -P -E-qn -- -L &
 SIM_PID=$!
 trap 'kill -s SIGINT $SIM_PID; wait $SIM_PID' EXIT
 
