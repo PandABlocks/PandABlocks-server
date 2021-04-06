@@ -74,12 +74,12 @@ class Extensions:
 
     def read(self, line):
         # Syntax:   parse-id field-num [read-regs]*
-        args = map(int, line.split(' '))
+        args = [int(arg) for arg in line.split(' ')]
         return self.field_ids[args[0]].read(*args[1:])
 
     def write(self, line):
         # Syntax:   parse-id field-num value [read-regs]*
-        args = map(int, line.split(' '))
+        args = [int(arg) for arg in line.split(' ')]
         result = self.field_ids[args[0]].write(*args[1:])
 
         # The return from result can be None, which we treat as an empty list,

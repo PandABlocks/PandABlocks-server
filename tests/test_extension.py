@@ -30,18 +30,22 @@ class Script:
     def readline(self):
         line = self.file.readline()
         if not line:
-            raise StopIteration
+            raise StopIteration()
         self.line_no += 1
         return line[:-1]
 
     def readlines(self):
-        while True:
+        try:
             while True:
-                line = self.readline()
-                if line and line[0] != '#':
-                    break
-            line_no = self.line_no
-            yield (line, self.readline(), line_no)
+                while True:
+                    line = self.readline()
+                    if line and line[0] != '#':
+                        break
+                line_no = self.line_no
+                yield (line, self.readline(), line_no)
+        except StopIteration:
+            # This special handling of StopIteration is mandated by PEP 479
+            return
 
 def script_readlines(script):
     return Script(script).readlines()
@@ -54,8 +58,8 @@ class Server:
         self.sock.settimeout(0.5)
 
     def exchange(self, line):
-        self.sock.sendall(line + '\n')
-        result = self.sock.recv(4096)
+        self.sock.sendall((line + '\n').encode())
+        result = self.sock.recv(4096).decode()
         assert result[-1] == '\n'
         return result[:-1]
 
