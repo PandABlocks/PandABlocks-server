@@ -57,6 +57,9 @@ static bool test_config_only = false;
 /* String used to report rootfs_version on system startup via *IDN? command. */
 static const char *rootfs_version = "(unknown)";
 
+/* Extension server legacy mode flag. */
+static bool legacy_mode = false;
+
 
 /* Parses a persistence time specification in the form
  *
@@ -105,6 +108,7 @@ static void usage(const char *argv0)
 "   -M: Load MAC addresses from specified file\n"
 "   -X: Use extension server on specified port\n"
 "   -r: Specify rootfs version to report via *IDN? command\n"
+"   -L  Run extension server in legacy mode\n"
         , argv0, config_port, data_port);
 }
 
@@ -115,7 +119,7 @@ static error__t process_options(int argc, char *const argv[])
     error__t error = ERROR_OK;
     while (!error)
     {
-        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:TM:X:r:"))
+        switch (getopt(argc, argv, "+hp:d:Rc:f:t:DP:TM:X:r:L"))
         {
             case 'h':   usage(argv0);                                   exit(0);
             case 'p':   error = parse_port(optarg, &config_port);       break;
@@ -130,6 +134,7 @@ static error__t process_options(int argc, char *const argv[])
             case 'M':   mac_address_filename = optarg;                  break;
             case 'X':   error = parse_port(optarg, &extension_port);    break;
             case 'r':   rootfs_version = optarg;                        break;
+            case 'L':   legacy_mode = true;                             break;
             default:
                 return FAIL_("Try `%s -h` for usage", argv0);
             case -1:
@@ -229,7 +234,7 @@ int main(int argc, char *const argv[])
         initialise_signals()  ?:
         initialise_hardware()  ?:
         IF(extension_port,
-            initialise_extension_server(extension_port))  ?:
+            initialise_extension_server(extension_port, legacy_mode))  ?:
         load_config_databases(config_dir)  ?:
 
         IF(persistence_file,

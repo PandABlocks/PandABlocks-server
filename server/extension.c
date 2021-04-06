@@ -39,9 +39,13 @@ static struct extension_server server = {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
+static bool legacy_mode = false;
 
-error__t initialise_extension_server(unsigned int port)
+
+error__t initialise_extension_server(unsigned int port, bool _legacy_mode)
 {
+    legacy_mode = _legacy_mode;
+
     struct sockaddr_in s_in = {
         .sin_family = AF_INET,
         .sin_addr.s_addr = htonl(INADDR_LOOPBACK),
@@ -235,6 +239,30 @@ static error__t parse_extension_name(
 }
 
 
+/* In legacy mode we only support a single register in write mode, and we have
+ * to switch this register into the write position. */
+static error__t check_legacy_mode(
+    struct extension_address *extension, bool write_not_read)
+{
+    error__t error =
+        TEST_OK_(extension->write_count == 0,
+            "Explicit W registers not supported in legacy mode")  ?:
+        TEST_OK_(write_not_read  ||  extension->read_count == 0,
+            "No registers supported in read mode")  ?:
+        TEST_OK_(extension->read_count <= 1,
+            "Cannot write to more than one register");
+    if (!error)
+    {
+        /* Move the one read register into the write position. */
+        extension->write_count = extension->read_count;
+        extension->write_registers = extension->read_registers;
+        extension->read_count = 0;
+        extension->read_registers = NULL;
+    }
+    return error;
+}
+
+
 /* The extension register syntax is:
  *
  *      [register]* X extension-name
@@ -264,7 +292,8 @@ error__t parse_extension_register(
                 line, &extension.write_count, &extension.write_registers))  ?:
         parse_char(line, 'X')  ?:
         parse_extension_name(
-            line, block->block_id, write_not_read, &extension.parse_id);
+            line, block->block_id, write_not_read, &extension.parse_id)  ?:
+        IF(legacy_mode, check_legacy_mode(&extension, write_not_read));
 
     if (error)
     {
@@ -348,14 +377,21 @@ error__t extension_write_register(
 {
     char message[256];
     unsigned int results[address->write_count];
+    unsigned int write_count = legacy_mode ? 0 : address->write_count;
+
+    if (legacy_mode  &&  address->write_count > 0)
+        hw_write_register(
+            address->block_base, number,
+            address->write_registers[0], value);
+
     error__t error =
         read_hardware_registers(
             address, message, sizeof(message), number,
             "W%u %u %u", address->parse_id, number, value)  ?:
-        extension_server_exchange(message, address->write_count, results);
+        extension_server_exchange(message, write_count, results);
 
     /* If writing was successful write the registers. */
-    if (!error)
+    if (!error  &&  !legacy_mode)
     {
         for (unsigned int i = 0; i < address->write_count; i ++)
             hw_write_register(

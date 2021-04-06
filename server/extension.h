@@ -1,7 +1,7 @@
 /* Extension server for non-FPGA registers. */
 
 /* Initialise connection to extension server. */
-error__t initialise_extension_server(unsigned int port);
+error__t initialise_extension_server(unsigned int port, bool _legacy_mode);
 
 /* Call during shutdown to terminate connection to server. */
 void terminate_extension_server(void);
