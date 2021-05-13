@@ -55,15 +55,16 @@ void start_write(struct capture_buffer *buffer)
 {
     /* ASSERT: buffer->state == STATE_IDLE  &&  !buffer->active_count */
 
-    LOCK(buffer->mutex);
-    buffer->buffer_cycle = 0;
-    buffer->active_count = buffer->reader_count;
-    buffer->state = STATE_ACTIVE;
-    buffer->in_ptr = 0;
-    buffer->lost_bytes = 0;
-    memset(buffer->written, 0, buffer->block_count * sizeof(size_t));
-    BROADCAST(buffer->signal);
-    UNLOCK(buffer->mutex);
+    WITH_MUTEX(buffer->mutex)
+    {
+        buffer->buffer_cycle = 0;
+        buffer->active_count = buffer->reader_count;
+        buffer->state = STATE_ACTIVE;
+        buffer->in_ptr = 0;
+        buffer->lost_bytes = 0;
+        memset(buffer->written, 0, buffer->block_count * sizeof(size_t));
+        BROADCAST(buffer->signal);
+    }
 }
 
 
@@ -84,24 +85,25 @@ void release_write_block(struct capture_buffer *buffer, size_t written)
 {
     /* ASSERT: buffer->state == STATE_ACTIVE  &&  written */
 
-    LOCK(buffer->mutex);
-    /* Keep track of the total number of bytes in recycled blocks: we'll need
-     * this so that late coming clients get to know how much data they've
-     * missed. */
-    buffer->lost_bytes += buffer->written[buffer->in_ptr];
-    buffer->written[buffer->in_ptr] = written;
-
-    /* Advance buffer and cycle count. */
-    buffer->in_ptr += 1;
-    if (buffer->in_ptr >= buffer->block_count)
+    WITH_MUTEX(buffer->mutex)
     {
-        buffer->in_ptr = 0;
-        buffer->buffer_cycle += 1;
-    }
+        /* Keep track of the total number of bytes in recycled blocks: we'll
+         * need this so that late coming clients get to know how much data
+         * they've missed. */
+        buffer->lost_bytes += buffer->written[buffer->in_ptr];
+        buffer->written[buffer->in_ptr] = written;
 
-    /* Let all clients know there's data to read. */
-    BROADCAST(buffer->signal);
-    UNLOCK(buffer->mutex);
+        /* Advance buffer and cycle count. */
+        buffer->in_ptr += 1;
+        if (buffer->in_ptr >= buffer->block_count)
+        {
+            buffer->in_ptr = 0;
+            buffer->buffer_cycle += 1;
+        }
+
+        /* Let all clients know there's data to read. */
+        BROADCAST(buffer->signal);
+    }
 }
 
 
@@ -118,17 +120,18 @@ static void advance_capture(struct capture_buffer *buffer)
 void end_write(struct capture_buffer *buffer)
 {
     /* ASSERT: buffer->state == STATE_ACTIVE */
-    LOCK(buffer->mutex);
-    /* If there are active readers we need to go into the clearing state, and
-     * let them know that we've read the end of the capture. */
-    if (buffer->active_count > 0)
+    WITH_MUTEX(buffer->mutex)
     {
-        buffer->state = STATE_CLEARING;
-        BROADCAST(buffer->signal);
+        /* If there are active readers we need to go into the clearing state,
+         * and let them know that we've read the end of the capture. */
+        if (buffer->active_count > 0)
+        {
+            buffer->state = STATE_CLEARING;
+            BROADCAST(buffer->signal);
+        }
+        else
+            advance_capture(buffer);
     }
-    else
-        advance_capture(buffer);
-    UNLOCK(buffer->mutex);
 }
 
 
@@ -148,12 +151,14 @@ static void complete_capture(struct capture_buffer *buffer)
  * current capture cycle so the reader can get started right away. */
 static unsigned int add_reader(struct capture_buffer *buffer)
 {
-    LOCK(buffer->mutex);
-    unsigned int cycle = buffer->capture_cycle;
-    buffer->reader_count += 1;
-    if (buffer->state != STATE_IDLE)
-        buffer->active_count += 1;
-    UNLOCK(buffer->mutex);
+    unsigned int cycle;
+    WITH_MUTEX(buffer->mutex)
+    {
+        cycle = buffer->capture_cycle;
+        buffer->reader_count += 1;
+        if (buffer->state != STATE_IDLE)
+            buffer->active_count += 1;
+    }
     return cycle;
 }
 
@@ -162,23 +167,26 @@ static unsigned int add_reader(struct capture_buffer *buffer)
  * capture cycle of the disconnecting reader. */
 static void remove_reader(struct capture_buffer *buffer, unsigned int cycle)
 {
-    LOCK(buffer->mutex);
-    buffer->reader_count -= 1;
-    /* If we are nominally in a capture cycle, but we haven't actually started
-     * it, then we need to count ourself off.  That we haven't started is
-     * evident because close_reader() would have advanced our capture cycle. */
-    if (buffer->state != STATE_IDLE  &&  buffer->capture_cycle == cycle)
-        complete_capture(buffer);
-    UNLOCK(buffer->mutex);
+    WITH_MUTEX(buffer->mutex)
+    {
+        buffer->reader_count -= 1;
+        /* If we are nominally in a capture cycle, but we haven't actually
+         * started it, then we need to count ourself off.  That we haven't
+         * started is evident because close_reader() would have advanced our
+         * capture cycle. */
+        if (buffer->state != STATE_IDLE  &&  buffer->capture_cycle == cycle)
+            complete_capture(buffer);
+    }
 }
 
 
 void shutdown_buffer(struct capture_buffer *buffer)
 {
-    LOCK(buffer->mutex);
-    buffer->shutdown = true;
-    BROADCAST(buffer->signal);
-    UNLOCK(buffer->mutex);
+    WITH_MUTEX(buffer->mutex)
+    {
+        buffer->shutdown = true;
+        BROADCAST(buffer->signal);
+    }
 }
 
 
@@ -186,11 +194,13 @@ bool read_buffer_status(
     struct capture_buffer *buffer,
     unsigned int *readers, unsigned int *active_readers)
 {
-    LOCK(buffer->mutex);
-    enum buffer_state state = buffer->state;
-    *readers = buffer->reader_count;
-    *active_readers = buffer->active_count;
-    UNLOCK(buffer->mutex);
+    enum buffer_state state;
+    WITH_MUTEX(buffer->mutex)
+    {
+        state = buffer->state;
+        *readers = buffer->reader_count;
+        *active_readers = buffer->active_count;
+    }
     return state != STATE_IDLE;
 }
 
@@ -309,19 +319,19 @@ bool open_reader(
     const struct timespec *timeout, uint64_t *lost_bytes)
 {
     struct capture_buffer *buffer = reader->buffer;
-    LOCK(buffer->mutex);
-
-    /* Wait for buffer to become active with a newer capture. */
-    bool active = wait_for_buffer_ready(reader, timeout);
-    if (active)
+    bool active;
+    WITH_MUTEX(buffer->mutex)
     {
-        /* Start taking data. */
-        reader->capture_cycle = buffer->capture_cycle;
-        compute_reader_start(reader, read_margin, lost_bytes);
-        reader->status = READER_STATUS_CLOSED;  // Default, not true yet!
+        /* Wait for buffer to become active with a newer capture. */
+        active = wait_for_buffer_ready(reader, timeout);
+        if (active)
+        {
+            /* Start taking data. */
+            reader->capture_cycle = buffer->capture_cycle;
+            compute_reader_start(reader, read_margin, lost_bytes);
+            reader->status = READER_STATUS_CLOSED;  // Default, not true yet!
+        }
     }
-
-    UNLOCK(buffer->mutex);
     return active;
 }
 
@@ -329,10 +339,8 @@ bool open_reader(
 enum reader_status close_reader(struct reader_state *reader)
 {
     struct capture_buffer *buffer = reader->buffer;
-    LOCK(buffer->mutex);
-    complete_capture(buffer);
-    UNLOCK(buffer->mutex);
-
+    WITH_MUTEX(buffer->mutex)
+        complete_capture(buffer);
     reader->capture_cycle += 1;
     return reader->status;
 }
@@ -369,10 +377,13 @@ static bool check_block_status(
     /* ASSERT: reader->status == READER_STATUS_CLOSED */
 
     struct capture_buffer *buffer = reader->buffer;
-    LOCK(buffer->mutex);
-    unsigned int buffer_cycle = buffer->buffer_cycle;
-    size_t in_ptr = buffer->in_ptr;
-    UNLOCK(buffer->mutex);
+    unsigned int buffer_cycle;
+    size_t in_ptr;
+    WITH_MUTEX(buffer->mutex)
+    {
+        buffer_cycle = buffer->buffer_cycle;
+        in_ptr = buffer->in_ptr;
+    }
 
     bool ok = check_overrun_ok(
         buffer_cycle, reader_buffer_cycle, in_ptr, out_ptr);
@@ -450,10 +461,9 @@ const void *get_read_block(
         return NULL;
 
     struct capture_buffer *buffer = reader->buffer;
-    LOCK(buffer->mutex);
     bool all_read, timeout_occurred;
-    wait_for_block_ready(reader, timeout, &all_read, &timeout_occurred);
-    UNLOCK(buffer->mutex);
+    WITH_MUTEX(buffer->mutex)
+        wait_for_block_ready(reader, timeout, &all_read, &timeout_occurred);
 
     if (timeout_occurred)
     {

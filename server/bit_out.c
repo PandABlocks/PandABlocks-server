@@ -147,11 +147,13 @@ static error__t bit_mux_put(
     if (!error)
     {
         struct bit_mux_value *value = &state->values[number];
-        LOCK(state->mutex);
-        value->value = mux_value;
-        value->update_index = get_change_index();
-        hw_write_register(state->block_base, number, state->mux_reg, mux_value);
-        UNLOCK(state->mutex);
+        WITH_MUTEX(state->mutex)
+        {
+            value->value = mux_value;
+            value->update_index = get_change_index();
+            hw_write_register(
+                state->block_base, number, state->mux_reg, mux_value);
+        }
     }
     return error;
 }
@@ -161,10 +163,9 @@ static void bit_mux_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct bit_mux_state *state = class_data;
-    LOCK(state->mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index > report_index;
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        for (unsigned int i = 0; i < state->count; i ++)
+            changes[i] = state->values[i].update_index > report_index;
 }
 
 
@@ -232,10 +233,9 @@ static void bit_out_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct bit_out_state *state = class_data;
-    LOCK(mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = bit_update_index[state->index_array[i]] > report_index;
-    UNLOCK(mutex);
+    WITH_MUTEX(mutex)
+        for (unsigned int i = 0; i < state->count; i ++)
+            changes[i] = bit_update_index[state->index_array[i]] > report_index;
 }
 
 
@@ -323,13 +323,14 @@ void terminate_bit_out(void)
 
 void do_bit_out_refresh(uint64_t change_index)
 {
-    LOCK(mutex);
-    bool changes[BIT_BUS_COUNT];
-    hw_read_bits(bit_value, changes);
-    for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
-        if (changes[i]  &&  change_index > bit_update_index[i])
-            bit_update_index[i] = change_index;
-    UNLOCK(mutex);
+    WITH_MUTEX(mutex)
+    {
+        bool changes[BIT_BUS_COUNT];
+        hw_read_bits(bit_value, changes);
+        for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
+            if (changes[i]  &&  change_index > bit_update_index[i])
+                bit_update_index[i] = change_index;
+    }
 }
 
 

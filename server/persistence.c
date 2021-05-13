@@ -241,22 +241,26 @@ static pthread_cond_t psignal;
 /* Interruptible timeout wait: returns false if thread interrupt requested. */
 static bool interruptible_timeout(unsigned int delay)
 {
-    LOCK(mutex);
-    if (thread_running)
-        pwait_timeout(
-            &mutex, &psignal, &(struct timespec) { .tv_sec = (time_t) delay, });
-    bool running = thread_running;
-    UNLOCK(mutex);
+    bool running;
+    WITH_MUTEX(mutex)
+    {
+        if (thread_running)
+            pwait_timeout(
+                &mutex, &psignal,
+                &(struct timespec) { .tv_sec = (time_t) delay, });
+        running = thread_running;
+    }
     return running;
 }
 
 
 static void stop_thread(void)
 {
-    LOCK(mutex);
-    thread_running = false;
-    pthread_cond_signal(&psignal);
-    UNLOCK(mutex);
+    WITH_MUTEX(mutex)
+    {
+        thread_running = false;
+        SIGNAL(psignal);
+    }
 }
 
 
@@ -272,9 +276,8 @@ static void *persistence_thread(void *context)
              * are being configured. */
             interruptible_timeout(holdoff_interval);
 
-            LOCK(mutex);
-            write_changed_state();
-            UNLOCK(mutex);
+            WITH_MUTEX(mutex)
+                write_changed_state();
 
             /* Now back off a bit so that we don't generate too many updates if
              * there are continual changes going on. */
@@ -284,11 +287,8 @@ static void *persistence_thread(void *context)
 
     /* On exit perform a final state check. */
     if (check_state_changed())
-    {
-        LOCK(mutex);
-        write_changed_state();
-        UNLOCK(mutex);
-    }
+        WITH_MUTEX(mutex)
+            write_changed_state();
 
     return NULL;
 }
@@ -349,9 +349,8 @@ error__t save_persistent_state(void)
          * write directly under the feed of the persistence_thread.  The
          * alternative of waking the thread and waiting for a completion event
          * is unnecessarily complicated. */
-        LOCK(mutex);
-        write_changed_state();
-        UNLOCK(mutex);
+        WITH_MUTEX(mutex)
+            write_changed_state();
         return ERROR_OK;
     }
     else

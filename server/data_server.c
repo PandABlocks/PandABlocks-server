@@ -28,8 +28,8 @@
 
 
 /* Central circular data buffer.  The block size is chosen to match the driver
- * block size, and we choose a reasonably large number of blocks. */
-#define DATA_BLOCK_SIZE         (1U << 18)
+ * block size, and we choose a reasonably large number of 2MB blocks. */
+#define DATA_BLOCK_SIZE         (1U << 21)
 #define DATA_BLOCK_COUNT        128
 
 /* File buffers.  These are only used for text buffered text communication on
@@ -143,17 +143,15 @@ static void *data_thread(void *context)
     while (data_thread_running)
     {
         /* Wait for data capture to start. */
-        LOCK(data_thread_mutex);
-        while (data_thread_running  &&  !data_capture_enabled)
-            WAIT(data_thread_mutex, data_thread_event);
-        UNLOCK(data_thread_mutex);
+        WITH_MUTEX(data_thread_mutex)
+            while (data_thread_running  &&  !data_capture_enabled)
+                WAIT(data_thread_mutex, data_thread_event);
 
         if (data_thread_running)
             capture_experiment();
 
-        LOCK(data_thread_mutex);
-        data_capture_enabled = false;
-        UNLOCK(data_thread_mutex);
+        WITH_MUTEX(data_thread_mutex)
+            data_capture_enabled = false;
     }
     return NULL;
 }
@@ -162,10 +160,11 @@ static void *data_thread(void *context)
 /* Forces the data capture thread to exit in an orderly way. */
 static void stop_data_thread(void)
 {
-    LOCK(data_thread_mutex);
-    data_thread_running = false;
-    SIGNAL(data_thread_event);
-    UNLOCK(data_thread_mutex);
+    WITH_MUTEX(data_thread_mutex)
+    {
+        data_thread_running = false;
+        SIGNAL(data_thread_event);
+    }
 }
 
 
@@ -194,7 +193,7 @@ error__t arm_capture(void)
     return
         TEST_OK_(check_pcap_valid(),
             "PCAP not supported with this configuration")  ?:
-        WITH_LOCK(data_thread_mutex,
+        ERROR_WITH_MUTEX(data_thread_mutex,
             TEST_OK_(!data_capture_enabled,
                 "Data capture already in progress")  ?:
             /* If data capture is not enabled then we can safely expect the
@@ -229,7 +228,7 @@ error__t get_capture_count(struct connection_result *result)
 
 error__t get_capture_completion(struct connection_result *result)
 {
-    return WITH_LOCK(data_thread_mutex,
+    return ERROR_WITH_MUTEX(data_thread_mutex,
         format_one_result(result, "%s", data_capture_enabled ? "Busy" :
             hw_decode_completion(completion_code)));
 }
@@ -434,18 +433,23 @@ static bool write_block_base64(
 }
 
 
+static void set_frame_header(void *buffer, size_t frame_length)
+{
+    ASSERT_OK(frame_length <= UINT32_MAX);
+
+    /* Update the first four bytes of the buffer with a header followed by a
+     * frame byte count. */
+    memcpy(buffer, "BIN ", 4);
+    CAST_FROM_TO(void *, uint32_t *, buffer)[1] = (uint32_t) frame_length;
+}
+
+
 /* Send the output buffer in the appropriate format. */
 static bool send_output_buffer(
     struct data_capture_state *state, unsigned int samples)
 {
     if (state->connection->options.data_format == DATA_FORMAT_FRAMED)
-    {
-        /* Update the first four bytes of the buffer with a header followed by a
-         * frame byte count. */
-        memcpy(state->output_buffer, "BIN ", 4);
-        CAST_FROM_TO(void *, uint32_t *, state->output_buffer)[1] =
-            (uint32_t) state->output_buffer_count;
-    }
+        set_frame_header(state->output_buffer, state->output_buffer_count);
 
     switch (state->connection->options.data_format)
     {
@@ -508,6 +512,54 @@ static bool process_capture_block(
 }
 
 
+/* If in RAW and FRAMED mode, we avoid extra memcpys by taking the input
+ * buffer and writing blocks directly from it. We always send a integer
+ * number of samples to the user, copying the residual to the output_buffer
+ * to hold onto it until the next buffer. The contents of output_buffer
+ * is an 8 byte header (which is filled in just before it is sent) plus
+ * any residual from the last buffer.
+ * Returns false if unable to send data, returns true otherwise.  *data_ok is
+ * set to false and data processing is abandoned if buffer overrun is seen. */
+static bool passthrough_capture_block(
+    struct data_capture_state *state, const void *buffer, size_t length,
+    uint64_t *sent_samples, bool *data_ok)
+{
+    /* The number of samples of residual + buffer we will send */
+    size_t samples =
+        (state->output_buffer_count + length) / state->raw_sample_length;
+    /* The bytes of the buffer to send this time */
+    size_t buffer_to_send =
+        samples * state->raw_sample_length - state->output_buffer_count;
+    /* The length of the residual including header */
+    size_t residual = 8 + state->output_buffer_count;
+
+    /* Put the frame length at the start of the residual output buffer */
+    set_frame_header(state->output_buffer, residual + buffer_to_send);
+
+    /* Send frame header and residual output buffer, then the current buffer */
+    bool sent_ok =
+        write_block(state->connection->file, state->output_buffer, residual) &&
+        write_block(state->connection->file, buffer, buffer_to_send);
+    /* Transmit the output buffer, if we can.  If this fails, just bail out. */
+    if (!sent_ok)
+        return false;
+
+    /* Reset the buffer count to have space for "BIN <frame_length>" again
+     * and add any residue to the output buffer */
+    buffer += buffer_to_send;
+    length -= buffer_to_send;
+    memcpy(state->output_buffer + 8, buffer, length);
+    state->output_buffer_count = length;
+
+    *sent_samples += samples;
+    /* Check here if the reader has just stamped on our data. If it did, then
+     * we're too late to save the bad data we just sent, but signal that we
+     * overrun so the client can discard it */
+    *data_ok = check_read_block(state->connection->reader);
+    return true;
+}
+
+
 /* Sends the data stream until end of stream or there's a problem with the
  * client connection.  Any client connection problem is stored in the
  * connection, so is not returned. */
@@ -529,6 +581,9 @@ static void send_data_stream(
     /* Read and process buffers. */
     bool ok = true;
     bool data_ok = true;
+    bool passthrough =
+        state.connection->options.data_format == DATA_FORMAT_FRAMED &&
+        state.connection->options.data_process == DATA_PROCESS_RAW;
     while (ok  &&  data_ok)
     {
         size_t in_length;
@@ -546,8 +601,14 @@ static void send_data_stream(
         }
 
         if (in_length > 0)
-            ok = process_capture_block(
-                &state, buffer, in_length, sent_samples, &data_ok);
+        {
+            if (passthrough)
+                ok = passthrough_capture_block(
+                    &state, buffer, in_length, sent_samples, &data_ok);
+            else
+                ok = process_capture_block(
+                    &state, buffer, in_length, sent_samples, &data_ok);
+        }
 
         /* We flush the output buffer at this stage in case we're running slowly
          * so that the client will see progress. */
@@ -634,6 +695,7 @@ error__t process_data_socket(int scon)
 error__t initialise_data_server(void)
 {
     pwait_initialise(&data_thread_event);
+    log_message("Allocate %dx %d blocks", DATA_BLOCK_COUNT, DATA_BLOCK_SIZE);
     data_buffer = create_buffer(DATA_BLOCK_SIZE, DATA_BLOCK_COUNT);
     return ERROR_OK;
 }
@@ -656,13 +718,19 @@ error__t start_data_server(void)
      * options are described in sched_setscheduler(2).  Of course we can only do
      * this on the real target system. */
     struct sched_param sched_param = { .sched_priority = 20 };
+    /* Pin this thread to CPU0, along with all the interrupts */
+    cpu_set_t cpu_set;
+    CPU_ZERO(&cpu_set);
+    CPU_SET(0, &cpu_set);
     return
         TEST_PTHREAD(pthread_create(
             &data_thread_id, NULL, data_thread, NULL))  ?:
         DO(data_thread_started = true)  ?:
         IF(!sim_hardware(),
             TEST_PTHREAD(pthread_setschedparam(
-                data_thread_id, SCHED_RR, &sched_param)));
+                data_thread_id, SCHED_RR, &sched_param))  ?:
+            TEST_PTHREAD(pthread_setaffinity_np(
+                data_thread_id, sizeof(cpu_set_t), &cpu_set)));
 }
 
 

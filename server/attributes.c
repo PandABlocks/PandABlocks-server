@@ -51,9 +51,8 @@ error__t attr_get(
 
 void attr_changed(struct attr *attr, unsigned int number)
 {
-    LOCK(attr->mutex);
-    attr->update_index[number] = get_change_index();
-    UNLOCK(attr->mutex);
+    WITH_MUTEX(attr->mutex)
+        attr->update_index[number] = get_change_index();
 }
 
 
@@ -69,12 +68,11 @@ error__t attr_put(struct attr *attr, unsigned int number, const char *value)
 void get_attr_change_set(
     struct attr *attr, uint64_t report_index, bool change_set[])
 {
-    LOCK(attr->mutex);
-    for (unsigned int i = 0; i < attr->count; i ++)
-        change_set[i] =
-            attr->methods->in_change_set  &&
-            attr->update_index[i] > report_index;
-    UNLOCK(attr->mutex);
+    WITH_MUTEX(attr->mutex)
+        for (unsigned int i = 0; i < attr->count; i ++)
+            change_set[i] =
+                attr->methods->in_change_set  &&
+                attr->update_index[i] > report_index;
 }
 
 

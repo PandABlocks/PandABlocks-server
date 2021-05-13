@@ -127,23 +127,20 @@ void hw_write_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg,
     uint32_t value)
 {
-    LOCK(mutex);
-    handle_error(
-        write_command_int('W', block_base, block_number, reg, value));
-    UNLOCK(mutex);
+    WITH_MUTEX(mutex)
+        handle_error(
+            write_command_int('W', block_base, block_number, reg, value));
 }
 
 
 uint32_t hw_read_register(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
 {
-    LOCK(mutex);
     uint32_t result = 0;
-    handle_error(
-        write_command('R', block_base, block_number, reg)  ?:
-        read_all(&result, 4));
-    UNLOCK(mutex);
-
+    WITH_MUTEX(mutex)
+        handle_error(
+            write_command('R', block_base, block_number, reg)  ?:
+            read_all(&result, 4));
     return result;
 }
 
@@ -154,14 +151,14 @@ uint32_t hw_read_register(
 size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 {
     int32_t result = -1;
-    LOCK(mutex);
-    bool failed = handle_error(
-        write_command_int('D', 0, 0, 0, (uint32_t) length)  ?:
-        read_all(&result, 4)  ?:
-        IF(result > 0,
-            TEST_OK((size_t) result <= length)  ?:
-            read_all(buffer, (size_t) result)));
-    UNLOCK(mutex);
+    bool failed;
+    WITH_MUTEX(mutex)
+        failed = handle_error(
+            write_command_int('D', 0, 0, 0, (uint32_t) length)  ?:
+            read_all(&result, 4)  ?:
+            IF(result > 0,
+                TEST_OK((size_t) result <= length)  ?:
+                read_all(buffer, (size_t) result)));
 
     if (failed  ||  result < 0)
     {
@@ -241,12 +238,11 @@ void hw_long_table_write(
     memcpy(block->data + offset, data, length);
 
     uint32_t words = (uint32_t) (offset + length) / sizeof(uint32_t);
-    LOCK(mutex);
-    handle_error(
-        write_command_int('T',
-            block->block_base, block->number, 0, words)  ?:
-        write_all(block->data, offset + length));
-    UNLOCK(mutex);
+    WITH_MUTEX(mutex)
+        handle_error(
+            write_command_int('T',
+                block->block_base, block->number, 0, words)  ?:
+            write_all(block->data, offset + length));
 }
 
 

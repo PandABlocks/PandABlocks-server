@@ -23,7 +23,6 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Core error reporting mechanism. */
 
-
 /* This encapsulates an error message. */
 struct error__t {
     /* An error message consists of a list of error strings. */
@@ -56,17 +55,20 @@ error__t _error_create(char *extra, const char *format, ...)
 
 void error_extend(error__t error, const char *format, ...)
 {
-    ASSERT_OK(error->count < MAX_ERROR_DEPTH);
+    if (error)
+    {
+        ASSERT_OK(error->count < MAX_ERROR_DEPTH);
 
-    va_list args;
-    va_start(args, format);
-    ASSERT_IO(vasprintf(&error->messages[error->count], format, args));
-    va_end(args);
-    error->count += 1;
+        va_list args;
+        va_start(args, format);
+        ASSERT_IO(vasprintf(&error->messages[error->count], format, args));
+        va_end(args);
+        error->count += 1;
+    }
 }
 
 
-void error_discard(error__t error)
+bool error_discard(error__t error)
 {
     if (error)
     {
@@ -74,7 +76,10 @@ void error_discard(error__t error)
             free(error->messages[i]);
         free(error->formatted);
         free(error);
+        return true;
     }
+    else
+        return false;
 }
 
 
@@ -106,14 +111,8 @@ const char *error_format(error__t error)
 bool error_report(error__t error)
 {
     if (error)
-    {
-        const char *report = error_format(error);
-        log_error("%s", report);
-        error_discard(error);
-        return true;
-    }
-    else
-        return false;
+        log_error("%s", error_format(error));
+    return error_discard(error);
 }
 
 
@@ -255,6 +254,4 @@ void dump_binary(FILE *out, const void *buffer, size_t length)
         }
         fprintf(out, "\n");
     }
-    if (length % 16 != 0)
-        fprintf(out, "\n");
 }

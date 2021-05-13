@@ -365,21 +365,18 @@ static error__t complete_table_write(void *context, bool write_ok)
         TEST_OK_(block->write_length % state->field_set.row_words == 0,
             "Table write is not a whole number of rows"));
     if (write_ok  &&  !error)
-    {
-        LOCKW(block->read_lock);
+        WITH_MUTEX_W(block->read_lock)
+        {
+            /* Write the data. */
+            hw_write_table(
+                state->table, block->number,
+                block->write_offset, block->write_data, block->write_length);
+            block->length = block->write_length + block->write_offset;
 
-        /* Write the data. */
-        hw_write_table(
-            state->table, block->number,
-            block->write_offset, block->write_data, block->write_length);
-        block->length = block->write_length + block->write_offset;
+            block->update_index = get_change_index();
+        }
 
-        block->update_index = get_change_index();
-
-        UNLOCKRW(block->read_lock);
-    }
-
-    UNLOCK(block->write_lock);
+    _UNLOCK(block->write_lock);
 
     return error;
 }
@@ -564,7 +561,7 @@ static error__t table_get_many(
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return WITH_LOCKR(block->read_lock,
+    return ERROR_WITH_MUTEX_R(block->read_lock,
         write_ascii(block, result));
 }
 
@@ -576,9 +573,8 @@ static void table_change_set(
     for (unsigned int i = 0; i < state->block_count; i ++)
     {
         struct table_block *block = &state->blocks[i];
-        LOCKR(block->read_lock);
-        changes[i] = block->update_index > report_index;
-        UNLOCKRW(block->read_lock);
+        WITH_MUTEX_R(block->read_lock)
+            changes[i] = block->update_index > report_index;
     }
 }
 
@@ -610,7 +606,7 @@ static error__t table_length_format(
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return WITH_LOCKR(block->read_lock,
+    return ERROR_WITH_MUTEX_R(block->read_lock,
         format_string(result, length, "%zu", block->length));
 }
 
@@ -630,7 +626,7 @@ static error__t table_b_get_many(
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return WITH_LOCKR(block->read_lock,
+    return ERROR_WITH_MUTEX_R(block->read_lock,
         write_base_64(block, result));
 }
 

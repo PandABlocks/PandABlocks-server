@@ -130,9 +130,9 @@ static error__t time_get(
     struct time_class_state *state = class_data;
     struct time_field *field = &state->values[number];
 
-    LOCK(state->mutex);
-    uint64_t value = field->value;
-    UNLOCK(state->mutex);
+    uint64_t value;
+    WITH_MUTEX(state->mutex)
+        value = field->value;
     return time_class_format(value, field->time_scale, result, length);
 }
 
@@ -144,20 +144,19 @@ static error__t write_time_value(
     error__t error =
         TEST_OK_(value == 0  ||  value > state->min_value, "Value too small");
     if (!error)
-    {
-        LOCK(state->mutex);
-        hw_write_register(
-            state->block_base, number, state->low_register,
-            (uint32_t) value);
-        hw_write_register(
-            state->block_base, number, state->high_register,
-            (uint32_t) (value >> 32));
+        WITH_MUTEX(state->mutex)
+        {
+            hw_write_register(
+                state->block_base, number, state->low_register,
+                (uint32_t) value);
+            hw_write_register(
+                state->block_base, number, state->high_register,
+                (uint32_t) (value >> 32));
 
-        struct time_field *field = &state->values[number];
-        field->value = value;
-        field->update_index = get_change_index();
-        UNLOCK(state->mutex);
-    }
+            struct time_field *field = &state->values[number];
+            field->value = value;
+            field->update_index = get_change_index();
+        }
     return error;
 }
 
@@ -199,10 +198,9 @@ static void time_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct time_class_state *state = class_data;
-    LOCK(state->mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index > report_index;
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        for (unsigned int i = 0; i < state->count; i ++)
+            changes[i] = state->values[i].update_index > report_index;
 }
 
 
@@ -218,10 +216,9 @@ static error__t time_raw_format(
     struct time_class_state *state = class_data;
     struct time_field *field = &state->values[number];
 
-    LOCK(state->mutex);
-    uint64_t value = field->value;
-    UNLOCK(state->mutex);
-
+    uint64_t value;
+    WITH_MUTEX(state->mutex)
+        value = field->value;
     return format_string(result, length, "%"PRIu64, value);
 }
 
@@ -274,10 +271,11 @@ static error__t time_class_units_put(
     if (!error)
     {
         struct time_class_state *state = class_data;
-        LOCK(state->mutex);
-        state->values[number].time_scale = scale;
-        state->values[number].update_index = get_change_index();
-        UNLOCK(state->mutex);
+        WITH_MUTEX(state->mutex)
+        {
+            state->values[number].time_scale = scale;
+            state->values[number].update_index = get_change_index();
+        }
     }
     return error;
 }

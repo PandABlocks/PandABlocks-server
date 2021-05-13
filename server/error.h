@@ -60,14 +60,14 @@
  *      the returned string is the same as the lifetime of the error value.
  *
  *  error_extend(error, format, ...)
- *      A new error string is formatted and added to the given error code.
- *      Note that ERROR_OK cannot be be passed, and will in fact trigger a
- *      segmentation fault!
+ *      If error is not ERROR_OK then a new error string is formatted and added
+ *      to the given error code.  If error is ERROR_OK this is a no-op, the
+ *      formatting arguments are ignored.
  */
 
 
-/* Hint to compiler that x is likely to be 0. */
-#define unlikely(x)   __builtin_expect((x), 0)
+/* Hint to compiler that x is likely to be 0 or NULL. */
+#define unlikely(x)   __builtin_expect((!!x), 0)
 
 
 /* Error messages are encoded as an opaque type, with NULL used to represent no
@@ -85,23 +85,28 @@ typedef struct error__t *error__t;  // Alas error_t is already spoken for!
 bool error_report(error__t error);
 
 /* A helper macro to extend the reported error with context. */
-#define _id_ERROR_REPORT(error, expr, format...) \
-    ( { \
-        error__t error = (expr); \
-        if (error) \
-            error_extend(error, format); \
-        error_report(error); \
-    } )
-#define ERROR_REPORT(args...)  _id_ERROR_REPORT(UNIQUE_ID(), args)
+#define ERROR_REPORT(expr, format...) \
+    error_report(ERROR_EXTEND(expr, format))
 
-/* This function silently discards the error code. */
-void error_discard(error__t error);
+/* This function silently discards the error code, returns true if there was an
+ * error. */
+bool error_discard(error__t error);
 
 
 /* This function extends the information associated with the given error with
  * the new message. */
 void error_extend(error__t error, const char *format, ...)
     __attribute__((format(printf, 2, 3)));
+
+/* Macro for using error_extend within a chain of errors. */
+#define _id_ERROR_EXTEND(error, expr, extend...) \
+    ({ \
+        error__t error = (expr); \
+        if (unlikely(error)) error_extend(error, extend); \
+        error; \
+    })
+#define ERROR_EXTEND(args...) _id_ERROR_EXTEND(UNIQUE_ID(), args)
+
 
 /* Converts an error code into a formatted string. */
 const char *error_format(error__t error);
@@ -160,11 +165,11 @@ void start_logging(const char *ident);
 /* An assert for tests that really really should not fail!  The program will
  * terminate immediately. */
 #define _id_ASSERT(result, COND, EXTRA, expr)  \
-    do { \
+    ( { \
         typeof(expr) result = (expr); \
         if (unlikely(!COND(result))) \
             _error_panic(EXTRA(result), __FILE__, __LINE__); \
-    } while (0)
+    } )
 #define _ASSERT(args...)    _id_ASSERT(UNIQUE_ID(), args)
 
 
@@ -202,12 +207,13 @@ void start_logging(const char *ident);
 
 /* For failing immediately.  Same as TEST_OK_(false, message...) */
 #define FAIL()                      TEST_OK(false)
-#define FAIL_(message...)           _error_create(NULL, message)
+#define FAIL_(message...)           _nonnull(_error_create(NULL, message))
 
+/* Action that unconditionally succeeds. */
+#define DO(action...)                   ({action; ERROR_OK;})
 
 /* These two macros facilitate using the macros above by creating if
  * expressions that are slightly more sensible looking than ?: in context. */
-#define DO(action...)                   ({action; ERROR_OK;})
 #define IF(test, iftrue)                ((test) ? (iftrue) : ERROR_OK)
 #define IF_ELSE(test, iftrue, iffalse)  ((test) ? (iftrue) : (iffalse))
 
@@ -217,7 +223,7 @@ void start_logging(const char *ident);
 #define _id_TRY_CATCH(error, action, on_fail...) \
     ( { \
         error__t error = (action); \
-        if (error) { on_fail; } \
+        if (unlikely(error)) { on_fail; } \
         error; \
     } )
 #define TRY_CATCH(args...) _id_TRY_CATCH(UNIQUE_ID(), args)
@@ -270,8 +276,12 @@ void start_logging(const char *ident);
 #define CAST_FROM_TO(args...) \
     _id_CAST_FROM_TO(UNIQUE_ID(), args)
 
+#define CAST_TO(to_type, value) CAST_FROM_TO(typeof(value), to_type, value)
+
 /* A macro for ensuring that a value really is assign compatible to the
- * requested type. */
+ * requested type.  Note that due to restrictions on syntax this won't work if
+ * type is a written out function type, as in that case the [] part needs to be
+ * inside the type definition! */
 #define ENSURE_TYPE(type, value)    (*(type []) { (value) })
 
 

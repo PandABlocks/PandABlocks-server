@@ -26,14 +26,12 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Base state, common to all three class implementations here. */
 
-#define UNUSED_REGISTER     UINT_MAX
-
 /* Common shared state for all register functions. */
 struct base_state {
     struct type *type;              // Type implementation for value conversion
     unsigned int block_base;        // Base number for block
-    /* Optionally one or both of field_register or extension can be defined for
-     * writeable field, but only one for read only fields. */
+    /* Either field_register or extension is defined: if extension is non NULL
+     * then field_register is ignored. */
     unsigned int field_register;    // Register to be read or written
     struct extension_address *extension;    // Extension address
 };
@@ -49,38 +47,24 @@ static void base_destroy(void *class_data)
 }
 
 
-/* Depending on whether this is a read or a write register the register syntax
- * is either
- *
- *  reg | X extension | reg X extension         (for write only registers)
- *  reg | X extension                           (for read only registers)
- *
- * In the case where both a register and an extension are specified, both
- * registers are written to when appropriate. */
+/* The register specification is either a single register, specifying the
+ * hardware register accessed by this field, or is an extension register with a
+ * much more complex syntax.  Fortunately this can simply be identified by the
+ * presence of an X character in the specification. */
 static error__t base_parse_register(
     struct base_state *state, struct field *field, unsigned int block_base,
     const char **line, bool write_not_read)
 {
     state->block_base = block_base;
-    state->field_register = UNUSED_REGISTER;
-    struct extension_block *extension =
-        get_block_extension(get_field_block(field));
-    return
-        IF_ELSE(read_char(line, 'X'),
-            // Extension register only
-            parse_extension_address(
-                line, extension, write_not_read, &state->extension),
-        //else
-            // Otherwise there must be a normal register, maybe followed by an
-            // extension register
-            check_parse_register(field, line, &state->field_register)  ?:
-            IF(read_char(line, ' '),
-                parse_char(line, 'X')  ?:
-                TEST_OK_(write_not_read,
-                    "Cannot specify two registers for read")  ?:
-                parse_extension_address(
-                    line, extension, write_not_read, &state->extension)));
 
+    /* The syntax for extension registers is most simply identified by checking
+     * for an X in the line. */
+    if (strchr(*line, 'X'))
+        return parse_extension_register(
+            line, get_block_extension(get_field_block(field)),
+            block_base, write_not_read, &state->extension);
+    else
+        return check_parse_register(field, line, &state->field_register);
 }
 
 static error__t read_parse_register(
@@ -139,24 +123,25 @@ static error__t base_put(
 
 /* Note that writing to a register can write to both a hardware and an extension
  * register if appropriate. */
-static void write_register(
+static error__t write_register(
     struct base_state *state, unsigned int number, uint32_t value)
 {
-    if (state->field_register != UINT_MAX)
-        hw_write_register(
-            state->block_base, number, state->field_register, value);
     if (state->extension)
-        extension_write_register(state->extension, number, value);
+        return extension_write_register(state->extension, number, value);
+    else
+        return DO(hw_write_register(
+            state->block_base, number, state->field_register, value));
 }
 
 
-static uint32_t read_register(struct base_state *state, unsigned int number)
+static error__t read_register(
+    struct base_state *state, unsigned int number, uint32_t *result)
 {
     if (state->extension)
-        return extension_read_register(state->extension, number);
+        return extension_read_register(state->extension, number, result);
     else
-        return hw_read_register(
-            state->block_base, number, state->field_register);
+        return DO(*result = hw_read_register(
+            state->block_base, number, state->field_register));
 }
 
 
@@ -207,9 +192,8 @@ static error__t simple_register_init(
 static void simple_register_changed(void *reg_data, unsigned int number)
 {
     struct simple_state *state = reg_data;
-    LOCK(state->mutex);
-    state->values[number].update_index = get_change_index();
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        state->values[number].update_index = get_change_index();
 }
 
 
@@ -231,13 +215,10 @@ static error__t param_read(void *reg_data, unsigned int number, uint32_t *value)
 static error__t param_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct simple_state *state = reg_data;
-
-    LOCK(state->mutex);
-    state->values[number].value = value;
-    state->values[number].update_index = get_change_index();
-    write_register(&state->base, number, value);
-    UNLOCK(state->mutex);
-    return ERROR_OK;
+    return ERROR_WITH_MUTEX(state->mutex,
+        write_register(&state->base, number, value)  ?:
+        DO( state->values[number].value = value;
+            state->values[number].update_index = get_change_index()));
 }
 
 
@@ -278,9 +259,10 @@ static error__t param_init(
 static error__t param_finalise(void *class_data)
 {
     struct simple_state *state = class_data;
-    for (unsigned int i = 0; i < state->count; i ++)
-        write_register(&state->base, i, state->values[i].value);
-    return ERROR_OK;
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; error && i < state->count; i ++)
+        error = write_register(&state->base, i, state->values[i].value);
+    return error;
 }
 
 
@@ -288,10 +270,9 @@ static void param_change_set(
     void *class_data, uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
-    LOCK(state->mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-        changes[i] = state->values[i].update_index > report_index;
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        for (unsigned int i = 0; i < state->count; i ++)
+            changes[i] = state->values[i].update_index > report_index;
 }
 
 
@@ -315,26 +296,23 @@ const struct class_methods param_class_methods = {
  * control are somewhat different. */
 
 /* This must be called under a lock. */
-static uint32_t unlocked_read_read(
-    struct simple_state *state, unsigned int number)
+static error__t unlocked_read_read(
+    struct simple_state *state, unsigned int number, uint32_t *result)
 {
-    uint32_t result = read_register(&state->base, number);
-    if (result != state->values[number].value)
+    error__t error = read_register(&state->base, number, result);
+    if (!error  &&  *result != state->values[number].value)
     {
-        state->values[number].value = result;
+        state->values[number].value = *result;
         state->values[number].update_index = get_change_index();
     }
-    return result;
+    return error;
 }
 
 static error__t read_read(void *reg_data, unsigned int number, uint32_t *value)
 {
     struct simple_state *state = reg_data;
-
-    LOCK(state->mutex);
-    *value = unlocked_read_read(state, number);
-    UNLOCK(state->mutex);
-    return ERROR_OK;
+    return ERROR_WITH_MUTEX(state->mutex,
+        unlocked_read_read(state, number, value));
 }
 
 
@@ -342,13 +320,15 @@ static void read_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct simple_state *state = class_data;
-    LOCK(state->mutex);
-    for (unsigned int i = 0; i < state->count; i ++)
-    {
-        unlocked_read_read(state, i);
-        changes[i] = state->values[i].update_index > report_index;
-    }
-    UNLOCK(state->mutex);
+    WITH_MUTEX(state->mutex)
+        for (unsigned int i = 0; i < state->count; i ++)
+        {
+            uint32_t result;
+            ERROR_REPORT(
+                unlocked_read_read(state, i, &result),
+                "Error reading register while polling change set");
+            changes[i] = state->values[i].update_index > report_index;
+        }
 }
 
 
@@ -387,8 +367,7 @@ const struct class_methods read_class_methods = {
 static error__t write_write(void *reg_data, unsigned int number, uint32_t value)
 {
     struct base_state *state = reg_data;
-    write_register(state, number, value);
-    return ERROR_OK;
+    return write_register(state, number, value);
 }
 
 static struct register_methods write_methods = {

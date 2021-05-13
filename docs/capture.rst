@@ -195,6 +195,16 @@ Driver data overrun Probable CPU overload on PandA, should not occur.
 DMA data error      Data capture too fast for memory bandwidth.
 =================== ============================================================
 
+High performance mode
+~~~~~~~~~~~~~~~~~~~~~
+
+To get the highest performance, use ``FRAMED RAW`` mode. This activates a
+special passthrough mode which avoids copying memory as much as possible. In
+tests it has been capable of sustaining 60MBytes/s when panda-webcontrol is not
+installed. The downside to this mode is that if capture fails for any reason,
+then the last Framed block of data that the server sent should be discarded as
+it will have been corrupted while being sent.
+
 
 Examples
 ~~~~~~~~
@@ -208,9 +218,9 @@ Default::
     format: ASCII
     fields:
      PCAP.CAPTURE_TS double Trigger
-     COUNTER1.OUT double Triggered scale: 1 offset: 0 units: 
-     COUNTER2.OUT double Triggered scale: 1 offset: 0 units: 
-     PGEN1.OUT double Triggered scale: 1 offset: 0 units: 
+     COUNTER1.OUT double Triggered scale: 1 offset: 0 units:
+     COUNTER2.OUT double Triggered scale: 1 offset: 0 units:
+     PGEN1.OUT double Triggered scale: 1 offset: 0 units:
 
      1e-06 0 0 262143
      3e-06 0 0 262142
@@ -227,9 +237,9 @@ Default::
     sample_bytes: 32
     fields:
      PCAP.CAPTURE_TS double Trigger
-     COUNTER1.OUT double Triggered scale: 1 offset: 0 units: 
-     COUNTER2.OUT double Triggered scale: 1 offset: 0 units: 
-     PGEN1.OUT double Triggered scale: 1 offset: 0 units: 
+     COUNTER1.OUT double Triggered scale: 1 offset: 0 units:
+     COUNTER2.OUT double Triggered scale: 1 offset: 0 units:
+     PGEN1.OUT double Triggered scale: 1 offset: 0 units:
 
      ju21oPfGsD4AAAAAAAAAAAAAAAAAAAAAAAAAAPj/D0FU5BBxcyrJPgAAAAAAAAAAAAAAAAAAAAAA
      AAAA8P8PQfFo44i1+NQ+AAAAAAAAAAAAAAAAAAAAAAAAAADo/w9BuF8+WTFc3T4AAAAAAAAAAAAA

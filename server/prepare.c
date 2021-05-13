@@ -349,6 +349,13 @@ bool send_data_header(
     struct xml_element field_group =
         start_element(file, "fields", options->xml_header, true, false);
 
+    /* In RAW mode we might have an anonymous sample count field to publish */
+    bool add_sample_count_first =
+        sample_count_is_anonymous(capture) &&
+        options->data_process == DATA_PROCESS_RAW;
+    if (add_sample_count_first)
+        send_field_info(file, options, fields->sample_count);
+
     send_group_info(file, options, &fields->unscaled);
     send_group_info(file, options, &fields->scaled32);
     send_group_info(file, options, &fields->scaled64);

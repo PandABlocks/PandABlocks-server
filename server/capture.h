@@ -37,3 +37,7 @@ void convert_raw_data_to_binary(
 bool send_binary_as_ascii(
     const struct data_capture *capture, struct data_options *options,
     struct buffered_file *file, unsigned int sample_count, const void *data);
+
+/* If averaged fields are present, but sample count is not requested, it
+ * will be captured, but not added to any group. This returns true if so */
+bool sample_count_is_anonymous(const struct data_capture *capture);

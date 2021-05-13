@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
+#include <ctype.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -68,39 +69,34 @@ void terminate_extension_server(void)
 }
 
 
-/* Helper macro for communication with the extension server.  Performs all
- * transactions under the server mutex and returns an error code if any part of
- * the transaction fails. */
-#define SERVER_EXCHANGE(actions) \
-    WITH_LOCK(server.mutex, TEST_OK_(actions, \
-        "Extension server communication failure"))
-
-
 /* A server parse exchange is pretty sterotyped: we send a newline terminated
  * request string, and either get a response with the same prefix character and
- * a single number, or an error response. */
+ * a list of numbers, or an error response. */
 static error__t extension_server_exchange(
-    unsigned int *parse_id, const char *format, ...)
+    const char *message, unsigned int count, unsigned int result[])
 {
-    char buffer[256];
-    va_list args;
-    va_start(args, format);
-    int length = vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-
-    char prefix = buffer[0];
-    const char *response = buffer;
+    char prefix = message[0];
+    char result_buffer[256];
+    const char *response = result_buffer;
     return
         TEST_OK_(server.file, "Extension server not running")  ?:
-        SERVER_EXCHANGE(
-            write_string(server.file, buffer, (size_t) length)  &&
-            read_line(server.file, buffer, sizeof(buffer), true))  ?:
+        ERROR_WITH_MUTEX(server.mutex,
+            TEST_OK_(
+                write_string(server.file, message, strlen(message))  &&
+                read_line(server.file,
+                    result_buffer, sizeof(result_buffer), true),
+                "Extension server communication failure"))  ?:
         IF_ELSE(read_char(&response, prefix),
-            // Successful parse.  Response should be a single integer
-            parse_uint(&response, parse_id)  ?:
-            parse_eos(&response),
+            /* Successful response.  Response should be a list of integers. */
+            ERROR_EXTEND(
+                parse_uint_array(&response, result, count)  ?:
+                parse_eos(&response),
+                /* If we have a problem with the response augment the error
+                 * message to help with diagnosing extension server errors. */
+                "Error at offset %zd in response \"%s\"",
+                response - result_buffer + 1, result_buffer),
         //else
-            // The only other valid response is an error message
+            /* The only other valid response is an error message. */
             parse_char(&response, 'E')  ?:
             FAIL_("%s", response));
 }
@@ -111,7 +107,10 @@ static error__t extension_server_exchange(
 static error__t extension_server_parse_block(
     unsigned int count, const char *request, unsigned int *parse_id)
 {
-    return extension_server_exchange(parse_id, "B%d %s\n", count, request);
+    char message[128];
+    return
+        format_string(message, sizeof(message), "B%d %s\n", count, request)  ?:
+        extension_server_exchange(message, 1, parse_id);
 }
 
 
@@ -121,29 +120,11 @@ static error__t extension_server_parse_field(
     unsigned int block_id, bool write_not_read, const char *request,
     unsigned int *parse_id)
 {
-    return extension_server_exchange(parse_id,
-        "P%c%d %s\n", write_not_read ? 'W' : 'R', block_id, request);
-}
-
-
-static uint32_t extension_server_read(
-    unsigned int parse_id, unsigned int number)
-{
-    unsigned int result = 0;
-    ERROR_REPORT(
-        extension_server_exchange(&result, "R%u %u\n", parse_id, number),
-        "Error reading from extension server");
-    return result;
-}
-
-
-static void extension_server_write(
-    unsigned int parse_id, unsigned int number, uint32_t value)
-{
-    error_report(SERVER_EXCHANGE(
-        write_formatted_string(server.file,
-            "W%u %u %u\n", parse_id, number, value)  &&
-        flush_out_buf(server.file)));
+    char message[128];
+    return
+        format_string(message, sizeof(message),
+            "P%c%d %s\n", write_not_read ? 'W' : 'R', block_id, request)  ?:
+        extension_server_exchange(message, 1, parse_id);
 }
 
 
@@ -186,57 +167,200 @@ void destroy_extension_block(struct extension_block *block)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Register interface. */
 
+#define UNUSED_REGISTER     UINT_MAX
+
 struct extension_address {
+    unsigned int block_base;
     unsigned int parse_id;
+    unsigned int read_count;
+    unsigned int write_count;
+    unsigned int *read_registers;
+    unsigned int *write_registers;
 };
 
 
-static struct extension_address *create_extension_address(
-    unsigned int parse_id)
+/* Counts number of strings that look like integers. */
+static unsigned int count_uint_strings(const char *line)
 {
-    struct extension_address *address =
-        malloc(sizeof(struct extension_address));
-    *address = (struct extension_address) {
-        .parse_id = parse_id,
-    };
-    return address;
+    unsigned int count = 0;
+    while (true)
+    {
+        line = skip_whitespace(line);
+        if (isdigit(*line))
+        {
+            count += 1;
+            do {
+                line += 1;
+            } while (isdigit(*line));
+        }
+        else
+            return count;
+    }
 }
 
 
-error__t parse_extension_address(
-    const char **line, struct extension_block *block,
-    bool write_not_read, struct extension_address **address)
+/* Parses array of strings into an array of integers. */
+static error__t parse_register_array(
+    const char **line, unsigned int *count, unsigned int **array)
+{
+    *count = count_uint_strings(*line);
+    if (*count > 0)
+    {
+        *array = malloc(sizeof(unsigned int) * *count);
+        error__t error = parse_uint_array(line, *array, *count);
+        for (unsigned int i = 0; !error  &&  i < *count; i ++)
+            error = TEST_OK_((*array)[i] < BLOCK_REGISTER_COUNT,
+                "Register value too large");
+        *line = skip_whitespace(*line);
+        return error;
+    }
+    else
+    {
+        *array = NULL;
+        return ERROR_OK;
+    }
+}
+
+
+static error__t parse_extension_name(
+    const char **line, unsigned int block_id,
+    bool write_not_read, unsigned int *parse_id)
 {
     const char *request;
-    unsigned int parse_id;
     return
-        TEST_OK_(block, "No extensions defined for this block")  ?:
         parse_whitespace(line)  ?:
         parse_utf8_string(line, &request)  ?:
         extension_server_parse_field(
-            block->block_id, write_not_read, request, &parse_id)  ?:
-        DO(*address = create_extension_address(parse_id));
+            block_id, write_not_read, request, parse_id);
+}
+
+
+/* The extension register syntax is:
+ *
+ *      [register]* X extension-name
+ *
+ * for read registers and
+ *
+ *      [register]* [W [register]*] X extension-name
+ *
+ * for write registers. */
+error__t parse_extension_register(
+    const char **line, struct extension_block *block,
+    unsigned int block_base,
+    bool write_not_read, struct extension_address **address)
+{
+    struct extension_address extension = {
+        .block_base = block_base,
+    };
+
+    error__t error =
+        TEST_OK_(block, "No extensions defined for this block")  ?:
+        parse_register_array(
+            line, &extension.read_count, &extension.read_registers)  ?:
+        IF(read_char(line, 'W'),
+            TEST_OK_(write_not_read,
+                "Cannot specify write registers for read type")  ?:
+            parse_register_array(
+                line, &extension.write_count, &extension.write_registers))  ?:
+        parse_char(line, 'X')  ?:
+        parse_extension_name(
+            line, block->block_id, write_not_read, &extension.parse_id);
+
+    if (error)
+    {
+        free(extension.read_registers);
+        free(extension.write_registers);
+    }
+    else
+    {
+        *address = malloc(sizeof(struct extension_address));
+        **address = extension;
+    }
+
+    return error;
 }
 
 
 void destroy_extension_address(struct extension_address *address)
 {
+    free(address->read_registers);
+    free(address->write_registers);
     free(address);
 }
 
 
-/* Writes the given value to the given extension register. */
-void extension_write_register(
-    const struct extension_address *address, unsigned int number,
-    uint32_t value)
+/* Reads the specified hardware registers and formats onto the end of the given
+ * format string. */
+static error__t __attribute__((format(printf, 5, 6))) read_hardware_registers(
+    const struct extension_address *address,
+    char *buffer, size_t length, unsigned int number, const char *format, ...)
 {
-    extension_server_write(address->parse_id, number, value);
+    /* First format the prefix.  We know this won't fail. */
+    va_list args;
+    va_start(args, format);
+    int written = vsnprintf(buffer, length, format, args);
+    va_end(args);
+
+    /* Consume buffer space just written. */
+    ASSERT_OK(written > 0  &&  (size_t) written < length);
+    buffer += written;
+    length -= (size_t) written;
+
+    /* Now read and format the hardware registers. */
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0; !error  &&  i < address->read_count; i ++)
+    {
+        uint32_t value = hw_read_register(
+            address->block_base, number, address->read_registers[i]);
+        written = snprintf(buffer, length, " %u", value);
+        error = TEST_OK_(written > 0  &&  (size_t) written < length,
+            "Buffer overflow reading registers");
+        buffer += written;
+        length -= (size_t) written;
+    }
+
+    /* Put \n on the end, if there's room. */
+    return
+        error  ?:
+        TEST_OK_(length >= 2, "Buffer overflow reading registers")  ?:
+        DO(strcpy(buffer, "\n"));
 }
 
 
 /* Returns current value of the given extension register. */
-uint32_t extension_read_register(
-    const struct extension_address *address, unsigned int number)
+error__t extension_read_register(
+    const struct extension_address *address, unsigned int number,
+    uint32_t *result)
 {
-    return extension_server_read(address->parse_id, number);
+    char message[256];
+    return
+        read_hardware_registers(
+            address, message, sizeof(message), number,
+            "R%u %u", address->parse_id, number)  ?:
+        extension_server_exchange(message, 1, result);
+}
+
+
+/* Writes the given value to the given extension register. */
+error__t extension_write_register(
+    const struct extension_address *address,
+    unsigned int number, uint32_t value)
+{
+    char message[256];
+    unsigned int results[address->write_count];
+    error__t error =
+        read_hardware_registers(
+            address, message, sizeof(message), number,
+            "W%u %u %u", address->parse_id, number, value)  ?:
+        extension_server_exchange(message, address->write_count, results);
+
+    /* If writing was successful write the registers. */
+    if (!error)
+    {
+        for (unsigned int i = 0; i < address->write_count; i ++)
+            hw_write_register(
+                address->block_base, number,
+                address->write_registers[i], results[i]);
+    }
+    return error;
 }

@@ -396,14 +396,15 @@ static void refresh_change_index(
     struct change_set_context *change_set_context,
     enum change_set change_set, uint64_t report_index[])
 {
-    LOCK(change_mutex);
-    uint64_t change_index = update_change_index(
-        change_set_context, change_set, report_index);
-    if (change_set & CHANGES_BITS)
-        do_bit_out_refresh(change_index);
-    if (change_set & CHANGES_POSITION)
-        do_pos_out_refresh(change_index);
-    UNLOCK(change_mutex);
+    WITH_MUTEX(change_mutex)
+    {
+        uint64_t change_index = update_change_index(
+            change_set_context, change_set, report_index);
+        if (change_set & CHANGES_BITS)
+            do_bit_out_refresh(change_index);
+        if (change_set & CHANGES_POSITION)
+            do_pos_out_refresh(change_index);
+    }
 }
 
 
@@ -742,8 +743,7 @@ error__t create_field(
 
         DO(field = create_field_block(block, field_name, methods))  ?:
         methods->init(
-            line, block->count, field->attrs, &field->class_data,
-            parser)  ?:
+            line, block->count, field->attrs, &field->class_data, parser)  ?:
 
         create_field_attributes(field)  ?:
         /* Insert the field into the blocks map of fields. */

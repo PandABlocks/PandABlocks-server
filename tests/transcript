@@ -33,6 +33,7 @@
 > !SFP_TX 1
 > !TTLOUT 10
 > !ADC 8
+> !DUMMY 5
 > !DIV 4
 > !INENC 4
 > !SLOW 1
@@ -748,3 +749,9 @@
 
 < *METADATA.MODEL=BOO
 > ERR Cannot write to this field
+
+< SYSTEM.TEMP_ZYNQ?
+> ERR Extension server exception
+
+< DUMMY1.DUMMY_W=99
+> ERR Extension server exception

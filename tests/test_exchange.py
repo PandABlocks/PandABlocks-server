@@ -26,37 +26,17 @@ server = socket.socket()
 server.connect((args.server, args.port))
 server.settimeout(0.5)
 
+server = server.makefile('rw')
+
 transcript = open(args.script, 'r')
 
-
-
-# Iterator: returns lines one at a time read from socket connection
-def socket_readlines():
-    buffer = ''
-    while True:
-        lines = buffer.split('\n')
-        for line in lines[:-1]:
-            yield (True, line)
-        buffer = lines[-1]
-        try:
-            rx = server.recv(4096)
-        except socket.timeout:
-            yield (False, '')
-        else:
-            if rx:
-                buffer = buffer + rx
-            else:
-                yield buffer
-                break
-
-lines = socket_readlines()
 
 def read_response(count):
     result = []
     for n in range(count):
-        ok, line = lines.next()
-        if ok:
-            result.append(line)
+        line = server.readline()
+        if line:
+            result.append(line[:-1])
         else:
             break
     return result
@@ -97,22 +77,19 @@ while True:
     if not tx:
         break
 
-    try:
-        start = time.time()
-        for line in tx:
-            server.send(line + '\n')
-        response = read_response(len(rx))
-        end = time.time()
-    except Exception as e:
-        print(tx[0], e, 'on line', line_no)
-        break
+    start = time.time()
+    for line in tx:
+        server.write(line + '\n')
+    server.flush()
+    response = read_response(len(rx))
+    end = time.time()
+
+    if response == rx:
+        if not args.quiet:
+            print(tx[0], 'OK %.2f ms' % (1e3 * (end - start)))
     else:
-        if response == rx:
-            if not args.quiet:
-                print(tx[0], 'OK %.2f ms' % (1e3 * (end - start)))
-        else:
-            print(tx[0], 'response error', response, 'on line', line_no)
-            failed += 1
+        print(tx[0], 'response error', response, 'on line', line_no)
+        failed += 1
 
 if failed:
     print(failed, 'tests failed')

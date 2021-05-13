@@ -431,11 +431,12 @@ static error__t lut_parse(
     error__t error = do_parse_lut(*string, value);
     if (!error)
     {
-        LOCK(state->mutex);
-        field->value = *value;
-        free(field->string);
-        field->string = strdup(*string);
-        UNLOCK(state->mutex);
+        WITH_MUTEX(state->mutex)
+        {
+            field->value = *value;
+            free(field->string);
+            field->string = strdup(*string);
+        }
 
         *string += strlen(*string);
     }
@@ -450,17 +451,14 @@ static error__t lut_format(
     struct lut_state *state = type_data;
     struct lut_field *field = &state->values[number];
 
-    error__t error;
-    LOCK(state->mutex);
-    if (value == field->value  &&  field->string)
-        error = format_string(string, length, "%s", field->string);
-    else
-        /* If no string has been formatted yet, or if our stored value doesn't
-         * match the value we're being asked to format just return the raw hex
-         * value.  This second case is rather unlikely. */
-        error = format_string(string, length, "0x%08X", value);
-    UNLOCK(state->mutex);
-    return error;
+    return ERROR_WITH_MUTEX(state->mutex,
+        IF_ELSE(value == field->value  &&  field->string,
+            format_string(string, length, "%s", field->string),
+        //else
+            /* If no string has been formatted yet, or if our stored value
+             * doesn't match the value we're being asked to format just return
+             * the raw hex value.  This second case is rather unlikely. */
+            format_string(string, length, "0x%08X", value)));
 }
 
 

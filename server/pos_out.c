@@ -65,21 +65,19 @@ static uint64_t pos_update_index[] = { [0 ... POS_BUS_COUNT-1] = 1 };
 
 
 
-#define MAX_DATA_DELAY   31
-
-
 /* The refresh methods are called when we need a fresh value.  We retrieve
  * values and changed bits from the hardware and update settings accordingly. */
 
 void do_pos_out_refresh(uint64_t change_index)
 {
-    LOCK(update_mutex);
-    bool changes[POS_BUS_COUNT];
-    hw_read_positions(pos_value, changes);
-    for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
-        if (changes[i]  &&  change_index > pos_update_index[i])
-            pos_update_index[i] = change_index;
-    UNLOCK(update_mutex);
+    WITH_MUTEX(update_mutex)
+    {
+        bool changes[POS_BUS_COUNT];
+        hw_read_positions(pos_value, changes);
+        for (unsigned int i = 0; i < POS_BUS_COUNT; i ++)
+            if (changes[i]  &&  change_index > pos_update_index[i])
+                pos_update_index[i] = change_index;
+    }
 }
 
 
@@ -94,10 +92,12 @@ static void pos_out_refresh(void *class_data, unsigned int number)
  * the index array is the position bus offset. */
 static int read_pos_out_value(struct pos_out *pos_out, unsigned int number)
 {
-    LOCK(update_mutex);
-    unsigned int capture_index = pos_out->values[number].capture_index;
-    uint32_t result = pos_value[capture_index];
-    UNLOCK(update_mutex);
+    uint32_t result;
+    WITH_MUTEX(update_mutex)
+    {
+        unsigned int capture_index = pos_out->values[number].capture_index;
+        result = pos_value[capture_index];
+    }
     return (int) result;
 }
 
@@ -117,13 +117,12 @@ static void pos_out_change_set(
     void *class_data, const uint64_t report_index, bool changes[])
 {
     struct pos_out *pos_out = class_data;
-    LOCK(update_mutex);
-    for (unsigned int i = 0; i < pos_out->count; i ++)
-    {
-        unsigned int capture_index = pos_out->values[i].capture_index;
-        changes[i] = pos_update_index[capture_index] > report_index;
-    }
-    UNLOCK(update_mutex);
+    WITH_MUTEX(update_mutex)
+        for (unsigned int i = 0; i < pos_out->count; i ++)
+        {
+            unsigned int capture_index = pos_out->values[i].capture_index;
+            changes[i] = pos_update_index[capture_index] > report_index;
+        }
 }
 
 
@@ -142,10 +141,12 @@ static error__t pos_out_scaled_format(
     struct pos_out *pos_out = data;
     struct pos_out_field *field = &pos_out->values[number];
 
-    LOCK(pos_out->mutex);
-    double scale = field->scale;
-    double offset = field->offset;
-    UNLOCK(pos_out->mutex);
+    double scale, offset;
+    WITH_MUTEX(pos_out->mutex)
+    {
+        scale = field->scale;
+        offset = field->offset;
+    }
 
     int value = read_pos_out_value(pos_out, number);
     return format_double(result, length, value * scale + offset);
@@ -159,9 +160,9 @@ static error__t pos_out_scale_format(
     struct pos_out *pos_out = data;
     struct pos_out_field *field = &pos_out->values[number];
 
-    LOCK(pos_out->mutex);
-    double scale = field->scale;
-    UNLOCK(pos_out->mutex);
+    double scale;
+    WITH_MUTEX(pos_out->mutex)
+        scale = field->scale;
 
     return format_double(result, length, scale);
 }
@@ -177,9 +178,8 @@ static error__t pos_out_scale_put(
 
     if (!error)
     {
-        LOCK(pos_out->mutex);
-        field->scale = scale;
-        UNLOCK(pos_out->mutex);
+        WITH_MUTEX(pos_out->mutex)
+            field->scale = scale;
     }
     return error;
 }
@@ -191,9 +191,9 @@ static error__t pos_out_offset_format(
     struct pos_out *pos_out = data;
     struct pos_out_field *field = &pos_out->values[number];
 
-    LOCK(pos_out->mutex);
-    double offset = field->offset;
-    UNLOCK(pos_out->mutex);
+    double offset;
+    WITH_MUTEX(pos_out->mutex)
+        offset = field->offset;
 
     return format_double(result, length, offset);
 }
@@ -203,16 +203,11 @@ static error__t pos_out_offset_put(
 {
     struct pos_out *pos_out = data;
     struct pos_out_field *field = &pos_out->values[number];
-
     double offset;
-    error__t error = parse_double(&value, &offset)  ?: parse_eos(&value);
-    if (!error)
-    {
-        LOCK(pos_out->mutex);
-        field->offset = offset;
-        UNLOCK(pos_out->mutex);
-    }
-    return error;
+    return
+        parse_double(&value, &offset)  ?:
+        parse_eos(&value)  ?:
+        DO(WITH_MUTEX(pos_out->mutex) field->offset = offset);
 }
 
 
@@ -223,11 +218,8 @@ static error__t pos_out_units_format(
     struct pos_out *pos_out = data;
     struct pos_out_field *field = &pos_out->values[number];
 
-    LOCK(pos_out->mutex);
-    error__t error = format_string(result, length, "%s", field->units ?: "");
-    UNLOCK(pos_out->mutex);
-
-    return error;
+    return ERROR_WITH_MUTEX(pos_out->mutex,
+        format_string(result, length, "%s", field->units ?: ""));
 }
 
 static error__t pos_out_units_put(
@@ -240,10 +232,11 @@ static error__t pos_out_units_put(
     error__t error = parse_utf8_string(&value, &units);
     if (!error)
     {
-        LOCK(pos_out->mutex);
-        free(field->units);
-        field->units = strdup(units);
-        UNLOCK(pos_out->mutex);
+        WITH_MUTEX(pos_out->mutex)
+        {
+            free(field->units);
+            field->units = strdup(units);
+        }
     }
     return error;
 }
@@ -277,9 +270,9 @@ static error__t pos_out_capture_format(
     struct pos_out *pos_out = data;
     struct pos_out_field *field = &pos_out->values[number];
 
-    LOCK(pos_out->mutex);
-    enum pos_out_capture capture = field->capture;
-    UNLOCK(pos_out->mutex);
+    enum pos_out_capture capture;
+    WITH_MUTEX(pos_out->mutex)
+        capture = field->capture;
 
     return format_enumeration(pos_out_capture_enum, capture, result, length);
 }
@@ -294,10 +287,7 @@ static error__t pos_out_capture_put(
     return
         TEST_OK_(enum_name_to_index(pos_out_capture_enum, value, &capture),
             "Invalid capture option")  ?:
-        DO(
-            LOCK(pos_out->mutex);
-            field->capture = capture;
-            UNLOCK(pos_out->mutex));
+        DO(WITH_MUTEX(pos_out->mutex) field->capture = capture);
 }
 
 
@@ -309,14 +299,15 @@ static const struct enumeration *pos_out_capture_get_enumeration(void *data)
 
 void reset_pos_out_capture(struct pos_out *pos_out, unsigned int number)
 {
-    LOCK(pos_out->mutex);
-    struct pos_out_field *field = &pos_out->values[number];
-    if (field->capture != POS_OUT_CAPTURE_NONE)
+    WITH_MUTEX(pos_out->mutex)
     {
-        field->capture = POS_OUT_CAPTURE_NONE;
-        attr_changed(pos_out->capture_attr, number);
+        struct pos_out_field *field = &pos_out->values[number];
+        if (field->capture != POS_OUT_CAPTURE_NONE)
+        {
+            field->capture = POS_OUT_CAPTURE_NONE;
+            attr_changed(pos_out->capture_attr, number);
+        }
     }
-    UNLOCK(pos_out->mutex);
 }
 
 
@@ -384,42 +375,43 @@ unsigned int get_pos_out_capture_info(
             capture_count += 1; \
         } while (0)
 
-    LOCK(pos_out->mutex);
-    switch (field->capture)
+    WITH_MUTEX(pos_out->mutex)
     {
-        case POS_OUT_CAPTURE_NONE:
-            break;
-        case POS_OUT_CAPTURE_VALUE:
-            GET_CAPTURE_INFO(VALUE,   UNUSED,   SCALED32, "Value");
-            break;
-        case POS_OUT_CAPTURE_DIFF:
-            GET_CAPTURE_INFO(DIFF,    UNUSED,   SCALED32, "Diff");
-            break;
-        case POS_OUT_CAPTURE_SUM:
-            GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, SCALED64, "Sum");
-            break;
-        case POS_OUT_CAPTURE_MEAN:
-            GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, AVERAGE,  "Mean");
-            break;
-        case POS_OUT_CAPTURE_MIN:
-            GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
-            break;
-        case POS_OUT_CAPTURE_MAX:
-            GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
-            break;
-        case POS_OUT_CAPTURE_MIN_MAX:
-            GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
-            GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
-            break;
-        case POS_OUT_CAPTURE_MIN_MAX_MEAN:
-            GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
-            GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
-            GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, AVERAGE,  "Mean");
-            break;
-        default:
-            ASSERT_FAIL();
+        switch (field->capture)
+        {
+            case POS_OUT_CAPTURE_NONE:
+                break;
+            case POS_OUT_CAPTURE_VALUE:
+                GET_CAPTURE_INFO(VALUE,   UNUSED,   SCALED32, "Value");
+                break;
+            case POS_OUT_CAPTURE_DIFF:
+                GET_CAPTURE_INFO(DIFF,    UNUSED,   SCALED32, "Diff");
+                break;
+            case POS_OUT_CAPTURE_SUM:
+                GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, SCALED64, "Sum");
+                break;
+            case POS_OUT_CAPTURE_MEAN:
+                GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, AVERAGE,  "Mean");
+                break;
+            case POS_OUT_CAPTURE_MIN:
+                GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
+                break;
+            case POS_OUT_CAPTURE_MAX:
+                GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
+                break;
+            case POS_OUT_CAPTURE_MIN_MAX:
+                GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
+                GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
+                break;
+            case POS_OUT_CAPTURE_MIN_MAX_MEAN:
+                GET_CAPTURE_INFO(MIN,     UNUSED,   SCALED32, "Min");
+                GET_CAPTURE_INFO(MAX,     UNUSED,   SCALED32, "Max");
+                GET_CAPTURE_INFO(SUM_LOW, SUM_HIGH, AVERAGE,  "Mean");
+                break;
+            default:
+                ASSERT_FAIL();
+        }
     }
-    UNLOCK(pos_out->mutex);
     return capture_count;
 }
 

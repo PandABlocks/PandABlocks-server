@@ -41,6 +41,7 @@ struct ext_out {
 
 
 static struct ext_out *samples_ext_out;
+static char samples_field_name[MAX_NAME_LENGTH];
 
 
 static error__t bits_get_many(
@@ -118,13 +119,12 @@ static const struct enumeration *ext_out_capture_get_enumeration(void *data)
 
 void reset_ext_out_capture(struct ext_out *ext_out)
 {
-//     LOCK(ext_out->mutex);
+//     WITH_MUTEX(ext_out->mutex)
     if (ext_out->capture)
     {
         ext_out->capture = false;
         attr_changed(ext_out->capture_attr, 0);
     }
-//     UNLOCK(ext_out->mutex);
 }
 
 
@@ -199,6 +199,7 @@ bool get_samples_capture_info(struct capture_info *capture_info)
 {
     ASSERT_OK(samples_ext_out);     // If not assigned, we are dead.
     get_capture_info(samples_ext_out, capture_info);
+    capture_info->field_name = samples_field_name;
     return samples_ext_out->capture;
 }
 
@@ -312,7 +313,12 @@ static error__t ext_out_parse_register(
         IF(ext_out->ext_type == EXT_OUT_SAMPLES,
             TEST_OK_(samples_ext_out == NULL,
                 "Duplicate samples field assigned")  ?:
-            DO(samples_ext_out = ext_out))  ?:
+            DO(
+                samples_ext_out = ext_out;
+                format_field_name(
+                    samples_field_name, sizeof(samples_field_name),
+                    field, NULL, 0, '\0')
+            ))  ?:
         IF(ext_out->ext_type == EXT_OUT_BITS,
             DO(register_bit_group(field, ext_out)));
 }
