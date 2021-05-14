@@ -296,7 +296,7 @@ const struct class_methods param_class_methods = {
  * control are somewhat different. */
 
 /* This must be called under a lock. */
-static error__t unlocked_read_read(
+static error__t locked_read_read(
     struct simple_state *state, unsigned int number, uint32_t *result)
 {
     error__t error = read_register(&state->base, number, result);
@@ -312,7 +312,7 @@ static error__t read_read(void *reg_data, unsigned int number, uint32_t *value)
 {
     struct simple_state *state = reg_data;
     return ERROR_WITH_MUTEX(state->mutex,
-        unlocked_read_read(state, number, value));
+        locked_read_read(state, number, value));
 }
 
 
@@ -321,14 +321,16 @@ static void read_change_set(
 {
     struct simple_state *state = class_data;
     WITH_MUTEX(state->mutex)
+    {
         for (unsigned int i = 0; i < state->count; i ++)
         {
             uint32_t result;
             ERROR_REPORT(
-                unlocked_read_read(state, i, &result),
+                locked_read_read(state, i, &result),
                 "Error reading register while polling change set");
             changes[i] = state->values[i].update_index > report_index;
         }
+    }
 }
 
 
