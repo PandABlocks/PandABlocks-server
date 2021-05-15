@@ -223,9 +223,10 @@ static int allocate_blocks(struct stream_open *open)
     int rc = 0;
     int blk = 0;
     printk(KERN_INFO "Allocate %dx %d blocks\n", block_count, BUF_BLOCK_SIZE);
+    struct block *block;
     for (; blk < block_count; blk ++)
     {
-        struct block *block = &open->blocks[blk];
+        block = &open->blocks[blk];
         block->block = (void *) __get_free_pages(GFP_KERNEL, block_shift);
         TEST_OK(block->block,
             rc = -ENOMEM, no_block, "Unable to allocate buffer");
@@ -242,7 +243,7 @@ static int allocate_blocks(struct stream_open *open)
      * we allocated, in reverse order. */
     do {
         blk -= 1;
-        struct block *block = &open->blocks[blk];
+        block = &open->blocks[blk];
         dma_unmap_single(dev, block->dma, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
 no_dma_map:
         free_pages((unsigned long) block->block, block_shift);
