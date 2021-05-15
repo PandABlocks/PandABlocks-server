@@ -268,7 +268,7 @@ static bool program_FPGA(void)
 
     /* STEP-5: Read firmware binary file */
     printf("Programming FPGA...\n");
-    int len;
+    ssize_t len;
     unsigned char StreamData[4096];
     int block = 0;
     while (
