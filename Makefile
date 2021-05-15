@@ -8,10 +8,9 @@ TOP := $(CURDIR)
 BUILD_DIR = $(TOP)/build
 PYTHON = python
 SPHINX_BUILD = sphinx-build
-CROSS_COMPILE = arm-xilinx-linux-gnueabi-
-BINUTILS_DIR =
 KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
 PANDA_ROOTFS = $(error Define PANDA_ROOTFS in CONFIG file)
+PLATFORM = $(error Define PLATFORM in CONFIG file)
 MAKE_ZPKG = $(PANDA_ROOTFS)/make-zpkg
 MAKE_GITHUB_RELEASE = $(PANDA_ROOTFS)/make-github-release.py
 
@@ -22,8 +21,15 @@ DEFAULT_TARGETS = driver server sim_server docs zpkg
 # and editing as appropriate.
 include CONFIG
 
+ARCH_zynq = arm
+ARCH_zynqmp = arm64
+ARCH = $(ARCH_$(PLATFORM))
 
-ARCH = arm
+# Cross-compilation tuple for toolkit
+COMPILER_PREFIX_zynq = arm-none-linux-gnueabihf
+COMPILER_PREFIX_zynqmp = aarch64-none-linux-gnu
+COMPILER_PREFIX = $(COMPILER_PREFIX_$(PLATFORM))
+CROSS_COMPILE = $(COMPILER_PREFIX)-
 CC = $(CROSS_COMPILE)gcc
 
 DRIVER_BUILD_DIR = $(BUILD_DIR)/driver
@@ -34,8 +40,12 @@ DOCS_BUILD_DIR = $(BUILD_DIR)/html
 DRIVER_FILES := $(wildcard driver/*)
 SERVER_FILES := $(wildcard server/*)
 
+ifdef TOOLCHAIN_ROOT
+BINUTILS_DIR ?= $(TOOLCHAIN_ROOT)
+endif
+
 ifdef BINUTILS_DIR
-PATH := $(BINUTILS_DIR):$(PATH)
+PATH := $(BINUTILS_DIR)/bin:$(PATH)
 endif
 
 default: $(DEFAULT_TARGETS)
