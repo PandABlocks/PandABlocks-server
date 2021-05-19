@@ -51,7 +51,13 @@ static void assert_fail(const char *filename, int linenumber)
 
 /* This offset is added to each GPIO number to map from hardware pin number to
  * kernel identifier. */
+#ifdef __aarch64__
+// GPIO offset when platform is zynqmp
+#define GPIO_OFFSET     338
+#else
+// GPIO offset when platform is zynq
 #define GPIO_OFFSET     906
+#endif
 
 /* The table below is initialised with the GPIO offset for the physical pin used
  * for the GPIO function. */
