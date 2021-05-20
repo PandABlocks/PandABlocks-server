@@ -20,14 +20,6 @@ MODULE_SUPPORTED_DEVICE("panda");
 MODULE_VERSION("0");
 
 
-#ifndef __aarch64__
-/* Flag to enable ARM performance counter PMCCNTR. */
-static int enable_pmccntr = 0;
-
-module_param(enable_pmccntr, int, S_IRUGO);
-#endif
-
-
 #define PANDA_MINORS    ARRAY_SIZE(panda_info)
 
 
@@ -138,35 +130,6 @@ static struct platform_driver panda_driver = {
 };
 
 
-#ifndef __aarch64__
-/* The ARM CPU cycle counter can be read by the instruction
- *      mrc p15, 0, Rd, c9, c13, 0      // PMCCNTR
- * Alas, this is disabled from user-space by default, so we do the necessary
- * dance here to enable it.  Much of the information here is taken from
- *      http://neocontra.blogspot.co.uk/2013/05/
- *          user-mode-performance-counters-for.html
- * and the ARMv7-A architecture reference manual. */
-static void enable_cpu_counters(void *data)
-{
-    /* Set the E bit in PMCR to enable performance counters and specifically
-     * enable PMCCNTR by setting the C bit in PMINTENSET. */
-    asm volatile ("mcr p15, 0, %0, c9, c12, 0" :: "r"(1));
-    asm volatile ("mcr p15, 0, %0, c9, c12, 1" :: "r"(0x80000000));
-
-    /* Write 1 to PMUSERENR to enable user access to performance monitor
-     * registers. */
-    asm volatile ("mcr p15, 0, %0, c9, c14, 0" :: "r"(1));
-}
-
-/* Disables all the CPU counters -- this seems to be the default state. */
-static void disable_cpu_counters(void *data)
-{
-    asm volatile ("mcr p15, 0, %0, c9, c12, 0" :: "r"(0));
-    asm volatile ("mcr p15, 0, %0, c9, c12, 1" :: "r"(0));
-    asm volatile ("mcr p15, 0, %0, c9, c14, 0" :: "r"(0));
-}
-#endif
-
 static int __init panda_init(void)
 {
     printk(KERN_INFO "Loading PandA driver\n");
@@ -183,13 +146,6 @@ static int __init panda_init(void)
     rc = platform_driver_register(&panda_driver);
     TEST_RC(rc, no_platform, "Unable to register platform");
 
-#ifndef __aarch64__
-    /* If enable_pmccntr selected then configure the CPU counters for userspace
-     * applications. */
-    if (enable_pmccntr)
-        on_each_cpu(enable_cpu_counters, NULL, 1);
-#endif
-
     return 0;
 
     platform_driver_unregister(&panda_driver);
@@ -205,11 +161,6 @@ no_chrdev:
 static void __exit panda_exit(void)
 {
     printk(KERN_INFO "Unloading PandA driver\n");
-
-#ifndef __aarch64__
-    if (enable_pmccntr)
-        on_each_cpu(disable_cpu_counters, NULL, 1);
-#endif
 
     platform_driver_unregister(&panda_driver);
     class_destroy(panda_class);
