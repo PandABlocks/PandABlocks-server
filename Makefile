@@ -8,6 +8,7 @@ TOP := $(CURDIR)
 BUILD_DIR = $(TOP)/build
 PYTHON = python
 SPHINX_BUILD = sphinx-build
+COMPILER_PREFIX = $(COMPILER_PREFIX_$(PLATFORM))
 KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
 PANDA_ROOTFS = $(error Define PANDA_ROOTFS in CONFIG file)
 PLATFORM = $(error Define PLATFORM in CONFIG file)
@@ -28,7 +29,6 @@ ARCH = $(ARCH_$(PLATFORM))
 # Cross-compilation tuple for toolkit
 COMPILER_PREFIX_zynq = arm-none-linux-gnueabihf
 COMPILER_PREFIX_zynqmp = aarch64-none-linux-gnu
-COMPILER_PREFIX = $(COMPILER_PREFIX_$(PLATFORM))
 CROSS_COMPILE = $(COMPILER_PREFIX)-
 CC = $(CROSS_COMPILE)gcc
 
