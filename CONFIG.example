@@ -19,7 +19,8 @@
 # is specified it will be prepended to the path for building the driver and
 # target server.
 #
-# TOOLCHAIN_ROOT = /dls_sw/FPGA/Xilinx/SDK/2015.1/gnu/arm/lin
+# TOOLCHAIN_ROOT = \
+#     /dls_sw/targetOS/x-tools/gcc-10.2.1-glibc-2.31/$(COMPILER_PREFIX)
 #
 # Additionally, if the toolchain uses a vendor specific compiler prefix, we
 # need:
