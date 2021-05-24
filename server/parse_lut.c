@@ -297,7 +297,7 @@ enum parse_lut_status parse_lut(const char *input, unsigned int *result)
     int token_sp = 1;
     token_stack[0] = TOKEN_END;
     /* Stack of operands. */
-    unsigned int value_stack[MAX_DEPTH];
+    unsigned int value_stack[MAX_DEPTH] = {};
     int value_sp = 0;
 
     /* Prime the pump by reading one token from the input. */

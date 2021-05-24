@@ -64,7 +64,7 @@ uint64_t get_change_index(void);
  * all change sets. */
 uint64_t update_change_index(
     struct change_set_context *context,
-    enum change_set change_set, uint64_t reported[]);
+    enum change_set change_set, uint64_t reported[CHANGE_SET_SIZE]);
 
 /* Resets change index back to zero for the selected change set. */
 void reset_change_index(
