@@ -27,6 +27,12 @@
 #
 # COMPILER_PREFIX = arm-xilinx-linux-gnueabi
 
+# If at all possible -Werror should be set for all builds.  However, this can
+# cause unexpected build failures with newer compilers, in which case this
+# option can be set to allow the build to succeed.
+#
+# CFLAGS_EXTRA += -Wno-error
+
 # Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
 # only required if building the driver target.
 #

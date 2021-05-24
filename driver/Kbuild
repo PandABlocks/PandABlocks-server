@@ -9,6 +9,8 @@ EXTRA_CFLAGS += -Wno-missing-field-initializers
 EXTRA_CFLAGS += -Wno-empty-body
 EXTRA_CFLAGS += -Wno-sign-compare
 
+EXTRA_CFLAGS += $(CFLAGS_EXTRA)
+
 obj-m := panda.o
 
 panda-objs += panda_core.o

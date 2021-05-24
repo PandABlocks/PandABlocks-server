@@ -55,6 +55,9 @@ CFLAGS += -Wno-pointer-arith
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-missing-field-initializers
 
+# Place this last so that we can override any of the default settings above
+CFLAGS += $(CFLAGS_EXTRA)
+
 
 # Pick up kernel driver header file
 CPPFLAGS += -I$(TOP)/driver

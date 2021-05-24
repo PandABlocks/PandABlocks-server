@@ -73,7 +73,7 @@ $(DRIVER_HEADER): driver/panda_drv.py $(TOP)/config_d/registers
 	$(PYTHON) $^ >$@
 
 $(PANDA_KO): $(DRIVER_BUILD_DIR) $(DRIVER_BUILD_FILES) $(DRIVER_HEADER)
-	$(MAKE) -C $(KERNEL_DIR) M=$< modules \
+	CFLAGS_EXTRA=$(CFLAGS_EXTRA) $(MAKE) -C $(KERNEL_DIR) M=$< modules \
             ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE)
 	touch $@
 
@@ -94,17 +94,20 @@ SERVER_BUILD_ENV += VPATH=$(TOP)/server
 SERVER_BUILD_ENV += TOP=$(TOP)
 SERVER_BUILD_ENV += PYTHON=$(PYTHON)
 
+MAKE_SERVER_TARGET = \
+    CFLAGS_EXTRA=$(CFLAGS_EXTRA) \
+    $(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV)
+
 $(SERVER): $(SERVER_BUILD_DIR) $(SERVER_FILES)
-	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) CC=$(CC)
+	$(MAKE_SERVER_TARGET) CC=$(CC)
 
 # Two differences with building sim_server: we use the native compiler, not the
 # cross-compiler, and we only build the sim_server target.
 $(SIM_SERVER): $(SIM_SERVER_BUILD_DIR) $(SERVER_FILES)
-	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) sim_server
+	$(MAKE_SERVER_TARGET) sim_server
 
 $(SLOW_LOAD): $(SERVER_BUILD_DIR) server/slow_load.c
-	$(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV) CC=$(CC) \
-            slow_load
+	$(MAKE_SERVER_TARGET) CC=$(CC) slow_load
 
 
 # Construction of simserver launch script.
