@@ -97,9 +97,7 @@ static struct capture_buffer *data_buffer;
 static const struct captured_fields *captured_fields;
 static const struct data_capture *data_capture;
 /* PCAP ARM timestamp */
-static struct timespec ts;
-static struct tm tm;
-static char timestamp_message[MAX_RESULT_LENGTH];
+static struct timespec pcap_arm_ts;
 
 /* Data completion code at end of experiment. */
 static unsigned int completion_code;
@@ -198,12 +196,7 @@ error__t arm_capture(void)
     unsigned int readers, active;
 
     // get PCAP ARM timestamp and store as a global
-    clock_gettime(CLOCK_REALTIME, &ts);
-    gmtime_r(&ts.tv_sec, &tm);
-    snprintf(timestamp_message, sizeof(timestamp_message),
-        "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
-        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-        tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000);
+    clock_gettime(CLOCK_REALTIME, &pcap_arm_ts);
 
     return
         TEST_OK_(check_pcap_valid(),
@@ -675,7 +668,7 @@ error__t process_data_socket(int scon)
             if (!connection.options.omit_header)
                 ok = send_data_header(
                     captured_fields, data_capture,
-                    &connection.options, connection.file, lost_samples, timestamp_message);
+                    &connection.options, connection.file, lost_samples, &pcap_arm_ts);
 
             uint64_t sent_samples = 0;
             if (ok)
