@@ -38,7 +38,7 @@ CFLAGS += -Wmissing-declarations
 CFLAGS += -Wstrict-prototypes
 CFLAGS += -Wcast-qual
 CFLAGS += -Woverflow
-#CFLAGS += -Wconversion
+CFLAGS += -Wconversion
 
 CFLAGS += -fstrict-overflow
 CFLAGS += -Wsign-compare

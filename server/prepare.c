@@ -270,7 +270,7 @@ static const char *field_type_name(
 static void send_capture_info(
     struct buffered_file *file,
     const struct data_capture *capture, const struct data_options *options,
-    uint64_t missed_samples)
+    uint64_t missed_samples, char *timestamp_message)
 {
     static const char *data_format_strings[] = {
         [DATA_FORMAT_UNFRAMED] = "Unframed",
@@ -289,19 +289,7 @@ static void send_capture_info(
     struct xml_element element =
         start_element(file, "data", options->xml_header, false, true);
     
-    // valerix begin
-    struct timespec ts;
-    struct tm tm;
-    char message[MAX_RESULT_LENGTH];
-    clock_gettime(CLOCK_REALTIME, &ts);
-    localtime_r(&ts.tv_sec, &tm);
-    snprintf(message, sizeof(message),
-        "%4d-%02d-%02d %02d:%02d:%02d.%03ld",
-        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-        tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000);
-    format_attribute(&element, "PCAP ARM time", "%s", message);
-    // valerix end
-    
+    format_attribute(&element, "arm_time", "%s", timestamp_message);
     format_attribute(&element, "missed", "%"PRIu64, missed_samples);
     format_attribute(&element, "process", "%s", data_process);
     format_attribute(&element, "format", "%s", data_format);
@@ -353,12 +341,12 @@ bool send_data_header(
     const struct captured_fields *fields,
     const struct data_capture *capture,
     const struct data_options *options,
-    struct buffered_file *file, uint64_t missed_samples)
+    struct buffered_file *file, uint64_t missed_samples, char *timestamp_message)
 {
     struct xml_element header =
         start_element(file, "header", options->xml_header, true, true);
 
-    send_capture_info(file, capture, options, missed_samples);
+    send_capture_info(file, capture, options, missed_samples, timestamp_message);
 
     /* Format the field capture descriptions. */
     struct xml_element field_group =
