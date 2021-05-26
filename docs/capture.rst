@@ -138,6 +138,7 @@ Data Header
 At the beginning of each experiment the following information is sent:
 
 =============== ================================================================
+arm_time        UTC Timestamp sampled in correspondence of the ARM command
 missed          Number of samples missed by late data port connection.
 process         Data processing option: Scaled, Unscaled, or Raw.
 format          Data delivery formatting: ASCII, Base64, Framed, or Unframed.
@@ -213,6 +214,7 @@ Some examples of data capture for different options follow:
 
 Default::
 
+    arm_time: 2021-05-26T10:34:06.133Z
     missed: 0
     process: Scaled
     format: ASCII
@@ -231,6 +233,7 @@ Default::
 
 ``BASE64``::
 
+    arm_time: 2021-05-26T10:34:06.133Z
     missed: 0
     process: Scaled
     format: Base64
@@ -249,7 +252,7 @@ Default::
 ``XML``::
 
     <header>
-    <data missed="0" process="Scaled" format="ASCII" />
+    <data arm_time="2021-05-26T10:35:06.107Z" missed="0" process="Scaled" format="ASCII" />
     <fields>
     <field name="PCAP.CAPTURE_TS" type="double" capture="Trigger" />
     <field name="COUNTER1.OUT" type="double" capture="Triggered" scale="1"
