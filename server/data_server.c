@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <time.h>
 
 #include "error.h"
 #include "hardware.h"
@@ -95,6 +96,10 @@ static struct capture_buffer *data_buffer;
  * data capture is enabled, invalid otherwise. */
 static const struct captured_fields *captured_fields;
 static const struct data_capture *data_capture;
+/* PCAP ARM timestamp */
+static struct timespec ts;
+static struct tm tm;
+static char timestamp_message[MAX_RESULT_LENGTH];
 
 /* Data completion code at end of experiment. */
 static unsigned int completion_code;
@@ -190,6 +195,15 @@ static error__t start_data_capture(void)
 error__t arm_capture(void)
 {
     unsigned int readers, active;
+
+    // get PCAP ARM timestamp and store as a global
+    clock_gettime(CLOCK_REALTIME, &ts);
+    gmtime_r(&ts.tv_sec, &tm);
+    snprintf(timestamp_message, sizeof(timestamp_message),
+        "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
+        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+        tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000);
+
     return
         TEST_OK_(check_pcap_valid(),
             "PCAP not supported with this configuration")  ?:
@@ -663,7 +677,7 @@ error__t process_data_socket(int scon)
             if (!connection.options.omit_header)
                 ok = send_data_header(
                     captured_fields, data_capture,
-                    &connection.options, connection.file, lost_samples);
+                    &connection.options, connection.file, lost_samples, timestamp_message);
 
             uint64_t sent_samples = 0;
             if (ok)
