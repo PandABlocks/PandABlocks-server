@@ -194,9 +194,6 @@ error__t arm_capture(void)
 {
     unsigned int readers, active;
 
-    // get PCAP ARM timestamp and store as a global
-    clock_gettime(CLOCK_REALTIME, &pcap_arm_ts);
-
     return
         TEST_OK_(check_pcap_valid(),
             "PCAP not supported with this configuration")  ?:
@@ -207,6 +204,8 @@ error__t arm_capture(void)
              * buffer status to be idle. */
             TEST_OK(!read_buffer_status(data_buffer, &readers, &active))  ?:
             TEST_OK_(active == 0, "Data clients still taking data")  ?:
+            /* Get PCAP ARM timestamp and store as a global */
+            TEST_IO(clock_gettime(CLOCK_REALTIME, &pcap_arm_ts))  ?:
             start_data_capture());
 }
 
