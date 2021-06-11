@@ -13,6 +13,7 @@
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
+#include <linux/uaccess.h>
 #include <asm/atomic.h>
 
 #include "error.h"
@@ -477,10 +478,10 @@ static void arm_stream(struct stream_open *open)
 }
 
 
-static void stream_completion(
+static int stream_completion(
     struct stream_open *open, uint32_t __user *completion)
 {
-    *completion = open->completion;
+    return put_user(open->completion, completion);
 }
 
 
@@ -494,8 +495,7 @@ static long panda_stream_ioctl(
             arm_stream(open);
             return 0;
         case PANDA_COMPLETION:
-            stream_completion(open, (void __user *) arg);
-            return 0;
+            return stream_completion(open, (void __user *) arg);
         default:
             return -EINVAL;
     }
