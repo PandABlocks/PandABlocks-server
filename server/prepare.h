@@ -46,7 +46,8 @@ bool send_data_header(
     const struct captured_fields *fields,
     const struct data_capture *capture,
     const struct data_options *options,
-    struct buffered_file *file, uint64_t lost_samples, struct timespec *pcap_arm_tsp);
+    struct buffered_file *file, uint64_t lost_samples,
+    struct timespec *pcap_arm_tsp);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

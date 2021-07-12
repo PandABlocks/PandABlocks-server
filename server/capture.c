@@ -492,6 +492,7 @@ error__t prepare_data_capture(
 }
 
 
-bool sample_count_is_anonymous(const struct data_capture *capture) {
+bool sample_count_is_anonymous(const struct data_capture *capture)
+{
     return capture->sample_count_anonymous;
 }

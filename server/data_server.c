@@ -669,7 +669,8 @@ error__t process_data_socket(int scon)
             if (!connection.options.omit_header)
                 ok = send_data_header(
                     captured_fields, data_capture,
-                    &connection.options, connection.file, lost_samples, &pcap_arm_ts);
+                    &connection.options, connection.file, lost_samples,
+                    &pcap_arm_ts);
 
             uint64_t sent_samples = 0;
             if (ok)

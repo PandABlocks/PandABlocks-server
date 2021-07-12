@@ -288,7 +288,7 @@ static void send_capture_info(
 
     struct xml_element element =
         start_element(file, "data", options->xml_header, false, true);
-    
+
     struct tm tm;
     char timestamp_message[MAX_RESULT_LENGTH];
     gmtime_r(&(pcap_arm_tsp->tv_sec), &tm);
@@ -349,7 +349,8 @@ bool send_data_header(
     const struct captured_fields *fields,
     const struct data_capture *capture,
     const struct data_options *options,
-    struct buffered_file *file, uint64_t missed_samples, struct timespec *pcap_arm_tsp)
+    struct buffered_file *file, uint64_t missed_samples,
+    struct timespec *pcap_arm_tsp)
 {
     struct xml_element header =
         start_element(file, "header", options->xml_header, true, true);
