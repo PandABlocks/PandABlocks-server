@@ -1,0 +1,90 @@
+name: Make Server CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      # matrix:
+        # platform: ["zynq", "zynqmp"]
+
+    runs-on: ubuntu-latest
+    steps:
+      
+      # Git repositories
+      - name: Checkout Source
+        uses: actions/checkout@v2
+        with:
+          path: pandABlocks-server
+
+      - name: Checkout rootfs builder
+        uses: actions/checkout@v2
+        with:
+          repository: dls-controls/rootfs
+          path: rootfs
+
+      # ARM GNU Toolchain
+      - name: Download Arm GNU toolchain
+        run: |
+          curl -o zynq-gnu-toolchain.tar.xz -L https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf.tar.xz
+          tar -xf zynq-gnu-toolchain.tar.xz
+          rm zynq-gnu-toolchain.tar.xz
+
+      # System dependencies (required for build)
+      - name: Install system dependencies
+        run: |
+          sudo apt install python2.7
+
+      #CONFIG files
+      - name: Generate CONFIG files
+        run: |
+          mkdir build
+          sudo bash pandABlocks-rootfs/.github/scripts/config-files.sh
+        shell: bash
+
+      # Verification of files/file structure
+      #- name: List workspace files
+      #  run: |
+      #    ls ${{ github.workspace }}
+      #    echo " "
+      #    ls pandABlocks-server
+      #    echo " "
+      #    ls rootfs
+      #    echo " "
+      #    ls tar-files
+      #    echo " "
+
+      # Build
+      - name: Make server
+        run: |
+          cd pandABlocks-server
+          make server
+
+      # Verification of build files
+      #- name: List build files
+      #  run: ls build
+
+      # Artifacts
+      #- name: Upload deps and boot build files
+      #  uses: actions/upload-artifact@v2
+      #  with:
+      #    name: build-files-${{ matrix.platform }}
+      #    path: |
+      #      build/deps-*.zip
+      #      build/boot-*.zip
+
+      # Release 
+      #- name: Release
+      #  uses: softprops/action-gh-release@v1
+        # Only release when a tag is pushed
+      #  if: startsWith(github.ref, 'refs/tags/')
+      #  with:
+      #    files: |
+      #      ${{ github.workflow }}/pandABlocks-rootfs/CHANGELOG.rst
+      #      build/deps-*.zip
+      #      build/boot-*.zip
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
