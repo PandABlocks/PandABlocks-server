@@ -1,17 +1,17 @@
 #!/bin/bash
-# Generates config files in PandABlocks-rootfs and rootfs repositories and populates them with information.
+# Generates config files in PandABlocks-server and server repositories and populates them with information.
 
-GITHUB_WORKSPACE='/home/runner/work/PandABlocks-rootfs/PandABlocks-rootfs'
+GITHUB_WORKSPACE='/home/runner/work/PandABlocks-server/PandABlocks-server'
 # PLATFORM=$1
 
-# PandABlocks-rootfs:
+# PandABlocks-server:
 # Create the CONFIG file
-cd $GITHUB_WORKSPACE/pandABlocks-rootfs
+cd $GITHUB_WORKSPACE/pandABlocks-server
 touch CONFIG
 # Populate the CONFIG file
 cat >> CONFIG <<EOL
 # Default build location.  Default is to build in build subdirectory.
-BUILD_DIR = /home/runner/work/PandABlocks-rootfs/PandABlocks-rootfs/build
+BUILD_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build
 
 # Python interpreter.  Default interpreter is python2, needs to be 2.7
 PYTHON = python2
@@ -26,9 +26,9 @@ SPHINX_BUILD = sphinx-build
 TOOLCHAIN_ROOT = \
      /home/runner/work/PandABlocks-server/PandABlocks-server/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
 
-# Some tools from the rootfs are used.
+# Some tools from the server are used.
 #
-PANDA_ROOTFS = /home/runner/work/PandABlocks-rootfs/PandABlocks-rootfs/rootfs
+PANDA_server = /home/runner/work/PandABlocks-server/PandABlocks-server/server
 
 # List of default targets build when running make
 #
@@ -39,14 +39,14 @@ PANDA_ROOTFS = /home/runner/work/PandABlocks-rootfs/PandABlocks-rootfs/rootfs
 PLATFORM = zynq
 EOL
 
-# rootfs:
+# server:
 # Create the CONFIG file
-cd $GITHUB_WORKSPACE/rootfs
+cd $GITHUB_WORKSPACE/server
 touch CONFIG.local
 # Populate the CONFIG file
 cat >> CONFIG.local <<EOL
 TARGET = minimal
 
 # This is the location where source and build files will be placed.
-ROOTFS_ROOT = /home/runner/work/PandABlocks-server/PandABlocks-server/build
+server_ROOT = /home/runner/work/PandABlocks-server/PandABlocks-server/build
 EOL
