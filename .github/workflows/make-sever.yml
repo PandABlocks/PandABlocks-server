@@ -53,8 +53,6 @@ jobs:
           echo " "
           ls rootfs
           echo " "
-          ls tar-files
-          echo " "
 
       # Build
       - name: Make server
