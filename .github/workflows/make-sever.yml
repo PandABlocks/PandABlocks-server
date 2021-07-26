@@ -45,14 +45,14 @@ jobs:
         shell: bash
 
       # Verification of files/file structure
-      - name: List workspace files
-        run: |
-          ls ${{ github.workspace }}
-          echo " "
-          ls pandABlocks-server
-          echo " "
-          ls rootfs
-          echo " "
+      #- name: List workspace files
+      #  run: |
+      #    ls ${{ github.workspace }}
+      #    echo " "
+      #    ls pandABlocks-server
+      #    echo " "
+      #    ls rootfs
+      #    echo " "
 
       # Build
       - name: Make server
@@ -61,8 +61,8 @@ jobs:
           make server
 
       # Verification of build files
-      - name: List build files
-        run: ls build/server
+      #- name: List build files
+      #  run: ls build/server
 
       # Artifacts
       #- name: Upload deps and boot build files
