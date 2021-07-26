@@ -25,8 +25,10 @@ jobs:
 
       # ARM GNU Toolchain
       - name: Download Arm GNU toolchain - zynq
-        run: sudo bash pandABlocks-rootfs/.github/scripts/GNU-toolchain.sh zynq
-        shell: bash
+        run: |
+          curl -o zynq-gnu-toolchain.tar.xz -L https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf.tar.xz
+          tar -xf zynq-gnu-toolchain.tar.xz
+          rm zynq-gnu-toolchain.tar.xz
 
       # System dependencies (required for build)
       #- name: Install system dependencies
