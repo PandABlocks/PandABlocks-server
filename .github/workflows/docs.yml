@@ -17,16 +17,16 @@ jobs:
           # require history to get back to last tag for version number of branches
           fetch-depth: 0
 
-      #- name: Checkout rootfs builder
-      #  uses: actions/checkout@v2
-      #  with:
-      #    repository: dls-controls/rootfs
-      #    path: rootfs
+      - name: Checkout rootfs builder
+        uses: actions/checkout@v2
+        with:
+          repository: dls-controls/rootfs
+          path: rootfs
 
-      # ARM GNU Toolchain
-      #- name: Download Arm GNU toolchain - zynq
-      #  run: sudo bash pandABlocks-rootfs/.github/scripts/GNU-toolchain.sh zynq
-      #  shell: bash
+       ARM GNU Toolchain
+      - name: Download Arm GNU toolchain - zynq
+        run: sudo bash pandABlocks-rootfs/.github/scripts/GNU-toolchain.sh zynq
+        shell: bash
 
       # System dependencies (required for build)
       #- name: Install system dependencies
@@ -34,12 +34,12 @@ jobs:
       #    sudo apt-get install -y libncurses5-dev expat
       #    sudo pip install rst2pdf sphinx sphinx-rtd-theme --upgrade docutils==0.16
 
-      # CONFIG files
-      #- name: Generate CONFIG files - zynq
-      #  run: |
-      #    mkdir build
-      #    sudo bash pandABlocks-rootfs/.github/scripts/config-files.sh zynq
-      #  shell: bash
+       CONFIG files
+      - name: Generate CONFIG files - zynq
+        run: |
+          mkdir build
+          sudo bash pandABlocks-rootfs/.github/scripts/config-files.sh zynq
+        shell: bash
 
       # Verification of files/file structure
       #- name: List workspace files
