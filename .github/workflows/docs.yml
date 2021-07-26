@@ -31,10 +31,10 @@ jobs:
           rm zynq-gnu-toolchain.tar.xz
 
       # System dependencies (required for build)
-      #- name: Install system dependencies
-      #  run: |
-      #    sudo apt-get install -y libncurses5-dev expat
-      #    sudo pip install rst2pdf sphinx sphinx-rtd-theme --upgrade docutils==0.16
+      - name: Install system dependencies
+        run: |
+          sudo apt install python2.7
+          sudo pip install sphinx
 
       # CONFIG files
       - name: Generate CONFIG files - zynq
