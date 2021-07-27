@@ -13,7 +13,7 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v2
         with:
-          path: pandABlocks-server
+          path: PandABlocks-server
           # require history to get back to last tag for version number of branches
           fetch-depth: 0
 
@@ -40,13 +40,13 @@ jobs:
       - name: Generate CONFIG files - zynq
         run: |
           mkdir build
-          sudo bash pandABlocks-server/.github/scripts/config-files.sh
+          sudo bash PandABlocks-server/.github/scripts/config-files.sh zynq
         shell: bash
 
       # Build
       - name: Build Docs
         run: |
-          cd pandABlocks-server
+          cd PandABlocks-server
           make docs
 
       # Verification of build files
@@ -63,8 +63,8 @@ jobs:
       - name: Move to versioned directory
         # e.g. master or 0.1.2
         run: |
-          mkdir pandABlocks-server/.github/pages
-          mv build/html "pandABlocks-server/.github/pages/${{ steps.split.outputs._2 }}"
+          mkdir PandABlocks-server/.github/pages
+          mv build/html "PandABlocks-server/.github/pages/${{ steps.split.outputs._2 }}"
 
       - name: Publish Docs to gh-pages
         # Only master and tags are published
@@ -74,5 +74,5 @@ jobs:
         uses: peaceiris/actions-gh-pages@bbdfb200618d235585ad98e965f4aafc39b4c501  # v3.7.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: pandABlocks-server/.github/pages
+          publish_dir: PandABlocks-server/.github/pages
           keep_files: true

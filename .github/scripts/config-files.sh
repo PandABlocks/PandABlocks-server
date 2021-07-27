@@ -1,7 +1,6 @@
 #!/bin/bash
 # Generates config files in PandABlocks-server and server repositories and populates them with information.
 
-GITHUB_WORKSPACE='/home/runner/work/PandABlocks-server/PandABlocks-server'
 PLATFORM=$1
 
 # PandABlocks-server:
@@ -33,9 +32,9 @@ TOOLCHAIN_ROOT = \
 #
 KERNEL_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build/linux
 
-# Some tools from the rootfs are used.
+# Some tools from the PandABlocks-rootfs are used.
 #
-PANDA_server = /home/runner/work/PandABlocks-server/PandABlocks-server/rootfs
+PANDA_server = /home/runner/work/PandABlocks-server/PandABlocks-server/PandABlocks-rootfs
 
 # List of default targets build when running make
 #
@@ -69,9 +68,9 @@ TOOLCHAIN_ROOT = \
 #
 KERNEL_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build/linux
 
-# Some tools from the rootfs are used.
+# Some tools from the PandABlocks-rootfs are used.
 #
-PANDA_server = /home/runner/work/PandABlocks-server/PandABlocks-server/rootfs
+PANDA_server = /home/runner/work/PandABlocks-server/PandABlocks-server/PandABlocks-rootfs
 
 # List of default targets build when running make
 #
