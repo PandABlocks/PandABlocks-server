@@ -6,7 +6,7 @@ PLATFORM=$1
 
 # PandABlocks-server:
 # Create the CONFIG file
-cd $GITHUB_WORKSPACE/pandABlocks-server
+cd PandABlocks-server
 touch CONFIG
 # Populate the CONFIG file
 if [ "$PLATFORM" == "zynq" ]; 
@@ -85,7 +85,7 @@ fi
 
 # PandABlocks-rootfs:
 # Create the CONFIG file
-cd $GITHUB_WORKSPACE/pandABlocks-rootfs
+cd ../PandABlocks-rootfs
 touch CONFIG
 # Populate the CONFIG file
 if [ "$PLATFORM" == "zynq" ]; 
@@ -128,7 +128,7 @@ fi
 
 # server:
 # Create the CONFIG file
-cd $GITHUB_WORKSPACE/rootfs
+cd ../rootfs
 touch CONFIG.local
 # Populate the CONFIG file
 cat >> CONFIG.local <<EOL
