@@ -34,7 +34,7 @@ KERNEL_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build/linux
 
 # Some tools from the PandABlocks-rootfs are used.
 #
-PANDA_server = /home/runner/work/PandABlocks-server/PandABlocks-server/PandABlocks-rootfs
+PANDA_ROOTFS = /home/runner/work/PandABlocks-server/PandABlocks-server/PandABlocks-rootfs
 
 # List of default targets build when running make
 #
@@ -70,7 +70,7 @@ KERNEL_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build/linux
 
 # Some tools from the PandABlocks-rootfs are used.
 #
-PANDA_server = /home/runner/work/PandABlocks-server/PandABlocks-server/PandABlocks-rootfs
+PANDA_ROOTFS = /home/runner/work/PandABlocks-server/PandABlocks-server/PandABlocks-rootfs
 
 # List of default targets build when running make
 #
