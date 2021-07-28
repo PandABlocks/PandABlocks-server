@@ -89,7 +89,7 @@ jobs:
           cd PandABlocks-server
           make zpkg
 
-       Verification of build files
+      # Verification of build files
       - name: List build files
         run: |
           ls build
