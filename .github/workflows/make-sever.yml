@@ -97,16 +97,13 @@ jobs:
           cd PandABlocks-server
           make zpkg
 
-
-
       # Artifacts
-      #- name: Upload deps and boot build files
-      #  uses: actions/upload-artifact@v2
-      #  with:
-      #    name: build-files-${{ matrix.platform }}
-      #    path: |
-      #      build/deps-*.zip
-      #      build/boot-*.zip
+      - name: Upload deps and boot build files
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-files-${{ matrix.platform }}
+          path: |
+            build-server/panda-server*.zpg
 
       # Release 
       #- name: Release
