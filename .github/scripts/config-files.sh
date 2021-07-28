@@ -30,7 +30,7 @@ TOOLCHAIN_ROOT = \
 # Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
 # only required if building the driver target.
 #
-KERNEL_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build/linux
+KERNEL_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build/build/linux
 
 # Some tools from the PandABlocks-rootfs are used.
 #
@@ -66,7 +66,7 @@ TOOLCHAIN_ROOT = \
 # Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
 # only required if building the driver target.
 #
-KERNEL_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build/linux
+KERNEL_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build/build/linux
 
 # Some tools from the PandABlocks-rootfs are used.
 #
