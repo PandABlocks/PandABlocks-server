@@ -82,13 +82,7 @@ jobs:
         run: |
           cd PandABlocks-rootfs
           make zips
-        
-      # Build zpkg
-      - name: Make zpkg
-        run: |
-          cd PandABlocks-server
-          make zpkg
-
+      
       # Verification of build files
       - name: List build files
         run: |
@@ -96,6 +90,14 @@ jobs:
           echo " "
           ls build-server/server
           echo " "
+
+      # Build zpkg
+      - name: Make zpkg
+        run: |
+          cd PandABlocks-server
+          make zpkg
+
+
 
       # Artifacts
       #- name: Upload deps and boot build files
