@@ -68,6 +68,8 @@ jobs:
           echo " "
           ls rootfs
           echo " "
+          ls tar-files
+          echo " "
 
       # Build server
       - name: Make server
@@ -87,9 +89,13 @@ jobs:
           cd PandABlocks-server
           make zpkg
 
-      # Verification of build files
-      #- name: List build files
-      #  run: ls build/server
+       Verification of build files
+      - name: List build files
+        run: |
+          ls build
+          echo " "
+          ls build-server/server
+          echo " "
 
       # Artifacts
       #- name: Upload deps and boot build files
