@@ -1,4 +1,4 @@
-name: Make Server CI
+name: Make Server CI 
 
 on:
   push:
