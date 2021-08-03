@@ -36,9 +36,10 @@ jobs:
           echo " "
           ls PandABlocks-server
           echo " "
+          echo $HOME
 
       # Build pandABlocks-rootfs
       - name: Make tests
         run: |
           cd PandABlocks-server
-          make simserver
+          make tests
