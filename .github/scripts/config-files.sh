@@ -12,7 +12,7 @@ if [ "$PLATFORM" == "zynq" ];
 then
 cat >> CONFIG <<EOL
 # Default build location. Default is to build in build subdirectory.
-BUILD_DIR = $(github.workflow)/build-server
+BUILD_DIR = $(HOME)/work/PandABlocks-server/PandABlocks-server/build-server
 
 # Python interpreter. Default interpreter is python3
 PYTHON = python3
@@ -25,16 +25,16 @@ SPHINX_BUILD = sphinx-build
 # target server.
 #
 TOOLCHAIN_ROOT = \
-     $(github.workflow)/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
+     $(HOME)/work/PandABlocks-server/PandABlocks-server/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
 
 # Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
 # only required if building the driver target.
 #
-KERNEL_DIR = $(github.workflow)/build/build/linux
+KERNEL_DIR = $(HOME)/work/PandABlocks-server/PandABlocks-server/build/build/linux
 
 # Some tools from the PandABlocks-rootfs are used.
 #
-PANDA_ROOTFS = $(github.workflow)/PandABlocks-rootfs
+PANDA_ROOTFS = $(HOME)/work/PandABlocks-server/PandABlocks-server/PandABlocks-rootfs
 
 # List of default targets build when running make
 #
@@ -48,7 +48,7 @@ elif [ "$PLATFORM" == "zynqmp" ]
 then
 cat >> CONFIG <<EOL
 # Default build location.  Default is to build in build subdirectory.
-BUILD_DIR = $(github.workflow)/build-server
+BUILD_DIR = $(HOME)/work/PandABlocks-server/PandABlocks-server/build-server
 
 # Python interpreter.  Default interpreter is python3
 PYTHON = python3
@@ -61,16 +61,16 @@ SPHINX_BUILD = sphinx-build
 # target server.
 #
 TOOLCHAIN_ROOT = \
-    $(github.workflow)/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
+    $(HOME)/work/PandABlocks-server/PandABlocks-server/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
 
 # Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
 # only required if building the driver target.
 #
-KERNEL_DIR = $(github.workflow)/build/build/linux
+KERNEL_DIR = $(HOME)/work/PandABlocks-server/PandABlocks-server/build/build/linux
 
 # Some tools from the PandABlocks-rootfs are used.
 #
-PANDA_ROOTFS = $(github.workflow)/PandABlocks-rootfs
+PANDA_ROOTFS = $(HOME)/work/PandABlocks-server/PandABlocks-server/PandABlocks-rootfs
 
 # List of default targets build when running make
 #
@@ -91,16 +91,16 @@ if [ "$PLATFORM" == "zynq" ];
 then
 cat >> CONFIG <<EOL
 # Location of rootfs builder
-ROOTFS_TOP = $(github.workflow)/rootfs
+ROOTFS_TOP = $(HOME)/work/PandABlocks-server/PandABlocks-server/rootfs
 
 # Toolchain used to build the target
-TOOLCHAIN_ROOT = $(github.workflow)/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
+TOOLCHAIN_ROOT = $(HOME)/work/PandABlocks-server/PandABlocks-server/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
 
 # Where to find source files
-TAR_FILES = $(github.workflow)/tar-files
+TAR_FILES = $(HOME)/work/PandABlocks-server/PandABlocks-server/tar-files
 
 # Target location for build
-PANDA_ROOT = $(github.workflow)/build
+PANDA_ROOT = $(HOME)/work/PandABlocks-server/PandABlocks-server/build
 
 # Whether the platform is zynq or zyqnmp
 PLATFORM = zynq
@@ -109,16 +109,16 @@ elif [ "$PLATFORM" == "zynqmp" ]
 then
 cat >> CONFIG <<EOL
 # Location of rootfs builder
-ROOTFS_TOP = $(github.workflow)/rootfs
+ROOTFS_TOP = $(HOME)/work/PandABlocks-server/PandABlocks-server/rootfs
 
 # Toolchain used to build the target
-TOOLCHAIN_ROOT = $(github.workflow)/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
+TOOLCHAIN_ROOT = $(HOME)/work/PandABlocks-server/PandABlocks-server/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
 
 # Where to find source files
-TAR_FILES = $(github.workflow)/tar-files
+TAR_FILES = $(HOME)/work/PandABlocks-server/PandABlocks-server/tar-files
 
 # Target location for build
-PANDA_ROOT = $(github.workflow)/build
+PANDA_ROOT = $(HOME)/work/PandABlocks-server/PandABlocks-server/build
 
 # Whether the platform is zynq or zyqnmp
 PLATFORM = zynqmp
@@ -134,8 +134,8 @@ cat >> CONFIG.local <<EOL
 TARGET = minimal
 
 # This is the location where source and build files will be placed.
-server_ROOT = $(github.workflow)/build
+server_ROOT = $(HOME)/work/PandABlocks-server/PandABlocks-server/build
 
 # This is where all of the source tar files will be found.
-TAR_DIRS = $(github.workflow)/tar-files
+TAR_DIRS = $(HOME)/work/PandABlocks-server/PandABlocks-server/tar-files
 EOL
