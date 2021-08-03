@@ -14,8 +14,8 @@ cat >> CONFIG <<EOL
 # Default build location. Default is to build in build subdirectory.
 BUILD_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build-server
 
-# Python interpreter. Default interpreter is python2, needs to be 2.7
-PYTHON = python2
+# Python interpreter. Default interpreter is python3
+PYTHON = python3
 
 # Sphinx build for documentation.
 SPHINX_BUILD = sphinx-build
@@ -50,8 +50,8 @@ cat >> CONFIG <<EOL
 # Default build location.  Default is to build in build subdirectory.
 BUILD_DIR = /home/runner/work/PandABlocks-server/PandABlocks-server/build-server
 
-# Python interpreter.  Default interpreter is python2, needs to be 2.7
-PYTHON = python2
+# Python interpreter.  Default interpreter is python3
+PYTHON = python3
 
 # Sphinx build for documentation.
 SPHINX_BUILD = sphinx-build
