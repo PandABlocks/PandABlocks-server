@@ -15,7 +15,7 @@ cat >> CONFIG <<EOL
 BUILD_DIR = \$(GITHUB_WORKSPACE)/build-server
 
 # Python interpreter. Default interpreter is python3
-PYTHON = python3
+PYTHON = python
 
 # Sphinx build for documentation.
 SPHINX_BUILD = sphinx-build
@@ -50,7 +50,7 @@ cat >> CONFIG <<EOL
 BUILD_DIR = \$(GITHUB_WORKSPACE)/build-server
 
 # Python interpreter.  Default interpreter is python3
-PYTHON = python3
+PYTHON = python
 
 # Sphinx build for documentation.
 SPHINX_BUILD = sphinx-build
