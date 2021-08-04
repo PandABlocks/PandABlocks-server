@@ -37,6 +37,8 @@ jobs:
           ls PandABlocks-server
           echo " "
           echo $HOME
+          echo " "
+          cat PandABlocks-server/CONFIG
 
       # Build pandABlocks-rootfs
       - name: Make tests
