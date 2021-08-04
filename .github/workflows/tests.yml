@@ -44,6 +44,5 @@ jobs:
       - name: Make tests
         run: |
           cd PandABlocks-server
-          make simserver
           make tests
 
