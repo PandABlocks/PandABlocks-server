@@ -43,6 +43,7 @@ jobs:
       # Build pandABlocks-rootfs
       - name: Make tests
         run: |
+          make simserver
           cd PandABlocks-server/tests
           gcc -std=gnu99 -I../server -o parse_lut_test parse_lut_test.c ../server/parse_lut.c
           ./parse_lut_test
