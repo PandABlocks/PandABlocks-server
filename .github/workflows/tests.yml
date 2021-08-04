@@ -6,6 +6,10 @@ on:
 
 jobs:
   build:
+  strategy:
+    matrix:
+      platform: ["zynq", "zynqmp"]
+
     runs-on: ubuntu-latest
     steps:
       
@@ -21,12 +25,10 @@ jobs:
           sudo pip install sphinx sphinx-rtd-theme docutils==0.16
 
       # CONFIG files
-      - name: Generate CONFIG files - zynq
+      - name: Generate CONFIG files - ${{ matrix.platform }}
         run: |
           mkdir build-server
-          mkdir pandABlocks-rootfs
-          mkdir rootfs
-          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh zynq
+          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
         shell: bash
       
       # Verification of files/file structure
@@ -35,8 +37,6 @@ jobs:
           ls ${{ github.workspace }}
           echo " "
           ls PandABlocks-server
-          echo " "
-          echo $HOME
           echo " "
           cat PandABlocks-server/CONFIG
 
