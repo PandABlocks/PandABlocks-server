@@ -6,9 +6,9 @@ on:
 
 jobs:
   build:
-  strategy:
-    matrix:
-      platform: ["zynq", "zynqmp"]
+    strategy:
+      matrix:
+        platform: ["zynq", "zynqmp"]
 
     runs-on: ubuntu-latest
     steps:
