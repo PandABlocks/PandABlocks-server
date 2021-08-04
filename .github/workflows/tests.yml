@@ -26,7 +26,7 @@ jobs:
           mkdir build-server
           mkdir pandABlocks-rootfs
           mkdir rootfs
-          sudo bash PandABlocks-server/.github/scripts/config-files.sh zynq
+          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh zynq
         shell: bash
       
       # Verification of files/file structure

@@ -24,8 +24,7 @@ SPHINX_BUILD = sphinx-build
 # is specified it will be prepended to the path for building the driver and
 # target server.
 #
-TOOLCHAIN_ROOT = \
-     \$GITHUB_WORKSPACE/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
+TOOLCHAIN_ROOT = \$GITHUB_WORKSPACE/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
 
 # Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
 # only required if building the driver target.
@@ -60,8 +59,7 @@ SPHINX_BUILD = sphinx-build
 # is specified it will be prepended to the path for building the driver and
 # target server.
 #
-TOOLCHAIN_ROOT = \
-     \$GITHUB_WORKSPACE/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
+TOOLCHAIN_ROOT = \$GITHUB_WORKSPACE/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
 
 # Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
 # only required if building the driver target.
@@ -81,61 +79,3 @@ DEFAULT_TARGETS =  server sim_server docs driver
 PLATFORM = zynqmp
 EOL
 fi
-
-# PandABlocks-rootfs:
-# Create the CONFIG file
-cd ../PandABlocks-rootfs
-touch CONFIG
-# Populate the CONFIG file
-if [ "$PLATFORM" == "zynq" ]; 
-then
-cat >> CONFIG <<EOL
-# Location of rootfs builder
-ROOTFS_TOP = \$GITHUB_WORKSPACE/rootfs
-
-# Toolchain used to build the target
-TOOLCHAIN_ROOT = \$GITHUB_WORKSPACE/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
-
-# Where to find source files
-TAR_FILES = /tar-files
-
-# Target location for build
-PANDA_ROOT = \$GITHUB_WORKSPACE/build
-
-# Whether the platform is zynq or zyqnmp
-PLATFORM = zynq
-EOL
-elif [ "$PLATFORM" == "zynqmp" ]
-then
-cat >> CONFIG <<EOL
-# Location of rootfs builder
-ROOTFS_TOP = \$GITHUB_WORKSPACE/rootfs
-
-# Toolchain used to build the target
-TOOLCHAIN_ROOT = \$GITHUB_WORKSPACE/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
-
-# Where to find source files
-TAR_FILES = \$GITHUB_WORKSPACE/tar-files
-
-# Target location for build
-PANDA_ROOT = \$GITHUB_WORKSPACE/build
-
-# Whether the platform is zynq or zyqnmp
-PLATFORM = zynqmp
-EOL
-fi
-
-# server:
-# Create the CONFIG file
-cd ../rootfs
-touch CONFIG.local
-# Populate the CONFIG file
-cat >> CONFIG.local <<EOL
-TARGET = minimal
-
-# This is the location where source and build files will be placed.
-server_ROOT = \$GITHUB_WORKSPACE/build
-
-# This is where all of the source tar files will be found.
-TAR_DIRS = \$GITHUB_WORKSPACE/tar-files
-EOL

@@ -40,7 +40,7 @@ jobs:
       - name: Generate CONFIG files - zynq
         run: |
           mkdir build-server
-          sudo bash PandABlocks-server/.github/scripts/config-files.sh zynq
+          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh zynq
         shell: bash
 
       # Build

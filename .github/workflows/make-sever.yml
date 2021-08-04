@@ -49,11 +49,16 @@ jobs:
           sudo pip install rst2pdf sphinx sphinx-rtd-theme docutils==0.16
 
       # CONFIG files
-      - name: Generate CONFIG files - ${{ matrix.platform }}
+      - name: Generate rootfs CONFIG files - ${{ matrix.platform }}
         run: |
           mkdir build
+          sudo bash PandABlocks-rootfs/.github/scripts/config-file-rootfs.sh ${{ matrix.platform }}
+        shell: bash
+      
+      - name: Generate server CONFIG files - ${{ matrix.platform }}
+        run: |
           mkdir build-server
-          sudo bash PandABlocks-server/.github/scripts/config-files.sh ${{ matrix.platform }}
+          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
         shell: bash
 
       # Verification of files/file structure
