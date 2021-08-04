@@ -43,5 +43,13 @@ jobs:
       # Build pandABlocks-rootfs
       - name: Make tests
         run: |
-          cd PandABlocks-server
-          make tests
+          cd PandABlocks-server/tests
+          gcc -std=gnu99 -I../server -o parse_lut_test parse_lut_test.c ../server/parse_lut.c
+          ./parse_lut_test
+          ./run_with_server ./test_exchange.py -q transcript
+          ./test_configs
+          nc localhost 9999 </dev/null
+          ../python/extension_server -d -qn ../python/test_extension
+          ./test_extension.py extension_script
+          rm parse_lut_test
+
