@@ -29,7 +29,6 @@ jobs:
         run: |
           mkdir build-server
           sudo bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
-        shell: bash
       
       # Verification of files/file structure
       - name: List workspace files
