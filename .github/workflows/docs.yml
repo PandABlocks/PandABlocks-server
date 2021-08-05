@@ -27,7 +27,6 @@ jobs:
         run: |
           mkdir build-server
           sudo bash PandABlocks-server/.github/scripts/config-file-server.sh zynq
-        shell: bash
 
       # Build
       - name: Build Docs
