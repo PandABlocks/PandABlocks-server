@@ -36,9 +36,9 @@ jobs:
       - name: Download Arm GNU toolchain - ${{ matrix.platform }}
         run: sudo bash PandABlocks-rootfs/.github/scripts/GNU-toolchain.sh ${{ matrix.platform }}
 
-      # Tar dependancies
+      # Tar dependancies (Linux only)
       - name: Download tar file dependencies
-        run: sudo bash PandABlocks-rootfs/.github/scripts/tar-files.sh
+        run: sudo bash PandABlocks-rootfs/.github/scripts/tar-files.sh -l
 
       # System dependencies (required for build)
       - name: Install system dependencies
