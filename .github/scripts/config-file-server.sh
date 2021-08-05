@@ -10,11 +10,11 @@ touch CONFIG
 
 #Determine the toolchain to use
 if [ "$PLATFORM" == "zynq" ]; 
-then
-TOOLCHAIN=gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
+    then
+    TOOLCHAIN=gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
 elif [ "$PLATFORM" == "zynqmp" ]
-then
-TOOLCHAIN=gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
+    then
+    TOOLCHAIN=gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
 fi
 
 # Populate the CONFIG file
