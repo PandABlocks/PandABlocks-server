@@ -38,7 +38,7 @@ jobs:
 
       # Tar dependancies (Linux only)
       - name: Download tar file dependencies
-        run: sudo bash PandABlocks-rootfs/.github/scripts/tar-files.sh -l
+        run: sudo bash PandABlocks-rootfs/.github/scripts/tar-files.sh linux-only
 
       # System dependencies (required for build)
       - name: Install system dependencies
