@@ -5,17 +5,16 @@ TOP = ..
 
 # ------------------------------------------------------------------------------
 # Logic LUT (FPGA LookUp Table) parser test.  This involves generating and
-# running an intermediate executable file.
 
-#test_lut: parse_lut_test
-#	./$^
+test_lut: parse_lut_test
+	./$^
 
-#.PHONY: test_lut
-#TESTS += test_lut
+.PHONY: test_lut
+TESTS += test_lut
 
-#parse_lut_test: parse_lut_test.c $(TOP)/server/parse_lut.c
-#	gcc -std=gnu99 -I$(TOP)/server -o $@ $^
-#.INTERMEDIATE: parse_lut_test
+parse_lut_test: parse_lut_test.c $(TOP)/server/parse_lut.c
+	gcc -std=gnu99 -I$(TOP)/server -o $@ $^
+.INTERMEDIATE: parse_lut_test
 
 
 # ------------------------------------------------------------------------------
