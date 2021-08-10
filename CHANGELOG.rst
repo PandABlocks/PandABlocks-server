@@ -12,4 +12,4 @@ and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0
 - Start keeping a changelog
 
 
-.. _2.1: https://github.com/PandABlocks/PandABlocks-server/compare/2.0.2...2.1
+.. _2.1: https://github.com/PandABlocks/PandABlocks-server/releases/tag/2.1
