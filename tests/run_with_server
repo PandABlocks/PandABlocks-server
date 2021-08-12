@@ -16,7 +16,7 @@ trap 'kill -s SIGINT $SIM_PID; wait $SIM_PID' EXIT
 
 # Wait for the server to start
 sleep 0.2
-while ! echo '*IDN?' | nc localhost 8888; do
+while ! (echo '*IDN?' | nc localhost 8888); do
     echo connecting...
     sleep 0.2
 done
