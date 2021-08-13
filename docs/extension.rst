@@ -99,3 +99,41 @@ takes one argument and must support two methods `parse_read` and `parse_write`
             `write-reg` block of the register file.  The returned values will be
             written to the specified hardware registers after processing this
             function.  This defines the action of writing this field.
+
+
+Injected Values
+---------------
+
+Every extension module will have two support values injected into the module
+when the module is loaded into the server.  These are available to help with the
+implementation of extensions.
+
+..  class:: ServerError(Exception)
+
+    Read and write methods should use this exception to report errors.
+    Exceptions of this type are treated specially and are reported as normal
+    read or write errors.
+
+..  class:: ExtensionHelper
+
+    This can be used inside an extension module to create extension support for
+    individual fields.  Pass a block constructor (that must take one argument,
+    the block index) which implements `set_` and `get_` methods as appropriate,
+    and this helper will implement the approprate Extension support.
+
+    Use this inside the extension module thus::
+
+        class MyBlock:
+            def __init__(self, n):
+                ...
+
+            def get_field(self, *regs):
+                ...
+                return value
+
+            def set_field(self, value, *regs):
+                ...
+                return new_regs
+
+        def Extension(count):
+          return ExtensionHelper(MyBlock, count)
