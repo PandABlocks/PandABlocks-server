@@ -48,7 +48,8 @@ class IdTable:
 class Extensions:
     def __init__(self):
         self.block_ids = IdTable('block')
-        self.field_ids = IdTable('field')
+        self.reader_ids = IdTable('reader')
+        self.writer_ids = IdTable('writer')
 
     def parse_block(self, line):
         # Syntax:   field-count module-name
@@ -64,23 +65,21 @@ class Extensions:
         block = self.block_ids[block_id]
 
         if rw == 'R':
-            parse = block.parse_read(parse_args)
+            return self.reader_ids.add_entity(block.parse_read(parse_args))
         elif rw == 'W':
-            parse = block.parse_write(parse_args)
+            return self.writer_ids.add_entity(block.parse_write(parse_args))
         else:
             raise ServerError('Invalid R/W field in parse')
-
-        return self.field_ids.add_entity(parse)
 
     def read(self, line):
         # Syntax:   parse-id field-num [read-regs]*
         args = [int(arg) for arg in line.split(' ')]
-        return self.field_ids[args[0]].read(*args[1:])
+        return self.reader_ids[args[0]](*args[1:])
 
     def write(self, line):
         # Syntax:   parse-id field-num value [read-regs]*
         args = [int(arg) for arg in line.split(' ')]
-        result = self.field_ids[args[0]].write(*args[1:])
+        result = self.writer_ids[args[0]](*args[1:])
 
         # The return from result can be None, which we treat as an empty list,
         # otherwise it must be a tuple of register values to be written.

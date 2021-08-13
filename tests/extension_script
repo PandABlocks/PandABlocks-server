@@ -10,14 +10,14 @@ P0
 
 # and a write field with the same name
 PW0 blah
-P1
+P0
 
 # Initial read value is 0
 R0 3
 R0
 
 # Now write to the field
-W1 3 999
+W0 3 999
 W
 
 # Field now reads new value
@@ -26,17 +26,17 @@ R999
 
 # Create poly fields
 PR0 poly
-P2
+P1
 
 PW0 poly
-P3
+P1
 
 # Testing reading from a poly field
-R2 99 1 2 3 4
+R1 99 1 2 3 4
 R10
 
 # Writing to a poly field
-W3 99 1 2 3 4
+W1 99 1 2 3 4
 W4 3 2 1
 
 # Parse unknown block
@@ -53,7 +53,7 @@ EInvalid block id '999'
 
 # Read with invalid field
 R999 99
-EInvalid field id 999
+EInvalid reader id 999
 
 # Send extra values to field which isn't expecting it
 R0 3 1 2 3 4

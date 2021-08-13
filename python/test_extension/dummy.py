@@ -43,7 +43,7 @@ class Extension:
         return self.fields[name]
 
     def parse_read(self, node):
-        return self.make_field(node)
+        return self.make_field(node).read
 
     def parse_write(self, node):
-        return self.make_field(node)
+        return self.make_field(node).write
