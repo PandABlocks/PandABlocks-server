@@ -14,15 +14,52 @@ class ServerError(Exception):
     pass
 
 
+# This can be used inside an extension module to create extension support for
+# individual fields.  Pass a block constructor (that must take one argument, the
+# block index) which implements set_ and get_ methods as appropriate, and this
+# helper will implement the approprate Extension support.
+#
+# Use this inside the extension module thus:
+#
+#   class MyBlock: ...
+#   def Extension(count):
+#       return ExtensionHelper(MyBlock, count)
+#
+class ExtensionHelper:
+    def __init__(self, block_class, count):
+        self.block_class = block_class
+        self.blocks = [block_class(n) for n in range(count)]
+
+    def parse_read(self, field):
+        # Pick up unbound read method
+        get_field = getattr(self.block_class, 'get_%s' % field, None)
+        if get_field is None:
+            raise ServerError('Cannot read from field %r' % field)
+        def reader(block, *regs):
+            return get_field(self.blocks[block], *regs)
+        return reader
+
+    def parse_write(self, field):
+        # Pick up unbound write method
+        set_field = getattr(self.block_class, 'set_%s' % field, None)
+        if set_field is None:
+            raise ServerError('Cannot write to field %r' % field)
+        def writer(block, value, *regs):
+            return set_field(self.blocks[block], value, *regs)
+        return writer
+
+
 # Imports the named module from the extensions directory.
 def import_extension_module(name):
     try:
         module = import_module('%s.%s' % (extension_module, name))
     except ImportError as e:
-        raise ServerError('Extension module %r not found' % name)
+        raise ServerError(e)
 
-    # Inject the ServerError exception into the module so it can use this
+    # Inject the ServerError exception and ExtensionHelper into the module so it
+    # can use these
     module.ServerError = ServerError
+    module.ExtensionHelper = ExtensionHelper
     return module
 
 

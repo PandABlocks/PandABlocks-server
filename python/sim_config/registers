@@ -254,6 +254,10 @@ DUMMY           29 dummy
     POLY_R          0 1 2 3 X poly
     POLY_W          0 1 2 3 W 0 1 2 3 4 X poly
 
+INTERVAL        30 interval
+    CENTRE          W 0 1 X centre
+    RANGE           W 0 1 X range
+
 SFP_RX      S31
     PARAM           0
     BITA            127

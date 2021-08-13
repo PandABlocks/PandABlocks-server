@@ -343,6 +343,10 @@ DUMMY[5]
     POLY_R          read
     POLY_W          write
 
+INTERVAL[3]
+    CENTRE          param
+    RANGE           param
+
 SFP_RX
     PARAM           param
     BITA            bit_out
