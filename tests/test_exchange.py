@@ -80,7 +80,7 @@ line_no = 0
 print('Entering while true...')
 while True:
     (tx, rx, line_no) = transcript_readlines(line_no)
-    if not tx:
+    if tx:
         print('Leaving while true...')
         break
 

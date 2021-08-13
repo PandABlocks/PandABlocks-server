@@ -41,4 +41,4 @@ jobs:
         run: |
           cd PandABlocks-server
           make sim_server
-          ./PandABlocks-fpga/simserver & make tests
+          make tests
