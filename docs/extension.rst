@@ -82,11 +82,13 @@ takes one argument and must support two methods `parse_read` and `parse_write`
         callable must be returned, of the following form:
 
         ..  function:: (write_reg1, ..., write_regM) = \
-                write_register(block_num, read_reg1, ..., read_regN)
+                write_register(block_num, value, read_reg1, ..., read_regN)
 
             The first argument `block_num` is the number of the block instance
             being called (starting from 0), and is guaranteed to be less than
             `count` as passed to the :class:`Extension` constructor.
+
+            The second argument `value` is the value written to this field.
 
             The remaining `read_reg1` ... `read_regN` argument must match the
             number of arguments specified in the `read-reg` block of the
