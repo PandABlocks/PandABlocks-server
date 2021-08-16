@@ -32,7 +32,8 @@ transcript = open(args.script, 'r')
 
 
 def read_response(count):
-    print('Reading response...', flush=True)
+    print('Reading response...')
+    sys.stdout.flush()
     result = []
     for n in range(count):
         line = server.readline()
@@ -40,18 +41,21 @@ def read_response(count):
             result.append(line[:-1])
         else:
             break
-    print('finished', flush=True)
+    print('finished')
+    sys.stdout.flush()
     return result
 
 
 # Returns next command response set read from transcript file
 def transcript_readlines(line_no):
-    print('reading transcript lines...', flush=True)
+    print('reading transcript lines...')
+    sys.stdout.flush()
     to_send = []
     to_receive = []
 
     # First scan for lines starting with <.
-    print('Scanning for lines starting with <', flush=True)
+    print('Scanning for lines starting with <')
+    sys.stdout.flush()
     for line in transcript:
         line_no += 1
         if line[0] == '<':
@@ -61,7 +65,8 @@ def transcript_readlines(line_no):
             break
 
     # Now read the remainder of the response
-    print('Reading the remainder of the response...', flush=True)
+    print('Reading the remainder of the response...')
+    sys.stdout.flush()
     for line in transcript:
         line_no += 1
         if line[0] == '>':
@@ -71,17 +76,20 @@ def transcript_readlines(line_no):
             pass
         else:
             break
-    print('finished', flush=True)        
+    print('finished')
+    sys.stdout.flush()        
     return (to_send, to_receive, line_no)
 
 
 failed = 0
 line_no = 0
-print('Entering while true...', flush=True)
+print('Entering while true...')
+sys.stdout.flush()
 while True:
     (tx, rx, line_no) = transcript_readlines(line_no)
     if not tx:
-        print('Leaving while true...', flush=True)
+        print('Leaving while true...')
+        sys.stdout.flush()
         break
 
     start = time.time()
