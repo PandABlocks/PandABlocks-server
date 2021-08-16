@@ -34,11 +34,11 @@ jobs:
 
       # ARM GNU Toolchain
       - name: Download Arm GNU toolchain - ${{ matrix.platform }}
-        run: sudo bash PandABlocks-rootfs/.github/scripts/GNU-toolchain.sh ${{ matrix.platform }}
+        run: bash PandABlocks-rootfs/.github/scripts/GNU-toolchain.sh ${{ matrix.platform }}
 
       # Tar dependancies (Linux only)
       - name: Download tar file dependencies
-        run: sudo bash PandABlocks-rootfs/.github/scripts/tar-files.sh linux-only
+        run: bash PandABlocks-rootfs/.github/scripts/tar-files.sh linux-only
 
       # System dependencies (required for build)
       - name: Install system dependencies
@@ -50,12 +50,12 @@ jobs:
       - name: Generate rootfs CONFIG files - ${{ matrix.platform }}
         run: |
           mkdir build
-          sudo bash PandABlocks-rootfs/.github/scripts/config-file-rootfs.sh ${{ matrix.platform }}
+          bash PandABlocks-rootfs/.github/scripts/config-file-rootfs.sh ${{ matrix.platform }}
       
       - name: Generate server CONFIG files - ${{ matrix.platform }}
         run: |
           mkdir build-server
-          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
+          bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
 
       # Verification of files/file structure
       #- name: List workspace files
