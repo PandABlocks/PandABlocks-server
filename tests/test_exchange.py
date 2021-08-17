@@ -22,12 +22,15 @@ parser.add_argument(
 args = parser.parse_args()
 
 
+print('Defining server socket...')
 server = socket.socket()
+print('Connecting to server socket...')
 server.connect((args.server, args.port))
 server.settimeout(0.5)
 
 server = server.makefile('rw')
 
+print('Opening Transcript...')
 transcript = open(args.script, 'r')
 
 

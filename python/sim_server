@@ -85,7 +85,7 @@ def run_simulation(conn, verbose):
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-sock.bind(('localhost', 7777))
+sock.bind(('localhost', 9999))
 sock.listen(0)
 
 print('Dummy simulating server ready')
