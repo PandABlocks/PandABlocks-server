@@ -12,7 +12,7 @@ parser.add_argument(
     '-s', '--server', default = 'localhost',
     help = 'PandA server name, default %(default)s')
 parser.add_argument(
-    '-p', '--port', default = 8889, type = int,
+    '-p', '--port', default = 8888, type = int,
     help = 'PandA server port, default %(default)d')
 parser.add_argument(
     '-q', '--quiet', default = False, action = 'store_true',
