@@ -87,7 +87,7 @@ print('Entering while true...')
 sys.stdout.flush()
 while True:
     (tx, rx, line_no) = transcript_readlines(line_no)
-    if not tx:
+    if 1==1:
         print('Leaving while true...')
         sys.stdout.flush()
         break
