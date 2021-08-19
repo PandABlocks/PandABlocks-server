@@ -50,9 +50,10 @@ jobs:
       - name: Generate rootfs CONFIG files - ${{ matrix.platform }}
         run: |
           mkdir build
-          bash PandABlocks-rootfs/.github/scripts/config-file-rootfs.sh ${{ matrix.platform }}
+          bash PandABlocks-rootfs/.github/scripts/config-file-pbrootfs.sh ${{ matrix.platform }}
+          bash PandABlocks-rootfs/.github/scripts/config-file-rootfs.sh
       
-      - name: Generate server CONFIG files - ${{ matrix.platform }}
+      - name: Generate server CONFIG file - ${{ matrix.platform }}
         run: |
           mkdir build-server
           bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
