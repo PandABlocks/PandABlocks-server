@@ -15,7 +15,7 @@ jobs:
         with:
           path: PandABlocks-server
 
-      # System dependencies (required for build)
+      # System dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get install valgrind

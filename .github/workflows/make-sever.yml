@@ -40,7 +40,7 @@ jobs:
       - name: Download tar file dependencies
         run: bash PandABlocks-rootfs/.github/scripts/tar-files.sh linux-only
 
-      # System dependencies (required for build)
+      # System dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get install -y libncurses5-dev expat
@@ -71,13 +71,12 @@ jobs:
       #    ls tar-files
       #    echo " "
 
-      # Build pandABlocks-rootfs
+      # Build
       - name: Make zips
         run: |
           cd PandABlocks-rootfs
           make kernel
 
-      # Build zpkg
       - name: Make zpkg
         run: |
           cd PandABlocks-server

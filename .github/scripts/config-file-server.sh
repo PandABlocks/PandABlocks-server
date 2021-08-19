@@ -9,18 +9,16 @@ cd PandABlocks-server
 touch CONFIG
 
 #Determine the toolchain to use
-if [ "$PLATFORM" == "zynq" ]; 
-    then
+if [ "$PLATFORM" == "zynq" ]; then
     TOOLCHAIN=gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
-elif [ "$PLATFORM" == "zynqmp" ]
-    then
+elif [ "$PLATFORM" == "zynqmp" ]; then
     TOOLCHAIN=gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
 fi
 
 # Populate the CONFIG file
-cat >> CONFIG <<EOL
+cat >> CONFIG << 'EOL'
 # Default build location. Default is to build in build subdirectory.
-BUILD_DIR = \$(GITHUB_WORKSPACE)/build-server
+BUILD_DIR = $(GITHUB_WORKSPACE)/build-server
 
 # Python interpreter. Default interpreter is python3
 PYTHON = python3
@@ -32,16 +30,16 @@ SPHINX_BUILD = sphinx-build
 # is specified it will be prepended to the path for building the driver and
 # target server.
 #
-TOOLCHAIN_ROOT = \$(GITHUB_WORKSPACE)/$TOOLCHAIN
+TOOLCHAIN_ROOT = $(GITHUB_WORKSPACE)/$TOOLCHAIN
 
 # Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
 # only required if building the driver target.
 #
-KERNEL_DIR = \$(GITHUB_WORKSPACE)/build/build/linux
+KERNEL_DIR = $(GITHUB_WORKSPACE)/build/build/linux
 
 # Some tools from the PandABlocks-rootfs are used.
 #
-PANDA_ROOTFS = \$(GITHUB_WORKSPACE)/PandABlocks-rootfs
+PANDA_ROOTFS = $(GITHUB_WORKSPACE)/PandABlocks-rootfs
 
 # List of default targets build when running make
 #

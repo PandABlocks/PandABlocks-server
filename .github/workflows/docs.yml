@@ -17,7 +17,7 @@ jobs:
           # require history to get back to last tag for version number of branches
           fetch-depth: 0
 
-      # System dependencies (required for build)
+      # System dependencies
       - name: Install system dependencies
         run: |
           sudo pip install sphinx sphinx-rtd-theme docutils==0.16
@@ -38,7 +38,7 @@ jobs:
       #- name: List build files
       #  run: ls ${{ github.workspace }}/build/html
       
-      # Publish docs
+      # Publish
       - uses: rishabhgupta/split-by@v1
         id: split
         with:
