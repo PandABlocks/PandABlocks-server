@@ -97,7 +97,7 @@ jobs:
         with:
           name: server-zpkg-${{ matrix.platform }}
           path: |
-            build-server/panda-server*.zpg
+            build-server/panda-server@*.zpg
 
   release:
     needs: [build]
