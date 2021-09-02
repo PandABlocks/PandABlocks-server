@@ -513,6 +513,7 @@
 < SEQ.TABLE.*?
 > !MAX_LENGTH
 > !B
+> !ROW_WORDS
 > !LENGTH
 > !FIELDS
 > !INFO

@@ -322,6 +322,10 @@ Field type          Description
         content of the table.  Currently the content of this list is not
         defined.
 
+    ``ROW_WORDS``
+        Returns the number of 32-bit words in a single row of the table.  This
+        can be used to help interpret the ``FIELDS`` result.
+
 
 Field Sub-Types
 ---------------
@@ -464,6 +468,7 @@ table           MAX_LENGTH      Maximum table row count                 R
 \               LENGTH          Current table row count                 R
 \               B               Table data in base-64                   R     M
 \               FIELDS          Table field descriptions                R     M
+\               ROW_WORDS       Number of words in a table row          R
 =============== =============== ======================================= = = = =
 
 Key:

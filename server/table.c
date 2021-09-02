@@ -640,6 +640,15 @@ static error__t table_fields_get_many(
 }
 
 
+static error__t table_row_words_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
+{
+    struct table_state *state = class_data;
+    return format_string(result, length, "%u", state->field_set.row_words);
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Published interface. */
 
@@ -663,5 +672,7 @@ const struct class_methods table_class_methods = {
           .get_many = table_fields_get_many, },
         { "B", "Table in base-64 representation",
           .get_many = table_b_get_many, },
+        { "ROW_WORDS", "Number of words per table row",
+          .format = table_row_words_format, },
     ),
 };
