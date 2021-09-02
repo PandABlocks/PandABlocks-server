@@ -217,7 +217,7 @@ Field type          Description
     ``SCALED``
         This returns the scaled value computed as
 
-            raw * scale + offset
+            value * scale + offset
 
 ``ext_out`` extra
     Fields of this type represent values that can be captured but which are not
