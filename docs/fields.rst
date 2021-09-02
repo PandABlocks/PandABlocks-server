@@ -319,8 +319,21 @@ Field type          Description
 
     ``FIELDS``
         This returns a list of strings which can be used to interpret the
-        content of the table.  Currently the content of this list is not
-        defined.
+        content of the table.  Each line returned is of the following format::
+
+            left:right field-name subtype
+
+        Here `left` and `right` are bit field indices into a single table row,
+        consisting of a number of 32-bit words concatenated (in little-endian
+        order) with bits numbered from 0 in the least significant position up to
+        32*\ ``ROW_WORDS``-1, and `left` >= `right`.  The name of the field is
+        given by  `field-name`, and `subtype` can be one of ``int``, ``uint``,
+        or ``enum``.  If `subtype` is ``enum`` then the list of enums can be
+        interrogated through the command ::
+
+            *ENUMS.block.table[].field?
+
+        where `block`, `table`, `field` are appropriate names.
 
     ``ROW_WORDS``
         Returns the number of 32-bit words in a single row of the table.  This
