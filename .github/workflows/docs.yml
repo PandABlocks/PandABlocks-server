@@ -19,14 +19,11 @@ jobs:
 
       # System dependencies
       - name: Install system dependencies
-        run: |
-          sudo pip install sphinx sphinx-rtd-theme docutils==0.16
+        run: sudo pip install sphinx sphinx-rtd-theme docutils==0.16
 
       # CONFIG files
       - name: Generate CONFIG files - zynq
-        run: |
-          mkdir build-server
-          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh zynq
+        run: sudo bash PandABlocks-server/.github/scripts/config-file-server.sh zynq
 
       # Build
       - name: Build Docs

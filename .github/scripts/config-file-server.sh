@@ -3,14 +3,14 @@
 
 PLATFORM=$1
 
-#Determine the toolchain to use
+# Determine the toolchain to use
 if [ "$PLATFORM" == "zynq" ]; then
     TOOLCHAIN=gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf
 elif [ "$PLATFORM" == "zynqmp" ]; then
     TOOLCHAIN=gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu
 fi
 
-# PandABlocks-server:
+# Populate CONFIG
 cat >> PandABlocks-server/CONFIG << 'EOL'
 # Default build location. Default is to build in build subdirectory.
 BUILD_DIR = $(GITHUB_WORKSPACE)/build-server
