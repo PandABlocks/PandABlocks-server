@@ -19,12 +19,6 @@ jobs:
         with:
           path: PandABlocks-server
 
-      - name: Checkout rootfs builder
-        uses: actions/checkout@v2
-        with:
-          repository: dls-controls/rootfs
-          path: rootfs
-
       - name: Checkout PandABlocks-rootfs
         uses: actions/checkout@v2
         with:
@@ -32,19 +26,25 @@ jobs:
           ref: ci-build
           path: PandABlocks-rootfs
 
-      # ARM GNU Toolchain
-      - name: Download Arm GNU toolchain - ${{ matrix.platform }}
-        run: bash PandABlocks-rootfs/.github/scripts/GNU-toolchain.sh ${{ matrix.platform }}
-
-      # Tar dependancies (Linux only)
-      - name: Download tar file dependencies
-        run: bash PandABlocks-rootfs/.github/scripts/tar-files.sh linux-only
+      - name: Checkout rootfs builder
+        uses: actions/checkout@v2
+        with:
+          repository: dls-controls/rootfs
+          path: rootfs
 
       # System dependencies
       - name: Install system dependencies
         run: |
           sudo apt-get install -y libncurses5-dev expat
           sudo pip install rst2pdf sphinx sphinx-rtd-theme docutils==0.16
+
+      # Tar dependancies (Linux only)
+      - name: Download tar file dependencies
+        run: bash PandABlocks-rootfs/.github/scripts/tar-files.sh linux-only
+     
+        # ARM GNU Toolchain
+      - name: Download Arm GNU toolchain - ${{ matrix.platform }}
+        run: bash PandABlocks-rootfs/.github/scripts/GNU-toolchain.sh ${{ matrix.platform }}
 
       # CONFIG files
       - name: Generate rootfs CONFIG files - ${{ matrix.platform }}
@@ -95,6 +95,7 @@ jobs:
           name: server-zpkg-${{ matrix.platform }}
           path: build-server/panda-server@*.zpg
 
+# TODO: Fix make tests getting stuck when connecting to the simserver on localhost
   #test:
   #  runs-on: ubuntu-latest
   #  steps:
