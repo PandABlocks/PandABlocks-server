@@ -52,7 +52,7 @@ jobs:
           bash PandABlocks-rootfs/.github/scripts/config-file-pbrootfs.sh ${{ matrix.platform }}
           bash PandABlocks-rootfs/.github/scripts/config-file-rootfs.sh
       
-      - name: Generate server CONFIG file - ${{ matrix.platform }}
+      - name: Generate server CONFIG file - TESTFAIL
         run: bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
 
       # Verification of files/file structure
