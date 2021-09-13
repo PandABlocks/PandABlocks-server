@@ -151,7 +151,7 @@ clean-docs:
 
 ZPKG_DEPENDS = $(PANDA_KO) $(SERVER) $(SLOW_LOAD) $(DOCS_BUILD_DIR)/index.html
 
-ZPKG = $(BUILD_DIR)/panda-server@$(GIT_VERSION).zpg
+ZPKG = $(BUILD_DIR)/panda-server@$(PLATFORM)-$(GIT_VERSION).zpg
 
 $(ZPKG): etc/panda-server.list $(ZPKG_DEPENDS)
 	rm -f $(BUILD_DIR)/*.zpg
