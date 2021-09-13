@@ -20,7 +20,6 @@ while ! echo '*IDN?' | nc localhost 8888; do
     echo connecting...
     sleep 0.2
 done
-echo 'Connected to server'
 
 # Run the command we've been given
 "$@"

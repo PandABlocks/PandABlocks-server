@@ -5,6 +5,7 @@ TOP = ..
 
 # ------------------------------------------------------------------------------
 # Logic LUT (FPGA LookUp Table) parser test.  This involves generating and
+# running an intermediate executable file.
 
 test_lut: parse_lut_test
 	./$^
