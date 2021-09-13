@@ -66,6 +66,7 @@ def transcript_readlines(line_no):
             pass
         else:
             break
+
     return (to_send, to_receive, line_no)
 
 
