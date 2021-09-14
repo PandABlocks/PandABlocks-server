@@ -113,10 +113,10 @@ jobs:
           sudo pip install sphinx sphinx-rtd-theme docutils==0.16
   
       # CONFIG files
-      - name: Generate CONFIG files - Zynq
+      - name: Generate CONFIG files - zynq
         run: |
           mkdir build-server
-          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh Zynq
+          sudo bash PandABlocks-server/.github/scripts/config-file-server.sh zynq
       
       # Verification of files/file structure
       - name: List workspace files
