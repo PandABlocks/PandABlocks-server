@@ -6,7 +6,7 @@ TOP := $(CURDIR)
 # Build defaults that can be overwritten by the CONFIG file if present
 
 BUILD_DIR = $(TOP)/build
-PYTHON = python
+PYTHON = python3
 SPHINX_BUILD = sphinx-build
 COMPILER_PREFIX = $(COMPILER_PREFIX_$(PLATFORM))
 KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
