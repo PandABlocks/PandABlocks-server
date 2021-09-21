@@ -161,13 +161,6 @@ $(ZPKG): etc/panda-server.list $(ZPKG_DEPENDS)
 zpkg: $(ZPKG)
 .PHONY: zpkg
 
-
-# Push a github release
-github-release: $(ZPKG)
-	$(MAKE_GITHUB_RELEASE) PandABlocks-server $(GIT_VERSION) $(ZPKG)
-.PHONY: github-release
-
-
 # ------------------------------------------------------------------------------
 # Run automatic tests
 
