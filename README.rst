@@ -1,6 +1,8 @@
 Panda Server
 ============
 
+|code_ci| |docs_ci| |license|
+
 The Panda socket server provides a bridge between the register interface to the
 FPGA firmware controlling the Panda hardware and users and other software.  The
 interface provided by this server is designed to be simple and robust.
@@ -15,6 +17,12 @@ the other for streamed data capture.  The configuration control socket accepts
 simple ASCII commands and returns all data in readable ASCII format.  The data
 capture socket supports no commands and simply streams captured data in a
 lightly structured binary format.
+
+============== ==============================================================
+Source code    https://github.com/PandABlocks/PandABlocks-server
+Documentation  https://PandABlocks.github.io/PandABlocks-server
+Changelog      https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst
+============== ==============================================================
 
 Configuration Interface
 -----------------------
@@ -130,3 +138,16 @@ The panda-server Makefile supports four main build targets:
 ``docs``
     This builds the documentation and places the results in
     ``$(BUILD_DIR)/docs/html``.
+
+.. |code_ci| image:: https://github.com/PandABlocks/PandABlocks-server/workflows/Code%20CI/badge.svg?branch=master
+    :target: https://github.com/PandABlocks/PandABlocks-server/actions?query=workflow%3A%22Code+CI%22
+    :alt: Code CI
+
+
+.. |docs_ci| image::https://github.com/PandABlocks/PandABlocks-server/workflows/Docs%20CI/badge.svg?branch=master
+    :target:https://github.com/PandABlocks/PandABlocks-server/actions?query=workflow%3A%22Docs+CI%22
+    :alt: Docs CI
+
+.. |license| image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+    :target: https://opensource.org/licenses/Apache-2.0
+    :alt: Apache License

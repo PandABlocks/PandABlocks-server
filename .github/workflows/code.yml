@@ -1,0 +1,98 @@
+name: Code CI 
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: ["zynq", "zynqmp"]
+
+    runs-on: ubuntu-latest
+    steps:
+
+      # Git repositories
+      - name: Checkout Source
+        uses: actions/checkout@v2
+        with:
+          path: PandABlocks-server
+
+      - name: Checkout PandABlocks-rootfs
+        uses: actions/checkout@v2
+        with:
+          repository: PandABlocks/PandABlocks-rootfs
+          path: PandABlocks-rootfs
+
+      - name: Checkout rootfs builder
+        uses: actions/checkout@v2
+        with:
+          repository: dls-controls/rootfs
+          path: rootfs
+
+      # System dependencies
+      - name: Install system dependencies
+        run: |
+          sudo apt-get install -y libncurses5-dev expat
+          sudo pip install rst2pdf sphinx sphinx-rtd-theme docutils==0.16
+
+      # Tar dependancies (Linux only)
+      - name: Download tar file dependencies
+        run: bash PandABlocks-rootfs/.github/scripts/tar-files.sh linux-only
+     
+        # ARM GNU Toolchain
+      - name: Download Arm GNU toolchain - ${{ matrix.platform }}
+        run: bash PandABlocks-rootfs/.github/scripts/GNU-toolchain.sh ${{ matrix.platform }}
+
+      # CONFIG files
+      - name: Generate rootfs CONFIG files - ${{ matrix.platform }}
+        run: |
+          bash PandABlocks-rootfs/.github/scripts/config-file-pbrootfs.sh ${{ matrix.platform }}
+          bash PandABlocks-rootfs/.github/scripts/config-file-rootfs.sh
+      
+      - name: Generate server CONFIG file - ${{ matrix.platform }}
+        run: bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
+
+      # Build
+      - name: Make PandABlocks-rootfs kernel
+        run: |
+          cd PandABlocks-rootfs
+          make kernel
+
+      - name: Make zpkg
+        run: |
+          cd PandABlocks-server
+          make zpkg
+
+      # Artifacts
+      - name: Upload zpkg
+        uses: actions/upload-artifact@v2
+        with:
+          name: server-zpkg-${{ matrix.platform }}
+          path: build-server/panda-server@*.zpg
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    # make a release on every tag
+    if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: |
+            zpkg-zynq
+            zpkg-zynqmp
+          path:
+            artifacts 
+
+      - name: Github Release
+        # We pin to the SHA, not the tag, for security reasons.
+        # https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions#using-third-party-actions
+        uses: softprops/action-gh-release@2d72d869af3bf23602f9593a1e3fd739b80ac1eb  # v0.1.12
+        with:
+          files: artifacts/*
+          body: See [Changelog](CHANGELOG.rst) for more details
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

@@ -7,9 +7,9 @@
 #
 # BUILD_DIR = $(TOP)/build
 
-# Python interpreter.  Default interpreter is python2, needs to be 2.7
+# Python interpreter.  Default interpreter is python3
 #
-# PYTHON = python2
+# PYTHON = python3
 
 # Sphinx build for documentation.
 #
