@@ -1,6 +1,8 @@
 Panda Server
 ============
 
+|code_ci| |docs_ci| |license|
+
 The Panda socket server provides a bridge between the register interface to the
 FPGA firmware controlling the Panda hardware and users and other software.  The
 interface provided by this server is designed to be simple and robust.
