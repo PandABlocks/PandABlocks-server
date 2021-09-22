@@ -3,7 +3,6 @@
 
 
 .. toctree::
-    Introduction <index>
     commands
     fields
     capture
@@ -12,3 +11,4 @@
     extension
     startup
     support
+    Changelog <https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst>
