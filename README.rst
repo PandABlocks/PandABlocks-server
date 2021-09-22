@@ -144,10 +144,16 @@ The panda-server Makefile supports four main build targets:
     :alt: Code CI
 
 
-.. |docs_ci| image::https://github.com/PandABlocks/PandABlocks-server/workflows/Docs%20CI/badge.svg?branch=master
-    :target:https://github.com/PandABlocks/PandABlocks-server/actions?query=workflow%3A%22Docs+CI%22
+.. |docs_ci| image:: https://github.com/PandABlocks/PandABlocks-server/workflows/Docs%20CI/badge.svg?branch=master
+    :target: https://github.com/PandABlocks/PandABlocks-server/actions?query=workflow%3A%22Docs+CI%22
     :alt: Docs CI
 
 .. |license| image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
     :target: https://opensource.org/licenses/Apache-2.0
     :alt: Apache License
+
+..
+    These definitions are used when viewing README.rst and will be replaced
+    when included in index.rst
+
+See https://PandABlocks.github.io/PandABlocks-server for more detailed documentation
