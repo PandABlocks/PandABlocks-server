@@ -13,7 +13,6 @@ KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
 PANDA_ROOTFS = $(error Define PANDA_ROOTFS in CONFIG file)
 PLATFORM = $(error Define PLATFORM in CONFIG file)
 MAKE_ZPKG = $(PANDA_ROOTFS)/make-zpkg
-MAKE_GITHUB_RELEASE = $(PANDA_ROOTFS)/make-github-release.py
 
 DEFAULT_TARGETS = driver server sim_server docs zpkg
 
@@ -160,12 +159,6 @@ $(ZPKG): etc/panda-server.list $(ZPKG_DEPENDS)
 
 zpkg: $(ZPKG)
 .PHONY: zpkg
-
-
-# Push a github release
-github-release: $(ZPKG)
-	$(MAKE_GITHUB_RELEASE) PandABlocks-server $(GIT_VERSION) $(ZPKG)
-.PHONY: github-release
 
 
 # ------------------------------------------------------------------------------
