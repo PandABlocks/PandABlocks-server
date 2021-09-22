@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>&lt;no title&gt; &mdash; PandABlocks-server 2.2a1-19-gb6708ce
+ documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Command Interface" href="commands.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+            <a href="#" class="icon icon-home"> PandABlocks-server
+            <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                2.2a1-19-gb6708ce
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>&lt;no title&gt;</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="commands.html#configuration-commands">Configuration Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="commands.html#system-commands">System Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#field-types">Field Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#field-sub-types">Field Sub-Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#summary-of-sub-types">Summary of Sub-Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#summary-of-attributes">Summary of Attributes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="capture.html#capture-configuration">Capture Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="capture.html#data-capture-port">Data Capture Port</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#capture-options">Capture Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#data-transport-formatting">Data Transport Formatting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#data-header">Data Header</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#experiment-completion">Experiment Completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#high-performance-mode">High performance mode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#examples">Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="building.html#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#setting-up-the-config-file">Setting up the <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#build-targets">Build Targets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#generated-files">Generated Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="config.html#configuration-file-config">Configuration file <code class="docutils literal notranslate"><span class="pre">config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="config.html#field-type">Field type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="config.html#field-subtype">Field subtype</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="config.html#register-file-registers">Register file <code class="docutils literal notranslate"><span class="pre">registers</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="config.html#extension-register-syntax">Extension register syntax</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="config.html#description-file-description">Description file <code class="docutils literal notranslate"><span class="pre">description</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#extension-modules">Extension Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#injected-values">Injected Values</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="support.html#useful-tools">Useful Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html#panda-status-leds">Panda Status LEDs</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="commands.html#configuration-commands">Configuration Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="commands.html#system-commands">System Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#field-types">Field Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#field-sub-types">Field Sub-Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#summary-of-sub-types">Summary of Sub-Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#summary-of-attributes">Summary of Attributes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="capture.html#capture-configuration">Capture Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="capture.html#data-capture-port">Data Capture Port</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#capture-options">Capture Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#data-transport-formatting">Data Transport Formatting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#data-header">Data Header</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#experiment-completion">Experiment Completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#high-performance-mode">High performance mode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#examples">Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="building.html#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#setting-up-the-config-file">Setting up the <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#build-targets">Build Targets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#generated-files">Generated Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="config.html#configuration-file-config">Configuration file <code class="docutils literal notranslate"><span class="pre">config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="config.html#field-type">Field type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="config.html#field-subtype">Field subtype</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="config.html#register-file-registers">Register file <code class="docutils literal notranslate"><span class="pre">registers</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="config.html#extension-register-syntax">Extension register syntax</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="config.html#description-file-description">Description file <code class="docutils literal notranslate"><span class="pre">description</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#extension-modules">Extension Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#injected-values">Injected Values</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="support.html#useful-tools">Useful Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html#panda-status-leds">Panda Status LEDs</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="commands.html" class="btn btn-neutral float-right" title="Command Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
