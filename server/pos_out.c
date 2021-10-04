@@ -174,14 +174,10 @@ static error__t pos_out_scale_put(
     struct pos_out_field *field = &pos_out->values[number];
 
     double scale;
-    error__t error = parse_double(&value, &scale)  ?:  parse_eos(&value);
-
-    if (!error)
-    {
-        WITH_MUTEX(pos_out->mutex)
-            field->scale = scale;
-    }
-    return error;
+    return
+        parse_double(&value, &scale)  ?:
+        parse_eos(&value)  ?:
+        DO(WITH_MUTEX(pos_out->mutex) field->scale = scale);
 }
 
 static error__t pos_out_offset_format(
