@@ -194,6 +194,7 @@ static error__t bit_mux_delay_put(
     unsigned int delay;
     return
         parse_uint(&value, &delay)  ?:
+        parse_eos(&value)  ?:
         TEST_OK_(delay <= MAX_BIT_MUX_DELAY, "Delay too long")  ?:
         DO( state->values[number].delay = delay;
             hw_write_register(
