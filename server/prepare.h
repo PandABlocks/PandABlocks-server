@@ -13,7 +13,6 @@ enum data_format {
 
 enum data_process {
     DATA_PROCESS_RAW,       // Unprocessed raw captured data
-    DATA_PROCESS_UNSCALED,  // Integer numbers
     DATA_PROCESS_SCALED,    // Floating point scaled numbers
 };
 

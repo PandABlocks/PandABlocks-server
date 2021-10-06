@@ -107,49 +107,6 @@ static size_t copy_unscaled_fields(
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-/* Unscaled conversion. */
-
-
-/* Averaging of unscaled data. */
-static size_t average_unscaled_data(
-    const struct data_capture *capture,
-    const uint32_t input[], uint32_t output[])
-{
-    const int64_t *averages = (const void *) &input[capture->averaged.index];
-    uint32_t sample_count = input[capture->sample_count_index];
-    if (sample_count == 0)
-        sample_count = 1;
-    for (size_t i = 0; i < capture->averaged.count; i ++)
-        output[i] = (uint32_t) (averages[i] / sample_count);
-    return sizeof(uint32_t) * capture->averaged.count;
-}
-
-
-/* For unscaled data the only conversion we do is averaging.  The remaining
- * values are copied unchanged. */
-static void convert_unscaled_data(
-    const struct data_capture *capture,
-    unsigned int sample_count, const uint32_t input[], void *output)
-{
-    for (unsigned int i = 0; i < sample_count; i ++)
-    {
-        /* Copy over the unscaled and scaled values. */
-        output += copy_unscaled_fields(
-            &capture->unscaled, input, output, sizeof(uint32_t));
-        output += copy_unscaled_fields(
-            &capture->scaled32, input, output, sizeof(uint32_t));
-        output += copy_unscaled_fields(
-            &capture->scaled64, input, output, sizeof(uint64_t));
-
-        /* Process the averaged values. */
-        output += average_unscaled_data(capture, input, output);
-
-        input += capture->raw_sample_words;
-    }
-}
-
-
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 /* Scaled conversion. */
 
 static size_t convert_scaled32(
@@ -233,13 +190,6 @@ size_t get_binary_sample_length(
         case DATA_PROCESS_RAW:
             length = sizeof(uint32_t) * capture->raw_sample_words;
             break;
-        case DATA_PROCESS_UNSCALED:
-            length =
-                sizeof(uint32_t) * (
-                    capture->unscaled.count + capture->scaled32.count +
-                    capture->averaged.count) +
-                sizeof(uint64_t) * capture->scaled64.count;
-            break;
         case DATA_PROCESS_SCALED:
             length =
                 sizeof(uint32_t) * capture->unscaled.count +
@@ -261,9 +211,6 @@ void convert_raw_data_to_binary(
         case DATA_PROCESS_RAW:
             memcpy(output, input,
                 sample_count * get_raw_sample_length(capture));
-            break;
-        case DATA_PROCESS_UNSCALED:
-            convert_unscaled_data(capture, sample_count, input, output);
             break;
         case DATA_PROCESS_SCALED:
             convert_scaled_data(capture, sample_count, input, output);
@@ -307,22 +254,6 @@ static const void *send_raw_as_ascii(
 }
 
 
-static const void *send_unscaled_as_ascii(
-    const struct data_capture *capture,
-    struct buffered_file *file, const void *data)
-{
-    data += FORMAT_ASCII(
-        capture->unscaled.count, data, " %"PRIu32, uint32_t);
-    data += FORMAT_ASCII(
-        capture->scaled32.count, data, " %"PRIi32, int32_t);
-    data += FORMAT_ASCII(
-        capture->scaled64.count, data, " %"PRIi64, int64_t);
-    data += FORMAT_ASCII(
-        capture->averaged.count, data, " %"PRIi32, int32_t);
-    return data;
-}
-
-
 static const void *send_scaled_as_ascii(
     const struct data_capture *capture,
     struct buffered_file *file, const void *data)
@@ -348,9 +279,6 @@ bool send_binary_as_ascii(
         {
             case DATA_PROCESS_RAW:
                 data = send_raw_as_ascii(capture, file, data);
-                break;
-            case DATA_PROCESS_UNSCALED:
-                data = send_unscaled_as_ascii(capture, file, data);
                 break;
             case DATA_PROCESS_SCALED:
                 data = send_scaled_as_ascii(capture, file, data);

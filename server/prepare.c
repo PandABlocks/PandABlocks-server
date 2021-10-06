@@ -43,8 +43,6 @@ static error__t parse_one_option(
     /* Data processing options. */
     else if (strcmp(option, "RAW") == 0)
         options->data_process = DATA_PROCESS_RAW;
-    else if (strcmp(option, "UNSCALED") == 0)
-        options->data_process = DATA_PROCESS_UNSCALED;
     else if (strcmp(option, "SCALED") == 0)
         options->data_process = DATA_PROCESS_SCALED;
 
@@ -63,7 +61,7 @@ static error__t parse_one_option(
     else if (strcmp(option, "BARE") == 0)
         *options = (struct data_options) {
             .data_format = DATA_FORMAT_UNFRAMED,
-            .data_process = DATA_PROCESS_UNSCALED,
+            .data_process = DATA_PROCESS_RAW,
             .omit_header = true,
             .omit_status = true,
             .one_shot = true,
@@ -248,12 +246,6 @@ static const char *field_type_name(
             [CAPTURE_MODE_AVERAGE]  = "int64",
             [CAPTURE_MODE_UNSCALED] = "uint32",
         },
-        [DATA_PROCESS_UNSCALED] = {
-            [CAPTURE_MODE_SCALED32] = "int32",
-            [CAPTURE_MODE_SCALED64] = "int64",
-            [CAPTURE_MODE_AVERAGE]  = "int32",
-            [CAPTURE_MODE_UNSCALED] = "uint32",
-        },
         [DATA_PROCESS_SCALED] = {
             [CAPTURE_MODE_SCALED32] = "double",
             [CAPTURE_MODE_SCALED64] = "double",
@@ -280,7 +272,6 @@ static void send_capture_info(
     };
     static const char *data_process_strings[] = {
         [DATA_PROCESS_RAW]      = "Raw",
-        [DATA_PROCESS_UNSCALED] = "Unscaled",
         [DATA_PROCESS_SCALED]   = "Scaled",
     };
     const char *data_format = data_format_strings[options->data_format];
