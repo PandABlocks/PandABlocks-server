@@ -47,21 +47,6 @@ struct output_field {
 /* Output type dependent functionality. */
 
 
-static bool get_capture_enabled(
-    struct output_field *field, const char **capture)
-{
-    switch (field->output_type)
-    {
-        case OUTPUT_POS:
-            return get_pos_out_capture(field->pos_out, field->number, capture);
-        case OUTPUT_EXT:
-            return get_ext_out_capture(field->ext_out, capture);
-        default:
-            ASSERT_FAIL();
-    }
-}
-
-
 static void reset_output_capture(struct output_field *field)
 {
     switch (field->output_type)
@@ -161,9 +146,19 @@ void report_capture_list(struct connection_result *result)
     for (unsigned int i = 0; i < output_field_count; i ++)
     {
         struct output_field *field = &output_fields[i];
-        const char *capture;
-        if (get_capture_enabled(field, &capture))
-            format_many_result(result, "%s %s", field->field_name, capture);
+        switch (field->output_type)
+        {
+            case OUTPUT_POS:
+                report_pos_out_capture(
+                    field->pos_out, field->number, field->field_name, result);
+                break;
+            case OUTPUT_EXT:
+                report_ext_out_capture(
+                    field->ext_out, field->field_name, result);
+                break;
+            default:
+                ASSERT_FAIL();
+        }
     }
 }
 

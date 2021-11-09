@@ -128,11 +128,13 @@ void reset_ext_out_capture(struct ext_out *ext_out)
 }
 
 
-bool get_ext_out_capture(struct ext_out *ext_out, const char **string)
+void report_ext_out_capture(
+    struct ext_out *ext_out, const char *field_name,
+    struct connection_result *result)
 {
-    bool capture = ext_out->capture;
-    *string = ext_out_capture_enum_set.enums[capture].name;
-    return capture;
+    if (ext_out->capture)
+        format_many_result(result, "%s %s", field_name,
+            ext_out_capture_enum_set.enums[1].name);
 }
 
 

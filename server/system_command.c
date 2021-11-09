@@ -23,6 +23,7 @@
 #include "attributes.h"
 #include "fields.h"
 #include "pos_mux.h"
+#include "pos_out.h"
 #include "output.h"
 #include "enums.h"
 #include "version.h"
@@ -370,6 +371,7 @@ static error__t get_enums(const char *command, struct connection_result *result)
  * *PCAP.STATUS?
  * *PCAP.CAPTURED?
  * *PCAP.COMPLETION?
+ * *PCAP.CAPTURE_OPTIONS?
  *
  * Manages and interrogates capture interface. */
 
@@ -409,8 +411,10 @@ static error__t lookup_pcap_get_action(
             get_capture_count(result),
         IF_ELSE(strcmp(name, "COMPLETION") == 0,
             get_capture_completion(result),
+        IF_ELSE(strcmp(name, "CAPTURE_OPTIONS") == 0,
+            get_capture_options(result),
         //else
-            FAIL_("Invalid *PCAP field"))));
+            FAIL_("Invalid *PCAP field")))));
 }
 
 static error__t get_pcap(const char *command, struct connection_result *result)

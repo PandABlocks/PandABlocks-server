@@ -9,12 +9,16 @@ void terminate_pos_out(void);
 /* Update cached pos_out values up to date with values read from hardware. */
 void do_pos_out_refresh(uint64_t change_index);
 
+/* Returns list of available capture options. */
+error__t get_capture_options(struct connection_result *result);
+
 /* Used to implement *CAPTURE= method. */
 void reset_pos_out_capture(struct pos_out *pos_out, unsigned int number);
 
-/* Interrogates capture status and returns identification string. */
-bool get_pos_out_capture(
-    struct pos_out *pos_out, unsigned int number, const char **string);
+/* If capture enabled reports capture status using given field name. */
+void report_pos_out_capture(
+    struct pos_out *pos_out, unsigned int number,
+    const char *field_name, struct connection_result *result);
 
 /* Returns full capture info for field, returning number of fields captured. */
 unsigned int get_pos_out_capture_info(

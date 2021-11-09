@@ -10,7 +10,9 @@ void terminate_ext_out(void);
 void reset_ext_out_capture(struct ext_out *ext_out);
 
 /* Interrogates capture status and returns identification string. */
-bool get_ext_out_capture(struct ext_out *ext_out, const char **string);
+void report_ext_out_capture(
+    struct ext_out *ext_out, const char *field_name,
+    struct connection_result *result);
 
 /* Returns full capture info for field, if captured. */
 unsigned int get_ext_out_capture_info(

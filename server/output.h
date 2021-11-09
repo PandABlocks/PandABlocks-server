@@ -46,8 +46,9 @@ enum capture_mode {
 };
 
 
+#define CAPTURE_INDEX_SIZE          2
 struct capture_index {
-    unsigned int index[2];          // Capture index or indices for data
+    unsigned int index[CAPTURE_INDEX_SIZE]; // Capture index or indices for data
 };
 
 
