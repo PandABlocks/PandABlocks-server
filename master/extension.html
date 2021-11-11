@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Extension Server &mdash; PandABlocks-server 2.2a1-23-g6c6be0b
+  <title>Extension Server &mdash; PandABlocks-server 2.2a1-25-gd9e0ca9
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -33,7 +33,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                2.2a1-23-g6c6be0b
+                2.2a1-25-gd9e0ca9
 
               </div>
 <div role="search">
@@ -154,7 +154,7 @@ can be read or written during processing of an extension field.</p>
 takes one argument and must support two methods <cite>parse_read</cite> and <cite>parse_write</cite></p>
 <dl class="py class">
 <dt class="sig sig-object py" id="Extension">
-<em class="property"><span class="pre">class</span> </em><span class="sig-name descname"><span class="pre">Extension</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">count</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Extension" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Extension</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">count</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Extension" title="Permalink to this definition"></a></dt>
 <dd><p>This class must be defined by each extension module.  The class will be
 instantiated in response to loading a block register definition of the
 form:</p>
@@ -229,7 +229,7 @@ when the module is loaded into the server.  These are available to help with the
 implementation of extensions.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="ServerError">
-<em class="property"><span class="pre">class</span> </em><span class="sig-name descname"><span class="pre">ServerError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Exception</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ServerError" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ServerError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Exception</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ServerError" title="Permalink to this definition"></a></dt>
 <dd><p>Read and write methods should use this exception to report errors.
 Exceptions of this type are treated specially and are reported as normal
 read or write errors.</p>
@@ -237,7 +237,7 @@ read or write errors.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="ExtensionHelper">
-<em class="property"><span class="pre">class</span> </em><span class="sig-name descname"><span class="pre">ExtensionHelper</span></span><a class="headerlink" href="#ExtensionHelper" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ExtensionHelper</span></span><a class="headerlink" href="#ExtensionHelper" title="Permalink to this definition"></a></dt>
 <dd><p>This can be used inside an extension module to create extension support for
 individual fields.  Pass a block constructor (that must take one argument,
 the block index) which implements <cite>set_</cite> and <cite>get_</cite> methods as appropriate,
