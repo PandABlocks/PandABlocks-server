@@ -138,7 +138,7 @@ static error__t check_number(const char *start, const char *end)
 {
     return
         TEST_OK_(end > start, "Number missing")  ?:
-        TEST_IO_(errno == 0, "Error converting number");
+        TEST_OK_IO_(errno == 0, "Error converting number");
 }
 
 
