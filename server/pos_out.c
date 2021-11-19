@@ -611,9 +611,10 @@ error__t initialise_pos_out(void)
          !error  &&  i < ARRAY_SIZE(nominal_capture_masks); i ++)
     {
         char capture_string[64];
-        ASSERT_OK(!format_capture_string(nominal_capture_masks[i],
-            capture_string, sizeof(capture_string)));
-        error = add_enumeration(pos_out_enum, capture_string, i);
+        error =
+            format_capture_string(nominal_capture_masks[i],
+                capture_string, sizeof(capture_string))  ?:
+            add_enumeration(pos_out_enum, capture_string, i);
     }
     pos_out_capture_enum = pos_out_enum;
     return error;
