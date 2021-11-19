@@ -606,15 +606,17 @@ static error__t pos_out_parse_register(
 error__t initialise_pos_out(void)
 {
     struct enumeration *pos_out_enum = create_dynamic_enumeration();
-    for (unsigned int i = 0; i < ARRAY_SIZE(nominal_capture_masks); i ++)
+    error__t error = ERROR_OK;
+    for (unsigned int i = 0;
+         !error  &&  i < ARRAY_SIZE(nominal_capture_masks); i ++)
     {
         char capture_string[64];
         ASSERT_OK(!format_capture_string(nominal_capture_masks[i],
             capture_string, sizeof(capture_string)));
-        add_enumeration(pos_out_enum, capture_string, i);
+        error = add_enumeration(pos_out_enum, capture_string, i);
     }
     pos_out_capture_enum = pos_out_enum;
-    return ERROR_OK;
+    return error;
 }
 
 
