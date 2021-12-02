@@ -17,6 +17,8 @@ import sys
 import socket
 import struct
 
+import sim_registers
+
 
 parser = argparse.ArgumentParser(description = 'PandA Hardware simulation')
 parser.add_argument(
@@ -56,28 +58,34 @@ def read(sock, n):
 # This simulation is as dumb as a brick, it merely provides a basic
 # implementation of the communication protocol and otherwise does as little as
 # possible.
-def run_simulation(conn, verbose):
+def run_simulation(conn):
     while True:
         command_word = read(conn, 4)
         command, block, num, reg = struct.unpack('cBBB', command_word)
         if command == b'R':
-            # Read one register, always returns zero
-            conn.sendall(struct.pack('I', 0))
-            if verbose:
-                print('R', block, num, reg)
+            # Read one register
+            value = sim_registers.read_reg(block, num, reg)
+            conn.sendall(struct.pack('I', value))
         elif command == b'W':
-            # Write one register, we throw the value away
+            # Write one register
             value, = struct.unpack('I', read(conn, 4))
-            if verbose:
-                print('W', block, num, reg, '<=', value, hex(value))
+            sim_registers.write_reg(block, num, reg, value)
         elif command == b'T':
-            # Write data array to large table, we throw this away
+            # Write data array to large table
             length, = struct.unpack('I', read(conn, 4))
             data = read(conn, length * 4)
+            sim_registers.write_table(block, num, reg, data)
         elif command == b'D':
-            # Retrieve increment of data stream: we never send anything!
+            # Retrieve increment of data stream
             length, = struct.unpack('I', read(conn, 4))
-            conn.sendall(struct.pack('i', -1))
+            data = sim_registers.read_data(length)
+            if data is None:
+                # Send -1 to signal end of stream
+                conn.sendall(struct.pack('i', -1))
+            else:
+                # Otherwise send what we have
+                conn.sendall(struct.pack('i', len(data)))
+                conn.sendall(data)
         else:
             print('Unexpected command', repr(command_word))
             raise SocketFail('Unexpected command')
@@ -97,6 +105,7 @@ sock.close()
 
 conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 try:
-    run_simulation(conn, args.verbose)
+    sim_registers.set_verbose(args.verbose)
+    run_simulation(conn)
 except (SocketFail, KeyboardInterrupt) as e:
     print('Simulation closed:', repr(e))
