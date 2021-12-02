@@ -38,6 +38,7 @@ enum {
     POS_OUT_CAPTURE_MIN,
     POS_OUT_CAPTURE_MAX,
     POS_OUT_CAPTURE_MEAN,
+    POS_OUT_CAPTURE_STDDEV,
 };
 
 /* Corresponding capture mask bits. */
@@ -47,6 +48,7 @@ enum {
 #define CAPTURE_MIN_BIT         (1 << POS_OUT_CAPTURE_MIN)
 #define CAPTURE_MAX_BIT         (1 << POS_OUT_CAPTURE_MAX)
 #define CAPTURE_MEAN_BIT        (1 << POS_OUT_CAPTURE_MEAN)
+#define CAPTURE_STDDEV_BIT      (1 << POS_OUT_CAPTURE_STDDEV)
 
 
 /* Used to define behaviour of each capture option above. */
@@ -59,23 +61,31 @@ struct capture_option_info {
 #define CAPTURE_INFO(name, mode, index...) \
     { \
         .option_name = name, \
-        .capture_mode = CAPTURE_MODE_##mode, \
+        .capture_mode = mode, \
         .capture_index = { { index } }, \
     }
 
 static const struct capture_option_info capture_option_info[] = {
     [POS_OUT_CAPTURE_VALUE] =
-        CAPTURE_INFO("Value", SCALED32, POS_FIELD_VALUE),
+        CAPTURE_INFO("Value", CAPTURE_MODE_SCALED32,
+            POS_FIELD_VALUE),
     [POS_OUT_CAPTURE_DIFF] =
-        CAPTURE_INFO("Diff", SCALED32, POS_FIELD_DIFF),
+        CAPTURE_INFO("Diff", CAPTURE_MODE_SCALED32,
+            POS_FIELD_DIFF),
     [POS_OUT_CAPTURE_SUM] =
-        CAPTURE_INFO("Sum", SCALED64, POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
+        CAPTURE_INFO("Sum", CAPTURE_MODE_SCALED64,
+            POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
     [POS_OUT_CAPTURE_MEAN] =
-        CAPTURE_INFO("Mean", AVERAGE, POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
+        CAPTURE_INFO("Mean", CAPTURE_MODE_AVERAGE,
+            POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH),
     [POS_OUT_CAPTURE_MIN] =
-        CAPTURE_INFO("Min", SCALED32, POS_FIELD_MIN),
+        CAPTURE_INFO("Min", CAPTURE_MODE_SCALED32,
+            POS_FIELD_MIN),
     [POS_OUT_CAPTURE_MAX] =
-        CAPTURE_INFO("Max", SCALED32, POS_FIELD_MAX),
+        CAPTURE_INFO("Max", CAPTURE_MODE_SCALED32,
+            POS_FIELD_MAX),
+    [POS_OUT_CAPTURE_STDDEV] =
+        CAPTURE_INFO("StdDev", CAPTURE_MODE_STDDEV),
 };
 
 
@@ -91,6 +101,8 @@ static const unsigned int nominal_capture_masks[] = {
     CAPTURE_MAX_BIT,
     CAPTURE_MIN_BIT | CAPTURE_MAX_BIT,
     CAPTURE_MIN_BIT | CAPTURE_MAX_BIT | CAPTURE_MEAN_BIT,
+    CAPTURE_STDDEV_BIT,
+    CAPTURE_MEAN_BIT | CAPTURE_STDDEV_BIT,
 };
 
 
@@ -357,16 +369,7 @@ static error__t pos_out_capture_format(
 }
 
 
-static error__t lookup_option(const char *option, unsigned int *capture_index)
-{
-    for (unsigned int i = 0; i < ARRAY_SIZE(capture_option_info); i ++)
-        if (strcmp(option, capture_option_info[i].option_name) == 0)
-        {
-            *capture_index = i;
-            return ERROR_OK;
-        }
-    return FAIL_("Unknown capture option\"%s\"", option);
-}
+static const struct enumeration *lookup_capture_option;
 
 static error__t pos_out_capture_put(
     void *owner, void *data, unsigned int number, const char *value)
@@ -387,7 +390,9 @@ static error__t pos_out_capture_put(
             error =
                 parse_name(&value, option, sizeof(option))  ?:
                 DO(value = skip_whitespace(value))  ?:
-                lookup_option(option, &capture_index)  ?:
+                TEST_OK_(enum_name_to_index(
+                    lookup_capture_option, option, &capture_index),
+                    "Unknown capture option \"%s\"", option)  ?:
                 DO(capture_mask |= 1U << capture_index);
         }
     }
@@ -603,21 +608,67 @@ static error__t pos_out_parse_register(
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* File initialisation */
 
-error__t initialise_pos_out(void)
+/* Populate the keywork option lookup table. */
+static error__t initialise_keyword_lookup(
+    const struct enumeration **result, bool enable_std_dev)
 {
-    struct enumeration *pos_out_enum = create_dynamic_enumeration();
     error__t error = ERROR_OK;
+    struct enumeration *enumeration = create_dynamic_enumeration();
+    for (unsigned int i = 0;
+         !error  &&  i < ARRAY_SIZE(capture_option_info); i ++)
+    {
+        /* Special guard: don't add std dev option if not enabled. */
+        if (enable_std_dev  ||  i != POS_OUT_CAPTURE_STDDEV)
+            error = add_enumeration(
+                enumeration, capture_option_info[i].option_name, i);
+    }
+    if (error)
+        destroy_enumeration(enumeration);
+    else
+        *result = enumeration;
+    return error;
+}
+
+
+/* Now populate the list of available capture strings; this has to be an enum
+ * because of the inquiry interface. */
+static error__t initialise_available_enums(
+    const struct enumeration **result, bool enable_std_dev)
+{
+    error__t error = ERROR_OK;
+    struct enumeration *enumeration = create_dynamic_enumeration();
     for (unsigned int i = 0;
          !error  &&  i < ARRAY_SIZE(nominal_capture_masks); i ++)
     {
-        char capture_string[64];
-        error =
-            format_capture_string(nominal_capture_masks[i],
-                capture_string, sizeof(capture_string))  ?:
-            add_enumeration(pos_out_enum, capture_string, i);
+        /* Special guard: if std dev in mask and not enabled then ignore this
+         * option. */
+        unsigned int capture_mask = nominal_capture_masks[i];
+        if (enable_std_dev  ||  !(capture_mask & CAPTURE_STDDEV_BIT))
+        {
+            char capture_string[64];
+            error =
+                format_capture_string(
+                    capture_mask, capture_string, sizeof(capture_string))  ?:
+                add_enumeration(enumeration, capture_string, i);
+        }
     }
-    pos_out_capture_enum = pos_out_enum;
+    if (error)
+        destroy_enumeration(enumeration);
+    else
+        *result = enumeration;
     return error;
+}
+
+
+error__t initialise_pos_out(void)
+{
+    /* Ask FPGA whether it supports standard deviation capture.  It's enough to
+     * exclude these strings from the lookup and enum lists. */
+    bool enable_std_dev = hw_read_fpga_capabilities() & FPGA_CAPABILITY_STDDEV;
+
+    return
+        initialise_keyword_lookup(&lookup_capture_option, enable_std_dev)  ?:
+        initialise_available_enums(&pos_out_capture_enum, enable_std_dev);
 }
 
 
@@ -625,6 +676,8 @@ void terminate_pos_out(void)
 {
     if (pos_out_capture_enum)
         destroy_enumeration(pos_out_capture_enum);
+    if (lookup_capture_option)
+        destroy_enumeration(lookup_capture_option);
 }
 
 

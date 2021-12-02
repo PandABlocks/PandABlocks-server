@@ -27,6 +27,12 @@
 #define POS_BUS_ZERO        POS_BUS_COUNT
 
 
+/* FPGA capability bits.  These are tested for to enable FPGA specific
+ * functionality.  This list of definitions must match the actual hardware
+ * definitions. */
+#define FPGA_CAPABILITY_STDDEV      (1 << 0)    // Standard Deviation Support
+
+
 /* Must be called before any hardware functions.  If an error occurs then
  * program startup should be terminated. */
 error__t initialise_hardware(void);
@@ -80,6 +86,9 @@ void hw_read_versions(
 /* Writes to one of the dedicated MAC address registers. */
 #define MAC_ADDRESS_COUNT   4   // Offset must be smaller than this
 void hw_write_mac_address(unsigned int offset, uint64_t mac_address);
+
+/* Returns the value of the FPGA capabilities register. */
+uint32_t hw_read_fpga_capabilities(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -156,28 +165,31 @@ void hw_write_arm(bool enable);
 /* Macros for formatting position and extension bus entries into capture field
  * values.  The bit layout for each type is as follows:
  *
- *                  32            9 8        4   2    0
- *                  +------------+-+----------+-+------+
- *  Position bus    |        0   |0|  pos-ix  |0| mode |
- *                  +------------+-+----------+-+------+
+ *                  32            9 8        4 3      0
+ *                  +------------+-+----------+--------+
+ *  Position bus    |        0   |0|  pos-ix  |  mode  |
+ *                  +------------+-+----------+--------+
  *
- *                                9   7      4
+ *                                9 8 7      4
  *                  +------------+-+-+--------+--------+
  *  Extension bus   |        0   |1|0| ext-ix |    0   |
  *                  +------------+-+-+--------+--------+
  */
 #define CAPTURE_POS_BUS(pos_ix, mode) \
-    ((((pos_ix) & 0x1F) << 4) | ((mode) & 0x7))
+    ((((pos_ix) & 0x1F) << 4) | ((mode) & 0xF))
 #define CAPTURE_EXT_BUS(ext_ix) \
     ((1 << 9) | (((ext_ix) & 0xF) << 4))
 
-/* Definitions of position capture fields. */
+/* Definitions of position capture field modes. */
 #define POS_FIELD_VALUE         0
 #define POS_FIELD_DIFF          1
 #define POS_FIELD_SUM_LOW       2
 #define POS_FIELD_SUM_HIGH      3
 #define POS_FIELD_MIN           4
 #define POS_FIELD_MAX           5
+#define POS_FIELD_SUM2_LOW      6
+#define POS_FIELD_SUM2_MID      7
+#define POS_FIELD_SUM2_HIGH     8
 
 /* Writes list of capture bus fields to capture. */
 void hw_write_capture_set(const unsigned int capture[], size_t count);

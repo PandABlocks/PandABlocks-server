@@ -15,7 +15,8 @@ error__t get_capture_options(struct connection_result *result);
 /* Used to implement *CAPTURE= method. */
 void reset_pos_out_capture(struct pos_out *pos_out, unsigned int number);
 
-/* If capture enabled reports capture status using given field name. */
+/* If capture enabled reports capture status using given field name.  Used to
+ * implement the *CAPTURE? function, along with report_ext_out_capture. */
 void report_pos_out_capture(
     struct pos_out *pos_out, unsigned int number,
     const char *field_name, struct connection_result *result);
