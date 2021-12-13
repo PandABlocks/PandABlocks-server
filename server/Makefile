@@ -19,52 +19,7 @@ default: server sim_server
 .PHONY: default
 
 
-CFLAGS += -std=gnu99
-CFLAGS += -O3
-CFLAGS += -g
-CPPFLAGS += -D_GNU_SOURCE
-
-CFLAGS += -Werror
-CFLAGS += -Wall
-CFLAGS += -Wextra
-
-CFLAGS += -Wundef
-CFLAGS += -Wshadow
-CFLAGS += -Wcast-align
-CFLAGS += -Wwrite-strings
-CFLAGS += -Wredundant-decls
-CFLAGS += -Wmissing-prototypes
-CFLAGS += -Wmissing-declarations
-CFLAGS += -Wstrict-prototypes
-CFLAGS += -Wcast-qual
-CFLAGS += -Woverflow
-CFLAGS += -Wconversion
-
-CFLAGS += -fstrict-overflow
-CFLAGS += -Wsign-compare
-
-CFLAGS += -Wstrict-overflow=5
-
-CFLAGS += -Wno-switch-enum
-CFLAGS += -Wno-variadic-macros
-CFLAGS += -Wno-padded
-CFLAGS += -Wno-format-nonliteral
-CFLAGS += -Wno-vla
-CFLAGS += -Wno-c++-compat
-CFLAGS += -Wno-pointer-arith
-CFLAGS += -Wno-unused-parameter
-CFLAGS += -Wno-missing-field-initializers
-
-# Place this last so that we can override any of the default settings above
-CFLAGS += $(CFLAGS_EXTRA)
-
-
-# Pick up kernel driver header file
-CPPFLAGS += -I$(TOP)/driver
-
-LDLIBS += -lpthread
-LDLIBS += -lrt
-LDLIBS += -lm
+include $(TOP)/server/Makefile.flags
 
 
 # Allow access to function names in assert fail tracebacks
@@ -135,8 +90,6 @@ sw_hardware.o: named_registers.h
 
 named_registers.h: named_registers.py $(TOP)/config_d/registers
 	$(PYTHON) $^ >$@
-
-CPPFLAGS += -I.
 
 
 # Pass the git version through to version

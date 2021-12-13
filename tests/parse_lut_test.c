@@ -9,7 +9,7 @@
 struct lut_test {
     const char *input;
     enum parse_lut_status status;
-    int result;
+    unsigned int result;
 };
 
 #define SUCCEED(test, result)   { test, LUT_PARSE_OK, result }
@@ -100,7 +100,7 @@ int main(int argc, const char **argv)
     if (argc > 1)
         for (int i = 1; i < argc; i ++)
         {
-            int result = 0;
+            unsigned int result = 0;
             enum parse_lut_status status = parse_lut(argv[i], &result);
             printf("\"%s\" => (%d, %08x) %s\n",
                 argv[i], status, result, parse_lut_error_string(status));
@@ -111,7 +111,7 @@ int main(int argc, const char **argv)
         for (size_t i = 0; i < sizeof(tests) / sizeof(struct lut_test); i ++)
         {
             struct lut_test *test = &tests[i];
-            int result = 0;
+            unsigned int result = 0;
             enum parse_lut_status status = parse_lut(test->input, &result);
             if (status != test->status  ||
                 (status == LUT_PARSE_OK  &&  result != test->result))

@@ -2,6 +2,8 @@
 
 TOP = ..
 
+include $(TOP)/server/Makefile.flags
+
 
 # ------------------------------------------------------------------------------
 # Logic LUT (FPGA LookUp Table) parser test.  This involves generating and
@@ -14,7 +16,6 @@ test_lut: parse_lut_test
 TESTS += test_lut
 
 parse_lut_test: parse_lut_test.c $(TOP)/server/parse_lut.c
-	gcc -std=gnu99 -I$(TOP)/server -o $@ $^
 .INTERMEDIATE: parse_lut_test
 
 
