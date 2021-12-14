@@ -1,0 +1,24 @@
+# Some test vectors for std dev calculation
+
+# The format for each vector is four numbers as read by test_std_dev.c:
+#
+#   n : u32     b : u64     ah : u32    al : u64
+#
+# where n is the number of samples, b is the sum of values, ah is the top 32
+# bits of the sum of squares and al is the bottom 64 bits.
+
+1 2 3 4
+100000 9999999 299999999999999 33333333
+
+# Now some tests with n=2^32-1
+
+# This one should be a perfect 0
+4294967295 9223372034707292160 1073741823 13835058055282163712
+
+# Here's an interesting one.  Not actually feasible
+4294967295 9223372034707292159 1073741823 13835058055282163712
+
+# Here's a properly engineered edge case.  Take x=2^31 for all but one of
+# N=2^32-1 samples, take the remaining sample equal to 2^31-1.  Then we can
+# compute that N S^2 = 1-1/N and that S = sqrt(N-1)/N ~~ 1.526e-5.
+4294967295 9223372034707292159 1073741823 13835058050987196417

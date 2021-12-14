@@ -66,6 +66,7 @@ SRCS += base64.c                # base64 conversion support
 SRCS += metadata.c              # Support for *METADATA command
 SRCS += mac_address.c           # Support for FPGA MAC address loading
 SRCS += extension.c             # Support for extension server registers
+SRCS += std_dev.c               # Computation of standard deviation
 
 
 # Program for loading slow FPGA on carrier card.
