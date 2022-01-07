@@ -92,16 +92,12 @@ static error__t register_one_field(
     char name[MAX_NAME_LENGTH];
     format_field_name(name, sizeof(name), field, NULL, number, '\0');
 
-    /* There's a funny little bug in gcc (Bug 10676, fixed in gcc 4.6) which
-     * means we can't initialise .output statically, so we need to do this in
-     * two bites here. */
     struct output_field output_field = {
         .output_type = output_type,
-//         .output = output,           // Need gcc > 4.6 for this!
+        .output = output,
         .number = number,
         .field_name = strdup(name),
     };
-    output_field.output = output;
 
     return
         TEST_OK_(output_field_count < MAX_OUTPUT_COUNT,

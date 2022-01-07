@@ -57,6 +57,7 @@ struct capture_index;
 /* The maximum possible number of captures: 3 per position bus plus the
  * extension bus counts. */
 #define MAX_CAPTURE_COUNT   (3 * POS_BUS_COUNT + EXT_BUS_COUNT)
+// !!! will need to bump this one up, tie to pos_out
 
 
 struct capture_group {
@@ -73,10 +74,11 @@ struct captured_fields {
     struct capture_info *sample_count;
 
     /* Other fields grouped by processing. */
-    struct capture_group unscaled;
     struct capture_group scaled32;
-    struct capture_group scaled64;
     struct capture_group averaged;
+    struct capture_group std_dev;
+    struct capture_group scaled64;
+    struct capture_group unscaled;
 };
 
 

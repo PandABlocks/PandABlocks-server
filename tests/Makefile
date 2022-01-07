@@ -51,6 +51,17 @@ TESTS += test_extension
 
 
 # ------------------------------------------------------------------------------
+# Tests for std_dev
+
+test_std_sim: test_std_dev.c $(TOP)/server/std_dev.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+test_std_cross: CC = $(CROSS_COMPILE)cc
+test_std_cross: test_std_dev.c $(TOP)/server/std_dev.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+
+# ------------------------------------------------------------------------------
 
 tests: $(TESTS)
 .DEFAULT_GOAL = tests

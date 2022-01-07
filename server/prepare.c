@@ -242,14 +242,16 @@ static const char *field_type_name(
     static const char *field_type_names[][CAPTURE_MODE_COUNT] = {
         [DATA_PROCESS_RAW] = {
             [CAPTURE_MODE_SCALED32] = "int32",
-            [CAPTURE_MODE_SCALED64] = "int64",
             [CAPTURE_MODE_AVERAGE]  = "int64",
+            [CAPTURE_MODE_STDDEV]   = "int96",
+            [CAPTURE_MODE_SCALED64] = "int64",
             [CAPTURE_MODE_UNSCALED] = "uint32",
         },
         [DATA_PROCESS_SCALED] = {
             [CAPTURE_MODE_SCALED32] = "double",
-            [CAPTURE_MODE_SCALED64] = "double",
             [CAPTURE_MODE_AVERAGE]  = "double",
+            [CAPTURE_MODE_STDDEV]   = "double",
+            [CAPTURE_MODE_SCALED64] = "double",
             [CAPTURE_MODE_UNSCALED] = "uint32",
         },
     };
@@ -383,10 +385,11 @@ bool send_data_header(
  * extravagant. */
 static struct captured_fields captured_fields = {
     .sample_count = (struct capture_info[1]) { },
-    .unscaled = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
     .scaled32 = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
-    .scaled64 = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
     .averaged = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .std_dev  = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .scaled64 = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .unscaled = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
 };
 
 /* Capture info for each field is held in this area. */
@@ -399,10 +402,12 @@ static struct capture_group *get_capture_group(enum capture_mode capture_mode)
     {
         case CAPTURE_MODE_SCALED32:
              return &captured_fields.scaled32;
-        case CAPTURE_MODE_SCALED64:
-             return &captured_fields.scaled64;
         case CAPTURE_MODE_AVERAGE:
              return &captured_fields.averaged;
+        case CAPTURE_MODE_STDDEV:
+             return &captured_fields.std_dev;
+        case CAPTURE_MODE_SCALED64:
+             return &captured_fields.scaled64;
         case CAPTURE_MODE_UNSCALED:
              return &captured_fields.unscaled;
         default:

@@ -11,9 +11,11 @@ def set_verbose(_verbose):
 
 class Registers:
     def read(self, num, reg):
+        # By default all registers return 0
         return 0
 
     def write(self, num, reg, value):
+        # Register writes are normally ignored
         pass
 
 
@@ -24,6 +26,9 @@ class REG(Registers):
             return 1
         else:
             return 0
+
+    def write(self, num, reg, value):
+        print('*REG[%d] <= %08x' % (reg, value))
 
 
 default_registers = Registers()
@@ -40,8 +45,7 @@ def lookup_block(block):
 def read_reg(block, num, reg):
     if verbose:
         print('R', block, num, reg, end = '')
-    block = lookup_block(block)
-    result = block.read(num, reg)
+    result = lookup_block(block).read(num, reg)
     if verbose:
         print('=>', result, hex(result))
     return result
@@ -49,8 +53,7 @@ def read_reg(block, num, reg):
 def write_reg(block, num, reg, value):
     if verbose:
         print('W', block, num, reg, '<=', value, hex(value))
-    block = lookup_block(block)
-    block.write(num, reg, value)
+    lookup_block(block).write(num, reg, value)
 
 def write_table(block, num, reg, data):
     if verbose:

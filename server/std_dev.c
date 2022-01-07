@@ -49,63 +49,6 @@ static uint64_t abs_64(int64_t x)
 }
 
 
-/* As I don't know if the generated code is better or worse, I'm leaving this
- * block disabled for now.  It needs to be either enabled or deleted altogether
- * before this project is done. */
-#if 0 // defined(__SIZEOF_INT128__)
-/* If __int128 is available (and it is on the ARMv8, which is available on the
- * Zynq UltraScale+) then the required calculations are a lot simpler to write,
- * though it looks as if the generated code isn't particularly efficient. */
-
-typedef unsigned __int128 uint128_t;
-
-
-static void div_rem_128_32(
-    uint128_t b, uint32_t n, uint128_t *d, uint32_t *r)
-{
-    uint128_t div = b / n;
-    uint128_t rem = b % n;
-    *d = div;
-    *r = (uint32_t) rem;
-}
-
-
-/* With 128 bit registers we can directly compute
- *
- *      B^2 = N Q + R
- *      N S^2 = A - B^2/N = (A - Q) - (R / N)
- *
- * and go straight to floating point after computing A-Q, as R cannot have more
- * than 32 significant bits. */
-double compute_standard_deviation(
-    uint32_t samples, int64_t raw_sum_values,
-    const unaligned_uint96_t *raw_sum_squares)
-{
-    /* Assemble 96-bit sum of squares into a 128-bit register. */
-    uint128_t sum_squares =
-        raw_sum_squares->low_word_64 +
-        ((uint128_t) raw_sum_squares->values[2] << 64);
-
-    /* Compute sum_values^2/samples as quotient and remainder. */
-    uint64_t sum_values = abs_64(raw_sum_values);
-    uint128_t quotient;
-    uint32_t remainder;
-    div_rem_128_32(
-        (uint128_t) sum_values * (uint128_t) sum_values, samples,
-        &quotient, &remainder);
-    sum_squares -= quotient;
-
-    /* We can now safely work in doubles, as all the remaining bits will be
-     * significant. */
-    double n_s2 = (double) sum_squares - (double) remainder / samples;
-    return sqrt(n_s2 / samples);
-}
-
-
-#else
-/* No 128-bit integer support, we'll have to do things the hard way. */
-
-
 /* Compute D, R from N, B such that B = N*D + R and R < N.  We're given
  * B < 2^64, R < 2^32, and we know and assume that D < 2^32. */
 static void div_rem_64_32(uint64_t b, uint32_t n, uint32_t *d, uint32_t *r)
@@ -225,5 +168,3 @@ double compute_standard_deviation(
     double n_s2 = uint96_to_double(sum_squares) - r2_n;
     return sqrt(n_s2 / samples);
 }
-
-#endif

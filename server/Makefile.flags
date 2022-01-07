@@ -49,4 +49,3 @@ CPPFLAGS += -iquote $(TOP)/driver
 LDLIBS += -lpthread
 LDLIBS += -lrt
 LDLIBS += -lm
-
