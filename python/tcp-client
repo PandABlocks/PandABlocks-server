@@ -9,6 +9,13 @@ except ImportError:
     # don't need readline on windows
     pass
 
+# A little annoyance from Python2/Python3: raw_input got renamed.  This
+# nastiness is needed for Python2 backward compatibility.
+try:
+    input = raw_input
+except NameError:
+    pass
+
 
 # Checks whether the server will interpret cmd as a table command: search for
 # first of '?', '=', '<', if '<' found first then it's a table command.
@@ -43,21 +50,21 @@ class Client(object):
                 yield line
             buf = lines[-1]
             # Get something new from the socket
-            rx = self.s.recv(4096)
+            rx = self.s.recv(4096).decode()
             assert rx, "Didn't get response in time"
             buf += rx
 
     def recv_all(self):
-        ret = [self.line_iter.next()]
+        ret = [next(self.line_iter)]
         assert ret[0], "Connection closed"
         if ret[0].startswith("!"):
             while not ret[-1].startswith("."):
-                ret.append(self.line_iter.next())
+                ret.append(next(self.line_iter))
         return ret
 
     def prompt_and_send(self):
-        msg = raw_input("< ")
-        self.s.sendall(msg + "\n")
+        msg = input("< ")
+        self.s.sendall((msg + "\n").encode())
         return msg
 
     def run(self):
