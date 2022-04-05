@@ -2,6 +2,7 @@ name: Code CI
 
 on:
   push:
+  
   pull_request:
 
 jobs:
@@ -11,8 +12,18 @@ jobs:
         platform: ["zynq", "zynqmp"]
 
     runs-on: ubuntu-latest
+    
+    container: 
+      image: ghcr.io/pandablocks/pandablocks-dev-container:latest
+      credentials:
+        username: PandABlocks
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes: 
+        - ${{ github.workspace }}:/repos
+        - ${{ github.workspace }}/build:/build
+    
     steps:
-
+      
       # Git repositories
       - name: Checkout Source
         uses: actions/checkout@v2
@@ -24,35 +35,6 @@ jobs:
         with:
           repository: PandABlocks/PandABlocks-rootfs
           path: PandABlocks-rootfs
-
-      - name: Checkout rootfs builder
-        uses: actions/checkout@v2
-        with:
-          repository: dls-controls/rootfs
-          path: rootfs
-
-      # System dependencies
-      - name: Install system dependencies
-        run: |
-          sudo apt-get install -y libncurses5-dev expat
-          sudo pip install rst2pdf sphinx sphinx-rtd-theme docutils==0.16
-
-      # Tar dependancies (Linux only)
-      - name: Download tar file dependencies
-        run: bash PandABlocks-rootfs/.github/scripts/tar-files.sh linux-only
-     
-        # ARM GNU Toolchain
-      - name: Download Arm GNU toolchain - ${{ matrix.platform }}
-        run: bash PandABlocks-rootfs/.github/scripts/GNU-toolchain.sh ${{ matrix.platform }}
-
-      # CONFIG files
-      - name: Generate rootfs CONFIG files - ${{ matrix.platform }}
-        run: |
-          bash PandABlocks-rootfs/.github/scripts/config-file-pbrootfs.sh ${{ matrix.platform }}
-          bash PandABlocks-rootfs/.github/scripts/config-file-rootfs.sh
-      
-      - name: Generate server CONFIG file - ${{ matrix.platform }}
-        run: bash PandABlocks-server/.github/scripts/config-file-server.sh ${{ matrix.platform }}
 
       # Build
       - name: Make PandABlocks-rootfs kernel
