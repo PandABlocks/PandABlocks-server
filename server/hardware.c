@@ -294,6 +294,8 @@ void hw_write_arm(bool enable)
 
 void hw_write_capture_set(const unsigned int capture[], size_t count)
 {
+    ASSERT_OK(count < MAX_PCAP_WRITE_COUNT);
+
     write_named_register(PCAP_START_WRITE, 0);
     for (size_t i = 0; i < count; i ++)
         write_named_register(PCAP_WRITE, capture[i]);

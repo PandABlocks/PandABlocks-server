@@ -452,6 +452,8 @@ error__t prepare_data_capture(
     gather_data_capture(fields, capture, &capture_count, capture_array);
     return
         TEST_OK_(capture_count > 0, "Nothing configured for capture")  ?:
+        TEST_OK_(capture_count < MAX_PCAP_WRITE_COUNT,
+            "Too many captures for PCAP")  ?:
         /* Now we can let the hardware know. */
         DO(hw_write_capture_set(capture_array, capture_count));
 }

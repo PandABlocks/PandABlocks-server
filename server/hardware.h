@@ -4,6 +4,8 @@
 #define POS_BUS_COUNT       32
 #define EXT_BUS_COUNT       16
 
+#define MAX_PCAP_WRITE_COUNT    64
+
 
 #define CLOCK_FREQUENCY 125000000       // 8ns per tick
 #define MAX_CLOCK_VALUE ((1ULL << 48) - 1)
