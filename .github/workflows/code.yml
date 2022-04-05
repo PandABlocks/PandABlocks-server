@@ -2,7 +2,8 @@ name: Code CI
 
 on:
   push:
-  
+    branches:
+      - 'containers-tizayi'
   pull_request:
 
 jobs:
@@ -12,7 +13,7 @@ jobs:
         platform: ["zynq", "zynqmp"]
 
     runs-on: ubuntu-latest
-    
+
     container: 
       image: ghcr.io/pandablocks/pandablocks-dev-container:latest
       credentials:
