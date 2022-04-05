@@ -58,7 +58,7 @@ struct data_capture {
 
 /* Need to take a little care: the 64-bit fields aren't aligned, so make sure
  * the compiler doesn't assume they are. */
-typedef struct __attribute__((packed)) {
+typedef struct __attribute__((packed)) __attribute__((aligned(4))) {
     int64_t value;
 } unaligned_int64_t;
 
@@ -153,11 +153,14 @@ static size_t average_scaled_data(
         &capture->scaling[capture->averaged.scaling];
     uint32_t sample_count = input[capture->sample_count_index];
     if (sample_count == 0)
-        sample_count = 1;
-    for (size_t i = 0; i < capture->averaged.count; i ++)
-        output[i] =
-            scaling[i].scale * (double) input_64[i].value / sample_count +
-            scaling[i].offset;
+        /* Really should not happen, but just in case do something sensible. */
+        for (size_t i = 0; i < capture->averaged.count; i ++)
+            output[i] = NAN;
+    else
+        for (size_t i = 0; i < capture->averaged.count; i ++)
+            output[i] =
+                scaling[i].scale * (double) input_64[i].value / sample_count +
+                scaling[i].offset;
     return sizeof(double) * capture->averaged.count;
 }
 

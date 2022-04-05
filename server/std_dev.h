@@ -1,7 +1,7 @@
 /* Support for computing standard deviation. */
 
 
-typedef union __attribute__((packed)) {
+typedef union __attribute__((packed)) __attribute__((aligned(4))) {
     uint32_t values[3];
     struct __attribute__((packed)) {
         uint64_t low_word_64;

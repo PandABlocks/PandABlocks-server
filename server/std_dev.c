@@ -72,8 +72,7 @@ static unaligned_uint96_t mul_sub_96_64_32(
 
 #if __GNUC__ >= 5
     /* Use built-in carry propagation where available. */
-    bool borrow = __builtin_sub_overflow(
-        a.low_word_64, bl_c, &a.low_word_64);
+    bool borrow = __builtin_sub_overflow(a.low_word_64, bl_c, &a.low_word_64);
     a.high_word_32 -= (uint32_t) borrow;
 
 #elif defined(__ARM_ARCH) && __ARM_ARCH <= 7
@@ -90,6 +89,7 @@ static unaligned_uint96_t mul_sub_96_64_32(
         : "cc");
 
 #else
+    /* This will occur when building on RHEL7, this is stuck with gcc 4.8.5. */
     #pragma message "Building fallback option: check your compiler version!"
 
     /* This should only occur when building the simulation server with an old
@@ -153,6 +153,10 @@ double compute_standard_deviation(
     uint32_t samples, int64_t raw_sum_values,
     const unaligned_uint96_t *raw_sum_squares)
 {
+    /* This shouldn't happen, but if it does, fail quietly. */
+    if (samples == 0)
+        return NAN;
+
     uint64_t sum_values = abs_64(raw_sum_values);
 
     /* First compute divison and remainder B = D*N + R. */
