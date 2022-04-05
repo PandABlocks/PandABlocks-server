@@ -47,7 +47,10 @@ enum capture_mode {
 };
 
 
-#define CAPTURE_INDEX_SIZE          2
+/* This needs to be large enough to accomodate the maximum set of fields for a
+ * single capture option, in this case for StdDev which requires 2 for sum and 3
+ * for sum of squares. */
+#define CAPTURE_INDEX_SIZE          5
 struct capture_index {
     unsigned int index[CAPTURE_INDEX_SIZE]; // Capture index or indices for data
 };

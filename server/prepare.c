@@ -17,8 +17,9 @@
 #include "data_server.h"
 #include "output.h"
 #include "hardware.h"
-#include "capture.h"
+#include "pos_out.h"
 #include "ext_out.h"
+#include "capture.h"
 
 #include "prepare.h"
 
@@ -26,6 +27,11 @@
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Data capture request parsing. */
+
+static const struct data_options default_data_options = {
+    .data_format = DATA_FORMAT_ASCII,
+    .data_process = DATA_PROCESS_SCALED,
+};
 
 static error__t parse_one_option(
     const char *option, struct data_options *options)
@@ -67,10 +73,7 @@ static error__t parse_one_option(
             .one_shot = true,
         };
     else if (strcmp(option, "DEFAULT") == 0)
-        *options = (struct data_options) {
-            .data_format = DATA_FORMAT_ASCII,
-            .data_process = DATA_PROCESS_SCALED,
-        };
+        *options = default_data_options;
 
     else
         return FAIL_("Invalid data capture option");
@@ -80,16 +83,14 @@ static error__t parse_one_option(
 
 error__t parse_data_options(const char *line, struct data_options *options)
 {
-    *options = (struct data_options) {
-        .data_format = DATA_FORMAT_ASCII,
-        .data_process = DATA_PROCESS_SCALED,
-    };
+    *options = default_data_options;
 
     char option[MAX_NAME_LENGTH];
     error__t error = ERROR_OK;
     while (!error  &&  *line)
         error =
             DO(line = skip_whitespace(line))  ?:
+            TEST_OK_(*line != '\r', "Cannot process CR character")  ?:
             parse_alphanum_name(&line, option, sizeof(option))  ?:
             parse_one_option(option, options);
     return
@@ -338,6 +339,23 @@ static void send_group_info(
 }
 
 
+static void send_stddev_group_info(
+    struct buffered_file *file, const struct data_options *options,
+    const struct capture_group *group)
+{
+    for (unsigned int i = 0; i < group->count; i ++)
+    {
+        /* Quick and dirty hack, fake up a new field with the properties we
+         * need. */
+        struct capture_info mean_info = *group->outputs[i];
+        mean_info.capture_mode = CAPTURE_MODE_AVERAGE;
+        mean_info.capture_string = "Mean";
+        send_field_info(file, options, &mean_info);
+        send_field_info(file, options, group->outputs[i]);
+    }
+}
+
+
 bool send_data_header(
     const struct captured_fields *fields,
     const struct data_capture *capture,
@@ -355,16 +373,19 @@ bool send_data_header(
         start_element(file, "fields", options->xml_header, true, false);
 
     /* In RAW mode we might have an anonymous sample count field to publish */
-    bool add_sample_count_first =
-        sample_count_is_anonymous(capture) &&
-        options->data_process == DATA_PROCESS_RAW;
-    if (add_sample_count_first)
+    bool raw_process = options->data_process == DATA_PROCESS_RAW;
+    if (raw_process  &&  sample_count_is_anonymous(capture))
         send_field_info(file, options, fields->sample_count);
 
     send_group_info(file, options, &fields->unscaled);
     send_group_info(file, options, &fields->scaled32);
     send_group_info(file, options, &fields->scaled64);
     send_group_info(file, options, &fields->averaged);
+    if (raw_process)
+        /* Special header for std dev. */
+        send_stddev_group_info(file, options, &fields->std_dev);
+    else
+        send_group_info(file, options, &fields->std_dev);
 
     end_element(&field_group);
     end_element(&header);
@@ -418,11 +439,14 @@ static struct capture_group *get_capture_group(enum capture_mode capture_mode)
 
 const struct captured_fields *prepare_captured_fields(void)
 {
-    captured_fields.unscaled.count = 0;
     captured_fields.scaled32.count = 0;
-    captured_fields.scaled64.count = 0;
     captured_fields.averaged.count = 0;
+    captured_fields.std_dev.count = 0;
+    captured_fields.scaled64.count = 0;
+    captured_fields.unscaled.count = 0;
 
+    /* Populate the sample_count extension bus field.  This is treated specially
+     * as it is needed for averaging operations. */
     get_samples_capture_info(captured_fields.sample_count);
 
     /* Walk the list of outputs and gather them into their groups. */

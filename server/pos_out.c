@@ -85,8 +85,13 @@ static const struct capture_option_info capture_option_info[] = {
         CAPTURE_INFO("Max", CAPTURE_MODE_SCALED32,
             POS_FIELD_MAX),
     [POS_OUT_CAPTURE_STDDEV] =
-        CAPTURE_INFO("StdDev", CAPTURE_MODE_STDDEV),
+        CAPTURE_INFO("StdDev", CAPTURE_MODE_STDDEV,
+            POS_FIELD_SUM_LOW, POS_FIELD_SUM_HIGH,
+            POS_FIELD_SUM2_LOW, POS_FIELD_SUM2_MID, POS_FIELD_SUM2_HIGH),
 };
+
+/* Ensure the number of capture options matches the table above. */
+STATIC_COMPILE_ASSERT(MAX_POS_OUT_CAPTURE == ARRAY_SIZE(capture_option_info));
 
 
 /* This array of capture masks is used to initialise the default nominal names
@@ -417,10 +422,13 @@ static const struct enumeration *pos_out_capture_get_enumeration(void *data)
 
 error__t get_capture_options(struct connection_result *result)
 {
+    bool enable_std_dev = hw_read_fpga_capabilities() & FPGA_CAPABILITY_STDDEV;
     result->response = RESPONSE_MANY;
     for (unsigned int i = 0; i < ARRAY_SIZE(capture_option_info); i ++)
-        result->write_many(result->write_context,
-            capture_option_info[i].option_name);
+        /* Only report StdDev available if enabled. */
+        if (enable_std_dev  ||  i != POS_OUT_CAPTURE_STDDEV)
+            result->write_many(result->write_context,
+                capture_option_info[i].option_name);
     return ERROR_OK;
 }
 

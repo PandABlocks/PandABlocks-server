@@ -54,12 +54,6 @@ bool send_data_header(
 
 struct capture_index;
 
-/* The maximum possible number of captures: 3 per position bus plus the
- * extension bus counts. */
-#define MAX_CAPTURE_COUNT   (3 * POS_BUS_COUNT + EXT_BUS_COUNT)
-// !!! will need to bump this one up, tie to pos_out
-
-
 struct capture_group {
     unsigned int count;
     struct capture_info **outputs;

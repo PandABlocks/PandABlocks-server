@@ -1,5 +1,9 @@
 /* pos_out field class. */
 
+/* Maximum possible number of pos_out capture_info entries that might be written
+ * when calling get_pos_out_capture_info(). */
+#define MAX_POS_OUT_CAPTURE     7
+
 struct pos_out;
 struct capture_info;
 
