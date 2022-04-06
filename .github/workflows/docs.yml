@@ -7,6 +7,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Use container from ghcr
+    container: 
+      image: ghcr.io/pandablocks/pandablocks-dev-container:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes: 
+        - ${{ github.workspace }}:/repos
+        - ${{ github.workspace }}/build:/build
 
     steps:
       # Git repositories
@@ -16,14 +25,6 @@ jobs:
           path: PandABlocks-server
           # require history to get back to last tag for version number of branches
           fetch-depth: 0
-
-      # System dependencies
-      - name: Install system dependencies
-        run: sudo pip install sphinx sphinx-rtd-theme docutils==0.16
-
-      # CONFIG files
-      - name: Generate CONFIG files - zynq
-        run: sudo bash PandABlocks-server/.github/scripts/config-file-server.sh zynq
 
       # Build
       - name: Build Docs
@@ -44,7 +45,7 @@ jobs:
       
       - name: Move to versioned directory
         # e.g. master or 0.1.2
-        run: mv build-server/html "PandABlocks-server/.github/pages/${{ steps.split.outputs._2 }}"
+        run: mv build/PandA-server-${{ matrix.platform }}/html "PandABlocks-server/.github/pages/${{ steps.split.outputs._2 }}"
 
       - name: Publish Docs to gh-pages
         # Only master and tags are published

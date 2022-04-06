@@ -13,7 +13,7 @@ jobs:
         platform: ["zynq", "zynqmp"]
 
     runs-on: ubuntu-latest
-
+    # Use container from ghcr
     container: 
       image: ghcr.io/pandablocks/pandablocks-dev-container:latest
       credentials:
@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: server-zpkg-${{ matrix.platform }}
-          path: build-server/panda-server@*.zpg
+          path: build/PandA-server-${{ matrix.platform }}/panda-server@*.zpg
 
   release:
     needs: [build]
