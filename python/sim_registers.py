@@ -115,7 +115,7 @@ def read_reg(block, num, reg):
         print('R', block, num, reg, end = '')
     result = lookup_block(block).read(num, reg)
     if verbose:
-        print('=>', result, hex(result))
+        print(' =>', result, hex(result))
     return result
 
 def write_reg(block, num, reg, value):

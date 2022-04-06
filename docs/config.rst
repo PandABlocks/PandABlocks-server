@@ -171,12 +171,14 @@ replaced by a type specific register definition.
 
 So a block definition is::
 
-    block-name [ "S" ] block-register [ extension-module ]
+    block-name { [ "S" ] block-register | "X" } [ extension-module ]
         [ field-definition ]*
 
 If the `block-register` number is prefixed with ``S`` then the same block
 register number can be shared with multiple blocks: this allows a single
-hardware implementation to be presented as multiple software blocks.
+hardware implementation to be presented as multiple software blocks.  If ``X``
+is used instead of specifying `block-register` then no fields can use registers,
+so must be extension fields with no register linkage.
 
 The register number can be followed by an `extension-module` which is used to
 identify this block to the extension server, and will enable use of the

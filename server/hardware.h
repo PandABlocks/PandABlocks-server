@@ -11,7 +11,11 @@
 #define MAX_CLOCK_VALUE ((1ULL << 48) - 1)
 
 
+/* Register not yet assigned a value, tested for at end of initialisation. */
 #define UNASSIGNED_REGISTER ((unsigned int) -1)
+/* Used for register which cannot be used. */
+#define INVALID_REGISTER    ((unsigned int) -2)
+
 /* The following fields determine the structure of the block register addressing
  * scheme.  We have a fixed number of block types, each block has a possible
  * number of instances, each instance has a number of registers. */
