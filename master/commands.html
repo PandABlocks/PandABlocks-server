@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command Interface &mdash; PandABlocks-server 2.2a1-25-gd9e0ca9
+  <title>Command Interface &mdash; PandABlocks-server 2.2a1-46-g3fb86b6
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -33,7 +33,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                2.2a1-25-gd9e0ca9
+                2.2a1-46-g3fb86b6
 
               </div>
 <div role="search">
@@ -334,7 +334,14 @@ any of <code class="docutils literal notranslate"><span class="pre">CONFIG</span
 <td><p>Reset reported changes, <cite>group</cite> as above.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*CAPTURE?</span></code></p></td>
-<td><p>Report data capture words.</p></td>
+<td><p>Report fields configured for capture.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*CAPTURE.*?</span></code></p></td>
+<td><p>List all fields that can be captured.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*CAPTURE.</span></code>name<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<td><p>Interrogate capture options, <cite>name</cite> can be
+<code class="docutils literal notranslate"><span class="pre">OPTIONS</span></code> or <code class="docutils literal notranslate"><span class="pre">ENUMS</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*CAPTURE=</span></code></p></td>
 <td><p>Reset data capture.</p></td>
@@ -544,6 +551,18 @@ reporting is reset to the start as for a new connection.  For example:</p>
 <dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE?</span></code></dt><dd><p>This returns a list of all positions and bit masks that will be written to
 the data capture port.  This list is controlled by setting the <code class="docutils literal notranslate"><span class="pre">.CAPTURE</span></code>
 attribute on the corresponding position fields.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE.*?</span></code></dt><dd><p>This returns a list of all fields that can be configured for capture.  This
+includes all <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> and <code class="docutils literal notranslate"><span class="pre">ext_out</span></code> fields.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE.OPTIONS?</span></code></dt><dd><p>Lists the available capture options for <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> fields.  The available
+options are “Value”, “Diff”, “Sum”, “Mean, “Min”, “Max”, “StdDev”.
+Availability of the last option “StdDev” depends on the FPGA configuration.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE.ENUMS?</span></code></dt><dd><p>Generates a curated list of capture option selections.  This is designed to
+be used for presenting lists of available capture options as an enumeration.
+Returns the same as calling <code class="docutils literal notranslate"><span class="pre">*ENUMS.</span></code>name<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.CAPTURE?</span></code>
+on any <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> field.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE=</span></code></dt><dd><p>This resets all <code class="docutils literal notranslate"><span class="pre">.CAPTURE</span></code> flags to zero so that no data will be captured.</p>
 </dd>

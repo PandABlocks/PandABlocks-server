@@ -88,14 +88,13 @@ BASE64      Binary data will be sent as a stream of base64 strings.          1
 FRAMED      Binary data is sent as a sequence of sized frames.               1
 UNFRAMED    Binary data is sent as a raw stream of bytes.                    1 R
 SCALED      All scalable data is scaled and sent as doubles.                 2 D
-UNSCALED    Averages are calculated but all values are sent as integers.     2 R
 RAW         The captured binary data is sent without processing.             2
 NO_HEADER   The data header is omitted.                                        R
 NO_STATUS   The connection and end of experiment status strings are            R
             omitted.
 ONE_SHOT    Only one experiment will be transmitted.                           R
 XML         The header will be sent in XML format.
-BARE        Selects ``UNFRAMED UNSCALED NO_HEADER NO_STATUS ONE_SHOT``
+BARE        Selects ``UNFRAMED RAW NO_HEADER NO_STATUS ONE_SHOT``
 DEFAULT     Default options.                                                   D
 =========== ================================================================ = =
 
