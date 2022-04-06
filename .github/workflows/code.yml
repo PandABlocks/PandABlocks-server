@@ -35,7 +35,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get install -y libncurses5-dev expat
-          sudo pip install rst2pdf sphinx sphinx-rtd-theme docutils==0.16
+          sudo pip install sphinx sphinx-rtd-theme docutils==0.16
 
       # Tar dependancies (Linux only)
       - name: Download tar file dependencies
