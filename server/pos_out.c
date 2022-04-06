@@ -95,7 +95,8 @@ STATIC_COMPILE_ASSERT(MAX_POS_OUT_CAPTURE == ARRAY_SIZE(capture_option_info));
 
 
 /* This array of capture masks is used to initialise the default nominal names
- * available through the *ENUMS? request. */
+ * available through the *ENUMS? request.  The particular order and entries in
+ * this list are needed for backwards compatibility. */
 static const unsigned int nominal_capture_masks[] = {
     0,
     CAPTURE_VALUE_BIT,
@@ -429,6 +430,14 @@ error__t get_capture_options(struct connection_result *result)
         if (enable_std_dev  ||  i != POS_OUT_CAPTURE_STDDEV)
             result->write_many(result->write_context,
                 capture_option_info[i].option_name);
+    return ERROR_OK;
+}
+
+
+error__t get_capture_enums(struct connection_result *result)
+{
+    result->response = RESPONSE_MANY;
+    write_enum_labels(pos_out_capture_enum, result);
     return ERROR_OK;
 }
 

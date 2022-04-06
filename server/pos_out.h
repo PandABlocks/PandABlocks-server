@@ -13,8 +13,12 @@ void terminate_pos_out(void);
 /* Update cached pos_out values up to date with values read from hardware. */
 void do_pos_out_refresh(uint64_t change_index);
 
-/* Returns list of available capture options. */
+/* Returns list of available capture options, implements
+ * *PCAP.CAPTURE_OPTIONS? */
 error__t get_capture_options(struct connection_result *result);
+
+/* Returns canonical list of enums for *PCAP.CAPTURE_ENUMS? */
+error__t get_capture_enums(struct connection_result *result);
 
 /* Used to implement *CAPTURE= method. */
 void reset_pos_out_capture(struct pos_out *pos_out, unsigned int number);
