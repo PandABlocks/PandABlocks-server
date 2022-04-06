@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configuration Files &mdash; PandABlocks-server 2.2a1-46-g3fb86b6
+  <title>Configuration Files &mdash; PandABlocks-server 2.2a1-49-gc0f5ad1
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -33,7 +33,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                2.2a1-46-g3fb86b6
+                2.2a1-49-gc0f5ad1
 
               </div>
 <div role="search">
@@ -367,13 +367,15 @@ body of this file should contain a sequencer of block and field definitions
 repeating the <code class="docutils literal notranslate"><span class="pre">config</span></code> file, except that the field type specification is
 replaced by a type specific register definition.</p>
 <p>So a block definition is:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">block</span><span class="o">-</span><span class="n">name</span> <span class="p">[</span> <span class="s2">&quot;S&quot;</span> <span class="p">]</span> <span class="n">block</span><span class="o">-</span><span class="n">register</span> <span class="p">[</span> <span class="n">extension</span><span class="o">-</span><span class="n">module</span> <span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">block</span><span class="o">-</span><span class="n">name</span> <span class="p">{</span> <span class="p">[</span> <span class="s2">&quot;S&quot;</span> <span class="p">]</span> <span class="n">block</span><span class="o">-</span><span class="n">register</span> <span class="o">|</span> <span class="s2">&quot;X&quot;</span> <span class="p">}</span> <span class="p">[</span> <span class="n">extension</span><span class="o">-</span><span class="n">module</span> <span class="p">]</span>
     <span class="p">[</span> <span class="n">field</span><span class="o">-</span><span class="n">definition</span> <span class="p">]</span><span class="o">*</span>
 </pre></div>
 </div>
 <p>If the <cite>block-register</cite> number is prefixed with <code class="docutils literal notranslate"><span class="pre">S</span></code> then the same block
 register number can be shared with multiple blocks: this allows a single
-hardware implementation to be presented as multiple software blocks.</p>
+hardware implementation to be presented as multiple software blocks.  If <code class="docutils literal notranslate"><span class="pre">X</span></code>
+is used instead of specifying <cite>block-register</cite> then no fields can use registers,
+so must be extension fields with no register linkage.</p>
 <p>The register number can be followed by an <cite>extension-module</cite> which is used to
 identify this block to the extension server, and will enable use of the
 extension register syntax defined below.</p>
