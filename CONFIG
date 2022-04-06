@@ -1,0 +1,52 @@
+# Example configuration file for building PandA server and driver.
+#
+# Copy this file to a file named CONFIG and edit as appropriate.
+
+
+# Default build location.  Default is to build in build subdirectory.
+#
+BUILD_DIR = /build/PandA-server-$(PLATFORM)
+
+# Python interpreter.  Default interpreter is python3
+#
+PYTHON = python3
+
+# Sphinx build for documentation.
+#
+SPHINX_BUILD = sphinx-build
+
+# Compiler settings.  Default cross compile prefix given here.  If BINUTILS_DIR
+# is specified it will be prepended to the path for building the driver and
+# target server.
+#
+TOOLCHAIN_ROOT = /gcc-arm-10.2-2020.11-x86_64-$(COMPILER_PREFIX)
+#
+# Additionally, if the toolchain uses a vendor specific compiler prefix, we
+# need:
+#
+# COMPILER_PREFIX = arm-xilinx-linux-gnueabi
+
+# If at all possible -Werror should be set for all builds.  However, this can
+# cause unexpected build failures with newer compilers, in which case this
+# option can be set to allow the build to succeed.
+#
+# CFLAGS_EXTRA += -Wno-error
+
+# Where the kernel was compiled.  Use PandABlocks-rootfs to build this.  This is
+# only required if building the driver target.
+#
+KERNEL_DIR = /build/PandA-rootfs-$(PLATFORM)/build/linux
+
+# Some tools from the rootfs are used.
+#
+PANDA_ROOTFS = /repos/PandABlocks-rootfs
+
+# List of default targets build when running make
+#
+DEFAULT_TARGETS = driver server sim_server docs
+#
+# Whether it will run in platform zynq or zynqmp
+#
+PLATFORM = zynq
+
+# vim: set filetype=make:
