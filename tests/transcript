@@ -695,7 +695,7 @@
 > .
 
 # Global capture options
-< *PCAP.CAPTURE_OPTIONS?
+< *CAPTURE.OPTIONS?
 > !Value
 > !Diff
 > !Sum
