@@ -498,10 +498,18 @@ unsigned int get_pos_out_capture_info(
     struct pos_out_field *field = &pos_out->values[number];
     unsigned int capture_count = 0;
 
+    bool capture_mean = field->capture_mask & CAPTURE_MEAN_BIT;
+    bool capture_stddev = field->capture_mask & CAPTURE_STDDEV_BIT;
+
     /* Generate a capture info entry for each enabled capture option. */
     for (unsigned int i = 0; i < ARRAY_SIZE(capture_option_info); i ++)
     {
-        if (field->capture_mask & (1U << i))
+        bool capture_this = field->capture_mask & (1U << i);
+        /* Filter out MEAN if STDDEV is also captured, as we'll do the MEAN
+         * processing as part of STDDEV instead. */
+        if (i == POS_OUT_CAPTURE_MEAN  &&  capture_stddev)
+            capture_this = false;
+        if (capture_this)
         {
             const struct capture_option_info *info = &capture_option_info[i];
             *capture_info = (struct capture_info) {
@@ -509,6 +517,7 @@ unsigned int get_pos_out_capture_info(
                 .capture_string = info->option_name,
                 .scale = field->scale,
                 .offset = field->offset,
+                .capture_mean = capture_mean,
             };
             for (unsigned int k = 0; k < CAPTURE_INDEX_SIZE; k ++)
                 /* Tie each index to the appropriate field. */

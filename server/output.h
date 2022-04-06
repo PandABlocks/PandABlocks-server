@@ -38,10 +38,10 @@ void report_capture_positions(struct connection_result *result);
 
 enum capture_mode {
     CAPTURE_MODE_SCALED32,          // int32 with scaling
-    CAPTURE_MODE_AVERAGE,           // int64 with scaling and averaging
-    CAPTURE_MODE_STDDEV,            // standard deviation
     CAPTURE_MODE_SCALED64,          // int64 with scaling (timestamps only)
     CAPTURE_MODE_UNSCALED,          // uint32 with no scaling (samples and bits)
+    CAPTURE_MODE_AVERAGE,           // int64 with scaling and averaging
+    CAPTURE_MODE_STDDEV,            // standard deviation
 
     CAPTURE_MODE_COUNT              // Number of capture mode enum values
 };
@@ -66,6 +66,8 @@ struct capture_info {
     double scale;                   // Scaling factor
     double offset;                  // Scaling offset
     char units[MAX_NAME_LENGTH];    // Scaling units string
+    /* The following field is only valid for STDDEV mode. */
+    bool capture_mean;
 };
 
 

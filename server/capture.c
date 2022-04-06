@@ -53,6 +53,10 @@ struct data_capture {
     struct field_group scaled64;    // 64-bit fields with scaling and offset
     struct field_group averaged;    // 64-bit accumulated sums
     struct field_group std_dev;     // Fields required for standard deviation
+    /* Flags required for std_dev: records whether mean is computed as part of
+     * standard deviation processing. */
+    bool std_dev_mean[MAX_CAPTURE_COUNT];
+    size_t std_dev_mean_count;
 
     /* Arrays of constants for scaling. */
     struct scaling scaling[MAX_CAPTURE_COUNT];
@@ -154,6 +158,19 @@ static size_t convert_scaled64(
 }
 
 
+static double compute_mean(
+    uint32_t samples, const struct scaling *scaling,
+    const unaligned_int64_t *input)
+{
+    if (samples == 0)
+        /* Really should not happen, but just in case do something sensible. */
+        return NAN;
+    else
+        return scaling->scale * (double) input->value / samples +
+            scaling->offset;
+}
+
+
 static size_t average_scaled_data(
     const struct data_capture *capture, const uint32_t input[], double output[])
 {
@@ -162,15 +179,9 @@ static size_t average_scaled_data(
     const struct scaling *scaling =
         &capture->scaling[capture->averaged.scaling];
     uint32_t sample_count = input[capture->sample_count_index];
-    if (sample_count == 0)
-        /* Really should not happen, but just in case do something sensible. */
-        for (size_t i = 0; i < capture->averaged.count; i ++)
-            output[i] = NAN;
-    else
-        for (size_t i = 0; i < capture->averaged.count; i ++)
-            output[i] =
-                scaling[i].scale * (double) input_64[i].value / sample_count +
-                scaling[i].offset;
+
+    for (size_t i = 0; i < capture->averaged.count; i ++)
+        output[i] = compute_mean(sample_count, &scaling[i], &input_64[i]);
     return sizeof(double) * capture->averaged.count;
 }
 
@@ -183,13 +194,17 @@ static size_t convert_standard_deviation(
     const struct scaling *scaling = &capture->scaling[capture->std_dev.scaling];
     uint32_t sample_count = input[capture->sample_count_index];
 
+    size_t j = 0;
     for (size_t i = 0; i < capture->std_dev.count; i ++)
     {
         const struct std_dev_raw *std_dev_raw = &std_dev_input[i];
-        output[i] = scaling[i].scale * compute_standard_deviation(
+        if (capture->std_dev_mean[i])
+            output[j++] = compute_mean(
+                sample_count, &scaling[i], &std_dev_raw->sum);
+        output[j++] = scaling[i].scale * compute_standard_deviation(
             sample_count, std_dev_raw->sum.value, &std_dev_raw->sum_squares);
     }
-    return sizeof(double) * capture->std_dev.count;
+    return sizeof(double) * j;
 }
 
 
@@ -302,7 +317,8 @@ static const void *send_scaled_as_ascii(
         capture->scaled32.count + capture->scaled64.count +
         capture->averaged.count, data, PRIdouble, double);
     data += FORMAT_ASCII(
-        capture->std_dev.count, data, PRIdouble, double);
+        capture->std_dev.count + capture->std_dev_mean_count, data,
+        PRIdouble, double);
     return data;
 }
 
@@ -416,6 +432,19 @@ static void prepare_output_group(
 }
 
 
+static void prepare_stddev_flags(
+    const struct capture_group *group, struct data_capture *capture)
+{
+    capture->std_dev_mean_count = 0;
+    for (unsigned int i = 0; i < group->count; i ++)
+    {
+        capture->std_dev_mean[i] = group->outputs[i]->capture_mean;
+        if (group->outputs[i]->capture_mean)
+            capture->std_dev_mean_count += 1;
+    }
+}
+
+
 static struct data_capture data_capture_state;
 
 
@@ -446,6 +475,7 @@ static void gather_data_capture(
         &gather, &fields->averaged, &data_capture_state.averaged, 2, true);
     prepare_output_group(
         &gather, &fields->std_dev,  &data_capture_state.std_dev,  5, true);
+    prepare_stddev_flags(&fields->std_dev, &data_capture_state);
     data_capture_state.raw_sample_words = gather.capture_count;
 
     *capture_out = &data_capture_state;

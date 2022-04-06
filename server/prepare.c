@@ -343,14 +343,19 @@ static void send_stddev_group_info(
     struct buffered_file *file, const struct data_options *options,
     const struct capture_group *group)
 {
+    bool raw_process = options->data_process == DATA_PROCESS_RAW;
     for (unsigned int i = 0; i < group->count; i ++)
     {
-        /* Quick and dirty hack, fake up a new field with the properties we
-         * need. */
+        /* We may need to send information about the Mean field, either if we're
+         * operating in raw mode, or if we're configured to send it anyway.  The
+         * simplest fix is to create a copy of the capture_info adjusted to
+         * report "Mean". */
         struct capture_info mean_info = *group->outputs[i];
         mean_info.capture_mode = CAPTURE_MODE_AVERAGE;
         mean_info.capture_string = "Mean";
-        send_field_info(file, options, &mean_info);
+
+        if (raw_process  ||  group->outputs[i]->capture_mean)
+            send_field_info(file, options, &mean_info);
         send_field_info(file, options, group->outputs[i]);
     }
 }
@@ -381,11 +386,7 @@ bool send_data_header(
     send_group_info(file, options, &fields->scaled32);
     send_group_info(file, options, &fields->scaled64);
     send_group_info(file, options, &fields->averaged);
-    if (raw_process)
-        /* Special header for std dev. */
-        send_stddev_group_info(file, options, &fields->std_dev);
-    else
-        send_group_info(file, options, &fields->std_dev);
+    send_stddev_group_info(file, options, &fields->std_dev);
 
     end_element(&field_group);
     end_element(&header);
