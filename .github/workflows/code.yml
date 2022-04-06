@@ -31,11 +31,13 @@ jobs:
         with:
           path: PandABlocks-server
 
+      # Checkout rootfs (containers-tizayi) branch. 
       - name: Checkout PandABlocks-rootfs
         uses: actions/checkout@v2
         with:
           repository: PandABlocks/PandABlocks-rootfs
           path: PandABlocks-rootfs
+          ref: containers-tizayi
 
       # Build
       - name: Make PandABlocks-rootfs kernel
