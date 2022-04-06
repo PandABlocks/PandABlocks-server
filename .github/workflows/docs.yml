@@ -45,7 +45,7 @@ jobs:
       
       - name: Move to versioned directory
         # e.g. master or 0.1.2
-        run: mv build/PandA-server-${{ matrix.platform }}/html "PandABlocks-server/.github/pages/${{ steps.split.outputs._2 }}"
+        run: mv build/build-server/html "PandABlocks-server/.github/pages/${{ steps.split.outputs._2 }}"
 
       - name: Publish Docs to gh-pages
         # Only master and tags are published

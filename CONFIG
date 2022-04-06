@@ -5,7 +5,7 @@
 
 # Default build location.  Default is to build in build subdirectory.
 #
-BUILD_DIR = /build/PandA-server-$(PLATFORM)
+BUILD_DIR = /build/build-server
 
 # Python interpreter.  Default interpreter is python3
 #

@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: server-zpkg-${{ matrix.platform }}
-          path: build/PandA-server-${{ matrix.platform }}/panda-server@*.zpg
+          path: build/build-server/panda-server@*.zpg
 
   release:
     needs: [build]
