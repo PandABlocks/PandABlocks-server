@@ -311,14 +311,12 @@ static const void *send_scaled_as_ascii(
     const struct data_capture *capture,
     struct buffered_file *file, const void *data)
 {
-    data += FORMAT_ASCII(
-        capture->unscaled.count, data, " %"PRIu32, uint32_t);
-    data += FORMAT_ASCII(
+    size_t double_count =
         capture->scaled32.count + capture->scaled64.count +
-        capture->averaged.count, data, PRIdouble, double);
-    data += FORMAT_ASCII(
-        capture->std_dev.count + capture->std_dev_mean_count, data,
-        PRIdouble, double);
+        capture->averaged.count +
+        capture->std_dev.count + capture->std_dev_mean_count;
+    data += FORMAT_ASCII(capture->unscaled.count, data, " %"PRIu32, uint32_t);
+    data += FORMAT_ASCII(double_count, data, PRIdouble, double);
     return data;
 }
 

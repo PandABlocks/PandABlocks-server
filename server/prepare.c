@@ -285,7 +285,7 @@ static void send_capture_info(
 
     struct tm tm;
     char timestamp_message[MAX_RESULT_LENGTH];
-    gmtime_r(&(pcap_arm_tsp->tv_sec), &tm);
+    gmtime_r(&pcap_arm_tsp->tv_sec, &tm);
     snprintf(timestamp_message, sizeof(timestamp_message),
         "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
         tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
