@@ -2,7 +2,6 @@ name: Code CI
 
 on:
   push:
-    branches:
   pull_request:
 
 jobs:
@@ -54,7 +53,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: zpkgs
-          path: build-server/panda-server@*.zpg
+          path: build/build-server/panda-server@*.zpg
 
   release:
     needs: [build]
