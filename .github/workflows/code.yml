@@ -66,8 +66,8 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: |
-            zpkg-zynq
-            zpkg-zynqmp
+            server-zpkg-zynq
+            server-zpkg-zynqmp
           path:
             artifacts 
 
