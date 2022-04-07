@@ -1,5 +1,12 @@
 /* Data capture control. */
 
+
+/* The maximum possible number of captures.  This is massively pessimistic, but
+ * allows for all possible pos_out capture options. */
+#define MAX_CAPTURE_COUNT \
+    (MAX_POS_OUT_CAPTURE * POS_BUS_COUNT + MAX_EXT_OUT_CAPTURE * EXT_BUS_COUNT)
+
+
 struct data_capture;
 struct captured_fields;
 struct data_options;

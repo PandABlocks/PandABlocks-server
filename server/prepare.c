@@ -17,8 +17,9 @@
 #include "data_server.h"
 #include "output.h"
 #include "hardware.h"
-#include "capture.h"
+#include "pos_out.h"
 #include "ext_out.h"
+#include "capture.h"
 
 #include "prepare.h"
 
@@ -26,6 +27,11 @@
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Data capture request parsing. */
+
+static const struct data_options default_data_options = {
+    .data_format = DATA_FORMAT_ASCII,
+    .data_process = DATA_PROCESS_SCALED,
+};
 
 static error__t parse_one_option(
     const char *option, struct data_options *options)
@@ -43,8 +49,6 @@ static error__t parse_one_option(
     /* Data processing options. */
     else if (strcmp(option, "RAW") == 0)
         options->data_process = DATA_PROCESS_RAW;
-    else if (strcmp(option, "UNSCALED") == 0)
-        options->data_process = DATA_PROCESS_UNSCALED;
     else if (strcmp(option, "SCALED") == 0)
         options->data_process = DATA_PROCESS_SCALED;
 
@@ -63,16 +67,13 @@ static error__t parse_one_option(
     else if (strcmp(option, "BARE") == 0)
         *options = (struct data_options) {
             .data_format = DATA_FORMAT_UNFRAMED,
-            .data_process = DATA_PROCESS_UNSCALED,
+            .data_process = DATA_PROCESS_RAW,
             .omit_header = true,
             .omit_status = true,
             .one_shot = true,
         };
     else if (strcmp(option, "DEFAULT") == 0)
-        *options = (struct data_options) {
-            .data_format = DATA_FORMAT_ASCII,
-            .data_process = DATA_PROCESS_SCALED,
-        };
+        *options = default_data_options;
 
     else
         return FAIL_("Invalid data capture option");
@@ -82,16 +83,14 @@ static error__t parse_one_option(
 
 error__t parse_data_options(const char *line, struct data_options *options)
 {
-    *options = (struct data_options) {
-        .data_format = DATA_FORMAT_ASCII,
-        .data_process = DATA_PROCESS_SCALED,
-    };
+    *options = default_data_options;
 
     char option[MAX_NAME_LENGTH];
     error__t error = ERROR_OK;
     while (!error  &&  *line)
         error =
             DO(line = skip_whitespace(line))  ?:
+            TEST_OK_(*line != '\r', "Cannot process CR character")  ?:
             parse_alphanum_name(&line, option, sizeof(option))  ?:
             parse_one_option(option, options);
     return
@@ -244,20 +243,16 @@ static const char *field_type_name(
     static const char *field_type_names[][CAPTURE_MODE_COUNT] = {
         [DATA_PROCESS_RAW] = {
             [CAPTURE_MODE_SCALED32] = "int32",
-            [CAPTURE_MODE_SCALED64] = "int64",
             [CAPTURE_MODE_AVERAGE]  = "int64",
-            [CAPTURE_MODE_UNSCALED] = "uint32",
-        },
-        [DATA_PROCESS_UNSCALED] = {
-            [CAPTURE_MODE_SCALED32] = "int32",
+            [CAPTURE_MODE_STDDEV]   = "int96",
             [CAPTURE_MODE_SCALED64] = "int64",
-            [CAPTURE_MODE_AVERAGE]  = "int32",
             [CAPTURE_MODE_UNSCALED] = "uint32",
         },
         [DATA_PROCESS_SCALED] = {
             [CAPTURE_MODE_SCALED32] = "double",
-            [CAPTURE_MODE_SCALED64] = "double",
             [CAPTURE_MODE_AVERAGE]  = "double",
+            [CAPTURE_MODE_STDDEV]   = "double",
+            [CAPTURE_MODE_SCALED64] = "double",
             [CAPTURE_MODE_UNSCALED] = "uint32",
         },
     };
@@ -280,7 +275,6 @@ static void send_capture_info(
     };
     static const char *data_process_strings[] = {
         [DATA_PROCESS_RAW]      = "Raw",
-        [DATA_PROCESS_UNSCALED] = "Unscaled",
         [DATA_PROCESS_SCALED]   = "Scaled",
     };
     const char *data_format = data_format_strings[options->data_format];
@@ -291,7 +285,7 @@ static void send_capture_info(
 
     struct tm tm;
     char timestamp_message[MAX_RESULT_LENGTH];
-    gmtime_r(&(pcap_arm_tsp->tv_sec), &tm);
+    gmtime_r(&pcap_arm_tsp->tv_sec, &tm);
     snprintf(timestamp_message, sizeof(timestamp_message),
         "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
         tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -345,6 +339,28 @@ static void send_group_info(
 }
 
 
+static void send_stddev_group_info(
+    struct buffered_file *file, const struct data_options *options,
+    const struct capture_group *group)
+{
+    bool raw_process = options->data_process == DATA_PROCESS_RAW;
+    for (unsigned int i = 0; i < group->count; i ++)
+    {
+        /* We may need to send information about the Mean field, either if we're
+         * operating in raw mode, or if we're configured to send it anyway.  The
+         * simplest fix is to create a copy of the capture_info adjusted to
+         * report "Mean". */
+        struct capture_info mean_info = *group->outputs[i];
+        mean_info.capture_mode = CAPTURE_MODE_AVERAGE;
+        mean_info.capture_string = "Mean";
+
+        if (raw_process  ||  group->outputs[i]->capture_mean)
+            send_field_info(file, options, &mean_info);
+        send_field_info(file, options, group->outputs[i]);
+    }
+}
+
+
 bool send_data_header(
     const struct captured_fields *fields,
     const struct data_capture *capture,
@@ -362,16 +378,15 @@ bool send_data_header(
         start_element(file, "fields", options->xml_header, true, false);
 
     /* In RAW mode we might have an anonymous sample count field to publish */
-    bool add_sample_count_first =
-        sample_count_is_anonymous(capture) &&
-        options->data_process == DATA_PROCESS_RAW;
-    if (add_sample_count_first)
+    bool raw_process = options->data_process == DATA_PROCESS_RAW;
+    if (raw_process  &&  sample_count_is_anonymous(capture))
         send_field_info(file, options, fields->sample_count);
 
     send_group_info(file, options, &fields->unscaled);
     send_group_info(file, options, &fields->scaled32);
     send_group_info(file, options, &fields->scaled64);
     send_group_info(file, options, &fields->averaged);
+    send_stddev_group_info(file, options, &fields->std_dev);
 
     end_element(&field_group);
     end_element(&header);
@@ -392,10 +407,11 @@ bool send_data_header(
  * extravagant. */
 static struct captured_fields captured_fields = {
     .sample_count = (struct capture_info[1]) { },
-    .unscaled = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
     .scaled32 = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
-    .scaled64 = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
     .averaged = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .std_dev  = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .scaled64 = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
+    .unscaled = { .outputs = (struct capture_info *[MAX_CAPTURE_COUNT]) { } },
 };
 
 /* Capture info for each field is held in this area. */
@@ -408,10 +424,12 @@ static struct capture_group *get_capture_group(enum capture_mode capture_mode)
     {
         case CAPTURE_MODE_SCALED32:
              return &captured_fields.scaled32;
-        case CAPTURE_MODE_SCALED64:
-             return &captured_fields.scaled64;
         case CAPTURE_MODE_AVERAGE:
              return &captured_fields.averaged;
+        case CAPTURE_MODE_STDDEV:
+             return &captured_fields.std_dev;
+        case CAPTURE_MODE_SCALED64:
+             return &captured_fields.scaled64;
         case CAPTURE_MODE_UNSCALED:
              return &captured_fields.unscaled;
         default:
@@ -422,11 +440,14 @@ static struct capture_group *get_capture_group(enum capture_mode capture_mode)
 
 const struct captured_fields *prepare_captured_fields(void)
 {
-    captured_fields.unscaled.count = 0;
     captured_fields.scaled32.count = 0;
-    captured_fields.scaled64.count = 0;
     captured_fields.averaged.count = 0;
+    captured_fields.std_dev.count = 0;
+    captured_fields.scaled64.count = 0;
+    captured_fields.unscaled.count = 0;
 
+    /* Populate the sample_count extension bus field.  This is treated specially
+     * as it is needed for averaging operations. */
     get_samples_capture_info(captured_fields.sample_count);
 
     /* Walk the list of outputs and gather them into their groups. */

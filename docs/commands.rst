@@ -138,7 +138,12 @@ below:
 | group]\ ``=``\ [\ ``E``\      |                                              |
 | | ``S``\ ]                    |                                              |
 +-------------------------------+----------------------------------------------+
-| ``*CAPTURE?``                 | Report data capture words.                   |
+| ``*CAPTURE?``                 | Report fields configured for capture.        |
++-------------------------------+----------------------------------------------+
+| ``*CAPTURE.*?``               | List all fields that can be captured.        |
++-------------------------------+----------------------------------------------+
+| ``*CAPTURE.``\ name\ ``?``    | Interrogate capture options, `name` can be   |
+|                               | ``OPTIONS`` or ``ENUMS``.                    |
 +-------------------------------+----------------------------------------------+
 | ``*CAPTURE=``                 | Reset data capture.                          |
 +-------------------------------+----------------------------------------------+
@@ -316,6 +321,21 @@ below:
     This returns a list of all positions and bit masks that will be written to
     the data capture port.  This list is controlled by setting the ``.CAPTURE``
     attribute on the corresponding position fields.
+
+``*CAPTURE.*?``
+    This returns a list of all fields that can be configured for capture.  This
+    includes all ``pos_out`` and ``ext_out`` fields.
+
+``*CAPTURE.OPTIONS?``
+    Lists the available capture options for ``pos_out`` fields.  The available
+    options are "Value", "Diff", "Sum", "Mean, "Min", "Max", "StdDev".
+    Availability of the last option "StdDev" depends on the FPGA configuration.
+
+``*CAPTURE.ENUMS?``
+    Generates a curated list of capture option selections.  This is designed to
+    be used for presenting lists of available capture options as an enumeration.
+    Returns the same as calling ``*ENUMS.``\ name\ ``.``\ field\ ``.CAPTURE?``
+    on any ``pos_out`` field.
 
 ``*CAPTURE=``
     This resets all ``.CAPTURE`` flags to zero so that no data will be captured.

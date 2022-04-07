@@ -23,6 +23,7 @@
 #include "attributes.h"
 #include "fields.h"
 #include "pos_mux.h"
+#include "pos_out.h"
 #include "output.h"
 #include "enums.h"
 #include "version.h"
@@ -274,20 +275,34 @@ static error__t get_desc(const char *command, struct connection_result *result)
 
 /* *CAPTURE?
  * *CAPTURE.*?
+ * *CAPTURE.OPTIONS?
+ * *CAPTURE.ENUMS?
  *
  * Returns list of captured fields in capture order or list of fields that can
  * be selected for capture. */
 static error__t get_capture(
     const char *command, struct connection_result *result)
 {
+    char name[MAX_NAME_LENGTH];
     result->response = RESPONSE_MANY;
     return
-        IF_ELSE(read_string(&command, ".*"),
-            parse_eos(&command)  ?:
-            DO(report_capture_labels(result)),
-        //else
-            parse_eos(&command)  ?:
-            DO(report_capture_list(result)));
+        IF_ELSE(read_char(&command, '.'),
+            /* Either .* or .name */
+            IF_ELSE(read_char(&command, '*'),
+                parse_eos(&command)  ?:
+                DO(report_capture_labels(result)),
+            // else
+                parse_name(&command, name, sizeof(name))  ?:
+                parse_eos(&command)  ?:
+                IF_ELSE(strcmp(name, "OPTIONS") == 0,
+                    get_capture_options(result),
+                IF_ELSE(strcmp(name, "ENUMS") == 0,
+                    get_capture_enums(result),
+                //else
+                    FAIL_("Invalid *CAPTURE option")))),
+            //else
+                parse_eos(&command)  ?:
+                DO(report_capture_list(result)));
 }
 
 /* *CAPTURE=
@@ -352,7 +367,6 @@ static error__t get_enums(const char *command, struct connection_result *result)
         IF_ELSE(parse.attr,
             TEST_OK_(enumeration = get_attr_enumeration(parse.attr),
                 "Attribute is not an enumeration"),
-        //else
         IF_ELSE(subfield,
             TEST_OK_(enumeration = get_table_subfield_enumeration(subfield),
                 "Table sub-field is not an enumeration"),
@@ -378,7 +392,6 @@ static error__t lookup_pcap_put_action(const char *name)
     return
         IF_ELSE(strcmp(name, "ARM") == 0,
             arm_capture(),
-        //else
         IF_ELSE(strcmp(name, "DISARM") == 0,
             disarm_capture(),
         //else

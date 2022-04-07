@@ -128,11 +128,13 @@ void reset_ext_out_capture(struct ext_out *ext_out)
 }
 
 
-bool get_ext_out_capture(struct ext_out *ext_out, const char **string)
+void report_ext_out_capture(
+    struct ext_out *ext_out, const char *field_name,
+    struct connection_result *result)
 {
-    bool capture = ext_out->capture;
-    *string = ext_out_capture_enum_set.enums[capture].name;
-    return capture;
+    if (ext_out->capture)
+        format_many_result(result, "%s %s", field_name,
+            ext_out_capture_enum_set.enums[1].name);
 }
 
 
@@ -195,12 +197,11 @@ unsigned int get_ext_out_capture_info(
 }
 
 
-bool get_samples_capture_info(struct capture_info *capture_info)
+void get_samples_capture_info(struct capture_info *capture_info)
 {
     ASSERT_OK(samples_ext_out);     // If not assigned, we are dead.
     get_capture_info(samples_ext_out, capture_info);
     capture_info->field_name = samples_field_name;
-    return samples_ext_out->capture;
 }
 
 

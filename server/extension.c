@@ -264,7 +264,11 @@ error__t parse_extension_register(
                 line, &extension.write_count, &extension.write_registers))  ?:
         parse_char(line, 'X')  ?:
         parse_extension_name(
-            line, block->block_id, write_not_read, &extension.parse_id);
+            line, block->block_id, write_not_read, &extension.parse_id)  ?:
+        TEST_OK_(
+            block_base != INVALID_REGISTER  ||
+            (extension.read_count == 0  &&  extension.write_count == 0),
+            "Cannot use hardware registers in this block");
 
     if (error)
     {

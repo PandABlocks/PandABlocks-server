@@ -4,12 +4,18 @@
 #define POS_BUS_COUNT       32
 #define EXT_BUS_COUNT       16
 
+#define MAX_PCAP_WRITE_COUNT    64
+
 
 #define CLOCK_FREQUENCY 125000000       // 8ns per tick
 #define MAX_CLOCK_VALUE ((1ULL << 48) - 1)
 
 
+/* Register not yet assigned a value, tested for at end of initialisation. */
 #define UNASSIGNED_REGISTER ((unsigned int) -1)
+/* Used for register which cannot be used. */
+#define INVALID_REGISTER    ((unsigned int) -2)
+
 /* The following fields determine the structure of the block register addressing
  * scheme.  We have a fixed number of block types, each block has a possible
  * number of instances, each instance has a number of registers. */
@@ -25,6 +31,12 @@
 #define BIT_BUS_ZERO        BIT_BUS_COUNT
 #define BIT_BUS_ONE         (BIT_BUS_COUNT + 1)
 #define POS_BUS_ZERO        POS_BUS_COUNT
+
+
+/* FPGA capability bits.  These are tested for to enable FPGA specific
+ * functionality.  This list of definitions must match the actual hardware
+ * definitions. */
+#define FPGA_CAPABILITY_STDDEV      (1 << 0)    // Standard Deviation Support
 
 
 /* Must be called before any hardware functions.  If an error occurs then
@@ -80,6 +92,9 @@ void hw_read_versions(
 /* Writes to one of the dedicated MAC address registers. */
 #define MAC_ADDRESS_COUNT   4   // Offset must be smaller than this
 void hw_write_mac_address(unsigned int offset, uint64_t mac_address);
+
+/* Returns the value of the FPGA capabilities register. */
+uint32_t hw_read_fpga_capabilities(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -156,28 +171,31 @@ void hw_write_arm(bool enable);
 /* Macros for formatting position and extension bus entries into capture field
  * values.  The bit layout for each type is as follows:
  *
- *                  32            9 8        4   2    0
- *                  +------------+-+----------+-+------+
- *  Position bus    |        0   |0|  pos-ix  |0| mode |
- *                  +------------+-+----------+-+------+
+ *                  32            9 8        4 3      0
+ *                  +------------+-+----------+--------+
+ *  Position bus    |        0   |0|  pos-ix  |  mode  |
+ *                  +------------+-+----------+--------+
  *
- *                                9   7      4
+ *                                9 8 7      4
  *                  +------------+-+-+--------+--------+
  *  Extension bus   |        0   |1|0| ext-ix |    0   |
  *                  +------------+-+-+--------+--------+
  */
 #define CAPTURE_POS_BUS(pos_ix, mode) \
-    ((((pos_ix) & 0x1F) << 4) | ((mode) & 0x7))
+    ((((pos_ix) & 0x1F) << 4) | ((mode) & 0xF))
 #define CAPTURE_EXT_BUS(ext_ix) \
     ((1 << 9) | (((ext_ix) & 0xF) << 4))
 
-/* Definitions of position capture fields. */
+/* Definitions of position capture field modes. */
 #define POS_FIELD_VALUE         0
 #define POS_FIELD_DIFF          1
 #define POS_FIELD_SUM_LOW       2
 #define POS_FIELD_SUM_HIGH      3
 #define POS_FIELD_MIN           4
 #define POS_FIELD_MAX           5
+#define POS_FIELD_SUM2_LOW      6
+#define POS_FIELD_SUM2_MID      7
+#define POS_FIELD_SUM2_HIGH     8
 
 /* Writes list of capture bus fields to capture. */
 void hw_write_capture_set(const unsigned int capture[], size_t count);

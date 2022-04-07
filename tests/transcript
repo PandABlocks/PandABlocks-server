@@ -679,7 +679,7 @@
 > !BITS0 11 ext_out bits
 > .
 
-# Encoder enums
+# Capture enums
 < *ENUMS.INENC.VAL.CAPTURE?
 > !No
 > !Value
@@ -690,6 +690,19 @@
 > !Max
 > !Min Max
 > !Min Max Mean
+> !StdDev
+> !Mean StdDev
+> .
+
+# Global capture options
+< *CAPTURE.OPTIONS?
+> !Value
+> !Diff
+> !Sum
+> !Min
+> !Max
+> !Mean
+> !StdDev
 > .
 
 < INENC1.VAL.CAPTURE=No

@@ -227,9 +227,9 @@ error__t add_enumeration(
     return
         TEST_OK_(
             to_move == 0  ||  entry.value < enum_set->enums[ix].value,
-            "Repeated enumeration index")  ?:
+            "Repeated enumeration index %zu", ix)  ?:
         TEST_OK_(!enum_name_to_index(enumeration, entry.name, &test_ix),
-            "Repeated enumeration name")  ?:
+            "Repeated enumeration name \"%s\"", entry.name)  ?:
         DO(insert_new_enum(enumeration, &entry, ix));
 }
 

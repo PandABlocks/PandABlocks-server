@@ -1,0 +1,9 @@
+#!/bin/sh
+
+VECTORS=std_dev_tests
+TEST_APP="${1:?Specify test app to run}"
+
+sed '/^#/d; /^$/d' $VECTORS |
+while read -r; do
+    $TEST_APP $REPLY
+done

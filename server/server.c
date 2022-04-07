@@ -220,16 +220,17 @@ int main(int argc, char *const argv[])
     error__t error =
         process_options(argc, argv)  ?:
 
+        initialise_signals()  ?:
+        initialise_hardware()  ?:
+        IF(extension_port,
+            initialise_extension_server(extension_port))  ?:
+
         initialise_metadata()  ?:
         initialise_fields()  ?:
         initialise_output()  ?:
         initialise_time()  ?:
         initialise_system_command(rootfs_version)  ?:
 
-        initialise_signals()  ?:
-        initialise_hardware()  ?:
-        IF(extension_port,
-            initialise_extension_server(extension_port))  ?:
         load_config_databases(config_dir)  ?:
 
         IF(persistence_file,

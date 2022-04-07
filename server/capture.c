@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "error.h"
 #include "parse.h"
@@ -17,6 +18,9 @@
 #include "output.h"
 #include "hardware.h"
 #include "prepare.h"
+#include "std_dev.h"
+#include "pos_out.h"
+#include "ext_out.h"
 
 #include "capture.h"
 
@@ -48,9 +52,28 @@ struct data_capture {
     struct field_group scaled32;    // 32-bit fields with scaling and offset
     struct field_group scaled64;    // 64-bit fields with scaling and offset
     struct field_group averaged;    // 64-bit accumulated sums
+    struct field_group std_dev;     // Fields required for standard deviation
+    /* Flags required for std_dev: records whether mean is computed as part of
+     * standard deviation processing. */
+    bool std_dev_mean[MAX_CAPTURE_COUNT];
+    size_t std_dev_mean_count;
 
     /* Arrays of constants for scaling. */
     struct scaling scaling[MAX_CAPTURE_COUNT];
+};
+
+
+/* Need to take a little care: the 64-bit fields aren't aligned, so make sure
+ * the compiler doesn't assume they are. */
+typedef struct __attribute__((packed)) __attribute__((aligned(4))) {
+    int64_t value;
+} unaligned_int64_t;
+
+/* For standard deviation we capture our data in groups of five fields: an int64
+ * followed by a uint96. */
+struct __attribute__((packed)) __attribute__((aligned(4))) std_dev_raw {
+    unaligned_int64_t sum;
+    unaligned_uint96_t sum_squares;
 };
 
 
@@ -59,13 +82,13 @@ struct data_capture {
 
 /* Raw data is laid out thus:
  *
- *  +-----------+-----------+-----------+-----------+-----------+
- *  | hidden    | unscaled  | scaled    | scaled    | averaged  |
- *  |           | uint-32   | int-32    | int-64    | int-64    |
- *  +-----------+-----------+-----------+-----------+-----------+
- *   ^           ^           ^           ^           ^
- *  uncaptured  unscaled    scaled32   scaled64   averaged
- *  _count      _count      _count      _count      _count
+ *  +-----------+-----------+-----------+-----------+-----------+---------+
+ *  | hidden    | unscaled  | scaled    | scaled    | averaged  | std_dev |
+ *  |           | uint-32   | int-32    | int-64    | int-64    |         |
+ *  +-----------+-----------+-----------+-----------+-----------+---------+
+ *   ^           ^           ^           ^           ^           ^
+ *  uncaptured  unscaled    scaled32   scaled64   averaged      std_dev
+ *  _count      _count      _count      _count      _count      _count
  *
  * The hidden field includes the sample capture count when this is not
  * explicitly captured but is needed for averaging.
@@ -107,49 +130,6 @@ static size_t copy_unscaled_fields(
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-/* Unscaled conversion. */
-
-
-/* Averaging of unscaled data. */
-static size_t average_unscaled_data(
-    const struct data_capture *capture,
-    const uint32_t input[], uint32_t output[])
-{
-    const int64_t *averages = (const void *) &input[capture->averaged.index];
-    uint32_t sample_count = input[capture->sample_count_index];
-    if (sample_count == 0)
-        sample_count = 1;
-    for (size_t i = 0; i < capture->averaged.count; i ++)
-        output[i] = (uint32_t) (averages[i] / sample_count);
-    return sizeof(uint32_t) * capture->averaged.count;
-}
-
-
-/* For unscaled data the only conversion we do is averaging.  The remaining
- * values are copied unchanged. */
-static void convert_unscaled_data(
-    const struct data_capture *capture,
-    unsigned int sample_count, const uint32_t input[], void *output)
-{
-    for (unsigned int i = 0; i < sample_count; i ++)
-    {
-        /* Copy over the unscaled and scaled values. */
-        output += copy_unscaled_fields(
-            &capture->unscaled, input, output, sizeof(uint32_t));
-        output += copy_unscaled_fields(
-            &capture->scaled32, input, output, sizeof(uint32_t));
-        output += copy_unscaled_fields(
-            &capture->scaled64, input, output, sizeof(uint64_t));
-
-        /* Process the averaged values. */
-        output += average_unscaled_data(capture, input, output);
-
-        input += capture->raw_sample_words;
-    }
-}
-
-
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 /* Scaled conversion. */
 
 static size_t convert_scaled32(
@@ -167,29 +147,64 @@ static size_t convert_scaled32(
 static size_t convert_scaled64(
     const struct data_capture *capture, const uint32_t input[], double output[])
 {
-    const int64_t *input_64 = (const void *) &input[capture->scaled64.index];
+    const unaligned_int64_t *input_64 =
+        (const void *) &input[capture->scaled64.index];
     const struct scaling *scaling =
         &capture->scaling[capture->scaled64.scaling];
     for (size_t i = 0; i < capture->scaled64.count; i ++)
-        output[i] = scaling[i].scale * (double) input_64[i] + scaling[i].offset;
+        output[i] =
+            scaling[i].scale * (double) input_64[i].value + scaling[i].offset;
     return sizeof(double) * capture->scaled64.count;
+}
+
+
+static double compute_mean(
+    uint32_t samples, const struct scaling *scaling,
+    const unaligned_int64_t *input)
+{
+    if (samples == 0)
+        /* Really should not happen, but just in case do something sensible. */
+        return NAN;
+    else
+        return scaling->scale * (double) input->value / samples +
+            scaling->offset;
 }
 
 
 static size_t average_scaled_data(
     const struct data_capture *capture, const uint32_t input[], double output[])
 {
-    const int64_t *input_64 = (const void *) &input[capture->averaged.index];
+    const unaligned_int64_t *input_64 =
+        (const void *) &input[capture->averaged.index];
     const struct scaling *scaling =
         &capture->scaling[capture->averaged.scaling];
     uint32_t sample_count = input[capture->sample_count_index];
-    if (sample_count == 0)
-        sample_count = 1;
+
     for (size_t i = 0; i < capture->averaged.count; i ++)
-        output[i] =
-            scaling[i].scale * (double) input_64[i] / sample_count +
-            scaling[i].offset;
+        output[i] = compute_mean(sample_count, &scaling[i], &input_64[i]);
     return sizeof(double) * capture->averaged.count;
+}
+
+
+static size_t convert_standard_deviation(
+    const struct data_capture *capture, const uint32_t input[], double output[])
+{
+    const struct std_dev_raw *std_dev_input =
+        (const void *) &input[capture->std_dev.index];
+    const struct scaling *scaling = &capture->scaling[capture->std_dev.scaling];
+    uint32_t sample_count = input[capture->sample_count_index];
+
+    size_t j = 0;
+    for (size_t i = 0; i < capture->std_dev.count; i ++)
+    {
+        const struct std_dev_raw *std_dev_raw = &std_dev_input[i];
+        if (capture->std_dev_mean[i])
+            output[j++] = compute_mean(
+                sample_count, &scaling[i], &std_dev_raw->sum);
+        output[j++] = scaling[i].scale * compute_standard_deviation(
+            sample_count, std_dev_raw->sum.value, &std_dev_raw->sum_squares);
+    }
+    return sizeof(double) * j;
 }
 
 
@@ -207,6 +222,7 @@ static void convert_scaled_data(
         output += convert_scaled32(capture, input, output);
         output += convert_scaled64(capture, input, output);
         output += average_scaled_data(capture, input, output);
+        output += convert_standard_deviation(capture, input, output);
 
         input += capture->raw_sample_words;
     }
@@ -227,28 +243,23 @@ size_t get_raw_sample_length(const struct data_capture *capture)
 size_t get_binary_sample_length(
     const struct data_capture *capture, const struct data_options *options)
 {
-    size_t length = 0;
     switch (options->data_process)
     {
         case DATA_PROCESS_RAW:
-            length = sizeof(uint32_t) * capture->raw_sample_words;
-            break;
-        case DATA_PROCESS_UNSCALED:
-            length =
-                sizeof(uint32_t) * (
-                    capture->unscaled.count + capture->scaled32.count +
-                    capture->averaged.count) +
-                sizeof(uint64_t) * capture->scaled64.count;
-            break;
+            return get_raw_sample_length(capture);
         case DATA_PROCESS_SCALED:
-            length =
+        {
+            size_t length =
                 sizeof(uint32_t) * capture->unscaled.count +
                 sizeof(double) * (
                     capture->scaled32.count + capture->scaled64.count +
-                    capture->averaged.count);
-            break;
+                    capture->averaged.count + capture->std_dev.count);
+            ASSERT_OK(length > 0);
+            return length;
+        }
+        default:
+            ASSERT_FAIL();
     }
-    return length;
 }
 
 
@@ -261,9 +272,6 @@ void convert_raw_data_to_binary(
         case DATA_PROCESS_RAW:
             memcpy(output, input,
                 sample_count * get_raw_sample_length(capture));
-            break;
-        case DATA_PROCESS_UNSCALED:
-            convert_unscaled_data(capture, sample_count, input, output);
             break;
         case DATA_PROCESS_SCALED:
             convert_scaled_data(capture, sample_count, input, output);
@@ -293,32 +301,8 @@ static const void *send_raw_as_ascii(
     const struct data_capture *capture,
     struct buffered_file *file, const void *data)
 {
-    /* Note: unscaled.index here acts as a counter for the "hidden" fields. */
     data += FORMAT_ASCII(
-        capture->unscaled.index + capture->unscaled.count, data,
-        " %"PRIu32, uint32_t);
-    data += FORMAT_ASCII(
-        capture->scaled32.count, data,
-        " %"PRIi32, int32_t);
-    data += FORMAT_ASCII(
-        capture->scaled64.count + capture->averaged.count, data,
-        " %"PRIi64, int64_t);
-    return data;
-}
-
-
-static const void *send_unscaled_as_ascii(
-    const struct data_capture *capture,
-    struct buffered_file *file, const void *data)
-{
-    data += FORMAT_ASCII(
-        capture->unscaled.count, data, " %"PRIu32, uint32_t);
-    data += FORMAT_ASCII(
-        capture->scaled32.count, data, " %"PRIi32, int32_t);
-    data += FORMAT_ASCII(
-        capture->scaled64.count, data, " %"PRIi64, int64_t);
-    data += FORMAT_ASCII(
-        capture->averaged.count, data, " %"PRIi32, int32_t);
+        capture->raw_sample_words, data, " 0x%08"PRIx32, uint32_t);
     return data;
 }
 
@@ -327,11 +311,12 @@ static const void *send_scaled_as_ascii(
     const struct data_capture *capture,
     struct buffered_file *file, const void *data)
 {
-    data += FORMAT_ASCII(
-        capture->unscaled.count, data, " %"PRIu32, uint32_t);
-    data += FORMAT_ASCII(
+    size_t double_count =
         capture->scaled32.count + capture->scaled64.count +
-        capture->averaged.count, data, PRIdouble, double);
+        capture->averaged.count +
+        capture->std_dev.count + capture->std_dev_mean_count;
+    data += FORMAT_ASCII(capture->unscaled.count, data, " %"PRIu32, uint32_t);
+    data += FORMAT_ASCII(double_count, data, PRIdouble, double);
     return data;
 }
 
@@ -348,9 +333,6 @@ bool send_binary_as_ascii(
         {
             case DATA_PROCESS_RAW:
                 data = send_raw_as_ascii(capture, file, data);
-                break;
-            case DATA_PROCESS_UNSCALED:
-                data = send_unscaled_as_ascii(capture, file, data);
                 break;
             case DATA_PROCESS_SCALED:
                 data = send_scaled_as_ascii(capture, file, data);
@@ -371,7 +353,7 @@ struct gather {
     struct data_capture *capture;   // Associated data capture area
     unsigned int scaling_count;     // Number of entries written to scaling
     unsigned int capture_count;     // Number of entries to be captured
-    unsigned int capture_index[MAX_CAPTURE_COUNT];   // List of capture indices
+    unsigned int *capture_array;    // List of capture indices
 };
 
 
@@ -384,7 +366,7 @@ static unsigned int emit_capture(
     struct data_capture *capture = gather->capture;
     unsigned int capture_index = gather->capture_count;
     for (unsigned int i = 0; i < index_count; i ++)
-        gather->capture_index[capture_index + i] =
+        gather->capture_array[capture_index + i] =
             field->capture_index.index[i];
     gather->capture_count += index_count;
 
@@ -437,58 +419,83 @@ static void prepare_output_group(
     struct gather *gather, const struct capture_group *group,
     struct field_group *fields, unsigned int index_count, bool scaled)
 {
-    fields->index = gather->capture_count;
-    fields->scaling = gather->scaling_count;
-    fields->count = group->count;
+    *fields  = (struct field_group) {
+        .index = gather->capture_count,
+        .scaling = gather->scaling_count,
+        .count = group->count,
+    };
 
     for (unsigned int i = 0; i < group->count; i ++)
         emit_capture(gather, group->outputs[i], index_count, scaled);
 }
 
 
-static void gather_data_capture(
-    const struct captured_fields *fields, struct gather *gather)
+static void prepare_stddev_flags(
+    const struct capture_group *group, struct data_capture *capture)
 {
-    /* Work through the fields. */
-    struct data_capture *capture = gather->capture;
-    if (fields->averaged.count > 0)
-        capture->sample_count_anonymous = ensure_sample_count(fields, gather);
-    else
-        capture->sample_count_anonymous = false;
-
-    prepare_output_group(
-        gather, &fields->unscaled, &capture->unscaled, 1, false);
-    prepare_output_group(
-        gather, &fields->scaled32, &capture->scaled32, 1, true);
-    prepare_output_group(
-        gather, &fields->scaled64, &capture->scaled64, 2, true);
-    prepare_output_group(
-        gather, &fields->averaged, &capture->averaged, 2, true);
-    capture->raw_sample_words = gather->capture_count;
+    capture->std_dev_mean_count = 0;
+    for (unsigned int i = 0; i < group->count; i ++)
+    {
+        capture->std_dev_mean[i] = group->outputs[i]->capture_mean;
+        if (group->outputs[i]->capture_mean)
+            capture->std_dev_mean_count += 1;
+    }
 }
 
 
 static struct data_capture data_capture_state;
 
 
+static void gather_data_capture(
+    const struct captured_fields *fields,
+    const struct data_capture **capture_out,
+    unsigned int *capture_count, unsigned int capture_array[])
+{
+    struct gather gather = {
+        .capture = &data_capture_state,
+        .capture_array = capture_array,
+    };
+
+    /* Work through the fields. */
+    if (fields->averaged.count > 0  ||  fields->std_dev.count > 0)
+        data_capture_state.sample_count_anonymous =
+            ensure_sample_count(fields, &gather);
+    else
+        data_capture_state.sample_count_anonymous = false;
+
+    prepare_output_group(
+        &gather, &fields->unscaled, &data_capture_state.unscaled, 1, false);
+    prepare_output_group(
+        &gather, &fields->scaled32, &data_capture_state.scaled32, 1, true);
+    prepare_output_group(
+        &gather, &fields->scaled64, &data_capture_state.scaled64, 2, true);
+    prepare_output_group(
+        &gather, &fields->averaged, &data_capture_state.averaged, 2, true);
+    prepare_output_group(
+        &gather, &fields->std_dev,  &data_capture_state.std_dev,  5, true);
+    prepare_stddev_flags(&fields->std_dev, &data_capture_state);
+    data_capture_state.raw_sample_words = gather.capture_count;
+
+    *capture_out = &data_capture_state;
+    *capture_count = gather.capture_count;
+}
+
+
 error__t prepare_data_capture(
     const struct captured_fields *fields,
     const struct data_capture **capture)
 {
-    struct gather gather = {
-        .capture = &data_capture_state,
-    };
+    /* Capture information to send to hardware. */
+    unsigned int capture_count;     // Number of entries to be captured
+    unsigned int capture_array[MAX_CAPTURE_COUNT];   // List of capture indices
 
-    gather_data_capture(fields, &gather);
-    error__t error =
-        TEST_OK_(gather.capture_count > 0, "Nothing configured for capture");
-    if (!error)
-    {
+    gather_data_capture(fields, capture, &capture_count, capture_array);
+    return
+        TEST_OK_(capture_count > 0, "Nothing configured for capture")  ?:
+        TEST_OK_(capture_count < MAX_PCAP_WRITE_COUNT,
+            "Too many captures for PCAP")  ?:
         /* Now we can let the hardware know. */
-        hw_write_capture_set(gather.capture_index, gather.capture_count);
-        *capture = &data_capture_state;
-    }
-    return error;
+        DO(hw_write_capture_set(capture_array, capture_count));
 }
 
 

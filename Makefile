@@ -155,7 +155,7 @@ ZPKG = $(BUILD_DIR)/panda-server@$(PLATFORM)-$(GIT_VERSION).zpg
 $(ZPKG): etc/panda-server.list $(ZPKG_DEPENDS)
 	rm -f $(BUILD_DIR)/*.zpg
 	$(MAKE_ZPKG) -t $(TOP) -b $(BUILD_DIR) -d $(BUILD_DIR) \
-            $< $(GIT_VERSION)
+            $< $(PLATFORM)-$(GIT_VERSION)
 
 zpkg: $(ZPKG)
 .PHONY: zpkg

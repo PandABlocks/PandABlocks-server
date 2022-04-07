@@ -38,16 +38,21 @@ void report_capture_positions(struct connection_result *result);
 
 enum capture_mode {
     CAPTURE_MODE_SCALED32,          // int32 with scaling
-    CAPTURE_MODE_SCALED64,          // int64 with scaling
+    CAPTURE_MODE_SCALED64,          // int64 with scaling (timestamps only)
+    CAPTURE_MODE_UNSCALED,          // uint32 with no scaling (samples and bits)
     CAPTURE_MODE_AVERAGE,           // int64 with scaling and averaging
-    CAPTURE_MODE_UNSCALED,          // uint32 with no scaling option
+    CAPTURE_MODE_STDDEV,            // standard deviation
 
     CAPTURE_MODE_COUNT              // Number of capture mode enum values
 };
 
 
+/* This needs to be large enough to accomodate the maximum set of fields for a
+ * single capture option, in this case for StdDev which requires 2 for sum and 3
+ * for sum of squares. */
+#define CAPTURE_INDEX_SIZE          5
 struct capture_index {
-    unsigned int index[2];          // Capture index or indices for data
+    unsigned int index[CAPTURE_INDEX_SIZE]; // Capture index or indices for data
 };
 
 
@@ -61,6 +66,8 @@ struct capture_info {
     double scale;                   // Scaling factor
     double offset;                  // Scaling offset
     char units[MAX_NAME_LENGTH];    // Scaling units string
+    /* The following field is only valid for STDDEV mode. */
+    bool capture_mean;
 };
 
 

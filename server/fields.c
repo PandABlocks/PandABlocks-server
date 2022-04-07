@@ -623,21 +623,26 @@ error__t create_block(
 error__t parse_block_set_register(const char **line, struct block *block)
 {
     unsigned int base;
-    bool shared = read_char(line, 'S');
+    bool shared = false;
     return
-        parse_uint(line, &base)  ?:
         TEST_OK_(block->base == UNASSIGNED_REGISTER,
             "Register already assigned")  ?:
-        TEST_OK_(base < BLOCK_TYPE_COUNT, "Block base too large")  ?:
-        IF_ELSE(block_types_used[base].used,
-            /* If the block is already in use check that it is marked for
-             * sharing and that we're asking for a shared block. */
-            TEST_OK_(shared  &&  block_types_used[base].shared,
-                "Block base %u already assigned and not shared", base),
+        IF_ELSE(read_char(line, 'X'),
+            /* Mark this block as not associated with any hardware. */
+            DO(base = INVALID_REGISTER),
         //else
-            /* We're first to use this block, set it up. */
-            DO( block_types_used[base].shared = shared;
-                block_types_used[base].used = true))  ?:
+            DO(shared = read_char(line, 'S'))  ?:
+            parse_uint(line, &base)  ?:
+            TEST_OK_(base < BLOCK_TYPE_COUNT, "Block base too large")  ?:
+            IF_ELSE(block_types_used[base].used,
+                /* If the block is already in use check that it is marked for
+                 * sharing and that we're asking for a shared block. */
+                TEST_OK_(shared  &&  block_types_used[base].shared,
+                    "Block base %u already assigned and not shared", base),
+            //else
+                /* We're first to use this block, set it up. */
+                DO( block_types_used[base].shared = shared;
+                    block_types_used[base].used = true)))  ?:
         DO(block->base = base)  ?:
         IF(read_char(line, ' '),
             parse_extension_block(line, block->count, &block->extension));
@@ -655,8 +660,11 @@ error__t block_set_description(struct block *block, const char *description)
 error__t check_parse_register(
     struct field *field, const char **line, unsigned int *reg)
 {
-    uint32_t *reg_used = block_types_used[field->block->base].reg_used;
+    unsigned int base = field->block->base;
+    uint32_t *reg_used = block_types_used[base].reg_used;
     return
+        TEST_OK_(base != INVALID_REGISTER  &&  base != UNASSIGNED_REGISTER,
+            "Cannot assign hardware register to this block")  ?:
         parse_uint(line, reg)  ?:
         TEST_OK_(*reg < BLOCK_REGISTER_COUNT, "Register value too large")  ?:
         TEST_OK_(

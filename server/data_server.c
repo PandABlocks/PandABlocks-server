@@ -20,10 +20,11 @@
 #include "config_server.h"
 #include "buffer.h"
 #include "prepare.h"
-#include "capture.h"
 #include "locking.h"
 #include "base64.h"
+#include "pos_out.h"
 #include "ext_out.h"
+#include "capture.h"
 
 #include "data_server.h"
 
