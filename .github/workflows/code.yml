@@ -2,6 +2,7 @@ name: Code CI
 
 on:
   push:
+    branches:
   pull_request:
 
 jobs:
@@ -11,14 +12,25 @@ jobs:
         platform: ["zynq", "zynqmp"]
 
     runs-on: ubuntu-latest
+    # Use container from ghcr
+    container: 
+      image: ghcr.io/pandablocks/pandablocks-dev-container:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes: 
+        - ${{ github.workspace }}:/repos
+        - ${{ github.workspace }}/build:/build
+    
     steps:
-
+      
       # Git repositories
       - name: Checkout Source
         uses: actions/checkout@v2
         with:
           path: PandABlocks-server
 
+      # Checkout rootfs (containers-tizayi) branch. 
       - name: Checkout PandABlocks-rootfs
         uses: actions/checkout@v2
         with:
@@ -64,4 +76,3 @@ jobs:
           body: See [Changelog](CHANGELOG.rst) for more details
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
