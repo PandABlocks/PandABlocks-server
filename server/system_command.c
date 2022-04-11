@@ -300,9 +300,9 @@ static error__t get_capture(
                     get_capture_enums(result),
                 //else
                     FAIL_("Invalid *CAPTURE option")))),
-            //else
-                parse_eos(&command)  ?:
-                DO(report_capture_list(result)));
+        //else
+            parse_eos(&command)  ?:
+            DO(report_capture_list(result)));
 }
 
 /* *CAPTURE=
