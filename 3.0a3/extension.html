@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Extension Server &mdash; PandABlocks-server 3.0a3
+ documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Starting Panda Server" href="startup.html" />
+    <link rel="prev" title="Configuration Files" href="config.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+            <a href="index.html" class="icon icon-home"> PandABlocks-server
+            <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.0a3
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Extension Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#extension-modules">Extension Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#injected-values">Injected Values</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Extension Server</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/extension.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="extension-server">
+<span id="extension"></span><h1>Extension Server<a class="headerlink" href="#extension-server" title="Permalink to this headline"></a></h1>
+<p>The extension server is used to implement custom fields.  The extension server
+runs alongsize the Panda socket server and supports the loading of Python
+modules with a lightweight remote procedure calling interface from the socket
+server.</p>
+<p>As described in <a class="reference internal" href="config.html#config"><span class="std std-ref">Configuration Files</span></a>, individual <cite>read</cite>, <cite>write</cite>, <cite>param</cite> fields can be
+specified to take their values from and write to the extension register.  At the
+same time, these extension read and write operations can be linked to hardware
+registers.</p>
+<p>The extension server is started alongside the socket server, and on PandA looks
+in <code class="docutils literal notranslate"><span class="pre">/opt/share/panda-fpga/extensions</span></code> for extension module files.  During
+development any Python module can be specified as a container for extension
+sub-modules.</p>
+<p>Connections from the socket server to the extension server are established while
+reading the <cite>registers</cite> file.  Firstly, if a block has an extension module
+specified then this module is loaded from the extensions directory and is
+associated with the block.  Next, each extension field is processing by calling
+the appropriate <code class="xref py py-func docutils literal notranslate"><span class="pre">parse_read()</span></code> or <code class="xref py py-func docutils literal notranslate"><span class="pre">parse_write()</span></code> methods.</p>
+<p>Depending on the register configuration any number of hardware block registers
+can be read or written during processing of an extension field.</p>
+<div class="section" id="extension-modules">
+<h2>Extension Modules<a class="headerlink" href="#extension-modules" title="Permalink to this headline"></a></h2>
+<p>Each extension module must export a class constructor named <cite>Extension</cite>.  This
+takes one argument and must support two methods <cite>parse_read</cite> and <cite>parse_write</cite></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="Extension">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Extension</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">count</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Extension" title="Permalink to this definition"></a></dt>
+<dd><p>This class must be defined by each extension module.  The class will be
+instantiated in response to loading a block register definition of the
+form:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">block</span><span class="o">-</span><span class="n">name</span> <span class="p">[</span> <span class="s2">&quot;S&quot;</span> <span class="p">]</span> <span class="n">block</span><span class="o">-</span><span class="n">register</span> <span class="n">extension</span><span class="o">-</span><span class="n">module</span>
+</pre></div>
+</div>
+<p>The parameter <cite>count</cite> is set to the number of instances specified for the
+block in the <cite>config</cite> file.  This class must provide the following methods,
+as appropriate, to support read and write register fields:</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="Extension.parse_read">
+<span class="sig-name descname"><span class="pre">parse_read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field_spec</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Extension.parse_read" title="Permalink to this definition"></a></dt>
+<dd><p>This is called in response to a <cite>read-extension</cite> line in the register
+file of the form:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span> <span class="n">read</span><span class="o">-</span><span class="n">reg</span> <span class="p">]</span><span class="o">*</span> <span class="s2">&quot;X&quot;</span> <span class="n">field</span><span class="o">-</span><span class="n">spec</span>
+</pre></div>
+</div>
+<p>The <cite>field-spec</cite> is passed as a string to <a class="reference internal" href="#Extension.parse_read" title="Extension.parse_read"><code class="xref py py-func docutils literal notranslate"><span class="pre">parse_read()</span></code></a>, and this
+method must return a callable of the following form:</p>
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">value</span> <span class="pre">=</span>&#160;&#160;&#160;&#160; <span class="pre">read_register(block_num,</span> <span class="pre">read_reg1,</span> <span class="pre">...,</span> <span class="pre">read_regN)</span></span></dt>
+<dd><p>The first argument <cite>block_num</cite> is the number of the block instance
+being called (starting from 0), and is guaranteed to be less than
+<cite>count</cite> as passed to the <a class="reference internal" href="#Extension" title="Extension"><code class="xref py py-class docutils literal notranslate"><span class="pre">Extension</span></code></a> constructor.</p>
+<p>The remaining <cite>read_reg1</cite> … <cite>read_regN</cite> argument must match the
+number of arguments specified in the <cite>read-reg</cite> block of the
+register file.  These will be populated by reading the corresponding
+block hardware registers before this function is called.</p>
+<p>The value returned must be a single integer, this is the value
+returned when reading this field.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Extension.parse_write">
+<span class="sig-name descname"><span class="pre">parse_write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">field_spec</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Extension.parse_write" title="Permalink to this definition"></a></dt>
+<dd><p>This is called in response to a <cite>write-extension</cite> line in the register
+file of the form:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span> <span class="n">read</span><span class="o">-</span><span class="n">reg</span> <span class="p">]</span><span class="o">*</span> <span class="p">[</span> <span class="s2">&quot;W&quot;</span> <span class="p">[</span> <span class="n">write</span><span class="o">-</span><span class="n">reg</span> <span class="p">]</span><span class="o">*</span> <span class="p">]</span> <span class="s2">&quot;X&quot;</span> <span class="n">field</span><span class="o">-</span><span class="n">spec</span>
+</pre></div>
+</div>
+<p>As for <a class="reference internal" href="#Extension.parse_read" title="Extension.parse_read"><code class="xref py py-func docutils literal notranslate"><span class="pre">parse_read()</span></code></a>, <cite>field-spec</cite> is passed as the argument, and a
+callable must be returned, of the following form:</p>
+<dl class="py function">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">(write_reg1,</span> <span class="pre">...,</span> <span class="pre">write_regM)</span> <span class="pre">=</span>&#160;&#160;&#160;&#160; <span class="pre">write_register(block_num,</span> <span class="pre">value,</span> <span class="pre">read_reg1,</span> <span class="pre">...,</span> <span class="pre">read_regN)</span></span></dt>
+<dd><p>The first argument <cite>block_num</cite> is the number of the block instance
+being called (starting from 0), and is guaranteed to be less than
+<cite>count</cite> as passed to the <a class="reference internal" href="#Extension" title="Extension"><code class="xref py py-class docutils literal notranslate"><span class="pre">Extension</span></code></a> constructor.</p>
+<p>The second argument <cite>value</cite> is the value written to this field.</p>
+<p>The remaining <cite>read_reg1</cite> … <cite>read_regN</cite> argument must match the
+number of arguments specified in the <cite>read-reg</cite> block of the
+register file.  These will be populated by reading the corresponding
+block hardware registers before this function is called.</p>
+<p>The value returned must be a tuple of integers matching the
+<cite>write-reg</cite> block of the register file.  The returned values will be
+written to the specified hardware registers after processing this
+function.  This defines the action of writing this field.</p>
+</dd></dl>
+
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="injected-values">
+<h2>Injected Values<a class="headerlink" href="#injected-values" title="Permalink to this headline"></a></h2>
+<p>Every extension module will have two support values injected into the module
+when the module is loaded into the server.  These are available to help with the
+implementation of extensions.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="ServerError">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ServerError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Exception</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ServerError" title="Permalink to this definition"></a></dt>
+<dd><p>Read and write methods should use this exception to report errors.
+Exceptions of this type are treated specially and are reported as normal
+read or write errors.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="ExtensionHelper">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ExtensionHelper</span></span><a class="headerlink" href="#ExtensionHelper" title="Permalink to this definition"></a></dt>
+<dd><p>This can be used inside an extension module to create extension support for
+individual fields.  Pass a block constructor (that must take one argument,
+the block index) which implements <cite>set_</cite> and <cite>get_</cite> methods as appropriate,
+and this helper will implement the approprate Extension support.</p>
+<p>Use this inside the extension module thus:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyBlock</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">get_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">regs</span><span class="p">):</span>
+        <span class="o">...</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="nf">set_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">*</span><span class="n">regs</span><span class="p">):</span>
+        <span class="o">...</span>
+        <span class="k">return</span> <span class="n">new_regs</span>
+
+<span class="k">def</span> <span class="nf">Extension</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
+  <span class="k">return</span> <span class="n">ExtensionHelper</span><span class="p">(</span><span class="n">MyBlock</span><span class="p">,</span> <span class="n">count</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="config.html" class="btn btn-neutral float-left" title="Configuration Files" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="startup.html" class="btn btn-neutral float-right" title="Starting Panda Server" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
