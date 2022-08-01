@@ -30,6 +30,7 @@ jobs:
       - name: Build Docs
         run: |
           cd PandABlocks-server
+          ln -s CONFIG.example CONFIG
           make docs
 
       # Verification of build files

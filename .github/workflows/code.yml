@@ -41,11 +41,13 @@ jobs:
       - name: Make PandABlocks-rootfs kernel
         run: |
           cd PandABlocks-rootfs
+          ln -s CONFIG.example CONFIG
           make kernel
 
       - name: Make zpkg
         run: |
           cd PandABlocks-server
+          ln -s CONFIG.example CONFIG
           make zpkg
 
       # Artifacts
