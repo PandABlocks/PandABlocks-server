@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Building and Configuring Panda Server &mdash; PandABlocks-server 3.0a2-4-g406f13d
+  <title>Building and Configuring Panda Server &mdash; PandABlocks-server 3.0a3-1-g49ee8bd
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -16,6 +16,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -33,7 +34,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0a2-4-g406f13d
+                3.0a3-1-g49ee8bd
 
               </div>
 <div role="search">
@@ -130,12 +131,12 @@
            <div itemprop="articleBody">
              
   <div class="section" id="building-and-configuring-panda-server">
-<h1>Building and Configuring Panda Server<a class="headerlink" href="#building-and-configuring-panda-server" title="Permalink to this headline"></a></h1>
+<h1>Building and Configuring Panda Server<a class="headerlink" href="#building-and-configuring-panda-server" title="Permalink to this heading"></a></h1>
 <p>Setting up the build for the Panda Socket Server requires configuring a number
 of dependencies and creating a suitable <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file in the root directory so
 that they can be found.</p>
 <div class="section" id="dependencies">
-<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline"></a></h2>
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this heading"></a></h2>
 <p>The following dependencies must be configured before any part of the server can
 be built.</p>
 <dl class="simple">
@@ -153,7 +154,7 @@ kernel build tree, and to provide the zpkg build tool.</p>
 </dl>
 </div>
 <div class="section" id="setting-up-the-config-file">
-<h2>Setting up the <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file<a class="headerlink" href="#setting-up-the-config-file" title="Permalink to this headline"></a></h2>
+<h2>Setting up the <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file<a class="headerlink" href="#setting-up-the-config-file" title="Permalink to this heading"></a></h2>
 <p>Start by copying the file <code class="docutils literal notranslate"><span class="pre">CONFIG.example</span></code> to <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> in the base
 directory, and edit the file by commenting out lines as appropriate and editing
 them.</p>
@@ -183,7 +184,7 @@ without specifying a particular target, or when <code class="docutils literal no
 </dl>
 </div>
 <div class="section" id="build-targets">
-<h2>Build Targets<a class="headerlink" href="#build-targets" title="Permalink to this headline"></a></h2>
+<h2>Build Targets<a class="headerlink" href="#build-targets" title="Permalink to this heading"></a></h2>
 <p>The following build targets for the top level makefile are useful:</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">default</span></code></dt><dd><p>Builds all the targets specified by <code class="docutils literal notranslate"><span class="pre">$(DEFAULT_TARGETS)</span></code>, by default
@@ -204,7 +205,7 @@ this list is: <code class="docutils literal notranslate"><span class="pre">drive
 </dl>
 </div>
 <div class="section" id="generated-files">
-<h2>Generated Files<a class="headerlink" href="#generated-files" title="Permalink to this headline"></a></h2>
+<h2>Generated Files<a class="headerlink" href="#generated-files" title="Permalink to this heading"></a></h2>
 <p>In the <code class="docutils literal notranslate"><span class="pre">$(BUILD_DIR)</span></code> directory the following subdirectories and files will be
 found.  In practice the <code class="docutils literal notranslate"><span class="pre">.zpg</span></code> file and <code class="docutils literal notranslate"><span class="pre">html/</span></code> directory will be wanted.</p>
 <dl class="simple">

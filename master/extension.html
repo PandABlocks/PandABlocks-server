@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Extension Server &mdash; PandABlocks-server 3.0a2-4-g406f13d
+  <title>Extension Server &mdash; PandABlocks-server 3.0a3-1-g49ee8bd
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -16,6 +16,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -33,7 +34,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0a2-4-g406f13d
+                3.0a3-1-g49ee8bd
 
               </div>
 <div role="search">
@@ -128,7 +129,7 @@
            <div itemprop="articleBody">
              
   <div class="section" id="extension-server">
-<span id="extension"></span><h1>Extension Server<a class="headerlink" href="#extension-server" title="Permalink to this headline"></a></h1>
+<span id="extension"></span><h1>Extension Server<a class="headerlink" href="#extension-server" title="Permalink to this heading"></a></h1>
 <p>The extension server is used to implement custom fields.  The extension server
 runs alongsize the Panda socket server and supports the loading of Python
 modules with a lightweight remote procedure calling interface from the socket
@@ -149,7 +150,7 @@ the appropriate <code class="xref py py-func docutils literal notranslate"><span
 <p>Depending on the register configuration any number of hardware block registers
 can be read or written during processing of an extension field.</p>
 <div class="section" id="extension-modules">
-<h2>Extension Modules<a class="headerlink" href="#extension-modules" title="Permalink to this headline"></a></h2>
+<h2>Extension Modules<a class="headerlink" href="#extension-modules" title="Permalink to this heading"></a></h2>
 <p>Each extension module must export a class constructor named <cite>Extension</cite>.  This
 takes one argument and must support two methods <cite>parse_read</cite> and <cite>parse_write</cite></p>
 <dl class="py class">
@@ -223,7 +224,7 @@ function.  This defines the action of writing this field.</p>
 
 </div>
 <div class="section" id="injected-values">
-<h2>Injected Values<a class="headerlink" href="#injected-values" title="Permalink to this headline"></a></h2>
+<h2>Injected Values<a class="headerlink" href="#injected-values" title="Permalink to this heading"></a></h2>
 <p>Every extension module will have two support values injected into the module
 when the module is loaded into the server.  These are available to help with the
 implementation of extensions.</p>

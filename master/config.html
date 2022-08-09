@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configuration Files &mdash; PandABlocks-server 3.0a2-4-g406f13d
+  <title>Configuration Files &mdash; PandABlocks-server 3.0a3-1-g49ee8bd
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -16,6 +16,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -33,7 +34,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0a2-4-g406f13d
+                3.0a3-1-g49ee8bd
 
               </div>
 <div role="search">
@@ -136,7 +137,7 @@
            <div itemprop="articleBody">
              
   <div class="section" id="configuration-files">
-<span id="config"></span><h1>Configuration Files<a class="headerlink" href="#configuration-files" title="Permalink to this headline"></a></h1>
+<span id="config"></span><h1>Configuration Files<a class="headerlink" href="#configuration-files" title="Permalink to this heading"></a></h1>
 <p>On startup the Panda Server loads its configuration from three files:
 <code class="docutils literal notranslate"><span class="pre">config</span></code>, <code class="docutils literal notranslate"><span class="pre">registers</span></code>, <code class="docutils literal notranslate"><span class="pre">description</span></code>.  These are loaded from the
 <code class="docutils literal notranslate"><span class="pre">config_d</span></code> directory in build directory when running the basic simulation, and
@@ -173,7 +174,7 @@ block and field.</p></td>
 Comments begin with <code class="docutils literal notranslate"><span class="pre">#</span></code>, blocks are identified by their name in the first
 column, and fields are listed at the next level of indentation.</p>
 <div class="section" id="configuration-file-config">
-<h2>Configuration file <code class="docutils literal notranslate"><span class="pre">config</span></code><a class="headerlink" href="#configuration-file-config" title="Permalink to this headline"></a></h2>
+<h2>Configuration file <code class="docutils literal notranslate"><span class="pre">config</span></code><a class="headerlink" href="#configuration-file-config" title="Permalink to this heading"></a></h2>
 <p>This file defines all of the blocks and fields available to this instance of
 Panda and is processed first.</p>
 <p>The syntax of a block definition is:</p>
@@ -198,7 +199,7 @@ Typically each field corresponds to a single register or function of the block.<
 between the values show to the user of the server and the values written to or
 read from registers.</p>
 <div class="section" id="field-type">
-<h3>Field type<a class="headerlink" href="#field-type" title="Permalink to this headline"></a></h3>
+<h3>Field type<a class="headerlink" href="#field-type" title="Permalink to this heading"></a></h3>
 <p>The following field types are defined.</p>
 <table class="docutils align-default">
 <colgroup>
@@ -312,7 +313,7 @@ captured.</p></td>
 </dl>
 </div>
 <div class="section" id="field-subtype">
-<h3>Field subtype<a class="headerlink" href="#field-subtype" title="Permalink to this headline"></a></h3>
+<h3>Field subtype<a class="headerlink" href="#field-subtype" title="Permalink to this heading"></a></h3>
 <p>The following field subtype can follow a <code class="docutils literal notranslate"><span class="pre">param</span></code>, <code class="docutils literal notranslate"><span class="pre">read</span></code> or <code class="docutils literal notranslate"><span class="pre">write</span></code> field
 type:</p>
 <table class="docutils align-default">
@@ -361,7 +362,7 @@ the user, the number is the value written to the register.</p>
 </div>
 </div>
 <div class="section" id="register-file-registers">
-<h2>Register file <code class="docutils literal notranslate"><span class="pre">registers</span></code><a class="headerlink" href="#register-file-registers" title="Permalink to this headline"></a></h2>
+<h2>Register file <code class="docutils literal notranslate"><span class="pre">registers</span></code><a class="headerlink" href="#register-file-registers" title="Permalink to this heading"></a></h2>
 <p>This file defines the register assignments for each block and register.  The
 body of this file should contain a sequencer of block and field definitions
 repeating the <code class="docutils literal notranslate"><span class="pre">config</span></code> file, except that the field type specification is
@@ -438,7 +439,7 @@ follows:</p>
 times where N is the number of instances of the block.  See below for an
 explanation of <cite>read-extension</cite> and <cite>write-extension</cite>.</p>
 <div class="section" id="extension-register-syntax">
-<h3>Extension register syntax<a class="headerlink" href="#extension-register-syntax" title="Permalink to this headline"></a></h3>
+<h3>Extension register syntax<a class="headerlink" href="#extension-register-syntax" title="Permalink to this heading"></a></h3>
 <p>If the extension server is enabled (with the <code class="docutils literal notranslate"><span class="pre">-X</span></code> command line option on the
 server) and if an extension module has been loaded as part of the block
 specification then <code class="docutils literal notranslate"><span class="pre">param</span></code>, <code class="docutils literal notranslate"><span class="pre">read</span></code>, and <code class="docutils literal notranslate"><span class="pre">write</span></code> subtypes can all be
@@ -456,7 +457,7 @@ processing this field.</p>
 </div>
 </div>
 <div class="section" id="description-file-description">
-<h2>Description file <code class="docutils literal notranslate"><span class="pre">description</span></code><a class="headerlink" href="#description-file-description" title="Permalink to this headline"></a></h2>
+<h2>Description file <code class="docutils literal notranslate"><span class="pre">description</span></code><a class="headerlink" href="#description-file-description" title="Permalink to this heading"></a></h2>
 <p>The entire content of the description file is optional.  The basic syntax is:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">block</span><span class="o">-</span><span class="n">name</span> <span class="n">block</span><span class="o">-</span><span class="n">description</span>
     <span class="p">[</span> <span class="n">field</span> <span class="p">]</span><span class="o">*</span>

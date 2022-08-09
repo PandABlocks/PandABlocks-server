@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Capture &mdash; PandABlocks-server 3.0a2-4-g406f13d
+  <title>Data Capture &mdash; PandABlocks-server 3.0a3-1-g49ee8bd
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -16,6 +16,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -33,7 +34,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0a2-4-g406f13d
+                3.0a3-1-g49ee8bd
 
               </div>
 <div role="search">
@@ -136,9 +137,9 @@
            <div itemprop="articleBody">
              
   <div class="section" id="data-capture">
-<h1>Data Capture<a class="headerlink" href="#data-capture" title="Permalink to this headline"></a></h1>
+<h1>Data Capture<a class="headerlink" href="#data-capture" title="Permalink to this heading"></a></h1>
 <div class="section" id="capture-configuration">
-<h2>Capture Configuration<a class="headerlink" href="#capture-configuration" title="Permalink to this headline"></a></h2>
+<h2>Capture Configuration<a class="headerlink" href="#capture-configuration" title="Permalink to this heading"></a></h2>
 <p>Both <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> and <code class="docutils literal notranslate"><span class="pre">ext_out</span></code> fields can be configured for data capture
 through the data capture port by setting the appropriate value in the
 <code class="docutils literal notranslate"><span class="pre">CAPTURE</span></code> attribute.  The possible capture settings depend on the field type
@@ -211,7 +212,7 @@ captured.</p></td>
 </dl>
 </div>
 <div class="section" id="data-capture-port">
-<h2>Data Capture Port<a class="headerlink" href="#data-capture-port" title="Permalink to this headline"></a></h2>
+<h2>Data Capture Port<a class="headerlink" href="#data-capture-port" title="Permalink to this heading"></a></h2>
 <p>The default server port for the data interface is port 8889.  The initial
 exchange is in ASCII with newline separated lines, subsequent data communication
 is as selected in the initial connection.</p>
@@ -240,7 +241,7 @@ ASCII starting with <code class="docutils literal notranslate"><span class="pre"
 experiment (step 4).</p></li>
 </ol>
 <div class="section" id="capture-options">
-<h3>Capture Options<a class="headerlink" href="#capture-options" title="Permalink to this headline"></a></h3>
+<h3>Capture Options<a class="headerlink" href="#capture-options" title="Permalink to this heading"></a></h3>
 <p>A line of capture options <em>must</em> be sent after initial connection before any
 data will be sent.  This is a list of any of the following options separated by
 whitespace ending with a newline character.</p>
@@ -334,7 +335,7 @@ omitted.</p></td>
 </dl>
 </div>
 <div class="section" id="data-transport-formatting">
-<h3>Data Transport Formatting<a class="headerlink" href="#data-transport-formatting" title="Permalink to this headline"></a></h3>
+<h3>Data Transport Formatting<a class="headerlink" href="#data-transport-formatting" title="Permalink to this heading"></a></h3>
 <p>Note that all binary data is sent with the lowest order byte first.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">ASCII</span></code></dt><dd><p>Each value is formatted as an ASCII number, and transmitted with one line
@@ -356,7 +357,7 @@ so normally this is best combined with <code class="docutils literal notranslate
 </dl>
 </div>
 <div class="section" id="data-header">
-<h3>Data Header<a class="headerlink" href="#data-header" title="Permalink to this headline"></a></h3>
+<h3>Data Header<a class="headerlink" href="#data-header" title="Permalink to this heading"></a></h3>
 <p>At the beginning of each experiment the following information is sent:</p>
 <table class="docutils align-default">
 <colgroup>
@@ -462,7 +463,7 @@ so normally this is best combined with <code class="docutils literal notranslate
 </table>
 </div>
 <div class="section" id="experiment-completion">
-<h3>Experiment Completion<a class="headerlink" href="#experiment-completion" title="Permalink to this headline"></a></h3>
+<h3>Experiment Completion<a class="headerlink" href="#experiment-completion" title="Permalink to this heading"></a></h3>
 <p>At the end of each capture experiment a single line is sent, eg:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">END</span> <span class="mi">10</span> <span class="n">Ok</span>
 </pre></div>
@@ -501,7 +502,7 @@ internal buffer overflow.</p></td>
 </table>
 </div>
 <div class="section" id="high-performance-mode">
-<h3>High performance mode<a class="headerlink" href="#high-performance-mode" title="Permalink to this headline"></a></h3>
+<h3>High performance mode<a class="headerlink" href="#high-performance-mode" title="Permalink to this heading"></a></h3>
 <p>To get the highest performance, use <code class="docutils literal notranslate"><span class="pre">FRAMED</span> <span class="pre">RAW</span></code> mode. This activates a
 special passthrough mode which avoids copying memory as much as possible. In
 tests it has been capable of sustaining 60MBytes/s when panda-webcontrol is not
@@ -510,7 +511,7 @@ then the last Framed block of data that the server sent should be discarded as
 it will have been corrupted while being sent.</p>
 </div>
 <div class="section" id="examples">
-<h3>Examples<a class="headerlink" href="#examples" title="Permalink to this headline"></a></h3>
+<h3>Examples<a class="headerlink" href="#examples" title="Permalink to this heading"></a></h3>
 <p>Some examples of data capture for different options follow:</p>
 <p>Default:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">arm_time</span><span class="p">:</span> <span class="mi">2021</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">26</span><span class="n">T10</span><span class="p">:</span><span class="mi">34</span><span class="p">:</span><span class="mf">06.133</span><span class="n">Z</span>

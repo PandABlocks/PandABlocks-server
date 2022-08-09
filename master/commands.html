@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command Interface &mdash; PandABlocks-server 3.0a2-4-g406f13d
+  <title>Command Interface &mdash; PandABlocks-server 3.0a3-1-g49ee8bd
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -16,6 +16,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -33,7 +34,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0a2-4-g406f13d
+                3.0a3-1-g49ee8bd
 
               </div>
 <div role="search">
@@ -128,7 +129,7 @@
            <div itemprop="articleBody">
              
   <div class="section" id="command-interface">
-<h1>Command Interface<a class="headerlink" href="#command-interface" title="Permalink to this headline"></a></h1>
+<h1>Command Interface<a class="headerlink" href="#command-interface" title="Permalink to this heading"></a></h1>
 <p>The default server port for the command interface is port 8888.  All commands
 and responses are in ASCII with lines separated with newline characters (ASCII
 character 0x0A).</p>
@@ -236,7 +237,7 @@ as documented below.</p>
 <p>Finally, there are two basic types of target: configuration commands and system
 commands.</p>
 <div class="section" id="configuration-commands">
-<h2>Configuration Commands<a class="headerlink" href="#configuration-commands" title="Permalink to this headline"></a></h2>
+<h2>Configuration Commands<a class="headerlink" href="#configuration-commands" title="Permalink to this heading"></a></h2>
 <p>The entire hardware interface to PandA is structured into “blocks” and “fields”,
 and each field may have a number of “attributes” depending on the field type.
 This structure is reflected in the form of configuration commands which are
@@ -279,7 +280,7 @@ the description of the <code class="docutils literal notranslate"><span class="p
 format characters in the table write command.</p>
 </div>
 <div class="section" id="system-commands">
-<h2>System Commands<a class="headerlink" href="#system-commands" title="Permalink to this headline"></a></h2>
+<h2>System Commands<a class="headerlink" href="#system-commands" title="Permalink to this heading"></a></h2>
 <p>All system commands are prefixed with a leading <code class="docutils literal notranslate"><span class="pre">*</span></code> character.  The simplest
 command is <code class="docutils literal notranslate"><span class="pre">*IDN?</span></code> which returns a system identification string:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *IDN?
