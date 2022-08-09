@@ -274,7 +274,8 @@ static error__t scalar_format(
     unsigned int value, char string[], size_t length)
 {
     struct scalar_state *state = type_data;
-    return format_double(string, length, state->scale * value + state->offset);
+    return format_double(string, length,
+        state->scale * (int) value + state->offset);
 }
 
 

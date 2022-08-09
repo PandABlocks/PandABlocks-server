@@ -17,6 +17,7 @@ Unreleased
 - Allow .CAPTURE to take arbitrary lists of options (issue #23) and add
   supporting methods for interrogating available options
 - Add support for Standard Deviation capture if supported by FPGA
+- Fix error in scalar value formatting (github issue #29)
 
 3.0a1_ - 2021-09-21
 -------------------
