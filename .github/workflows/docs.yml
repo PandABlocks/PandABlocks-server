@@ -38,15 +38,9 @@ jobs:
       #  run: ls ${{ github.workspace }}/build/html
       
       # Publish
-      - uses: rishabhgupta/split-by@v1
-        id: split
-        with:
-          string: ${{ github.ref }}
-          split-by: /
-      
       - name: Move to versioned directory
         # e.g. master or 0.1.2
-        run: mv build/build-server/html "PandABlocks-server/.github/pages/${{ steps.split.outputs._2 }}"
+        run: mv build/build-server/html "PandABlocks-server/.github/pages/${GITHUB_REF##*/}"
 
       - name: Publish Docs to gh-pages
         # Only master and tags are published
