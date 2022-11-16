@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     # Use container from ghcr
     container: 
-      image: ghcr.io/pandablocks/pandablocks-dev-container:3.0a3
+      image: ghcr.io/pandablocks/pandablocks-dev-container:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
