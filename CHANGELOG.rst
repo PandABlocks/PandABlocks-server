@@ -10,6 +10,17 @@ Versioning <https://semver.org/spec/v2.0.0.html>`_.
 Unreleased
 ----------
 
+- Fix error in scalar value formatting (github issue #29)
+- Add ``*BITS?`` command to return available bit bus entry names
+
+3.0a3_ - 2022-05-03
+-------------------
+
+- Bug fixes to standard deviation
+
+3.0a2_ - 2022-04-07
+-------------------
+
 - Change to extension server: parsing now returns callables, and add
   ExtensionHelper to assist in building extensions
 - New attribute to interrogate number of words in a table row
@@ -17,8 +28,6 @@ Unreleased
 - Allow .CAPTURE to take arbitrary lists of options (issue #23) and add
   supporting methods for interrogating available options
 - Add support for Standard Deviation capture if supported by FPGA
-- Fix error in scalar value formatting (github issue #29)
-- Add ``*BITS?`` command to return available bit bus entry names
 
 3.0a1_ - 2021-09-21
 -------------------
@@ -38,5 +47,7 @@ Unreleased
 
 
 .. _Unreleased: https://github.com/PandABlocks/PandABlocks-FPGA
+.. _3.0a3: ../../compare/3.0a2...3.0a3
+.. _3.0a2: ../../compare/3.0a1...3.0a2
 .. _3.0a1: ../../compare/2.1...3.0a1
 .. _2.1: ../../releases/tag/2.1
