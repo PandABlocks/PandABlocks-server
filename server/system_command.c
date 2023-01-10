@@ -24,6 +24,7 @@
 #include "fields.h"
 #include "pos_mux.h"
 #include "pos_out.h"
+#include "bit_out.h"
 #include "output.h"
 #include "enums.h"
 #include "version.h"
@@ -321,12 +322,24 @@ static error__t put_capture(
 
 /* *POSITIONS?
  *
- * Returns list of bit field names for each bit capture block. */
+ * Returns list of names for each position bus entry. */
 static error__t get_positions(
     const char *command, struct connection_result *result)
 {
     result->response = RESPONSE_MANY;
     report_capture_positions(result);
+    return ERROR_OK;
+}
+
+
+/* *BITS?
+ *
+ * Returns list of bit field names. */
+static error__t get_bits(
+    const char *command, struct connection_result *result)
+{
+    result->response = RESPONSE_MANY;
+    report_capture_bits(result);
     return ERROR_OK;
 }
 
@@ -477,6 +490,7 @@ static const struct command_table_entry command_table_list[] = {
     { "DESC",       true,  .get = get_desc, },
     { "CAPTURE",    true,  .get = get_capture,  .put = put_capture, },
     { "POSITIONS",  false, .get = get_positions, },
+    { "BITS",       false, .get = get_bits, },
     { "VERBOSE",    false, .put = put_verbose, },
     { "ENUMS",      true,  .get = get_enums, },
     { "PCAP",       true,  .get = get_pcap,     .put = put_pcap, },

@@ -3,9 +3,12 @@
 /* Update cached bit values from hardware. */
 void do_bit_out_refresh(uint64_t change_index);
 
+/* *BITS? implementation, returns list of all available bit bus entries. */
+void report_capture_bits(struct connection_result *result);
 
 /* BITSn.BITS? implementation, reports bit names in specific capture block. */
-void report_capture_bits(struct connection_result *result, unsigned int group);
+void report_capture_bits_group(
+    struct connection_result *result, unsigned int group);
 
 /* Used to set the associate bit group name. */
 void set_bit_group_name(unsigned int group, const char *name);

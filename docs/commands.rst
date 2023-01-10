@@ -149,6 +149,8 @@ below:
 +-------------------------------+----------------------------------------------+
 | ``*POSITIONS?``               | Enumerate possible capture positions.        |
 +-------------------------------+----------------------------------------------+
+| ``*BITS?``                    | Enumerate possible bit bus positions.        |
++-------------------------------+----------------------------------------------+
 | ``*VERBOSE=``\ value          | Control command logging.                     |
 +-------------------------------+----------------------------------------------+
 | ``*PCAP.``\ field\ ``?``      | Special position capture status fields.      |
@@ -341,7 +343,11 @@ below:
     This resets all ``.CAPTURE`` flags to zero so that no data will be captured.
 
 ``*POSITIONS?``
-    This command lists all 32 position capture fields in order.
+    This command lists all available position capture fields in order.
+
+``*BITS?``
+    This command lists all available bit bus positions, but not including the
+    special values ``ZERO`` and ``ONE``.
 
 ``*VERBOSE=``\ value
     If ``*VERBOSE=1`` is set then every command will be echoed to the server's

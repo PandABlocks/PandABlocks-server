@@ -49,7 +49,7 @@ static error__t bits_get_many(
     struct connection_result *result)
 {
     struct ext_out *ext_out = data;
-    report_capture_bits(result, ext_out->bit_group);
+    report_capture_bits_group(result, ext_out->bit_group);
     return ERROR_OK;
 }
 

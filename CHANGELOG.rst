@@ -18,6 +18,7 @@ Unreleased
   supporting methods for interrogating available options
 - Add support for Standard Deviation capture if supported by FPGA
 - Fix error in scalar value formatting (github issue #29)
+- Add ``*BITS?`` command to return available bit bus entry names
 
 3.0a1_ - 2021-09-21
 -------------------
