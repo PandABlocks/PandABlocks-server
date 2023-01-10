@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command Interface &mdash; PandABlocks-server 3.0a3-1-g49ee8bd
+  <title>Command Interface &mdash; PandABlocks-server 3.0a3-3-gcb522db
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -18,6 +18,7 @@
         <script src="_static/underscore.js"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -34,7 +35,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0a3-1-g49ee8bd
+                3.0a3-3-gcb522db
 
               </div>
 <div role="search">
@@ -117,8 +118,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Command Interface</li>
+      <li><a href="index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">Command Interface</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/commands.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -350,19 +351,22 @@ any of <code class="docutils literal notranslate"><span class="pre">CONFIG</span
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*POSITIONS?</span></code></p></td>
 <td><p>Enumerate possible capture positions.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*VERBOSE=</span></code>value</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*BITS?</span></code></p></td>
+<td><p>Enumerate possible bit bus positions.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*VERBOSE=</span></code>value</p></td>
 <td><p>Control command logging.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*PCAP.</span></code>field<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*PCAP.</span></code>field<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
 <td><p>Special position capture status fields.
 <cite>field</cite> can be any of <code class="docutils literal notranslate"><span class="pre">STATUS</span></code>,
 <code class="docutils literal notranslate"><span class="pre">CAPTURED</span></code>, or <code class="docutils literal notranslate"><span class="pre">COMPLETION</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*PCAP.</span></code>field<code class="docutils literal notranslate"><span class="pre">=</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*PCAP.</span></code>field<code class="docutils literal notranslate"><span class="pre">=</span></code></p></td>
 <td><p>Position capture actions.  <cite>field</cite> can be
 either <code class="docutils literal notranslate"><span class="pre">ARM</span></code>, or <code class="docutils literal notranslate"><span class="pre">DISARM</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*SAVESTATE=</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*SAVESTATE=</span></code></p></td>
 <td><p>Triggers immediate save to file of the
 persistence file state.</p></td>
 </tr>
@@ -370,7 +374,7 @@ persistence file state.</p></td>
 </table>
 <dl>
 <dt><code class="docutils literal notranslate"><span class="pre">*IDN?</span></code></dt><dd><p>Returns system identification string, for example the following:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">OK</span> <span class="o">=</span><span class="n">PandA</span> <span class="n">SW</span><span class="p">:</span> <span class="mf">1.1</span> <span class="n">FPGA</span><span class="p">:</span> <span class="mf">0.1</span><span class="o">.</span><span class="mi">9</span> <span class="n">d1275f61</span> <span class="mi">00000000</span> <span class="n">rootfs</span><span class="p">:</span> <span class="n">PandA</span> <span class="mf">1.1</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">OK</span> <span class="o">=</span><span class="n">PandA</span> <span class="n">SW</span><span class="p">:</span> <span class="mf">1.1</span> <span class="n">FPGA</span><span class="p">:</span> <span class="mf">0.1.9</span> <span class="n">d1275f61</span> <span class="mi">00000000</span> <span class="n">rootfs</span><span class="p">:</span> <span class="n">PandA</span> <span class="mf">1.1</span>
 </pre></div>
 </div>
 <p>The first field after “PandA” is the software version, the second field is
@@ -567,7 +571,10 @@ on any <code class="docutils literal notranslate"><span class="pre">pos_out</spa
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE=</span></code></dt><dd><p>This resets all <code class="docutils literal notranslate"><span class="pre">.CAPTURE</span></code> flags to zero so that no data will be captured.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">*POSITIONS?</span></code></dt><dd><p>This command lists all 32 position capture fields in order.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">*POSITIONS?</span></code></dt><dd><p>This command lists all available position capture fields in order.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*BITS?</span></code></dt><dd><p>This command lists all available bit bus positions, but not including the
+special values <code class="docutils literal notranslate"><span class="pre">ZERO</span></code> and <code class="docutils literal notranslate"><span class="pre">ONE</span></code>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">*VERBOSE=</span></code>value</dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">*VERBOSE=1</span></code> is set then every command will be echoed to the server’s
 log.  Set <code class="docutils literal notranslate"><span class="pre">*VERBOSE=0</span></code> to restore normal quiet behaviour.</p>

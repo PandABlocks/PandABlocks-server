@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Extension Server &mdash; PandABlocks-server 3.0a3-1-g49ee8bd
+  <title>Extension Server &mdash; PandABlocks-server 3.0a3-3-gcb522db
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -18,6 +18,7 @@
         <script src="_static/underscore.js"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -34,7 +35,7 @@
             <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0a3-1-g49ee8bd
+                3.0a3-3-gcb522db
 
               </div>
 <div role="search">
@@ -59,8 +60,19 @@
 <li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Extension Server</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#extension-modules">Extension Modules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#injected-values">Injected Values</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#extension-modules">Extension Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Extension"><code class="docutils literal notranslate"><span class="pre">Extension</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#Extension.parse_read"><code class="docutils literal notranslate"><span class="pre">Extension.parse_read()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#Extension.parse_write"><code class="docutils literal notranslate"><span class="pre">Extension.parse_write()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#injected-values">Injected Values</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ServerError"><code class="docutils literal notranslate"><span class="pre">ServerError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ExtensionHelper"><code class="docutils literal notranslate"><span class="pre">ExtensionHelper</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
@@ -117,8 +129,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Extension Server</li>
+      <li><a href="index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">Extension Server</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/extension.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -245,7 +257,7 @@ the block index) which implements <cite>set_</cite> and <cite>get_</cite> method
 and this helper will implement the approprate Extension support.</p>
 <p>Use this inside the extension module thus:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyBlock</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
         <span class="o">...</span>
 
     <span class="k">def</span> <span class="nf">get_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">regs</span><span class="p">):</span>
