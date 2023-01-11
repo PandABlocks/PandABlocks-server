@@ -58,8 +58,21 @@ struct bit_mux_state {
 static struct enumeration *bit_mux_lookup;
 
 
+/* Implements *BITS? command. */
+void report_capture_bits(struct connection_result *result)
+{
+    for (unsigned int i = 0; i < BIT_BUS_COUNT; i ++)
+    {
+        const char *name = enum_index_to_name(bit_mux_lookup, i);
+        if (name)
+            result->write_many(result->write_context, name);
+    }
+}
+
+
 /* Implements .BITS attribute for bit group capture fields. */
-void report_capture_bits(struct connection_result *result, unsigned int group)
+void report_capture_bits_group(
+    struct connection_result *result, unsigned int group)
 {
     for (unsigned int i = 0; i < 32; i ++)
         result->write_many(result->write_context,

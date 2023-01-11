@@ -253,7 +253,8 @@ size_t get_binary_sample_length(
                 sizeof(uint32_t) * capture->unscaled.count +
                 sizeof(double) * (
                     capture->scaled32.count + capture->scaled64.count +
-                    capture->averaged.count + capture->std_dev.count);
+                    capture->averaged.count + capture->std_dev.count +
+                    capture->std_dev_mean_count);
             ASSERT_OK(length > 0);
             return length;
         }

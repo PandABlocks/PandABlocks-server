@@ -51,7 +51,7 @@ static uint64_t abs_64(int64_t x)
 
 /* Compute D, R from N, B such that B = N*D + R and R < N.  We're given
  * B < 2^64, R < 2^32, and we know and assume that D < 2^32. */
-static void div_rem_64_32(uint64_t b, uint32_t n, uint32_t *d, uint32_t *r)
+static bool div_rem_64_32(uint64_t b, uint32_t n, uint32_t *d, uint32_t *r)
 {
     uint64_t div = b / n;
     /* Note: with the current gcc 4.9.1 compiler we need to compute rem like
@@ -60,6 +60,8 @@ static void div_rem_64_32(uint64_t b, uint32_t n, uint32_t *d, uint32_t *r)
     uint64_t rem = b - n * div;
     *d = (uint32_t) div;
     *r = (uint32_t) rem;
+    /* Sanity check on division, fail if divider too large. */
+    return (div >> 32) == 0;
 }
 
 
@@ -153,7 +155,7 @@ double compute_standard_deviation(
     uint32_t samples, int64_t raw_sum_values,
     const unaligned_uint96_t *raw_sum_squares)
 {
-    /* This shouldn't happen, but if it does, fail quietly. */
+    /* If the incoming data is invalid for some reason, return NAN. */
     if (samples == 0)
         return NAN;
 
@@ -161,7 +163,8 @@ double compute_standard_deviation(
 
     /* First compute divison and remainder B = D*N + R. */
     uint32_t sum_mean, sum_rem;     // D, R
-    div_rem_64_32(sum_values, samples, &sum_mean, &sum_rem);
+    if (!div_rem_64_32(sum_values, samples, &sum_mean, &sum_rem))
+        return NAN;
 
     /* Now compute A - (B + R) D.  Note that computing B+R in 64-bits is safe as
      * we know that B is bounded by 2^63. */
@@ -170,5 +173,8 @@ double compute_standard_deviation(
 
     double r2_n = (double) ((uint64_t) sum_rem * sum_rem) / samples;
     double n_s2 = uint96_to_double(sum_squares) - r2_n;
+    if (n_s2 < 0)
+        return NAN;
+
     return sqrt(n_s2 / samples);
 }

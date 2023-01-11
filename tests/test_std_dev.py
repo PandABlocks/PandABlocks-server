@@ -12,7 +12,7 @@ def compute_standard_deviation(n, b, a):
     # To avoid loss of precision, as b*b can lose bits, convert b/n to its
     # integer and fractional parts.
     bn_f, bn_i = numpy.modf(b / n)
-    print(bn_f, bn_i)
+#     print(bn_f, bn_i)
     n_s2 = numpy.float64((a - b * bn_i) - b * bn_f)
 #     # Note that in the most extreme cases (when the magnitude of the mean is
 #     # very large and n is also very large) the calculation b*b/n can lose
