@@ -2,6 +2,10 @@
 #
 # Copy this file to a file named CONFIG and edit as appropriate.
 
+# Note that this file is used as part of github Continuous Integration (see
+# .github/workflows/{code,docs}.yml and so the entries in this file must refer
+# to valid paths in the CI container.
+
 
 # Default build location.  Default is to build in build subdirectory.
 #
