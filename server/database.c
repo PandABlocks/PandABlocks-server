@@ -32,7 +32,6 @@ static error__t config_parse_metadata_field(
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         parse_whitespace(line)  ?:
         add_metadata_key(field_name, line);
-        parse_eos(line);
 }
 
 
@@ -44,7 +43,6 @@ static error__t config_parse_metadata_header(
     return
         parse_char(line, '*')  ?:
         parse_name(line, block_name, sizeof(block_name))  ?:
-        parse_eos(line)  ?:
         TEST_OK_(strcmp(block_name, "METADATA") == 0, "Unexpected block");
 }
 
@@ -75,7 +73,6 @@ static error__t config_parse_normal_header(
         IF(read_char(line, '['),
             parse_uint(line, &count)  ?:
             parse_char(line, ']'))  ?:
-        parse_eos(line)  ?:
 
         create_block(&block, block_name, count)  ?:
         DO(*parser = (struct indent_parser) {
@@ -137,7 +134,6 @@ static error__t register_parse_special_field(
             TEST_OK_(read_string(line, ".."),
                 "Expected end of input or number range")  ?:
             parse_uint(line, &reg_end)  ?:
-            parse_eos(line)  ?:
             IF(set_parse, set_parse->set_range(reg_name, reg, reg_end)),
         //else
             IF(set_parse, set_parse->set_register(reg_name, reg)));
@@ -163,8 +159,7 @@ static error__t register_parse_special_header(
         parse_char(line, '*')  ?:
         parse_name(line, block_name, sizeof(block_name))  ?:
         parse_whitespace(line)  ?:
-        parse_uint(line, &base)  ?:
-        parse_eos(line);
+        parse_uint(line, &base);
 
     if (!error)
     {
@@ -217,8 +212,7 @@ static error__t register_parse_normal_header(
         DO(parser->context = block)  ?:
 
         parse_whitespace(line)  ?:
-        parse_block_set_register(line, block)  ?:
-        parse_eos(line);
+        parse_block_set_register(line, block);
 }
 
 
