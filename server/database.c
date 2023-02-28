@@ -105,8 +105,6 @@ static error__t load_config_database(const char *config_dir)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Register database. */
 
-/* We need to check the hardware register setup before loading normal blocks. */
-static bool hw_checked = false;
 
 static struct register_set_parse {
     error__t (*set_register)(const char *name, unsigned int reg);
@@ -140,15 +138,6 @@ static error__t register_parse_special_field(
 }
 
 
-/* After completing *REG block record that we seen one and check the register
- * validation. */
-static error__t register_parse_reg_end(void *context)
-{
-    hw_checked = true;
-    return hw_validate();
-}
-
-
 static error__t register_parse_special_header(
     void *context, const char **line, struct indent_parser *parser)
 {
@@ -167,7 +156,6 @@ static error__t register_parse_special_header(
         {
             /* *REG block, for special hardware registers.  We parse this
              * normally and assign registers. */
-            parser->end = register_parse_reg_end;
             parser->context = &set_named_registers;
             error = hw_set_block_base(base);
         }
@@ -219,9 +207,14 @@ static error__t register_parse_normal_header(
 static error__t register_parse_constant(
     void *context, const char **line, struct indent_parser *parser)
 {
-    log_message("Skipping \"%s\"", *line);
-    *line += strlen(*line);
-    return ERROR_OK;
+    char constant_name[MAX_NAME_LENGTH];
+    unsigned int constant_value;
+    return
+        parse_alphanum_name(line, constant_name, sizeof(constant_name))  ?:
+        DO(*line = skip_whitespace(*line))  ?:
+        parse_char(line, '=')  ?:
+        parse_uint(line, &constant_value)  ?:
+        hw_set_named_constant(constant_name, constant_value);
 }
 
 
@@ -246,7 +239,7 @@ static error__t load_register_database(const char *config_dir)
     struct indent_parser parser = { .parse_line = register_parse_line, };
     return
         parse_indented_file(db_name, &parser)  ?:
-        TEST_OK_(hw_checked, "*REG block missing from register file");
+        hw_validate();
 }
 
 

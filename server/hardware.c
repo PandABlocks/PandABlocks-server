@@ -88,6 +88,14 @@ struct named_register {
     bool seen;
 };
 
+/* Similar structure for named constants. */
+struct named_constant {
+    const char *name;
+    unsigned int value;
+    bool allow_default;
+    bool seen;
+};
+
 /* This #include statement pulls in definitions of hardware control registers
  * defined in the *REG section of the register configuration.  During startup we
  * check that we are loading the same configuration by cross-checking the
@@ -124,6 +132,24 @@ error__t hw_set_named_register(const char *name, unsigned int reg)
     return hw_set_named_register_range(name, reg, reg);
 }
 
+
+error__t hw_set_named_constant(const char *name, unsigned int value)
+{
+    for (unsigned int i = 0; i < ARRAY_SIZE(named_constants); i ++)
+    {
+        struct named_constant *constant = &named_constants[i];
+        if (strcmp(constant->name, name) == 0)
+            return
+                TEST_OK_(!constant->seen, "Repeated constant %s", name)  ?:
+                DO(constant->seen = true)  ?:
+                TEST_OK_(constant->value == value,
+                    "Unexpected value for constant %s: %u != %u",
+                    name, value, constant->value);
+    }
+    return FAIL_("Unknown constant %s=%u in registers file", name, value);
+}
+
+
 error__t hw_validate(void)
 {
     for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
@@ -131,6 +157,13 @@ error__t hw_validate(void)
         struct named_register *reg = &named_registers[i];
         if (reg->name  &&  !reg->seen)
             return FAIL_("Register %s not in *REG list", reg->name);
+    }
+    for (unsigned int i = 0; i < ARRAY_SIZE(named_constants); i ++)
+    {
+        struct named_constant *constant = &named_constants[i];
+        if (!constant->seen  &&  !constant->allow_default)
+            return FAIL_("Constant %s not seen in registers file",
+                constant->name);
     }
     return ERROR_OK;
 }

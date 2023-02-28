@@ -48,3 +48,14 @@ static struct named_register named_registers[] = {''')
 for name, _, count in fields:
     print('    [%s] = { "%s", %d, false },' % (name, name, count))
 print('};')
+
+# Generate table of constants read from config file
+print('''
+static struct named_constant named_constants[] = {''')
+for name, value in constants.items():
+    # A little backwards compatibility hack: if the value of a constant is zero
+    # it is allowed to be missing from the register file
+    value = int(value)
+    default = 'true' if value == 0 else 'false'
+    print('    { "%s", %u, %s },' % (name, int(value), default))
+print('};')

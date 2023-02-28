@@ -62,6 +62,9 @@ error__t hw_set_named_register(const char *name, unsigned int reg);
 error__t hw_set_named_register_range(
     const char *name, unsigned int start, unsigned int end);
 
+/* Used to register a name definition from the registers config file. */
+error__t hw_set_named_constant(const char *name, unsigned int value);
+
 /* Checks that all register offsets have been set. */
 error__t hw_validate(void);
 

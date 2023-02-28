@@ -6,6 +6,11 @@
 # value returned by *DRV.DRV_COMPAT_VERSION
 DRIVER_COMPAT_VERSION = 0
 
+# PandA Blocks compatibility version.  This is checked by the server when
+# loading the registers file, and should be updated when the interface to the
+# server has changed in an incompatible way.
+BLOCKS_COMPAT_VERSION = 0
+
 
 # This special register block is not present in the config file and contains
 # fixed register definitions used in the hardware interface.
