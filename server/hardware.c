@@ -45,6 +45,17 @@ struct register_fields {
         32 - BLOCK_REGISTER_BITS - BLOCK_INSTANCE_BITS - BLOCK_TYPE_BITS;
 };
 
+// This has to be bigger or same size than the linux kernel structure with the
+// same name.
+// We are using this to convert to a stardard timespec in a way that we are
+// compatible with 32-bit and 64-bit architectures, however, we will not
+// need it when we update to a newer glibc (which contains __timespec64)
+struct timespec64 {
+    __time64_t tv_sec;  /* Seconds */
+    uint32_t tv_nsec;   /* Nanoseconds */
+    uint32_t :32;       /* padding */
+};
+
 
 static unsigned int make_offset(
     unsigned int block_base, unsigned int block_number, unsigned int reg)
@@ -292,6 +303,15 @@ unsigned int hw_read_streamed_completion(void)
     uint32_t completion = 0;
     error_report(TEST_IO(ioctl(stream, PANDA_COMPLETION, &completion)));
     return completion;
+}
+
+
+void hw_get_start_ts(struct timespec *ts)
+{
+    struct timespec64 compat_ts = (struct timespec64) {0};
+    error_report(TEST_IO(ioctl(stream, PANDA_GET_START_TS, &compat_ts)));
+    ts->tv_sec = (time_t) compat_ts.tv_sec;
+    ts->tv_nsec = (typeof(ts->tv_nsec)) compat_ts.tv_nsec;
 }
 
 #endif

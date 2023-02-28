@@ -30,3 +30,5 @@ struct panda_block {
 #define PANDA_COMPLETION_FRAMING    2
 #define PANDA_COMPLETION_DMA        4
 #define PANDA_COMPLETION_OVERRUN    8
+
+#define PANDA_GET_START_TS _IOR('P', 4, struct timespec64)

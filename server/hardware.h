@@ -1,4 +1,5 @@
 /* Hardware interface definitions. */
+#include <time.h>
 
 #define BIT_BUS_COUNT       128
 #define POS_BUS_COUNT       32
@@ -159,6 +160,9 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end);
 unsigned int hw_read_streamed_completion(void);
 /* Converts the completion code into a printable string. */
 const char *hw_decode_completion(unsigned int completion);
+
+/* This function gets the timestamp when PCAP becomes armed and enabled */
+void hw_get_start_ts(struct timespec *ts);
 
 /* This function controls the arm/disarm state of data capture.  Data capture is
  * armed by writing true with this function, after which hw_read_streamed_data()
