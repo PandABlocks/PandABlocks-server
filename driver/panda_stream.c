@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include <asm/atomic.h>
+#include <linux/time.h>
 
 #include "error.h"
 #include "panda.h"
@@ -80,6 +81,7 @@ struct stream_open {
     int isr_block_index;        // Block currently being written by hardware
     bool stream_active;         // If not set, any interrupts are unexpected
     uint32_t completion;        // Copy of final interrupt status register
+    struct timespec64 start_ts; // timestamp when PCAP becomes armed & enabled
 
     /* Reader status. */
     int read_block_index;       // Block being read
@@ -124,26 +126,28 @@ static inline int step_index(int ix)
  * timeout, or because data transfer is (currently) complete.
  *    The interrupt status register records the following information:
  *
- *   31              8 7 6 5 4 3 2 1 0
+ *   31            9 8 7 6 5 4 3 2 1 0
  *  +-----------------+-+-+-+-+-+-+-+-+
- *  | sample count    | | | | | | | | |
+ *  | sample count  | | | | | | | | | |
  *  +-----------------+-+-+-+-+-+-+-+-+
- *                     | | | | | | | +-- Transfer complete, no more interrupts
- *                     | | | | | | +---- Experiment disarmed
- *                     | | | | | +------ Capture framing error
- *                     | | | | +-------- DMA error
- *                     | | | +---------- DMA address not written in time
- *                     | | +------------ Timeout
- *                     | +-------------- Block complete
- *                     +---------------- Ongoing DMA (used to validate unload)
+ *                   | | | | | | | | +-- Transfer complete, no more interrupts
+ *                   | | | | | | | +---- Experiment disarmed
+ *                   | | | | | | +------ Capture framing error
+ *                   | | | | | +-------- DMA error
+ *                   | | | | +---------- DMA address not written in time
+ *                   | | | +------------ Timeout
+ *                   | | +-------------- Block complete
+ *                   | +---------------- Ongoing DMA (used to validate unload)
+ *                   +------------------ Start event (used to capture timestamp)
  * Bit 1 records whether further interrupts are to be expected.  If this bit is
  * set then one of bits 4:1 is set to record the completion reason, unless the
  * experiment completed normally, in which case they're all set to zero.  The
  * sample count is in 4-byte transfers. */
 #define IRQ_STATUS_DONE(status)         ((bool) ((status) & 0x01))
-#define IRQ_STATUS_LENGTH(status)       ((size_t) (((status) >> 8) << 2))
+#define IRQ_STATUS_LENGTH(status)       ((size_t) (((status) >> 9) << 2))
 #define IRQ_STATUS_DMA_ACTIVE(status)   ((bool) ((status) & 0x80))
 #define IRQ_STATUS_COMPLETION(status)   ((size_t) (((status) >> 1) & 0x0F))
+#define IRQ_STATUS_START_EVENT(status)  ((bool) ((status)  & 0x100))
 
 
 static void advance_isr_block(struct stream_open *open)
@@ -157,6 +161,7 @@ static void advance_isr_block(struct stream_open *open)
 
     if (block->state == BLOCK_FREE)
     {
+        dev_dbg(dev, "Advancing to block %p\n", block);
         dma_sync_single_for_device(
             dev, block->dma, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
         assign_buffer(open, next_ix);
@@ -173,6 +178,7 @@ static void receive_isr_block(
 {
     struct device *dev = &open->pcap->pdev->dev;
     block->length = length;
+    dev_dbg(dev, "Receiving block %p with data length %zu\n", block, length);
     dma_sync_single_for_cpu(dev, block->dma, BUF_BLOCK_SIZE, DMA_FROM_DEVICE);
 
     smp_wmb();
@@ -190,10 +196,13 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     void *reg_base = open->pcap->reg_base;
 
     uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
-    if (verbose)
-        printk(KERN_INFO "ISR status: %08x\n", status);
+    dev_dbg(&open->pcap->pdev->dev, "ISR status: %08x\n", status);
 
     smp_rmb();
+
+    if (IRQ_STATUS_START_EVENT(status))
+        ktime_get_real_ts64(&open->start_ts);
+
     if (open->stream_active)
     {
         struct block *block = &open->blocks[open->isr_block_index];
@@ -206,6 +215,7 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     }
     else
         printk(KERN_ERR "Panda: Unexpected interrupt %08x\n", status);
+
     return IRQ_HANDLED;
 }
 
@@ -282,6 +292,8 @@ static void start_hardware(struct stream_open *open)
     open->isr_block_index = 0;
     open->read_block_index = 0;
     open->read_offset = 0;
+    /* having a zeroed timestamp means the start event did not happen. */
+    open->start_ts = (const struct timespec64){0};
     /* After this point we can allow interrupts, they can potentially start as
      * soon as a DMA buffer is assigned. */
     smp_wmb();
@@ -489,6 +501,7 @@ static long panda_stream_ioctl(
     struct file *file, unsigned int cmd, unsigned long arg)
 {
     struct stream_open *open = file->private_data;
+    dev_dbg(&open->pcap->pdev->dev, "ioctl cmd: %x\n", cmd);
     switch (cmd)
     {
         case PANDA_DMA_ARM:
@@ -496,6 +509,10 @@ static long panda_stream_ioctl(
             return 0;
         case PANDA_COMPLETION:
             return stream_completion(open, (void __user *) arg);
+        case PANDA_GET_START_TS:
+            return copy_to_user(
+                (void __user *) arg, &open->start_ts,
+                sizeof(struct timespec64)) ? -EIO : 0;
         default:
             return -EINVAL;
     }

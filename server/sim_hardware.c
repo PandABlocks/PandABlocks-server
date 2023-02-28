@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -179,6 +180,12 @@ size_t hw_read_streamed_data(void *buffer, size_t length, bool *data_end)
 
 void hw_write_arm_streamed_data(void) { }
 uint32_t hw_read_streamed_completion(void) { return 0; }
+
+
+void hw_get_start_ts(struct timespec *ts)
+{
+    clock_gettime(CLOCK_REALTIME, ts);
+}
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

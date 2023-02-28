@@ -262,10 +262,23 @@ static const char *field_type_name(
 }
 
 
+static void format_timestamp_message(
+    char *timestamp_message, size_t max_len, struct timespec *tsp)
+{
+    struct tm tm;
+    gmtime_r(&tsp->tv_sec, &tm);
+    snprintf(timestamp_message, max_len,
+        "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
+        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+        tm.tm_hour, tm.tm_min, tm.tm_sec, tsp->tv_nsec / 1000000);
+}
+
+
 static void send_capture_info(
     struct buffered_file *file,
     const struct data_capture *capture, const struct data_options *options,
-    uint64_t missed_samples, struct timespec *pcap_arm_tsp)
+    uint64_t missed_samples, struct timespec *pcap_arm_tsp,
+    struct timespec *pcap_start_tsp)
 {
     static const char *data_format_strings[] = {
         [DATA_FORMAT_UNFRAMED] = "Unframed",
@@ -283,15 +296,13 @@ static void send_capture_info(
     struct xml_element element =
         start_element(file, "data", options->xml_header, false, true);
 
-    struct tm tm;
     char timestamp_message[MAX_RESULT_LENGTH];
-    gmtime_r(&pcap_arm_tsp->tv_sec, &tm);
-    snprintf(timestamp_message, sizeof(timestamp_message),
-        "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
-        tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-        tm.tm_hour, tm.tm_min, tm.tm_sec, pcap_arm_tsp->tv_nsec / 1000000);
-
+    format_timestamp_message(
+        timestamp_message, MAX_RESULT_LENGTH, pcap_arm_tsp);
     format_attribute(&element, "arm_time", "%s", timestamp_message);
+    format_timestamp_message(
+        timestamp_message, MAX_RESULT_LENGTH, pcap_start_tsp);
+    format_attribute(&element, "start_time", "%s", timestamp_message);
     format_attribute(&element, "missed", "%"PRIu64, missed_samples);
     format_attribute(&element, "process", "%s", data_process);
     format_attribute(&element, "format", "%s", data_format);
@@ -366,12 +377,13 @@ bool send_data_header(
     const struct data_capture *capture,
     const struct data_options *options,
     struct buffered_file *file, uint64_t missed_samples,
-    struct timespec *pcap_arm_tsp)
+    struct timespec *pcap_arm_tsp, struct timespec *pcap_start_tsp)
 {
     struct xml_element header =
         start_element(file, "header", options->xml_header, true, true);
 
-    send_capture_info(file, capture, options, missed_samples, pcap_arm_tsp);
+    send_capture_info(
+        file, capture, options, missed_samples, pcap_arm_tsp, pcap_start_tsp);
 
     /* Format the field capture descriptions. */
     struct xml_element field_group =

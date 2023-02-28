@@ -22,6 +22,7 @@ struct capture_buffer {
 
     pthread_mutex_t mutex;  // Locks all access
     pthread_cond_t signal;  // Used to trigger wakeup events
+    bool released_once;     // Used to wait for first data
 
     void *buffer;           // Base of captured data buffer
     /* Capture and buffer cycle counting are used to manage connections without
@@ -62,6 +63,7 @@ void start_write(struct capture_buffer *buffer)
         buffer->state = STATE_ACTIVE;
         buffer->in_ptr = 0;
         buffer->lost_bytes = 0;
+        buffer->released_once = false;
         memset(buffer->written, 0, buffer->block_count * sizeof(size_t));
         BROADCAST(buffer->signal);
     }
@@ -87,6 +89,7 @@ void release_write_block(struct capture_buffer *buffer, size_t written)
 
     WITH_MUTEX(buffer->mutex)
     {
+        buffer->released_once = true;
         /* Keep track of the total number of bytes in recycled blocks: we'll
          * need this so that late coming clients get to know how much data
          * they've missed. */
@@ -300,6 +303,9 @@ static bool wait_for_buffer_ready(
      * with or until the deadline expires. */
     while (true)
     {
+        while (!buffer->released_once && !buffer->shutdown)
+            pwait_deadline(&buffer->mutex, &buffer->signal, &deadline);
+
         if (buffer->shutdown)
             /* Shutdown forced. */
             return false;

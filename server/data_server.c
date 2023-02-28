@@ -99,6 +99,8 @@ static const struct captured_fields *captured_fields;
 static const struct data_capture *data_capture;
 /* PCAP ARM timestamp */
 static struct timespec pcap_arm_ts;
+/* PCAP becomes armed & enabled timestamp */
+static struct timespec pcap_start_ts;
 
 /* Data completion code at end of experiment. */
 static unsigned int completion_code;
@@ -119,6 +121,7 @@ static void capture_experiment(void)
     completion_code = 0;
 
     bool at_eof = false;
+    bool ts_captured = false;
     while (data_thread_running  &&  !at_eof)
     {
         void *block = get_write_block(data_buffer);
@@ -127,7 +130,14 @@ static void capture_experiment(void)
             count = hw_read_streamed_data(block, DATA_BLOCK_SIZE, &at_eof);
         while (data_thread_running  &&  count == 0  &&  !at_eof);
         if (count > 0)
+        {
+            if (!ts_captured)
+            {
+                hw_get_start_ts(&pcap_start_ts);
+                ts_captured = true;
+            }
             release_write_block(data_buffer, count);
+        }
 
         total_bytes += count;
         experiment_sample_count = total_bytes / sample_length;
@@ -671,7 +681,7 @@ error__t process_data_socket(int scon)
                 ok = send_data_header(
                     captured_fields, data_capture,
                     &connection.options, connection.file, lost_samples,
-                    &pcap_arm_ts);
+                    &pcap_arm_ts, &pcap_start_ts);
 
             uint64_t sent_samples = 0;
             if (ok)

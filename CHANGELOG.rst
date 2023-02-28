@@ -12,6 +12,7 @@ Unreleased
 
 - Fix error in scalar value formatting (github issue #29)
 - Add ``*BITS?`` command to return available bit bus entry names
+- Capture timestamp when PCAP becomes armed and enabled
 
 3.0a3_ - 2022-05-03
 -------------------
