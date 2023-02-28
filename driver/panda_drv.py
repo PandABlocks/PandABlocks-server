@@ -6,10 +6,12 @@ from __future__ import print_function
 import sys
 
 from parse_indent import parse_register_file
-registers = parse_register_file(sys.argv[1])
+blocks, constants = parse_register_file(sys.argv[1])
 
-base, fields = registers['*DRV']
+base, fields = blocks['*DRV']
 base = int(base)
+
+compat_version = 'DRIVER_COMPAT_VERSION'
 
 print('''\
 /* Register definitions derived from configuration registers *DRV section.
@@ -20,3 +22,6 @@ print('''\
 for name, field in fields:
     reg = int(field)
     print('#define %s 0x%05x' % (name, (base << 12) | (reg << 2)))
+
+print('')
+print('#define %s %s' % (compat_version, constants[compat_version]))

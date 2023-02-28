@@ -107,12 +107,18 @@ def parse_indented_file(file_name):
 # simplify the returned result.
 def parse_register_file(file_name):
     parse = parse_indented_file(file_name)
-    result = {}
+    blocks = {}
+    constants = {}
     for reg_value, fields_in in parse:
-        reg, value = reg_value.split()
-        fields = []
-        for field, sub_field in fields_in:
-            assert not sub_field
-            fields.append(field.split(None, 1))
-        result[reg] = (value, fields)
-    return result
+        if '=' in reg_value:
+            name, eq, value = reg_value.split()
+            assert eq == '=', 'Malformed constant'
+            constants[name] = value
+        else:
+            reg, value = reg_value.split()
+            fields = []
+            for field, sub_field in fields_in:
+                assert not sub_field
+                fields.append(field.split(None, 1))
+            blocks[reg] = (value, fields)
+    return blocks, constants

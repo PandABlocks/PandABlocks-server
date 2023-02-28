@@ -222,11 +222,22 @@ static error__t register_parse_normal_header(
 }
 
 
+static error__t register_parse_constant(
+    void *context, const char **line, struct indent_parser *parser)
+{
+    log_message("Skipping \"%s\"", *line);
+    *line += strlen(*line);
+    return ERROR_OK;
+}
+
+
 static error__t register_parse_line(
     void *context, const char **line, struct indent_parser *parser)
 {
     if (**line == '*')
         return register_parse_special_header(context, line, parser);
+    else if (strchr(*line, '='))
+        return register_parse_constant(context, line, parser);
     else
         return register_parse_normal_header(context, line, parser);
 }

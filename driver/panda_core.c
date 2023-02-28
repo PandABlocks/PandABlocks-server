@@ -11,6 +11,7 @@
 
 #include "error.h"
 #include "panda.h"
+#include "panda_drv.h"
 
 
 MODULE_AUTHOR("Michael Abbott, Diamond Light Source Ltd");
@@ -79,6 +80,10 @@ static int panda_probe(struct platform_device *pdev)
     TEST_RC(rc, no_irq, "Unable to read irq");
     pcap->irq = rc;
 
+    /* Check the driver and FPGA protocol version match. */
+    TEST_OK(readl(pcap->reg_base + DRV_COMPAT_VERSION) == DRIVER_COMPAT_VERSION,
+        rc = -EINVAL, bad_version, "Driver compatibility version mismatch");
+
     /* Create character device support. */
     cdev_init(&pcap->cdev, &base_fops);
     pcap->cdev.owner = THIS_MODULE;
@@ -95,6 +100,7 @@ static int panda_probe(struct platform_device *pdev)
     return 0;
 
 no_cdev:
+bad_version:
 no_irq:
 no_res:
     kfree(pcap);

@@ -1,5 +1,12 @@
 # Register interface definition
 
+# Kernel driver compatibility version.  This must be updated when the register
+# set in *DRV changes or if the FPGA changes in any other way that requires a
+# driver change.  The driver will refuse to load if this does not match the
+# value returned by *DRV.DRV_COMPAT_VERSION
+DRIVER_COMPAT_VERSION = 0
+
+
 # This special register block is not present in the config file and contains
 # fixed register definitions used in the hardware interface.
 *REG        0
@@ -56,3 +63,7 @@
     PCAP_IRQ_STATUS         4
     # DMA block size in bytes
     PCAP_BLOCK_SIZE         6
+
+    # Kernel driver compatiblity version check register.  The value in this
+    # register must match DRIVER_COMPAT_VERSION.
+    DRV_COMPAT_VERSION      7

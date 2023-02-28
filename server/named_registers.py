@@ -5,9 +5,9 @@ from __future__ import print_function
 import sys
 
 from parse_indent import parse_register_file
-registers = parse_register_file(sys.argv[1])
+blocks, constants = parse_register_file(sys.argv[1])
 
-base, fields = registers['*REG']
+base, fields = blocks['*REG']
 
 
 # For each field process the field definition: it is a register base optionally
