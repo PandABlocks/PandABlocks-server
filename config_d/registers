@@ -4,7 +4,7 @@
 # set in *DRV changes or if the FPGA changes in any other way that requires a
 # driver change.  The driver will refuse to load if this does not match the
 # value returned by *DRV.DRV_COMPAT_VERSION
-DRIVER_COMPAT_VERSION = 0
+DRIVER_COMPAT_VERSION = 1
 
 # PandA Blocks compatibility version.  This is checked by the server when
 # loading the registers file, and should be updated when the interface to the
