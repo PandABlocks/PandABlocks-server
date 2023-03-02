@@ -28,12 +28,10 @@
 static int block_shift = 9;     // In log2 pages, default is 2MB
 static int block_count = 32;    // Number of buffers in circular buffer
 static int block_timeout = 12500000;    // 100ms in 125MHz FPGA clock ticks
-static int verbose = 0;
 
 module_param(block_shift, int, S_IRUGO);
 module_param(block_count, int, S_IRUGO);
 module_param(block_timeout, int, S_IRUGO);
-module_param(verbose, int, S_IRUGO);
 
 #define BUF_BLOCK_SIZE      (1U << (block_shift + PAGE_SHIFT))
 
