@@ -142,6 +142,10 @@ static void capture_experiment(void)
         total_bytes += count;
         experiment_sample_count = total_bytes / sample_length;
     }
+
+    if (!ts_captured)
+        release_write_block(data_buffer, 0);
+
     completion_code = hw_read_streamed_completion();
 
     end_write(data_buffer);
