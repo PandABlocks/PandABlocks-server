@@ -31,4 +31,7 @@ struct panda_block {
 #define PANDA_COMPLETION_DMA        4
 #define PANDA_COMPLETION_OVERRUN    8
 
-#define PANDA_GET_START_TS _IOR('P', 4, struct timespec64)
+/* Returns timestamp associated with the start of capture, created on rising
+ * edge of capture enable.  To ensure a non-zero timestamp this should not be
+ * called until data has been returned from the data stream. */
+#define PANDA_GET_START_TS  _IOR('P', 4, struct timespec64)

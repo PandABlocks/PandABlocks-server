@@ -45,15 +45,15 @@ struct register_fields {
         32 - BLOCK_REGISTER_BITS - BLOCK_INSTANCE_BITS - BLOCK_TYPE_BITS;
 };
 
-// This has to be bigger or same size than the linux kernel structure with the
-// same name.
-// We are using this to convert to a stardard timespec in a way that we are
-// compatible with 32-bit and 64-bit architectures, however, we will not
-// need it when we update to a newer glibc (which contains __timespec64)
+/* This has to be bigger or same size than the linux kernel structure with the
+ * same name.
+ * We are using this to convert to a stardard timespec in a way that we are
+ * compatible with 32-bit and 64-bit architectures, however, we will not
+ * need it when we update to a newer glibc (which contains __timespec64) */
 struct timespec64 {
     __time64_t tv_sec;  /* Seconds */
     uint32_t tv_nsec;   /* Nanoseconds */
-    uint32_t :32;       /* padding */
+    uint32_t : 32;      /* padding */
 };
 
 

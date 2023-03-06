@@ -129,22 +129,24 @@ static void capture_experiment(void)
         do
             count = hw_read_streamed_data(block, DATA_BLOCK_SIZE, &at_eof);
         while (data_thread_running  &&  count == 0  &&  !at_eof);
-        if (count > 0)
+
+        /* Do our best to capture a timestamp before releasing the first block
+         * of the experiment.  If the experiment is empty this return an empty
+         * timestamp, that's how it goes. */
+        if (!ts_captured)
         {
-            if (!ts_captured)
-            {
-                hw_get_start_ts(&pcap_start_ts);
-                ts_captured = true;
-            }
-            release_write_block(data_buffer, count);
+            hw_get_start_ts(&pcap_start_ts);
+            ts_captured = true;
         }
+
+        /* Unconditionally release the write block here.  Either we have data to
+         * send (exited loop above with count==0), or we're at the end of the
+         * experiment, in which case an empty block is harmless. */
+        release_write_block(data_buffer, count);
 
         total_bytes += count;
         experiment_sample_count = total_bytes / sample_length;
     }
-
-    if (!ts_captured)
-        release_write_block(data_buffer, 0);
 
     completion_code = hw_read_streamed_completion();
 

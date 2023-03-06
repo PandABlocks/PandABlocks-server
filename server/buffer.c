@@ -25,11 +25,11 @@ struct capture_buffer {
     bool released_once;     // Used to wait for first data
 
     void *buffer;           // Base of captured data buffer
+
     /* Capture and buffer cycle counting are used to manage connections without
      * having to keep track of clients.  If the client and buffer capture_cycle
      * don't agree then the client has been reset, and the buffer_cycle is used
      * to check whether the client's buffer has been overwritten. */
-
     unsigned int capture_cycle; // Counts data capture cycles
     unsigned int buffer_cycle;  // Counts buffer cycles, for overrun detection
 
@@ -303,17 +303,15 @@ static bool wait_for_buffer_ready(
      * with or until the deadline expires. */
     while (true)
     {
-        while (!buffer->released_once && !buffer->shutdown)
-            pwait_deadline(&buffer->mutex, &buffer->signal, &deadline);
-
         if (buffer->shutdown)
             /* Shutdown forced. */
             return false;
-        if (buffer->state != STATE_IDLE  &&
+        else if (buffer->state != STATE_IDLE  &&
             buffer->capture_cycle == reader->capture_cycle)
-            /* New capture cycle ready for us. */
-            return true;
-        if (!pwait_deadline(&buffer->mutex, &buffer->signal, &deadline))
+            /* New capture cycle ready for us, but only return success once
+             * we've started to receive data. */
+            return buffer->released_once;
+        else if (!pwait_deadline(&buffer->mutex, &buffer->signal, &deadline))
             /* Timeout detected. */
             return false;
     }
