@@ -17,7 +17,6 @@
 MODULE_AUTHOR("Michael Abbott, Diamond Light Source Ltd");
 MODULE_DESCRIPTION("PandA device driver");
 MODULE_LICENSE("GPL");
-MODULE_SUPPORTED_DEVICE("panda");
 MODULE_VERSION("0");
 
 
