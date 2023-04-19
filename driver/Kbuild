@@ -4,6 +4,7 @@ EXTRA_CFLAGS += -Wextra
 EXTRA_CFLAGS += -Wno-declaration-after-statement
 EXTRA_CFLAGS += -Wno-unused-parameter
 EXTRA_CFLAGS += -Wno-missing-field-initializers
+EXTRA_CFLAGS += -Wno-type-limits
 
 # Suppress some kernel error messages
 EXTRA_CFLAGS += -Wno-empty-body
