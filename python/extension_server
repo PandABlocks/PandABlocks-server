@@ -131,7 +131,7 @@ class Server:
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_sock.bind(('localhost', port))
-        self.server_sock.listen(0)
+        self.server_sock.listen(1)
         # Will be filled in by self.run()
         self.file = None
         self.ext = None
