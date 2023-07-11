@@ -142,6 +142,7 @@ static inline int step_index(int ix)
  * experiment completed normally, in which case they're all set to zero.  The
  * sample count is in 4-byte transfers. */
 #define IRQ_STATUS_DONE(status)         ((bool) ((status) & 0x01))
+#define IRQ_STATUS_NEW_BUFFER(status)   ((bool) ((status) & 0x61))
 #define IRQ_STATUS_LENGTH(status)       ((size_t) (((status) >> 9) << 2))
 #define IRQ_STATUS_DMA_ACTIVE(status)   ((bool) ((status) & 0x80))
 #define IRQ_STATUS_COMPLETION(status)   ((size_t) (((status) >> 1) & 0x0F))
@@ -198,18 +199,23 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
 
     smp_rmb();
 
-    if (IRQ_STATUS_START_EVENT(status))
-        ktime_get_real_ts64(&open->start_ts);
-
     if (open->stream_active)
     {
-        struct block *block = &open->blocks[open->isr_block_index];
-        open->stream_active = !IRQ_STATUS_DONE(status);
-        if (open->stream_active)
-            advance_isr_block(open);
-        else
-            open->completion = IRQ_STATUS_COMPLETION(status);
-        receive_isr_block(open, block, IRQ_STATUS_LENGTH(status));
+        if (IRQ_STATUS_START_EVENT(status))
+            ktime_get_real_ts64(&open->start_ts);
+
+        if (IRQ_STATUS_NEW_BUFFER(status))
+        {
+            /* Pick up current block before potentially advancing */
+            struct block *block = &open->blocks[open->isr_block_index];
+
+            open->stream_active = !IRQ_STATUS_DONE(status);
+            if (open->stream_active)
+                advance_isr_block(open);
+            else
+                open->completion = IRQ_STATUS_COMPLETION(status);
+            receive_isr_block(open, block, IRQ_STATUS_LENGTH(status));
+        }
     }
     else
         printk(KERN_ERR "Panda: Unexpected interrupt %08x\n", status);
