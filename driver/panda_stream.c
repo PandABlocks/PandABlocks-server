@@ -388,7 +388,7 @@ static int wait_for_block(struct stream_open *open)
 {
     struct block *block = &open->blocks[open->read_block_index];
     int rc = wait_event_interruptible_timeout(open->wait_queue,
-        block->state != BLOCK_DMA, HZ);
+        block->state == BLOCK_DATA || block->state == BLOCK_DATA_END, HZ);
     if (rc == 0)
         /* Normal timeout.  Tell caller they can try again. */
         return -EAGAIN;
