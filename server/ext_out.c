@@ -157,7 +157,7 @@ static enum capture_mode get_capture_mode(enum ext_out_type ext_type)
     switch (ext_type)
     {
         case EXT_OUT_TIMESTAMP: return CAPTURE_MODE_SCALED64;
-        case EXT_OUT_SAMPLES:   return CAPTURE_MODE_UNSCALED;
+        case EXT_OUT_SAMPLES:   return CAPTURE_MODE_SCALED32;
         case EXT_OUT_BITS:      return CAPTURE_MODE_UNSCALED;
         default:
             ASSERT_FAIL();
