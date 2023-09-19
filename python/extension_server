@@ -122,6 +122,8 @@ class Extensions:
         # otherwise it must be a tuple of register values to be written.
         if result is None:
             return ()
+        elif isinstance(result, int):
+            return (result,)
         else:
             return tuple(result)
 
