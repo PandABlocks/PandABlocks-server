@@ -41,7 +41,7 @@ W4 3 2 1
 
 # Parse unknown block
 B1 unknown
-ENo module named unknown
+ENo module named 'test_extension.unknown'
 
 # Invalid command
 xx
