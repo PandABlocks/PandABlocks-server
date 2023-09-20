@@ -177,7 +177,7 @@ static void get_capture_info(
         .capture_mode = get_capture_mode(ext_out->ext_type),
         .capture_string = "Value",
         /* Scaling info only used for timestamp fields. */
-        .scale = 1.0 / CLOCK_FREQUENCY,
+        .scale = 1.0 / hw_read_nominal_clock(),
         .offset = 0.0,
         .units = "s",
     };

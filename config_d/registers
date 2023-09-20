@@ -50,6 +50,11 @@ BLOCKS_COMPAT_VERSION = 0
     # Range of MAC addresses
     MAC_ADDRESS_BASE        16 .. 23
 
+    # Nominal clock.  If this register is non zero the value returned will be
+    # used as the reported clock frequency in Hz, otherwise the standard
+    # frequency of 125 MHz will be reported and used.
+    NOMINAL_CLOCK           24
+
 
 # These registers are used by the kernel driver to read the data capture stream.
 # This block is not used by the server, but is here for documentation and other

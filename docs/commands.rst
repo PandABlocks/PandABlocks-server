@@ -163,6 +163,9 @@ below:
 | ``*SAVESTATE=``               | Triggers immediate save to file of the       |
 |                               | persistence file state.                      |
 +-------------------------------+----------------------------------------------+
+| ``*CLOCK_FREQ?``              | Returns currently configured system clock    |
+|                               | frequency                                    |
++-------------------------------+----------------------------------------------+
 
 ``*IDN?``
     Returns system identification string, for example the following::
@@ -398,3 +401,7 @@ below:
     launched) with the current state.  Returns after a file system ``sync``
     call, so it is safe to power-off the system after this command has
     completed.
+
+``*CLOCK_FREQ?``
+    Returns currently configured FPGA clock frequency as used to convert between
+    times in natural units and times in clock ticks.

@@ -464,6 +464,16 @@ static error__t put_savestate(
 }
 
 
+/* *CLOCK_FREQ?
+ *
+ * Returns current configured clock frequency. */
+static error__t get_clock_freq(
+    const char *command, struct connection_result *result)
+{
+    return format_one_result(result, "%d", hw_read_nominal_clock());
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System command dispatch. */
 
@@ -495,6 +505,7 @@ static const struct command_table_entry command_table_list[] = {
     { "ENUMS",      true,  .get = get_enums, },
     { "PCAP",       true,  .get = get_pcap,     .put = put_pcap, },
     { "SAVESTATE",  false, .put = put_savestate, },
+    { "CLOCK_FREQ", false, .get = get_clock_freq, },
 };
 
 static struct hash_table *command_table;

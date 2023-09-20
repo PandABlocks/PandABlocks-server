@@ -253,6 +253,16 @@ uint32_t hw_read_fpga_capabilities(void)
 }
 
 
+uint32_t hw_read_nominal_clock(void)
+{
+    uint32_t frequency = read_named_register(NOMINAL_CLOCK);
+    if (frequency > 0)
+        return frequency;
+    else
+        return NOMINAL_CLOCK_FREQUENCY;
+}
+
+
 /******************************************************************************/
 /* Data capture. */
 

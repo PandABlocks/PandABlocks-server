@@ -37,10 +37,10 @@ static const struct enum_set time_units_enum_set = {
 
 static const double time_conversion[] =
 {
-    (double) 60 * CLOCK_FREQUENCY,      // TIME_MINS
-    CLOCK_FREQUENCY,                    // TIME_SECS
-    CLOCK_FREQUENCY / 1e3,              // TIME_MSECS
-    CLOCK_FREQUENCY / 1e6,              // TIME_USECS
+    60.0,       // TIME_MINS
+    1.0,        // TIME_SECS
+    1e-3,       // TIME_MSECS
+    1e-6,       // TIME_USECS
 };
 
 static const struct enumeration *time_units_enumeration;
@@ -120,7 +120,8 @@ static error__t time_class_format(
     uint64_t value, unsigned int scale, char result[], size_t length)
 {
     return format_double(
-        result, length, (double) value / time_conversion[scale]);
+        result, length,
+        (double) value / time_conversion[scale] / hw_read_nominal_clock());
 }
 
 
@@ -173,7 +174,8 @@ static error__t time_class_parse(
          * result of the calculation below and detect range overflow ... good
          * luck with that, seems that whether overflow is actually reported is
          * target dependent, and doesn't work for us.  Ho hum. */
-        DO(value = scaled_value * time_conversion[scale])  ?:
+        DO(value =
+            scaled_value * time_conversion[scale] * hw_read_nominal_clock())  ?:
         TEST_OK_(0 <= value  &&  value <= max_value,
             "Time setting out of range")  ?:
         DO(*result = (uint64_t) llround(value));
@@ -289,7 +291,8 @@ static error__t time_min_format(
     struct time_field *field = &state->values[number];
     return format_double(
         result, length,
-        (double) (state->min_value + 1) / time_conversion[field->time_scale]);
+        (double) (state->min_value + 1) /
+            time_conversion[field->time_scale] / hw_read_nominal_clock());
 }
 
 
