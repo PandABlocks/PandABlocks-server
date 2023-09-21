@@ -76,4 +76,4 @@ BLOCKS_COMPAT_VERSION = 0
 
     # Kernel driver compatiblity version check register.  The value in this
     # register must match DRIVER_COMPAT_VERSION.
-    DRV_COMPAT_VERSION      7
+    COMPAT_VERSION          7
