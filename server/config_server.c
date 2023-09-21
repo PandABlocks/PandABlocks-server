@@ -90,7 +90,7 @@ uint64_t update_change_index(
         else
             /* If this change isn't to be reported, push the report index out to
              * the indefinite future. */
-            reported[i] = (uint64_t) (int64_t) -1;
+            reported[i] = UINT64_MAX;
     return change_index;
 }
 
