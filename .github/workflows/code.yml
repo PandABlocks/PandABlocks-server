@@ -41,7 +41,7 @@ jobs:
         run: |
           cd PandABlocks-rootfs
           ln -s CONFIG.example CONFIG
-          make kernel
+          make kernel PLATFORM=${{matrix.platform}}
 
       - name: Make zpkg
         run: |
