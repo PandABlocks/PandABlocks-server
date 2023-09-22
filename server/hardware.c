@@ -51,7 +51,7 @@ struct register_fields {
  * compatible with 32-bit and 64-bit architectures, however, we will not
  * need it when we update to a newer glibc (which contains __timespec64) */
 struct timespec64 {
-    __time64_t tv_sec;  /* Seconds */
+    int64_t tv_sec;     /* Seconds */
     uint32_t tv_nsec;   /* Nanoseconds */
     uint32_t : 32;      /* padding */
 };
