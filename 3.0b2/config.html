@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuration Files &mdash; PandABlocks-server 3.0b2
+ documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Extension Server" href="extension.html" />
+    <link rel="prev" title="Building and Configuring Panda Server" href="building.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PandABlocks-server
+              <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.0b2
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration Files</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#configuration-file-config">Configuration file <code class="docutils literal notranslate"><span class="pre">config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#field-type">Field type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#field-subtype">Field subtype</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#register-file-registers">Register file <code class="docutils literal notranslate"><span class="pre">registers</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#extension-register-syntax">Extension register syntax</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#description-file-description">Description file <code class="docutils literal notranslate"><span class="pre">description</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Configuration Files</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/config.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="configuration-files">
+<span id="config"></span><h1>Configuration Files<a class="headerlink" href="#configuration-files" title="Permalink to this heading"></a></h1>
+<p>On startup the Panda Server loads its configuration from three files:
+<code class="docutils literal notranslate"><span class="pre">config</span></code>, <code class="docutils literal notranslate"><span class="pre">registers</span></code>, <code class="docutils literal notranslate"><span class="pre">description</span></code>.  These are loaded from the
+<code class="docutils literal notranslate"><span class="pre">config_d</span></code> directory in build directory when running the basic simulation, and
+on Panda the configuration files are loaded from <code class="docutils literal notranslate"><span class="pre">/opt/share/panda/config_d</span></code>.</p>
+<p>The syntax of each configuration file is documented here.  The format of each
+field definition closely follows the format documented in <a class="reference internal" href="fields.html#fields"><span class="std std-ref">Blocks, Fields and Attributes</span></a>.</p>
+<p>The three files have the following distinct functions.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 19%" />
+<col style="width: 81%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">config</span></code></p></td>
+<td><p>Configuration: defines list of blocks, fields in each block,
+and the behaviour of each field.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">registers</span></code></p></td>
+<td><p>Registers: for each block and field defines the associated
+register offsets.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">description</span></code></p></td>
+<td><p>Description: optionally defines a description string for each
+block and field.</p></td>
+</tr>
+</tbody>
+</table>
+<p>All files have a common structure and indentation is used for structure.
+Comments begin with <code class="docutils literal notranslate"><span class="pre">#</span></code>, blocks are identified by their name in the first
+column, and fields are listed at the next level of indentation.</p>
+<div class="section" id="configuration-file-config">
+<h2>Configuration file <code class="docutils literal notranslate"><span class="pre">config</span></code><a class="headerlink" href="#configuration-file-config" title="Permalink to this heading"></a></h2>
+<p>This file defines all of the blocks and fields available to this instance of
+Panda and is processed first.</p>
+<p>The syntax of a block definition is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">block</span><span class="o">-</span><span class="n">name</span> <span class="p">[</span> <span class="s2">&quot;[&quot;</span> <span class="n">count</span> <span class="s2">&quot;]&quot;</span> <span class="p">]</span>
+    <span class="p">[</span> <span class="n">field</span><span class="o">-</span><span class="n">definition</span> <span class="p">]</span><span class="o">*</span>
+</pre></div>
+</div>
+<p>This means that a block definition consists of a <cite>block-name</cite>, which can be any
+word used to name the block, optionally followed by a block <cite>count</cite> enclosed in
+square brackets, followed by any number of indented <cite>field-definition</cite>s.</p>
+<p>The syntax of a field definition is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">field</span><span class="o">-</span><span class="n">name</span> <span class="n">field</span><span class="o">-</span><span class="nb">type</span> <span class="p">[</span> <span class="n">field</span><span class="o">-</span><span class="nb">type</span><span class="o">-</span><span class="n">data</span> <span class="p">]</span>
+</pre></div>
+</div>
+<p>The <cite>field-name</cite> names the field, the <cite>field-type</cite> is a single word from the
+list documented below, and the <cite>field-type-data</cite> depended on the field type as
+documented.</p>
+<p>The <cite>field type</cite> determines the basic function of the field, what actions can
+be performed on the field, and how the field interacts with the hardware.
+Typically each field corresponds to a single register or function of the block.</p>
+<p>Many field type have an associated <cite>field subtype</cite> which is used to convert
+between the values show to the user of the server and the values written to or
+read from registers.</p>
+<div class="section" id="field-type">
+<h3>Field type<a class="headerlink" href="#field-type" title="Permalink to this heading"></a></h3>
+<p>The following field types are defined.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 99%" />
+<col style="width: 1%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">param</span></code> field-subtype [ <code class="docutils literal notranslate"><span class="pre">=</span></code> value ]</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">read</span></code> field-subtype</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">write</span></code> field-subtype</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code> [ <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> min_value ]</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bit_out</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pos_out</span></code> [ scale [ offset [ units ]]]</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ext_out</span></code> ( <code class="docutils literal notranslate"><span class="pre">timestamp</span></code> | <code class="docutils literal notranslate"><span class="pre">samples</span></code> | <code class="docutils literal notranslate"><span class="pre">bits</span></code> group )</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bit_mux</span></code> [ <code class="docutils literal notranslate"><span class="pre">=</span></code> value ]</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pos_mux</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">table</span></code></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">param</span></code> field-subtype [ <code class="docutils literal notranslate"><span class="pre">=</span></code> value ]</dt><dd><p>A <code class="docutils literal notranslate"><span class="pre">param</span></code> field is used to define a single 32-bit value written to a
+register.  The <cite>field-subtype</cite> must be specified.  Optionally an initial
+value (only relevant when no state file has been loaded) can be specified.
+In this case the initial value is read as a raw unsigned integer which is
+written directly to the hardware on startup.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">read</span></code> field-subtype</dt><dd><p>A <code class="docutils literal notranslate"><span class="pre">read</span></code> field is used for read-only registers.  The <cite>field-subtype</cite> must
+be specified.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">write</span></code> field-subtype</dt><dd><p>A <code class="docutils literal notranslate"><span class="pre">write</span></code> field is used for write-only registers which trigger immediate
+actions on a block.  The <cite>field-subtype</cite> must be specified, and the <cite>action</cite>
+subtype is useful for <code class="docutils literal notranslate"><span class="pre">write</span></code> fields which take no data.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">time</span></code> [ <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> min_value ]</dt><dd><p>Time fields behave like <code class="docutils literal notranslate"><span class="pre">param</span></code> fields, but need special treatment because
+the underlying value is 64-bits and so two registers need to be written.</p>
+<p>If desired a minimum valid value can be specified as <cite>min_value</cite>.  This will
+prevent the writing of values less than this value and can be read as the
+<code class="docutils literal notranslate"><span class="pre">.MIN</span></code> attribute.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bit_out</span></code></dt><dd><p>This identifies an output bit.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pos_out</span></code> [ scale [ offset [ units ]]]</dt><dd><p>This identifies a position bus output.  Optionally default values for the
+scale, offset, and units fields can be specified in the config file.  Note
+that these are only effective when there is no persistence file to load.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ext_out</span></code> ext-extra</dt><dd><p>This identifies an entry on the extension bus which needs special treatment.
+The <cite>ext-extra</cite> field must be one of the following values:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>ext-extra</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code></p></td>
+<td><p>Capture timestamp as a 64-bit value</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">samples</span></code></p></td>
+<td><p>Captures sample count for data capture.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bits</span></code> group</p></td>
+<td><p>Defines fields which allow the bit bus to be captured.  The
+group number identifies which 32-bit group of 128 bits is
+captured.</p></td>
+</tr>
+</tbody>
+</table>
+</dd>
+</dl>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">bit_mux</span></code> [ <code class="docutils literal notranslate"><span class="pre">=</span></code> value ]</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pos_mux</span></code></div>
+</div>
+<blockquote>
+<div><p>These two are configuration settings for selecting inputs, and behave like
+<code class="docutils literal notranslate"><span class="pre">param</span></code> fields.  As for <code class="docutils literal notranslate"><span class="pre">param</span></code> a default value can be assigned to
+<code class="docutils literal notranslate"><span class="pre">bit_mux</span></code>, but the only useful value is 129 (<code class="docutils literal notranslate"><span class="pre">ONE</span></code>).</p>
+</div></blockquote>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">table</span></code> [ row-words ]</dt><dd><p>Tables are treated specially.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="field-subtype">
+<h3>Field subtype<a class="headerlink" href="#field-subtype" title="Permalink to this heading"></a></h3>
+<p>The following field subtype can follow a <code class="docutils literal notranslate"><span class="pre">param</span></code>, <code class="docutils literal notranslate"><span class="pre">read</span></code> or <code class="docutils literal notranslate"><span class="pre">write</span></code> field
+type:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 99%" />
+<col style="width: 1%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">uint</span></code> [ max-value ]</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">scalar</span></code> scale [ offset [ units ]]</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bit</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">action</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lut</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">enum</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">position</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">enum</span></code> must be followed by indented lines each consisting of a
+number followed by a string: the string is the enumeration value written to
+the user, the number is the value written to the register.</p>
+</div>
+</div>
+<div class="section" id="register-file-registers">
+<h2>Register file <code class="docutils literal notranslate"><span class="pre">registers</span></code><a class="headerlink" href="#register-file-registers" title="Permalink to this heading"></a></h2>
+<p>This file defines the register assignments for each block and register.  The
+body of this file should contain a sequencer of block and field definitions
+repeating the <code class="docutils literal notranslate"><span class="pre">config</span></code> file, except that the field type specification is
+replaced by a type specific register definition.</p>
+<p>So a block definition is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">block</span><span class="o">-</span><span class="n">name</span> <span class="p">{</span> <span class="p">[</span> <span class="s2">&quot;S&quot;</span> <span class="p">]</span> <span class="n">block</span><span class="o">-</span><span class="n">register</span> <span class="o">|</span> <span class="s2">&quot;X&quot;</span> <span class="p">}</span> <span class="p">[</span> <span class="n">extension</span><span class="o">-</span><span class="n">module</span> <span class="p">]</span>
+    <span class="p">[</span> <span class="n">field</span><span class="o">-</span><span class="n">definition</span> <span class="p">]</span><span class="o">*</span>
+</pre></div>
+</div>
+<p>If the <cite>block-register</cite> number is prefixed with <code class="docutils literal notranslate"><span class="pre">S</span></code> then the same block
+register number can be shared with multiple blocks: this allows a single
+hardware implementation to be presented as multiple software blocks.  If <code class="docutils literal notranslate"><span class="pre">X</span></code>
+is used instead of specifying <cite>block-register</cite> then no fields can use registers,
+so must be extension fields with no register linkage.</p>
+<p>The register number can be followed by an <cite>extension-module</cite> which is used to
+identify this block to the extension server, and will enable use of the
+extension register syntax defined below.</p>
+<p>A field definition is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">field</span><span class="o">-</span><span class="n">definition</span> <span class="o">=</span> <span class="n">field</span><span class="o">-</span><span class="n">name</span> <span class="n">register</span><span class="o">-</span><span class="n">specification</span>
+</pre></div>
+</div>
+<p>where <cite>register-specification</cite> depends on the associated field type as
+follows:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 29%" />
+<col style="width: 71%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Class</p></th>
+<th class="head"><p>Register syntax</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">param</span></code></p></td>
+<td><p>register | write-extension</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">read</span></code></p></td>
+<td><p>register | read-extension</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">write</span></code></p></td>
+<td><p>register | write-extension</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code></p></td>
+<td><p>low-register high-register</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bit_out</span></code></p></td>
+<td><p>( bit-index )N</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pos_out</span></code></p></td>
+<td><p>( pos-index )N</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ext_out</span> <span class="pre">timestamp</span></code></p></td>
+<td><p>ext-index ext-index</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ext_out</span></code> other</p></td>
+<td><p>ext-index</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bit_mux</span></code></p></td>
+<td><p>register</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pos_mux</span></code></p></td>
+<td><p>register</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">table</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">short</span></code> size init-reg fill-reg length-reg</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">table</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">long</span></code> <code class="docutils literal notranslate"><span class="pre">2^</span></code>size base-reg length-reg</p></td>
+</tr>
+</tbody>
+</table>
+<p>where the syntax <code class="docutils literal notranslate"><span class="pre">(...)N</span></code> means that the given register number is repeated N
+times where N is the number of instances of the block.  See below for an
+explanation of <cite>read-extension</cite> and <cite>write-extension</cite>.</p>
+<div class="section" id="extension-register-syntax">
+<h3>Extension register syntax<a class="headerlink" href="#extension-register-syntax" title="Permalink to this heading"></a></h3>
+<p>If the extension server is enabled (with the <code class="docutils literal notranslate"><span class="pre">-X</span></code> command line option on the
+server) and if an extension module has been loaded as part of the block
+specification then <code class="docutils literal notranslate"><span class="pre">param</span></code>, <code class="docutils literal notranslate"><span class="pre">read</span></code>, and <code class="docutils literal notranslate"><span class="pre">write</span></code> subtypes can all be
+redirected to the extension server using the <cite>read-extension</cite> and
+<cite>write-extension</cite> syntax:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">read</span><span class="o">-</span><span class="n">extension</span> <span class="o">=</span> <span class="p">[</span> <span class="n">read</span><span class="o">-</span><span class="n">reg</span> <span class="p">]</span><span class="o">*</span> <span class="s2">&quot;X&quot;</span> <span class="n">field</span><span class="o">-</span><span class="n">spec</span>
+<span class="n">write</span><span class="o">-</span><span class="n">extension</span> <span class="o">=</span> <span class="p">[</span> <span class="n">read</span><span class="o">-</span><span class="n">reg</span> <span class="p">]</span><span class="o">*</span> <span class="p">[</span> <span class="s2">&quot;W&quot;</span> <span class="p">[</span> <span class="n">write</span><span class="o">-</span><span class="n">reg</span> <span class="p">]</span><span class="o">*</span> <span class="p">]</span> <span class="s2">&quot;X&quot;</span> <span class="n">field</span><span class="o">-</span><span class="n">spec</span>
+</pre></div>
+</div>
+<p>In this syntax <cite>field-spec</cite> is passed through to the associated
+<cite>extension-module</cite> to create the binding between this field and the extension
+server.  The specified <cite>read-reg</cite>s and <cite>write-reg</cite>s will be used when
+processing this field.</p>
+<p>See <a class="reference internal" href="extension.html#extension"><span class="std std-ref">Extension Server</span></a> for more details on extension fields.</p>
+</div>
+</div>
+<div class="section" id="description-file-description">
+<h2>Description file <code class="docutils literal notranslate"><span class="pre">description</span></code><a class="headerlink" href="#description-file-description" title="Permalink to this heading"></a></h2>
+<p>The entire content of the description file is optional.  The basic syntax is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">block</span><span class="o">-</span><span class="n">name</span> <span class="n">block</span><span class="o">-</span><span class="n">description</span>
+    <span class="p">[</span> <span class="n">field</span> <span class="p">]</span><span class="o">*</span>
+</pre></div>
+</div>
+<p>where field is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">field</span><span class="o">-</span><span class="n">name</span> <span class="n">field</span><span class="o">-</span><span class="n">description</span>
+</pre></div>
+</div>
+<p>and the description is any newline terminated string in UTF-8 format.</p>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="building.html" class="btn btn-neutral float-left" title="Building and Configuring Panda Server" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="extension.html" class="btn btn-neutral float-right" title="Extension Server" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

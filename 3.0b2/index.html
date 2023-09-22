@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panda Server &mdash; PandABlocks-server 3.0b2
+ documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Command Interface" href="commands.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            PandABlocks-server
+              <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.0b2
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Panda Server</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="panda-server">
+<h1>Panda Server<a class="headerlink" href="#panda-server" title="Permalink to this heading"></a></h1>
+<p><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/actions?query=workflow%3A%22Code+CI%22"><img alt="Code CI" src="https://github.com/PandABlocks/PandABlocks-server/workflows/Code%20CI/badge.svg?branch=master" /></a> <a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/actions?query=workflow%3A%22Docs+CI%22"><img alt="Docs CI" src="https://github.com/PandABlocks/PandABlocks-server/workflows/Docs%20CI/badge.svg?branch=master" /></a> <a class="reference external" href="https://opensource.org/licenses/Apache-2.0"><img alt="Apache License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" /></a></p>
+<p>The Panda socket server provides a bridge between the register interface to the
+FPGA firmware controlling the Panda hardware and users and other software.  The
+interface provided by this server is designed to be simple and robust.</p>
+<p>The Panda firmware is structured into numerous functional blocks, with each
+block configured via a number of fields.  This structure is directly reflected
+in the functional interface provided by this server: most commands read or write
+specific fields.</p>
+<p>The socket server publishes two socket end points, one for configuration control
+the other for streamed data capture.  The configuration control socket accepts
+simple ASCII commands and returns all data in readable ASCII format.  The data
+capture socket supports no commands and simply streams captured data in a
+lightly structured binary format.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 84%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>Source code</p></td>
+<td><p><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server">https://github.com/PandABlocks/PandABlocks-server</a></p></td>
+</tr>
+<tr class="row-even"><td><p>Documentation</p></td>
+<td><p><a class="reference external" href="https://PandABlocks.github.io/PandABlocks-server">https://PandABlocks.github.io/PandABlocks-server</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Changelog</p></td>
+<td><p><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst</a></p></td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="configuration-interface">
+<h2>Configuration Interface<a class="headerlink" href="#configuration-interface" title="Permalink to this heading"></a></h2>
+<p>Configuration commands are sent as newline (ASCII character 0x0A) terminated
+strings and all responses are also newline terminated.  Three basic forms of
+command are accepted:</p>
+<dl class="simple">
+<dt>Query commands.</dt><dd><p>These commands must be terminated by a single <code class="docutils literal notranslate"><span class="pre">?</span></code> character.  The three
+possible responses are: an error message, a single value, or a list of
+values.</p>
+</dd>
+<dt>Assignment commands.</dt><dd><p>These commands contain an <code class="docutils literal notranslate"><span class="pre">=</span></code> character, and are used for assigning values
+to fields.  The two possible responses are an error message or <code class="docutils literal notranslate"><span class="pre">OK</span></code>.</p>
+</dd>
+<dt>Table assignment.</dt><dd><p>Any command containing a <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> character (not preceded by <code class="docutils literal notranslate"><span class="pre">?</span></code> or <code class="docutils literal notranslate"><span class="pre">=</span></code>) is
+a table assignment command.  The initial command may be followed by any
+number of lines of text, and <em>must</em> be terminated by an empty line.  The two
+possible responses are an error message or <code class="docutils literal notranslate"><span class="pre">OK</span></code>.</p>
+</dd>
+</dl>
+<p>The four possible responses are:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">ERR</span></code> error-message</dt><dd><p>An error response is always sent as <code class="docutils literal notranslate"><span class="pre">ERR</span></code> followed by an error message.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">OK</span></code></dt><dd><p>Successful completion of either form of assignment command generates the
+<code class="docutils literal notranslate"><span class="pre">OK</span></code> response.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">OK</span> <span class="pre">=</span></code>value</dt><dd><p>Successful completion of a query command returning a single value returns
+the value preceded by <code class="docutils literal notranslate"><span class="pre">OK</span> <span class="pre">=</span></code>.</p>
+</dd>
+<dt>Multi-line response</dt><dd><p>Successful completion of a query command returning multiple values returns
+each value on a line by itself starting with <code class="docutils literal notranslate"><span class="pre">!</span></code> and ends the sequence
+with a line containing only <code class="docutils literal notranslate"><span class="pre">.</span></code>.</p>
+</dd>
+</dl>
+<div class="section" id="example-commands">
+<h3>Example Commands<a class="headerlink" href="#example-commands" title="Permalink to this heading"></a></h3>
+<p>In the examples below, the command sent is shown preceded by <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> and the
+response with <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>: this is the syntax used by the helper tool
+<code class="docutils literal notranslate"><span class="pre">simulation/tcp_client.py</span></code>:</p>
+<p>Simple server identification command including version information:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *IDN?
+&gt; OK =PandA SW: 330bd94-dirty FPGA: 0.1.9 d1275f61 00000000
+</pre></div>
+</div>
+<p>Interrogate list of fields provided by the <code class="docutils literal notranslate"><span class="pre">TTLIN</span></code> block:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; TTLIN.*?
+&gt; !VAL 0 bit_out
+&gt; !TERM 1 param enum
+&gt; .
+</pre></div>
+</div>
+<p>Interrogate input termination for <code class="docutils literal notranslate"><span class="pre">TTLIN1</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; TTLIN1.TERM?
+&gt; OK =High-Z
+</pre></div>
+</div>
+<p>Set input termination:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span> <span class="n">TTLIN1</span><span class="o">.</span><span class="n">TERM</span><span class="o">=</span><span class="mi">50</span><span class="o">-</span><span class="n">Ohm</span>
+<span class="o">&gt;</span> <span class="n">OK</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="streaming-capture-interface">
+<h2>Streaming Capture Interface<a class="headerlink" href="#streaming-capture-interface" title="Permalink to this heading"></a></h2>
+<p>All bit and position values received and generated by PandA can be captured on
+an internally generated trigger and streamed to a data capture port.  A variety
+of data capture, processing, and delivery options can be selected.</p>
+</div>
+<div class="section" id="building">
+<h2>Building<a class="headerlink" href="#building" title="Permalink to this heading"></a></h2>
+<p>Before running <code class="docutils literal notranslate"><span class="pre">make</span></code> first copy the file <code class="docutils literal notranslate"><span class="pre">CONFIG.example</span></code> to <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> and
+edit according to your needs.  If you wish to build the server or the driver
+then a Zynq cross-compiler will be needed, and if you wish to build the driver
+then a pre-build kernel will be needed – for this reference <a class="reference external" href="https://github.com/PandABlocks/PandABlocks-rootfs">PandABlocks-rootfs</a> and build the kernel
+target.</p>
+<p>The panda-server Makefile supports four main build targets:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">driver</span></code></dt><dd><p>This builds the kernel driver required by the target server to communicate
+with the FPGA hardware.  This target can only be built if the cross-compiler
+is on the path or <code class="docutils literal notranslate"><span class="pre">BINUTILS_DIR</span></code> has been configured in <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> to
+point to the directory containing the cross-compiler, and if <code class="docutils literal notranslate"><span class="pre">KERNEL_DIR</span></code>
+has been set to the location of a cross-build of the kernel previously
+generated by <code class="docutils literal notranslate"><span class="pre">PandABlocks-rootfs</span></code>.  The built driver is placed in
+<code class="docutils literal notranslate"><span class="pre">$(BUILD_DIR)/driver/panda.ko</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">server</span></code></dt><dd><p>This builds the PandA socket server to run on the target Zynq system.
+This target can only be built if the cross-compiler is installed as for
+<code class="docutils literal notranslate"><span class="pre">driver</span></code>, but there is no dependency on the kernel build.  The built
+server is placed in <code class="docutils literal notranslate"><span class="pre">$(BUILD_DIR)/server/server</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sim_server</span></code></dt><dd><p>This builds the simulation version version of the PandA socket server.  To
+run the server run the script <code class="docutils literal notranslate"><span class="pre">simserver</span></code> in the root directory.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">docs</span></code></dt><dd><p>This builds the documentation and places the results in
+<code class="docutils literal notranslate"><span class="pre">$(BUILD_DIR)/docs/html</span></code>.</p>
+</dd>
+</dl>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="commands.html#configuration-commands">Configuration Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="commands.html#system-commands">System Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#field-types">Field Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#field-sub-types">Field Sub-Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#summary-of-sub-types">Summary of Sub-Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fields.html#summary-of-attributes">Summary of Attributes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="capture.html#capture-configuration">Capture Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="capture.html#data-capture-port">Data Capture Port</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#capture-options">Capture Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#data-transport-formatting">Data Transport Formatting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#data-header">Data Header</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#experiment-completion">Experiment Completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#high-performance-mode">High performance mode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="capture.html#examples">Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="building.html#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#setting-up-the-config-file">Setting up the <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#build-targets">Build Targets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html#generated-files">Generated Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="config.html#configuration-file-config">Configuration file <code class="docutils literal notranslate"><span class="pre">config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="config.html#field-type">Field type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="config.html#field-subtype">Field subtype</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="config.html#register-file-registers">Register file <code class="docutils literal notranslate"><span class="pre">registers</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="config.html#extension-register-syntax">Extension register syntax</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="config.html#description-file-description">Description file <code class="docutils literal notranslate"><span class="pre">description</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#extension-modules">Extension Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#Extension"><code class="docutils literal notranslate"><span class="pre">Extension</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="extension.html#Extension.parse_read"><code class="docutils literal notranslate"><span class="pre">Extension.parse_read()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="extension.html#Extension.parse_write"><code class="docutils literal notranslate"><span class="pre">Extension.parse_write()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extension.html#injected-values">Injected Values</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#ServerError"><code class="docutils literal notranslate"><span class="pre">ServerError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="extension.html#ExtensionHelper"><code class="docutils literal notranslate"><span class="pre">ExtensionHelper</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="support.html#useful-tools">Useful Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html#panda-status-leds">Panda Status LEDs</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="commands.html" class="btn btn-neutral float-right" title="Command Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
