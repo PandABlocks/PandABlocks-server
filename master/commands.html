@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command Interface &mdash; PandABlocks-server 3.0b1-3-g1f07bd9
+  <title>Command Interface &mdash; PandABlocks-server 3.0b1-8-g19f58f6
  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
@@ -39,7 +39,7 @@
               <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0b1-3-g1f07bd9
+                3.0b1-8-g19f58f6
 
               </div>
 <div role="search">
@@ -374,6 +374,10 @@ either <code class="docutils literal notranslate"><span class="pre">ARM</span></
 <td><p>Triggers immediate save to file of the
 persistence file state.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*CLOCK_FREQ?</span></code></p></td>
+<td><p>Returns currently configured system clock
+frequency</p></td>
+</tr>
 </tbody>
 </table>
 <dl>
@@ -669,6 +673,9 @@ progress, or no fields configured for capture.</p></td>
 launched) with the current state.  Returns after a file system <code class="docutils literal notranslate"><span class="pre">sync</span></code>
 call, so it is safe to power-off the system after this command has
 completed.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CLOCK_FREQ?</span></code></dt><dd><p>Returns currently configured FPGA clock frequency as used to convert between
+times in natural units and times in clock ticks.</p>
 </dd>
 </dl>
 </div>
