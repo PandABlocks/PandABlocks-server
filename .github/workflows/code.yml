@@ -47,7 +47,7 @@ jobs:
         run: |
           cd PandABlocks-server
           ln -s CONFIG.example CONFIG
-          make zpkg
+          make zpkg PLATFORM=${{matrix.platform}}
 
       # Artifacts
       - name: Upload zpkg
