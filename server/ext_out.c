@@ -157,7 +157,7 @@ static enum capture_mode get_capture_mode(enum ext_out_type ext_type)
     switch (ext_type)
     {
         case EXT_OUT_TIMESTAMP: return CAPTURE_MODE_SCALED64;
-        case EXT_OUT_SAMPLES:   return CAPTURE_MODE_UNSCALED;
+        case EXT_OUT_SAMPLES:   return CAPTURE_MODE_SCALED32;
         case EXT_OUT_BITS:      return CAPTURE_MODE_UNSCALED;
         default:
             ASSERT_FAIL();
@@ -177,7 +177,7 @@ static void get_capture_info(
         .capture_mode = get_capture_mode(ext_out->ext_type),
         .capture_string = "Value",
         /* Scaling info only used for timestamp fields. */
-        .scale = 1.0 / CLOCK_FREQUENCY,
+        .scale = 1.0 / hw_read_nominal_clock(),
         .offset = 0.0,
         .units = "s",
     };

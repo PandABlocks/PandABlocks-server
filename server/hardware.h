@@ -8,7 +8,7 @@
 #define MAX_PCAP_WRITE_COUNT    64
 
 
-#define CLOCK_FREQUENCY 125000000       // 8ns per tick
+#define NOMINAL_CLOCK_FREQUENCY 125000000       // 8ns per tick
 #define MAX_CLOCK_VALUE ((1ULL << 48) - 1)
 
 
@@ -99,6 +99,9 @@ void hw_write_mac_address(unsigned int offset, uint64_t mac_address);
 
 /* Returns the value of the FPGA capabilities register. */
 uint32_t hw_read_fpga_capabilities(void);
+
+/* Returns the currently configured nominal clock frequency in Hz. */
+uint32_t hw_read_nominal_clock(void);
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
