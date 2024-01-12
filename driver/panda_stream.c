@@ -242,7 +242,8 @@ static int allocate_blocks(struct stream_open *open)
     for (; blk < block_count; blk ++)
     {
         block = &open->blocks[blk];
-        block->block = (void *) __get_free_pages(GFP_KERNEL, block_shift);
+        /* Flag GFP_DMA32 is set to avoid using bounce buffer */
+        block->block = (void *) __get_free_pages(GFP_KERNEL | GFP_DMA32, block_shift);
         TEST_OK(block->block,
             rc = -ENOMEM, no_block, "Unable to allocate buffer");
         block->dma =

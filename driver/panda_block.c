@@ -85,8 +85,9 @@ static int create_block(
         open->block.block_length < pcap->length - 4,
         rc = -EINVAL, bad_request, "Invalid register argument for block");
 
-    /* Ok, all in order.  Allocate the requested block and map it for DMA. */
-    open->block_addr = (void *) __get_free_pages(GFP_KERNEL, open->block.order);
+    /* Ok, all in order.  Allocate the requested block and map it for DMA.
+     * Flag GFP_DMA32 is set to avoid using bounce buffer. */
+    open->block_addr = (void *) __get_free_pages(GFP_KERNEL | GFP_DMA32, open->block.order);
     TEST_OK(open->block_addr, rc = -ENOMEM, bad_request,
         "Unable to allocate block");
     open->dma = dma_map_single(
