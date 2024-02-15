@@ -42,7 +42,7 @@ BLOCKS_COMPAT_VERSION = 0
 
     # Hardware timestamps
     PCAP_TS_SEC             10
-    PCAP_TS_NSEC            11
+    PCAP_TS_TICKS           11
 
     # Position capture control
     PCAP_ARM                13

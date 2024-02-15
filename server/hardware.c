@@ -328,7 +328,10 @@ void hw_get_start_ts(struct timespec *ts)
 void hw_get_hw_start_ts(struct timespec *ts)
 {
     ts->tv_sec = (time_t) read_named_register(PCAP_TS_SEC);
-    ts->tv_nsec = (typeof(ts->tv_nsec)) read_named_register(PCAP_TS_NSEC);
+    ts->tv_nsec = (typeof(ts->tv_nsec)) ((uint64_t)
+        read_named_register(PCAP_TS_TICKS) * NSECS / hw_read_nominal_clock());
+    ts->tv_sec += ts->tv_nsec / NSECS;
+    ts->tv_nsec = ts->tv_nsec % NSECS;
 }
 
 #endif

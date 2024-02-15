@@ -118,15 +118,16 @@ static void update_start_timestamp(void)
     struct timespec pcap_drv_start_ts, pcap_hw_start_ts;
     hw_get_start_ts(&pcap_drv_start_ts);
     hw_get_hw_start_ts(&pcap_hw_start_ts);
-    if (pcap_hw_start_ts.tv_sec == 0 && pcap_hw_start_ts.tv_nsec == 0) {
+    if (pcap_hw_start_ts.tv_sec == 0 && pcap_hw_start_ts.tv_nsec == 0)
+    {
         pcap_start_ts = pcap_drv_start_ts;
         pcap_hw_ts_offset_ns_valid = false;
-    } else {
-        int64_t drv_ts_num =
-            (int64_t) pcap_drv_start_ts.tv_sec * 1000000000
+    }
+    else
+    {
+        int64_t drv_ts_num = (int64_t) pcap_drv_start_ts.tv_sec * NSECS
             + pcap_drv_start_ts.tv_nsec;
-        int64_t hw_ts_num =
-            (int64_t) pcap_hw_start_ts.tv_sec * 1000000000
+        int64_t hw_ts_num = (int64_t) pcap_hw_start_ts.tv_sec * NSECS
             + pcap_hw_start_ts.tv_nsec;
         pcap_start_ts = pcap_hw_start_ts;
         pcap_hw_ts_offset_ns = drv_ts_num - hw_ts_num;
