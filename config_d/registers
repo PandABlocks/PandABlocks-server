@@ -40,6 +40,10 @@ BLOCKS_COMPAT_VERSION = 0
     PCAP_START_WRITE        8
     PCAP_WRITE              9
 
+    # Hardware timestamps
+    PCAP_TS_SEC             10
+    PCAP_TS_NSEC            11
+
     # Position capture control
     PCAP_ARM                13
     PCAP_DISARM             14

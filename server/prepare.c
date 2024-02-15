@@ -278,7 +278,8 @@ static void send_capture_info(
     struct buffered_file *file,
     const struct data_capture *capture, const struct data_options *options,
     uint64_t missed_samples, struct timespec *pcap_arm_tsp,
-    struct timespec *pcap_start_tsp)
+    struct timespec *pcap_start_tsp, bool pcap_hw_ts_offset_ns_valid,
+    int64_t pcap_hw_ts_offset_ns)
 {
     static const char *data_format_strings[] = {
         [DATA_FORMAT_UNFRAMED] = "Unframed",
@@ -303,6 +304,9 @@ static void send_capture_info(
     format_timestamp_message(
         timestamp_message, MAX_RESULT_LENGTH, pcap_start_tsp);
     format_attribute(&element, "start_time", "%s", timestamp_message);
+    if (pcap_hw_ts_offset_ns_valid)
+        format_attribute(
+            &element, "hw_time_offset_ns", "%"PRIi64, pcap_hw_ts_offset_ns);
     format_attribute(&element, "missed", "%"PRIu64, missed_samples);
     format_attribute(&element, "process", "%s", data_process);
     format_attribute(&element, "format", "%s", data_format);
@@ -377,13 +381,15 @@ bool send_data_header(
     const struct data_capture *capture,
     const struct data_options *options,
     struct buffered_file *file, uint64_t missed_samples,
-    struct timespec *pcap_arm_tsp, struct timespec *pcap_start_tsp)
+    struct timespec *pcap_arm_tsp, struct timespec *pcap_start_tsp,
+    bool pcap_hw_ts_offset_ns_valid, int64_t pcap_hw_ts_offset_ns)
 {
     struct xml_element header =
         start_element(file, "header", options->xml_header, true, true);
 
     send_capture_info(
-        file, capture, options, missed_samples, pcap_arm_tsp, pcap_start_tsp);
+        file, capture, options, missed_samples, pcap_arm_tsp, pcap_start_tsp,
+        pcap_hw_ts_offset_ns_valid, pcap_hw_ts_offset_ns);
 
     /* Format the field capture descriptions. */
     struct xml_element field_group =

@@ -188,6 +188,13 @@ void hw_get_start_ts(struct timespec *ts)
 }
 
 
+void hw_get_hw_start_ts(struct timespec *ts)
+{
+    ts->tv_sec = 0;
+    ts->tv_nsec = 0;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Long table support. */
 

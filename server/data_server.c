@@ -101,11 +101,38 @@ static const struct data_capture *data_capture;
 static struct timespec pcap_arm_ts;
 /* PCAP becomes armed & enabled timestamp */
 static struct timespec pcap_start_ts;
+static bool pcap_hw_ts_offset_ns_valid;
+static int64_t pcap_hw_ts_offset_ns;
 
 /* Data completion code at end of experiment. */
 static unsigned int completion_code;
 /* Sample count at end of experiment. */
 static uint64_t experiment_sample_count;
+
+
+/* Save start timestamp, either from hardware (if that timestamp is not 0), or
+ * from the driver (which was saved in the interrupt handler triggered by the
+ * start event) */
+static void update_start_timestamp(void)
+{
+    struct timespec pcap_drv_start_ts, pcap_hw_start_ts;
+    hw_get_start_ts(&pcap_drv_start_ts);
+    hw_get_hw_start_ts(&pcap_hw_start_ts);
+    if (pcap_hw_start_ts.tv_sec == 0 && pcap_hw_start_ts.tv_nsec == 0) {
+        pcap_start_ts = pcap_drv_start_ts;
+        pcap_hw_ts_offset_ns_valid = false;
+    } else {
+        int64_t drv_ts_num =
+            (int64_t) pcap_drv_start_ts.tv_sec * 1000000000
+            + pcap_drv_start_ts.tv_nsec;
+        int64_t hw_ts_num =
+            (int64_t) pcap_hw_start_ts.tv_sec * 1000000000
+            + pcap_hw_start_ts.tv_nsec;
+        pcap_start_ts = pcap_hw_start_ts;
+        pcap_hw_ts_offset_ns = drv_ts_num - hw_ts_num;
+        pcap_hw_ts_offset_ns_valid = true;
+    }
+}
 
 
 /* Performs a complete experiment capture: start data buffer, process the data
@@ -135,7 +162,7 @@ static void capture_experiment(void)
          * timestamp, that's how it goes. */
         if (!ts_captured)
         {
-            hw_get_start_ts(&pcap_start_ts);
+            update_start_timestamp();
             ts_captured = true;
         }
 
@@ -687,7 +714,8 @@ error__t process_data_socket(int scon)
                 ok = send_data_header(
                     captured_fields, data_capture,
                     &connection.options, connection.file, lost_samples,
-                    &pcap_arm_ts, &pcap_start_ts);
+                    &pcap_arm_ts, &pcap_start_ts, pcap_hw_ts_offset_ns_valid,
+                    pcap_hw_ts_offset_ns);
 
             uint64_t sent_samples = 0;
             if (ok)

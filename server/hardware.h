@@ -166,6 +166,8 @@ const char *hw_decode_completion(unsigned int completion);
 
 /* This function gets the timestamp when PCAP becomes armed and enabled */
 void hw_get_start_ts(struct timespec *ts);
+/* This one is latched in hardware instead of the driver */
+void hw_get_hw_start_ts(struct timespec *ts);
 
 /* This function controls the arm/disarm state of data capture.  Data capture is
  * armed by writing true with this function, after which hw_read_streamed_data()
