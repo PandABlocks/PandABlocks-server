@@ -138,9 +138,13 @@ At the beginning of each experiment the following information is sent:
 
 ================= ==============================================================
 arm_time          System timestamp when ARM command was sent
-start_time        Timestamp of when PCAP became both armed and enabled
-hw_time_offset_ns Offset in ns from hardware timestamp to captured system time,
-                  only present when hardware time source is used.
+start_time        Timestamp of when PCAP became both armed and enabled.
+                  Uses hardware provided timestamp (e.g. from event receiver)
+                  if available, falling back to the system timestamp.
+hw_time_offset_ns Offset in ns from hardware timestamp to system time at the
+                  start of the experiment. Only present when hardware time
+                  source is used. Used to check that hardware and system times
+                  have not drifted too far apart.
 missed            Number of samples missed by late data port connection.
 process           Data processing option: Scaled, Unscaled, or Raw.
 format            Data delivery formatting: ASCII, Base64, Framed, or Unframed.
@@ -148,7 +152,7 @@ sample_bytes      Number of bytes in one sample unless ``format`` is ``ASCII``.
 fields            Information about each captured field.
 ================= ==============================================================
 
-All timestamps are unix time.
+All timestamps are in `ISO 8601 UTC format <https://en.wikipedia.org/wiki/ISO_8601>`_, i.e. ``YYYY-MM-DDTHH:mm:ss.sssZ``.
 
 ``start_time`` will be a hardware timestamp if a hardware time source which
 produces non-zero timestamps is selected, otherwise, it will be a system
