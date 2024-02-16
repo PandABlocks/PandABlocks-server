@@ -136,14 +136,23 @@ Data Header
 
 At the beginning of each experiment the following information is sent:
 
-=============== ================================================================
-arm_time        UTC Timestamp sampled in correspondence of the ARM command
-missed          Number of samples missed by late data port connection.
-process         Data processing option: Scaled, Unscaled, or Raw.
-format          Data delivery formatting: ASCII, Base64, Framed, or Unframed.
-sample_bytes    Number of bytes in one sample unless ``format`` is ``ASCII``.
-fields          Information about each captured field.
-=============== ================================================================
+================= ==============================================================
+arm_time          System timestamp when ARM command was sent
+start_time        Timestamp of when PCAP became both armed and enabled
+hw_time_offset_ns Offset in ns from hardware timestamp to captured system time,
+                  only present when hardware time source is used.
+missed            Number of samples missed by late data port connection.
+process           Data processing option: Scaled, Unscaled, or Raw.
+format            Data delivery formatting: ASCII, Base64, Framed, or Unframed.
+sample_bytes      Number of bytes in one sample unless ``format`` is ``ASCII``.
+fields            Information about each captured field.
+================= ==============================================================
+
+All timestamps are unix time.
+
+``start_time`` will be a hardware timestamp if a hardware time source which
+produces non-zero timestamps is selected, otherwise, it will be a system
+timestamp saved by the driver.
 
 For each field the following information is sent:
 
