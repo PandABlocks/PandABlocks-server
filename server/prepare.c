@@ -268,9 +268,9 @@ static void format_timestamp_message(
     struct tm tm;
     gmtime_r(&tsp->tv_sec, &tm);
     snprintf(timestamp_message, max_len,
-        "%4d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
+        "%4d-%02d-%02dT%02d:%02d:%02d.%09ldZ",
         tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-        tm.tm_hour, tm.tm_min, tm.tm_sec, tsp->tv_nsec / 1000000);
+        tm.tm_hour, tm.tm_min, tm.tm_sec, tsp->tv_nsec);
 }
 
 

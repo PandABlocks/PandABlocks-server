@@ -152,7 +152,9 @@ sample_bytes      Number of bytes in one sample unless ``format`` is ``ASCII``.
 fields            Information about each captured field.
 ================= ==============================================================
 
-All timestamps are in `ISO 8601 UTC format <https://en.wikipedia.org/wiki/ISO_8601>`_, i.e. ``YYYY-MM-DDTHH:mm:ss.sssZ``.
+All timestamps are in
+`ISO 8601 UTC format <https://en.wikipedia.org/wiki/ISO_8601>`_ with nanosecond
+resolution, i.e. ``YYYY-MM-DDTHH:mm:ss.sssssssssZ``.
 
 ``start_time`` will be a hardware timestamp if a hardware time source which
 produces non-zero timestamps is selected, otherwise, it will be a system
