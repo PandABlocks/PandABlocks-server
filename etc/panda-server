@@ -5,7 +5,8 @@
 . /etc/init.d/functions
 
 # File locations
-pidfile=/var/run/panda-server.pid
+server_pid_file=/var/run/panda-server.pid
+extension_pid_file=/var/run/panda-extensions.pid
 
 panda_server=/opt/bin/panda_server
 panda_config=/opt/share/panda-fpga/config_d
@@ -58,19 +59,38 @@ do_start()
         i=$((i+1))
     done  &&
 
-    # Now start the extension server
-    $extension_server -d -s $extension_dir  &&
-
-    # Finally start the PANDA server
-    $panda_server \
-        -c $panda_config -f $panda_state -P $pidfile -D -R -X 9999 \
-        -r "$(head -n1 /etc/version)" \
-        $panda_server_mac
+    # Now start the extension server (in procServ if available)
+    {
+        if type procServ &> /dev/null; then
+            procServ -n panda-extensions -p $extension_pid_file \
+                -L /var/log/panda-extensions-console 8021 \
+                $extension_server -s $extension_dir
+        else
+            $extension_server -d -s $extension_dir -P $extension_pid_file
+        fi
+    } &&
+    {
+        # Finally start the PANDA server (in procServ if available)
+        if type procServ &> /dev/null; then
+            procServ -n panda-server -p $server_pid_file \
+                -L /var/log/panda-server-console 8022 \
+                $panda_server \
+                    -c $panda_config -f $panda_state -R -X 9999 \
+                    -r "$(head -n1 /etc/version)" \
+                    $panda_server_mac
+        else
+            $panda_server \
+                -c $panda_config -f $panda_state -P $server_pid_file -D -R \
+                -X 9999 -r "$(head -n1 /etc/version)" \
+                $panda_server_mac
+        fi
+    }
 }
 
 do_stop()
 {
-    kill -HUP $(cat $pidfile)  &&
+    kill $(cat $server_pid_file)  &&
+    kill $(cat $extension_pid_file) &&
 
     # Remove the Panda driver.  We have to keep trying because we can't actually
     # unload it until the server has finished shutting down.

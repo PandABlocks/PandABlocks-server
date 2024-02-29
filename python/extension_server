@@ -3,6 +3,7 @@
 # Extension server for custom fields implemented outside the core server
 
 import argparse
+import atexit
 import os
 import sys
 from importlib import import_module
@@ -254,6 +255,7 @@ parser.add_argument(
 parser.add_argument(
     '-n', '--normalise_exceptions', action = 'store_true',
     help = 'Normalise exception messages reported by server.  Testing only')
+parser.add_argument('-P', '--pidfile', help = 'Save PID to file specified')
 parser.add_argument(
     'extensions', help = 'Extension directory')
 command_args = parser.parse_args()
@@ -292,6 +294,12 @@ logging.info('Extension server ready')
 # This ensures that when our caller gets control the connection will succeed.
 if command_args.daemon:
     daemonise()
+
+if command_args.pidfile:
+    with open(command_args.pidfile, 'w') as fhandle:
+        fhandle.write(f'{os.getpid()}')
+
+    atexit.register(lambda: os.unlink(command_args.pidfile))
 
 try:
     server.run()
