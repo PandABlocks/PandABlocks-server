@@ -80,6 +80,8 @@ struct stream_open {
     bool stream_active;         // If not set, any interrupts are unexpected
     uint32_t completion;        // Copy of final interrupt status register
     struct timespec64 start_ts; // timestamp when PCAP becomes armed & enabled
+    bool start_ts_valid;        // whether start_ts was set
+    spinlock_t start_ts_lock;   // it handles race between isr and ioctl
 
     /* Reader status. */
     int read_block_index;       // Block being read
@@ -202,7 +204,13 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     if (open->stream_active)
     {
         if (IRQ_STATUS_START_EVENT(status))
+        {
+            unsigned long flags;
+            spin_lock_irqsave(&open->start_ts_lock, flags);
             ktime_get_real_ts64(&open->start_ts);
+            open->start_ts_valid = true;
+            spin_unlock_irqrestore(&open->start_ts_lock, flags);
+        }
 
         if (IRQ_STATUS_NEW_BUFFER(status))
         {
@@ -297,8 +305,9 @@ static void start_hardware(struct stream_open *open)
     open->isr_block_index = 0;
     open->read_block_index = 0;
     open->read_offset = 0;
-    /* having a zeroed timestamp means the start event did not happen. */
     open->start_ts = (const struct timespec64){0};
+    open->start_ts_valid = false;
+    spin_lock_init(&open->start_ts_lock);
     /* After this point we can allow interrupts, they can potentially start as
      * soon as a DMA buffer is assigned. */
     smp_wmb();
@@ -515,9 +524,18 @@ static long panda_stream_ioctl(
         case PANDA_COMPLETION:
             return stream_completion(open, (void __user *) arg);
         case PANDA_GET_START_TS:
-            return copy_to_user(
-                (void __user *) arg, &open->start_ts,
-                sizeof(struct timespec64)) ? -EIO : 0;
+            {
+                spin_lock(&open->start_ts_lock);
+                struct timespec64 ts = open->start_ts;
+                bool ts_valid = open->start_ts_valid;
+                spin_unlock(&open->start_ts_lock);
+                if (!ts_valid)
+                    return -EAGAIN;
+
+                return copy_to_user(
+                    (void __user *) arg, &ts,
+                    sizeof(struct timespec64)) ? -EIO : 0;
+            }
         default:
             return -EINVAL;
     }

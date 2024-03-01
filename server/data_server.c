@@ -113,10 +113,13 @@ static uint64_t experiment_sample_count;
 /* Save start timestamp, either from hardware (if that timestamp is not 0), or
  * from the driver (which was saved in the interrupt handler triggered by the
  * start event) */
-static void update_start_timestamp(void)
+static bool update_start_timestamp(void)
 {
     struct timespec pcap_drv_start_ts, pcap_hw_start_ts;
-    hw_get_start_ts(&pcap_drv_start_ts);
+    bool valid_ts = hw_get_start_ts(&pcap_drv_start_ts);
+    if (!valid_ts)
+        return false;
+
     hw_get_hw_start_ts(&pcap_hw_start_ts);
     if (pcap_hw_start_ts.tv_sec == 0 && pcap_hw_start_ts.tv_nsec == 0)
     {
@@ -133,6 +136,8 @@ static void update_start_timestamp(void)
         pcap_hw_ts_offset_ns = drv_ts_num - hw_ts_num;
         pcap_hw_ts_offset_ns_valid = true;
     }
+
+    return true;
 }
 
 
@@ -154,18 +159,17 @@ static void capture_experiment(void)
     {
         void *block = get_write_block(data_buffer);
         size_t count;
-        do
+        do {
             count = hw_read_streamed_data(block, DATA_BLOCK_SIZE, &at_eof);
-        while (data_thread_running  &&  count == 0  &&  !at_eof);
-
-        /* Do our best to capture a timestamp before releasing the first block
-         * of the experiment.  If the experiment is empty this return an empty
-         * timestamp, that's how it goes. */
-        if (!ts_captured)
-        {
-            update_start_timestamp();
-            ts_captured = true;
-        }
+            if (!ts_captured)
+            {
+                ts_captured = update_start_timestamp();
+                /* we want to release the block when we get the timestamp to
+                 * notify the readers */
+                if (ts_captured)
+                    break;
+            }
+        } while (data_thread_running  &&  count == 0  &&  !at_eof);
 
         /* Unconditionally release the write block here.  Either we have data to
          * send (exited loop above with count==0), or we're at the end of the
