@@ -392,17 +392,17 @@ static bool ensure_sample_count(
 {
     struct data_capture *capture = gather->capture;
 
-    /* Search the unscaled captures for a sample matching the sample count. */
+    /* Search the scaled32 captures for a sample matching the sample count. */
     unsigned int sample_count_capture =
         fields->sample_count->capture_index.index[0];
-    for (unsigned int i = 0; i < fields->unscaled.count; i ++)
+    for (unsigned int i = 0; i < fields->scaled32.count; i ++)
     {
-        struct capture_info *field = fields->unscaled.outputs[i];
+        struct capture_info *field = fields->scaled32.outputs[i];
         if (field->capture_index.index[0] == sample_count_capture)
         {
-            /* Already being captured.  Because the unscaled group goes first
-             * and we're the only entry, this is the right index. */
-            capture->sample_count_index = i;
+            /* Already being captured.  Because the scaled32 group goes second,
+             * we need to add the unscaled group count. */
+            capture->sample_count_index = fields->unscaled.count + i;
             /* Sample count is in a group, not anonymous */
             return false;
         }
