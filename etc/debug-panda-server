@@ -1,0 +1,52 @@
+#!/bin/sh
+
+# Script for running panda_server from the command line
+# Takes optional argument to determine which version of the server to run
+
+
+panda_server=/opt/bin/panda_server
+panda_config=/opt/share/panda-fpga/config_d
+panda_module=/opt/share/panda-server/panda.ko
+panda_state=/opt/state/panda.state
+panda_mac=/qspi/MAC.FPGA
+
+extension_server=/opt/share/panda-server/extension_server
+extension_dir=/opt/share/panda-fpga/extensions
+
+
+error()
+{
+    echo >&2 "$@"
+    exit 1
+}
+
+
+debug_server="${1:-$panda_server}"
+
+
+# Ensure the kernel module is loaded
+[ -e /dev/panda.map ]  ||  insmod $panda_module  ||
+    error "Unable to install kernel module"
+
+
+# Set the MAC addresses if the file is present
+panda_server_mac=""
+if [ -e $panda_mac ]; then
+    panda_server_mac="-M $panda_mac"
+fi
+
+
+# Ensure there isn't a dangling instance of the extension server
+nc localhost 9999 </dev/null
+
+# Now start the extension server
+$extension_server -d -s $extension_dir  &&
+
+# Finally start the PANDA server
+$debug_server \
+    -c $panda_config -f $panda_state -R -X 9999 \
+    -r "$(head -n1 /etc/version)" \
+    $panda_server_mac
+
+# Make sure we don't leave a dangling instance of the extension server
+nc localhost 9999 </dev/null
