@@ -19,6 +19,7 @@ b bin/panda_server server/server
 b bin/slow_load server/slow_load
 b share/panda-server driver/panda.ko
 t share/panda-server python/extension_server
+t bin/debug-panda-server etc/debug-panda-server
 
 # Install and configure the startup scripts
 t etc/init.d etc/panda-server
