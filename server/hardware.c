@@ -97,6 +97,7 @@ struct named_register {
     const char *name;
     unsigned int range;
     bool seen;
+    bool optional;
 };
 
 /* Similar structure for named constants. */
@@ -166,7 +167,7 @@ error__t hw_validate(void)
     for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
     {
         struct named_register *reg = &named_registers[i];
-        if (reg->name  &&  !reg->seen)
+        if (reg->name  &&  !reg->seen  &&  !reg->optional)
             return FAIL_("Register %s not in *REG list", reg->name);
     }
     for (unsigned int i = 0; i < ARRAY_SIZE(named_constants); i ++)
