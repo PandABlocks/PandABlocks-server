@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Capture &mdash; PandABlocks-server 3.0-3-g67f834e
+  <title>Data Capture &mdash; PandABlocks-server 3.0-11-g6422090
  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
@@ -41,7 +41,7 @@
               <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0-3-g67f834e
+                3.0-11-g6422090
 
               </div>
 <div role="search">
@@ -368,12 +368,23 @@ so normally this is best combined with <code class="docutils literal notranslate
 <p>At the beginning of each experiment the following information is sent:</p>
 <table class="docutils align-default">
 <colgroup>
-<col style="width: 19%" />
-<col style="width: 81%" />
+<col style="width: 22%" />
+<col style="width: 78%" />
 </colgroup>
 <tbody>
 <tr class="row-odd"><td><p>arm_time</p></td>
-<td><p>UTC Timestamp sampled in correspondence of the ARM command</p></td>
+<td><p>System timestamp when ARM command was sent</p></td>
+</tr>
+<tr class="row-even"><td><p>start_time</p></td>
+<td><p>Timestamp of when PCAP became both armed and enabled.
+Uses hardware provided timestamp (e.g. from event receiver)
+if available, falling back to the system timestamp.</p></td>
+</tr>
+<tr class="row-odd"><td><p>hw_time_offset_ns</p></td>
+<td><p>Offset in ns from hardware timestamp to system time at the
+start of the experiment. Only present when hardware time
+source is used. Used to check that hardware and system times
+have not drifted too far apart.</p></td>
 </tr>
 <tr class="row-even"><td><p>missed</p></td>
 <td><p>Number of samples missed by late data port connection.</p></td>
@@ -392,6 +403,12 @@ so normally this is best combined with <code class="docutils literal notranslate
 </tr>
 </tbody>
 </table>
+<p>All timestamps are in
+<a class="reference external" href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601 UTC format</a> with nanosecond
+resolution, i.e. <code class="docutils literal notranslate"><span class="pre">YYYY-MM-DDTHH:mm:ss.sssssssssZ</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">start_time</span></code> will be a hardware timestamp if a hardware time source which
+produces non-zero timestamps is selected, otherwise, it will be a system
+timestamp saved by the driver.</p>
 <p>For each field the following information is sent:</p>
 <table class="docutils align-default">
 <colgroup>
