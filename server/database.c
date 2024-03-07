@@ -126,6 +126,10 @@ static error__t register_parse_special_field(
     return
         parse_name(line, reg_name, sizeof(reg_name))  ?:
         parse_whitespace(line)  ?:
+        /* Some register definitions are optional and are flagged as such for
+         * processing by hardware.h, but we want to ignore this flag when
+         * dynamically loading the same file. */
+        DO(read_string(line, "opt"))  ?:
         parse_uint(line, &reg)  ?:
         IF_ELSE(**line,
             parse_whitespace(line)  ?:

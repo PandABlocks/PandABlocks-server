@@ -97,6 +97,7 @@ struct named_register {
     const char *name;
     unsigned int range;
     bool seen;
+    bool optional;
 };
 
 /* Similar structure for named constants. */
@@ -166,7 +167,7 @@ error__t hw_validate(void)
     for (unsigned int i = 0; i < ARRAY_SIZE(named_registers); i ++)
     {
         struct named_register *reg = &named_registers[i];
-        if (reg->name  &&  !reg->seen)
+        if (reg->name  &&  !reg->seen  &&  !reg->optional)
             return FAIL_("Register %s not in *REG list", reg->name);
     }
     for (unsigned int i = 0; i < ARRAY_SIZE(named_constants); i ++)
@@ -316,12 +317,33 @@ unsigned int hw_read_streamed_completion(void)
 }
 
 
-void hw_get_start_ts(struct timespec *ts)
+bool hw_get_start_ts(struct timespec *ts)
 {
-    struct timespec64 compat_ts = (struct timespec64) {0};
-    error_report(TEST_IO(ioctl(stream, PANDA_GET_START_TS, &compat_ts)));
-    ts->tv_sec = (time_t) compat_ts.tv_sec;
-    ts->tv_nsec = (typeof(ts->tv_nsec)) compat_ts.tv_nsec;
+    struct timespec64 compat_ts = {};
+    if (ioctl(stream, PANDA_GET_START_TS, &compat_ts) == -1)
+    {
+        // EAGAIN indicates the timestamp hasn't been captured yet
+        if (errno != EAGAIN)
+            error_report(TEST_IO(-1));
+        return false;
+    }
+    else
+    {
+        ts->tv_sec = (time_t) compat_ts.tv_sec;
+        ts->tv_nsec = (typeof(ts->tv_nsec)) compat_ts.tv_nsec;
+        return true;
+    }
+}
+
+
+bool hw_get_hw_start_ts(struct timespec *ts)
+{
+    ts->tv_sec = (time_t) read_named_register(PCAP_TS_SEC);
+    ts->tv_nsec = (typeof(ts->tv_nsec)) ((uint64_t)
+        read_named_register(PCAP_TS_TICKS) * NSECS / hw_read_nominal_clock());
+    ts->tv_sec += ts->tv_nsec / NSECS;
+    ts->tv_nsec = ts->tv_nsec % NSECS;
+    return true;
 }
 
 #endif

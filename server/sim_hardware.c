@@ -182,9 +182,18 @@ void hw_write_arm_streamed_data(void) { }
 uint32_t hw_read_streamed_completion(void) { return 0; }
 
 
-void hw_get_start_ts(struct timespec *ts)
+bool hw_get_start_ts(struct timespec *ts)
 {
     clock_gettime(CLOCK_REALTIME, ts);
+    return true;
+}
+
+
+bool hw_get_hw_start_ts(struct timespec *ts)
+{
+    ts->tv_sec = 0;
+    ts->tv_nsec = 0;
+    return true;
 }
 
 

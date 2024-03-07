@@ -14,6 +14,9 @@ base, fields = blocks['*REG']
 # followed by a range.
 def fixup_fields(name, value):
     values = value.split()
+    optional = values[0] == 'opt'
+    if optional:
+        values = values[1:]
     start = int(values[0])
     if values[1:]:
         middle, end = values[1:]
@@ -21,7 +24,7 @@ def fixup_fields(name, value):
         count = int(end) - start + 1
     else:
         count = 1
-    return name, start, count
+    return name, start, count, optional
 
 fields = [fixup_fields(name, value) for name, value in fields]
 
@@ -39,14 +42,14 @@ print('''\
 # First generate the #define statements
 print('#define REG_BLOCK_BASE %s' % base)
 print()
-for name, value, _ in fields:
+for name, value, _, _ in fields:
     print('#define %s %s' % (name, value))
 
 # Now generate offset name table used for checking.
 print('''
 static struct named_register named_registers[] = {''')
-for name, _, count in fields:
-    print('    [%s] = { "%s", %d, false },' % (name, name, count))
+for name, _, count, opt in fields:
+    print('    [%s] = { "%s", %d, false, %d },' % (name, name, count, opt))
 print('};')
 
 # Generate table of constants read from config file

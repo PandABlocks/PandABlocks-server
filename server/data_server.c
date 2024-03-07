@@ -101,11 +101,44 @@ static const struct data_capture *data_capture;
 static struct timespec pcap_arm_ts;
 /* PCAP becomes armed & enabled timestamp */
 static struct timespec pcap_start_ts;
+static bool pcap_hw_ts_offset_ns_valid;
+static int64_t pcap_hw_ts_offset_ns;
 
 /* Data completion code at end of experiment. */
 static unsigned int completion_code;
 /* Sample count at end of experiment. */
 static uint64_t experiment_sample_count;
+
+
+/* Save start timestamp, either from hardware (if that timestamp is not 0), or
+ * from the driver (which was saved in the interrupt handler triggered by the
+ * start event) */
+static bool update_start_timestamp(void)
+{
+    struct timespec pcap_drv_start_ts, pcap_hw_start_ts;
+    bool valid_ts = hw_get_start_ts(&pcap_drv_start_ts);
+    if (!valid_ts)
+        return false;
+
+    hw_get_hw_start_ts(&pcap_hw_start_ts);
+    if (pcap_hw_start_ts.tv_sec == 0 && pcap_hw_start_ts.tv_nsec == 0)
+    {
+        pcap_start_ts = pcap_drv_start_ts;
+        pcap_hw_ts_offset_ns_valid = false;
+    }
+    else
+    {
+        int64_t drv_ts_num = (int64_t) pcap_drv_start_ts.tv_sec * NSECS
+            + pcap_drv_start_ts.tv_nsec;
+        int64_t hw_ts_num = (int64_t) pcap_hw_start_ts.tv_sec * NSECS
+            + pcap_hw_start_ts.tv_nsec;
+        pcap_start_ts = pcap_hw_start_ts;
+        pcap_hw_ts_offset_ns = drv_ts_num - hw_ts_num;
+        pcap_hw_ts_offset_ns_valid = true;
+    }
+
+    return true;
+}
 
 
 /* Performs a complete experiment capture: start data buffer, process the data
@@ -126,18 +159,17 @@ static void capture_experiment(void)
     {
         void *block = get_write_block(data_buffer);
         size_t count;
-        do
+        do {
             count = hw_read_streamed_data(block, DATA_BLOCK_SIZE, &at_eof);
-        while (data_thread_running  &&  count == 0  &&  !at_eof);
-
-        /* Do our best to capture a timestamp before releasing the first block
-         * of the experiment.  If the experiment is empty this return an empty
-         * timestamp, that's how it goes. */
-        if (!ts_captured)
-        {
-            hw_get_start_ts(&pcap_start_ts);
-            ts_captured = true;
-        }
+            if (!ts_captured)
+            {
+                ts_captured = update_start_timestamp();
+                /* we want to release the block when we get the timestamp to
+                 * notify the readers */
+                if (ts_captured)
+                    break;
+            }
+        } while (data_thread_running  &&  count == 0  &&  !at_eof);
 
         /* Unconditionally release the write block here.  Either we have data to
          * send (exited loop above with count==0), or we're at the end of the
@@ -687,7 +719,8 @@ error__t process_data_socket(int scon)
                 ok = send_data_header(
                     captured_fields, data_capture,
                     &connection.options, connection.file, lost_samples,
-                    &pcap_arm_ts, &pcap_start_ts);
+                    &pcap_arm_ts, &pcap_start_ts, pcap_hw_ts_offset_ns_valid,
+                    pcap_hw_ts_offset_ns);
 
             uint64_t sent_samples = 0;
             if (ok)
