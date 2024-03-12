@@ -39,8 +39,8 @@ DIV         9
     COUNT           4
 
 PULSE       10
-    DELAY           3 2     >3
-    WIDTH           5 4     >3
+    DELAY           3 2
+    WIDTH           5 4
     INP             0 11
     ENABLE          1 12
     OUT             30 31 32 33
