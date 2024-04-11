@@ -127,10 +127,6 @@ Field type          Description
         This attribute can be read or written to report or set the delay in FPGA
         ticks.
 
-    ``MIN``
-        This reports the minimum valid value for this field in the currently
-        selected units.
-
     The ``UNITS`` attribute determines how numbers read or written to the field
     are interpreted.  For example::
 
@@ -466,7 +462,6 @@ scalar          RAW             Underlying integer value                R W
 lut             RAW             Computed Lookup Table 32-bit value      R
 time            UNITS           Units and scaling selection for time    R W C
 \               RAW             Raw time in FPGA clock cycles           R W
-\               MIN             Minimum valid setting (for type only)   R
 bit_out         CAPTURE_WORD    Capturable word containing this bit     R
 \               OFFSET          Offset of this bit in captured word     R
 bit_mux         DELAY           Bit input delay in FPGA ticks           R W C

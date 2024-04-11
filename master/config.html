@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configuration Files &mdash; PandABlocks-server 3.0-11-g6422090
+  <title>Configuration Files &mdash; PandABlocks-server 3.0-13-gee4c352
  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
@@ -41,7 +41,7 @@
               <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                3.0-11-g6422090
+                3.0-13-gee4c352
 
               </div>
 <div role="search">
@@ -228,7 +228,7 @@ read from registers.</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">write</span></code> field-subtype</p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code> [ <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> min_value ]</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bit_out</span></code></p></td>
@@ -265,11 +265,8 @@ be specified.</p>
 actions on a block.  The <cite>field-subtype</cite> must be specified, and the <cite>action</cite>
 subtype is useful for <code class="docutils literal notranslate"><span class="pre">write</span></code> fields which take no data.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">time</span></code> [ <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> min_value ]</dt><dd><p>Time fields behave like <code class="docutils literal notranslate"><span class="pre">param</span></code> fields, but need special treatment because
+<dt><code class="docutils literal notranslate"><span class="pre">time</span></code></dt><dd><p>Time fields behave like <code class="docutils literal notranslate"><span class="pre">param</span></code> fields, but need special treatment because
 the underlying value is 64-bits and so two registers need to be written.</p>
-<p>If desired a minimum valid value can be specified as <cite>min_value</cite>.  This will
-prevent the writing of values less than this value and can be read as the
-<code class="docutils literal notranslate"><span class="pre">.MIN</span></code> attribute.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bit_out</span></code></dt><dd><p>This identifies an output bit.</p>
 </dd>
