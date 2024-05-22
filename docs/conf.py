@@ -4,6 +4,9 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+from __future__ import print_function
+
+import os
 import sys
 from pathlib import Path
 from subprocess import check_output
@@ -11,6 +14,8 @@ from subprocess import check_output
 import requests
 
 import PandABlocks_server
+
+sys.path.insert(0, os.path.abspath('.'))
 
 # -- General configuration ------------------------------------------------
 

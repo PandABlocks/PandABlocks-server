@@ -23,7 +23,9 @@ jobs:
         uses: ./.github/actions/install_requirements
 
       - name: Build docs
-        run: tox -e docs
+        run: |
+          mkdir build
+          tox -e docs
 
       - name: Remove environment.pickle
         run: rm build/html/.doctrees/environment.pickle
@@ -44,7 +46,7 @@ jobs:
         run: python .github/pages/make_switcher.py --add $DOCS_VERSION ${{ github.repository }} .github/pages/switcher.json
 
       - name: Publish Docs to gh-pages
-        if: github.ref_type == 'tag' || github.ref_name == 'main'
+        if: github.ref_type == 'tag' || github.ref_name == 'master'
         # We pin to the SHA, not the tag, for security reasons.
         # https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions#using-third-party-actions
         uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847 # v3.9.3

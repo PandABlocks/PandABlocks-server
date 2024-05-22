@@ -1,0 +1,5 @@
+matplotlib
+sphinx_rtd_theme
+sphinx
+myst_parser
+common
