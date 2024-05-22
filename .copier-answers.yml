@@ -1,0 +1,14 @@
+# Changes here will be overwritten by Copier
+_commit: 1.0.0
+_src_path: gh:DiamondLightSource/python-copier-template
+author_email: tob.cobb@diamond.ac.uk
+author_name: Tom Cobb
+component_owner: user:rye74444
+description: TCP server exposing an ACII interface to functional blocks
+distribution_name: PandABlocks-server
+docker: false
+docs_type: sphinx
+git_platform: github.com
+github_org: PandABlocks
+package_name: PandABlocks_server
+repo_name: PandABlocks-server

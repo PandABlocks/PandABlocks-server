@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: PandABlocks-server
+  title: PandABlocks-server
+  description: TCP server exposing an ACII interface to functional blocks
+spec:
+  type: documentation
+  lifecycle: experimental
+  owner: user:rye74444
