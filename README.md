@@ -1,7 +1,7 @@
-[![CI](https://github.com/shihab-dls/PandABlocks-server/actions/workflows/ci.yml/badge.svg)](https://github.com/PandABlocks/PandABlocks-server/actions/workflows/ci.yml)
+[![CI](https://github.com/PandABlocks/PandABlocks-server/actions/workflows/ci.yml/badge.svg)](https://github.com/PandABlocks/PandABlocks-server/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-# PandABlocks_server
+# PandA Server
 
 The Panda socket server provides a bridge between the register interface to the
 FPGA firmware controlling the Panda hardware and users and other software.  The

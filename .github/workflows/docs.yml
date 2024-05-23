@@ -1,5 +1,8 @@
+name: Docs CI 
+
 on:
-  workflow_call:
+  push:
+  pull_request:
 
 jobs:
   build:

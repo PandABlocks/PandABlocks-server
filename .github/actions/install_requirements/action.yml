@@ -2,8 +2,8 @@ name: Install requirements
 description: Install a version of python then call pip install and report what was installed
 inputs:
   python-version:
-    description: Python version to install, default is from Dockerfile
-    default: "dev"
+    description: Python version to install
+    default: '3.11'
   pip-install:
     description: Parameters to pass to pip install
     default: "$([ -f dev-requirements.txt ] && echo '-c dev-requirements.txt') -e .[dev]"
@@ -14,9 +14,6 @@ runs:
     - name: Get version of python
       run: |
         PYTHON_VERSION="${{ inputs.python-version }}"
-        if [ $PYTHON_VERSION == "dev" ]; then
-          PYTHON_VERSION=$(sed -n "s/ARG PYTHON_VERSION=//p" Dockerfile)
-        fi
         echo "PYTHON_VERSION=$PYTHON_VERSION" >> "$GITHUB_ENV"
       shell: bash
 

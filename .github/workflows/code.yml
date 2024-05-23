@@ -1,0 +1,79 @@
+name: Code CI 
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: ["zynq", "zynqmp"]
+
+    runs-on: ubuntu-latest
+    # Use container from ghcr
+    container: 
+      image: ghcr.io/pandablocks/pandablocks-dev-container:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes: 
+        - ${{ github.workspace }}:/repos
+        - ${{ github.workspace }}/build:/build
+    
+    steps:
+      
+      # Git repositories
+      - name: Checkout Source
+        uses: actions/checkout@v2
+        with:
+          path: PandABlocks-server
+
+      # Checkout rootfs branch. 
+      - name: Checkout PandABlocks-rootfs
+        uses: actions/checkout@v2
+        with:
+          repository: PandABlocks/PandABlocks-rootfs
+          path: PandABlocks-rootfs
+
+      # Build
+      - name: Make PandABlocks-rootfs kernel
+        run: |
+          cd PandABlocks-rootfs
+          ln -s CONFIG.example CONFIG
+          make kernel PLATFORM=${{matrix.platform}}
+
+      - name: Make zpkg
+        run: |
+          cd PandABlocks-server
+          ln -s CONFIG.example CONFIG
+          make zpkg PLATFORM=${{matrix.platform}}
+
+      # Artifacts
+      - name: Upload zpkg
+        uses: actions/upload-artifact@v2
+        with:
+          name: zpkgs
+          path: build/build-server/panda-server@*.zpg
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    # make a release on every tag
+    if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: zpkgs
+          path: zpkgs
+
+      - name: Github Release
+        # We pin to the SHA, not the tag, for security reasons.
+        # https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions#using-third-party-actions
+        uses: softprops/action-gh-release@2d72d869af3bf23602f9593a1e3fd739b80ac1eb  # v0.1.12
+        with:
+          prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}
+          files: zpkgs/*
+          body: See [Changelog](CHANGELOG.rst) for more details
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
