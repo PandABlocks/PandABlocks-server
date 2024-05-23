@@ -118,31 +118,31 @@ below:
 +-------------------------------+----------------------------------------------+
 | ``*BLOCKS?``                  | List device blocks.                          |
 +-------------------------------+----------------------------------------------+
-|   ``*DESC.`` block ``.``      | Show description for field, attribute, or    |
-|   field[  ``.``  attr]  ``?`` | table subfield.                              |
-|   ``*DESC.`` block  ``.``     |                                              |
-|   field  ``[].``  subfield    |                                              |
+| | ``*DESC.`` block\ ``.``\    | Show description for field, attribute, or    |
+|   field[\ ``.``\ attr]\ ``?`` | table subfield.                              |
+| | ``*DESC.`` block\ ``.``\    |                                              |
+|   field\ ``[].``\ subfield\   |                                              |
 |   ``?``                       |                                              |
 +-------------------------------+----------------------------------------------+
-|   ``*ENUMS.`` block  ``.``    | List enumerations for field, attribute, or   |
-|   field[  ``.``  attr]  ``?`` | table subfield.                              |
-|   ``*ENUMS.`` block  ``.``    |                                              |
-|   field  ``[].``  subfield    |                                              |
+| | ``*ENUMS.`` block\ ``.``\   | List enumerations for field, attribute, or   |
+|   field[\ ``.``\ attr]\ ``?`` | table subfield.                              |
+| | ``*ENUMS.`` block\ ``.``\   |                                              |
+|   field\ ``[].``\ subfield\   |                                              |
 |   ``?``                       |                                              |
 +-------------------------------+----------------------------------------------+
-| ``*CHANGES``  [  ``.``        | Report changes to values.  *group* can be    |
-| group]  ``?``                 | any of ``CONFIG``, ``BITS``, ``POSN``,       |
+| ``*CHANGES``\ [\ ``.``\       | Report changes to values.  *group* can be    |
+| group]\ ``?``                 | any of ``CONFIG``, ``BITS``, ``POSN``,       |
 |                               | ``READ``, ``ATTR``, or ``TABLE``.            |
 +-------------------------------+----------------------------------------------+
-| ``*CHANGES``  [  ``.``        | Reset reported changes, *group* as above.    |
-| group]  ``=``  [  ``E``       |                                              |
-|   ``S``  ]                    |                                              |
+| ``*CHANGES``\ [\ ``.``\       | Reset reported changes, *group* as above.    |
+| group]\ ``=``\ [\ ``E``\      |                                              |
+| | ``S``\ ]                    |                                              |
 +-------------------------------+----------------------------------------------+
 | ``*CAPTURE?``                 | Report fields configured for capture.        |
 +-------------------------------+----------------------------------------------+
 | ``*CAPTURE.*?``               | List all fields that can be captured.        |
 +-------------------------------+----------------------------------------------+
-| ``*CAPTURE.``  name  ``?``    | Interrogate capture options, *name* can be   |
+| ``*CAPTURE.``\ name\ ``?``    | Interrogate capture options, *name* can be   |
 |                               | ``OPTIONS`` or ``ENUMS``.                    |
 +-------------------------------+----------------------------------------------+
 | ``*CAPTURE=``                 | Reset data capture.                          |
@@ -151,13 +151,13 @@ below:
 +-------------------------------+----------------------------------------------+
 | ``*BITS?``                    | Enumerate possible bit bus positions.        |
 +-------------------------------+----------------------------------------------+
-| ``*VERBOSE=``  value          | Control command logging.                     |
+| ``*VERBOSE=``\ value          | Control command logging.                     |
 +-------------------------------+----------------------------------------------+
-| ``*PCAP.``  field  ``?``      | Special position capture status fields.      |
+| ``*PCAP.``\ field\ ``?``      | Special position capture status fields.      |
 |                               | *field* can be any of ``STATUS``,            |
 |                               | ``CAPTURED``, or ``COMPLETION``.             |
 +-------------------------------+----------------------------------------------+
-| ``*PCAP.``  field  ``=``      | Position capture actions.  *field* can be    |
+| ``*PCAP.``\ field\ ``=``      | Position capture actions.  *field* can be    |
 |                               | either ``ARM``, or ``DISARM``.               |
 +-------------------------------+----------------------------------------------+
 | ``*SAVESTATE=``               | Triggers immediate save to file of the       |
