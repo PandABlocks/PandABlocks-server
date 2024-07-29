@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supporting Documentation &mdash; PandABlocks-server 3.1b1
+ documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
+      <link rel="stylesheet" type="text/css" href="_static/theme_overrides.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Starting Panda Server" href="startup.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PandABlocks-server
+              <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.1b1
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Supporting Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#useful-tools">Useful Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#panda-status-leds">Panda Status LEDs</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Supporting Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/support.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="supporting-documentation">
+<h1>Supporting Documentation<a class="headerlink" href="#supporting-documentation" title="Permalink to this heading"></a></h1>
+<div class="section" id="useful-tools">
+<h2>Useful Tools<a class="headerlink" href="#useful-tools" title="Permalink to this heading"></a></h2>
+<p>There are a number of useful tools in the <code class="docutils literal notranslate"><span class="pre">python</span></code> directory.</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">sim_server</span></code></dt><dd><p>This is run as part of the top level <code class="docutils literal notranslate"><span class="pre">simserver</span></code> script to provide
+emulation of the Panda hardware.  The version of this tool provided with the
+server is <em>very</em> basic, for a more functional emulation use the
+corresponding tool in the PandaFPGA project.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tcp_client</span></code> [server [port]]</dt><dd><p>This tool connects to the Panda server configuration port and helps with
+sending and receiving configuration commands.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">save-state</span></code> server file</dt><dd><p>This saves the entire configuration state for the given Panda to the given
+file.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">load-state</span></code> server file</dt><dd><p>This writes the given configuration file to the Panda.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="panda-status-leds">
+<h2>Panda Status LEDs<a class="headerlink" href="#panda-status-leds" title="Permalink to this heading"></a></h2>
+<p>Two LEDs on Panda show a rough indication of the current status of Panda.  There
+are two LEDs, STA (status) and DIA (diagnostic); the status LED is green and is
+used to indicate normal activity, the diagnostic LED is red and is used to
+indicate various fault conditions.</p>
+<p>The table below shows the possible LED indicators and their meaning:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 68%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Mnemonic</p></th>
+<th class="head"><p>DIA</p></th>
+<th class="head"><p>STA</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>-</p></td>
+<td><p>Off</p></td>
+<td><p>Off</p></td>
+<td><p>System not running</p></td>
+</tr>
+<tr class="row-odd"><td><p>BOOTING</p></td>
+<td><p>Off</p></td>
+<td><p>Blink</p></td>
+<td><p>Panda booting</p></td>
+</tr>
+<tr class="row-even"><td><p>SYSTEM_OK</p></td>
+<td><p>Off</p></td>
+<td><p>On</p></td>
+<td><p>Panda running ok</p></td>
+</tr>
+<tr class="row-odd"><td><p>ATTENTION</p></td>
+<td><p>Blink</p></td>
+<td><p>Off</p></td>
+<td><p>User attention required</p></td>
+</tr>
+<tr class="row-even"><td><p>NW_ERR</p></td>
+<td><p>Blink</p></td>
+<td><p>Blink</p></td>
+<td><p>Network problem detected</p></td>
+</tr>
+<tr class="row-odd"><td><p>-</p></td>
+<td><p>Blink</p></td>
+<td><p>On</p></td>
+<td><p>(not used, should not occur)</p></td>
+</tr>
+<tr class="row-even"><td><p>ZPKG_ERR</p></td>
+<td><p>On</p></td>
+<td><p>Off</p></td>
+<td><p>Problem loading installed package</p></td>
+</tr>
+<tr class="row-odd"><td><p>SYSTEM_ERR</p></td>
+<td><p>On</p></td>
+<td><p>Blink</p></td>
+<td><p>System error</p></td>
+</tr>
+<tr class="row-even"><td><p>-</p></td>
+<td><p>On</p></td>
+<td><p>On</p></td>
+<td><p>(not used, should not occur)</p></td>
+</tr>
+</tbody>
+</table>
+<p>The detailed meaning of these conditions is described below.</p>
+<dl>
+<dt>BOOTING</dt><dd><p>The system is currently booting.  Unless a new image is being configured
+this should only take a few seconds, but during image installation this can
+take a few minutes.</p>
+</dd>
+<dt>SYSTEM_OK</dt><dd><p>Booting has completed and the system is running normally.</p>
+</dd>
+<dt>ATTENTION</dt><dd><p>User attention is required.  Either a fresh installating is prompting for a
+MAC address, or no system packages have been installed.  Connect a serial
+port in the first case, connect to the administration web page on port 8080
+in the second case.</p>
+</dd>
+<dt>NW_ERR</dt><dd><p>A network error has been detected.</p>
+<p>This function is not currently implemented.</p>
+</dd>
+<dt>ZPKG_ERR</dt><dd><p>An installed package has failed to start.  Try power-cycling Panda first, if
+that fails check the logs and the serial port for relevant diagnostic
+messages.</p>
+</dd>
+<dt>SYSTEM_ERR</dt><dd><p>An internal system error has been detected.</p>
+<p>This function is not currently implemented.</p>
+</dd>
+</dl>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="startup.html" class="btn btn-neutral float-left" title="Starting Panda Server" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

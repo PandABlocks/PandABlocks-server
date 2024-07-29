@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blocks, Fields and Attributes &mdash; PandABlocks-server 3.1b1
+ documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
+      <link rel="stylesheet" type="text/css" href="_static/theme_overrides.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Data Capture" href="capture.html" />
+    <link rel="prev" title="Command Interface" href="commands.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PandABlocks-server
+              <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.1b1
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Blocks, Fields and Attributes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#field-types">Field Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#field-sub-types">Field Sub-Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#summary-of-sub-types">Summary of Sub-Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#summary-of-attributes">Summary of Attributes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Blocks, Fields and Attributes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/fields.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="blocks-fields-and-attributes">
+<span id="fields"></span><h1>Blocks, Fields and Attributes<a class="headerlink" href="#blocks-fields-and-attributes" title="Permalink to this heading"></a></h1>
+<p>The set of hardware blocks can be interrogated with the <code class="docutils literal notranslate"><span class="pre">*BLOCKS?</span></code> command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *BLOCKS?
+&gt; !TTLIN 6
+&gt; !OUTENC 4
+&gt; !PCAP 1
+&gt; !PCOMP 4
+&gt; !TTLOUT 10
+&gt; !ADC 8
+&gt; !DIV 4
+&gt; !INENC 4
+&gt; !SLOW 1
+&gt; !PGEN 2
+&gt; !LVDSIN 2
+&gt; !POSITIONS 1
+&gt; !POSENC 4
+&gt; !SEQ 4
+&gt; !PULSE 4
+&gt; !SRGATE 4
+&gt; !LUT 8
+&gt; !LVDSOUT 2
+&gt; !COUNTER 8
+&gt; !ADDER 1
+&gt; !CLOCKS 1
+&gt; !BITS 1
+&gt; !QDEC 4
+&gt; .
+</pre></div>
+</div>
+<p>For each block the number after the block tells us how many instances there are
+of the block.  Each block is controlled and interrogated through a number of
+fields, and the <cite>block</cite><code class="docutils literal notranslate"><span class="pre">.*?</span></code> command can be used to interrogate the list of
+fields:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; TTLIN.*?
+&gt; !VAL 1 bit_out
+&gt; !TERM 0 param enum
+&gt; .
+</pre></div>
+</div>
+<p>This tells us that block <code class="docutils literal notranslate"><span class="pre">TTLIN</span></code> has two fields, <code class="docutils literal notranslate"><span class="pre">TTLIN.VAL</span></code> and
+<code class="docutils literal notranslate"><span class="pre">TTLIN.TERM</span></code>.  The first field after the field name is a sequence number for
+user interface display, and the rest of each response describes the “type” of
+the field.  In this case we see that <code class="docutils literal notranslate"><span class="pre">TTLIN.VAL</span></code> is a <code class="docutils literal notranslate"><span class="pre">bit_out</span></code> field, which
+means can be used for bit data capture and can be connected to any <code class="docutils literal notranslate"><span class="pre">param</span>
+<span class="pre">bit_mux</span></code> field as a data source.</p>
+<p>Each field has one or more attributes depending on the field type.  The list of
+attributes can be interrogated with the <cite>block</cite><code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.*?</span></code> command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; TTLIN.VAL.*?
+&gt; !CAPTURE_WORD
+&gt; !OFFSET
+&gt; !INFO
+&gt; .
+&lt; TTLIN.TERM.*?
+&gt; !INFO
+&gt; .
+</pre></div>
+</div>
+<p>All fields have the <code class="docutils literal notranslate"><span class="pre">.INFO</span></code> attribute, which just repeats the type information
+already reported, eg <code class="docutils literal notranslate"><span class="pre">TTLIN1.VAL.INFO?</span></code> returns <code class="docutils literal notranslate"><span class="pre">bit_out</span></code> (note that a block
+number must be specified when interrogating fields and attributes).</p>
+<div class="section" id="field-types">
+<h2>Field Types<a class="headerlink" href="#field-types" title="Permalink to this heading"></a></h2>
+<p>Each field type determines the set of attributes available for the field.  The
+types and their attributes are documented below.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 76%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">param</span></code> subtype</p></td>
+<td><p>Configurable parameter.  The <cite>subtype</cite> determines the
+precise behaviour and the available attributes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">read</span></code> subtype</p></td>
+<td><p>A read only hardware field, used for monitoring status.
+Again, <cite>subtype</cite> determines available attributes.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">write</span></code> subtype</p></td>
+<td><p>A write only field, <cite>subtype</cite> determines possible values
+and attributes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">time</span></code></p></td>
+<td><p>Configurable timer parameter.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bit_out</span></code></p></td>
+<td><p>Bit output, can be configured as bit input for <code class="docutils literal notranslate"><span class="pre">bit_mux</span></code>
+fields.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pos_out</span></code></p></td>
+<td><p>Position output, can be configured for data capture and as
+position input for <code class="docutils literal notranslate"><span class="pre">pos_mux</span></code> fields.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ext_out</span></code> extra</p></td>
+<td><p>Extended output values, can be configured for data capture,
+but not available on position bus.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bit_mux</span></code></p></td>
+<td><p>Bit input with configurable delay.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pos_mux</span></code></p></td>
+<td><p>Position input multiplexer selection.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">table</span></code></p></td>
+<td><p>Table data with special access methods.</p></td>
+</tr>
+</tbody>
+</table>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">param</span></code> subtype</dt><dd><p>All fields of this type contribute to the <code class="docutils literal notranslate"><span class="pre">*CHANGES.PARAM</span></code> change group
+and are used to configure the behaviour of the corresponding block.  Fields
+of this type are used for input configuration and other behavioural
+settings.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">read</span></code> subtype</dt><dd><p>All fields of this type contribute to the <code class="docutils literal notranslate"><span class="pre">*CHANGES.READ</span></code> change group,
+but are only checked when either the field is read or the change group is
+polled.  Fields of this type are used for monitoring the internal status of
+a block, and they cannot be written to.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">write</span></code> subtype</dt><dd><p>Fields of this type can only be written and are used for immediate actions
+on a block.  The <code class="docutils literal notranslate"><span class="pre">action</span></code> subtype is used to support actions without any
+parameters, for example the following command forces a soft reset on the
+given pulse block:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span> <span class="n">PULSE1</span><span class="o">.</span><span class="n">FORCE_RESET</span><span class="o">=</span>
+<span class="o">&gt;</span> <span class="n">OK</span>
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">time</span></code></dt><dd><p>Fields of this type are used for configuring delays.  They also contribute
+to <code class="docutils literal notranslate"><span class="pre">*CHANGES.PARAM</span></code>.  The following attributes are supported by fields of
+this type:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">UNITS</span></code></dt><dd><p>This attribute can be set to any of the strings <code class="docutils literal notranslate"><span class="pre">min</span></code>, <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">ms</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">us</span></code>, and is used to interpret how values read and written to the
+field are interpreted.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">RAW</span></code></dt><dd><p>This attribute can be read or written to report or set the delay in FPGA
+ticks.</p>
+</dd>
+</dl>
+<p>The <code class="docutils literal notranslate"><span class="pre">UNITS</span></code> attribute determines how numbers read or written to the field
+are interpreted.  For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; PULSE1.DELAY.UNITS=s
+&gt; OK
+&lt; PULSE1.DELAY=2.5
+&gt; OK
+&lt; PULSE1.DELAY.RAW?
+&gt; OK =312500000
+&lt; PULSE1.DELAY.UNITS=ms
+&gt; OK
+&lt; PULSE1.DELAY?
+&gt; OK =2500
+</pre></div>
+</div>
+<p>Note that changing <code class="docutils literal notranslate"><span class="pre">UNITS</span></code> doesn’t change the delay, only how it is
+reported and interpreted.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bit_out</span></code></dt><dd><p>Fields of this type are used for block outputs which contribute to the
+internal bit system bus, and they contribute to the <code class="docutils literal notranslate"><span class="pre">*CHANGES.BITS</span></code> change
+group.  They can be captured via the appropriate <code class="docutils literal notranslate"><span class="pre">PCAP.BITS</span></code>n block as
+reported by the <code class="docutils literal notranslate"><span class="pre">CAPTURE_WORD</span></code> attribute.</p>
+<p>The following attributes are supported by fields of this type:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">CAPTURE_WORD</span></code></dt><dd><p>This identifies which <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> value can be used to capture this bit.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">OFFSET</span></code></dt><dd><p>This is the bit offset into the captured word of this particular bit.</p>
+</dd>
+</dl>
+<p>For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; TTLIN1.VAL.CAPTURE_WORD?
+&gt; OK =PCAP.BITS0
+&lt; TTLIN1.VAL.OFFSET?
+&gt; OK =2
+</pre></div>
+</div>
+<p>This tells us that if <code class="docutils literal notranslate"><span class="pre">PCAP.BITS0</span></code> is captured then <code class="docutils literal notranslate"><span class="pre">TTLIN1.VAL</span></code> can be
+read as bit 2 of this word, counting from the least significant bit.</p>
+<p>The field itself can be read to return the current value of the bit.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pos_out</span></code></dt><dd><p>Fields of this type are used for block outputs which contribute to the
+internal position bus, and they contribute to the <code class="docutils literal notranslate"><span class="pre">*CHANGES.POSN</span></code> change
+group.  The following attributes support capture control:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">CAPTURE</span></code></dt><dd><p>This can be set to manage capture of this field.  One of the following
+enumeration values can be written to this field:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 79%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>No</p></td>
+<td><p>Capture is disabled for this field.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Value</p></td>
+<td><p>The value at the time of trigger will be captured.</p></td>
+</tr>
+<tr class="row-even"><td><p>Diff</p></td>
+<td><p>The difference of values is captured.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sum</p></td>
+<td><p>The sum of all valid values is captured.  This is a
+64-bit value, and may be further scaled if
+<code class="docutils literal notranslate"><span class="pre">PCAP.SHIFT_SUM</span></code> is set.</p></td>
+</tr>
+<tr class="row-even"><td><p>Mean</p></td>
+<td><p>The average of all valid values is captured.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Min</p></td>
+<td><p>The minimum of all valid values is captured.</p></td>
+</tr>
+<tr class="row-even"><td><p>Max</p></td>
+<td><p>The maximum of all valid values is captured.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Min Max</p></td>
+<td><p>Both minimum and maximum values are captured.</p></td>
+</tr>
+<tr class="row-even"><td><p>Min Max Mean</p></td>
+<td><p>All three values, minimum, maximum, average are
+captured.</p></td>
+</tr>
+</tbody>
+</table>
+</dd>
+</dl>
+<p>The following attributes support formatting of the field when reading it:
+the current value is returned subject to the formatting rules described
+below.</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">OFFSET</span></code>, <code class="docutils literal notranslate"><span class="pre">SCALE</span></code></dt><dd><p>These numbers can be set to configure the conversion from the underlying
+position to the value captured when scaling is enabled and read from the
+<code class="docutils literal notranslate"><span class="pre">SCALED</span></code> attribute.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">UNITS</span></code></dt><dd><p>This field can be set to any UTF-8 string, and is provided for the
+convenience of the user interface and is returned as part of the data
+capture heading.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">SCALED</span></code></dt><dd><p>This returns the scaled value computed as</p>
+<blockquote>
+<div><p>value * scale + offset</p>
+</div></blockquote>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ext_out</span></code> extra</dt><dd><p>Fields of this type represent values that can be captured but which are not
+present on the position bus.  These fields also support one capture control
+field:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">CAPTURE</span></code></dt><dd><p>As for <code class="docutils literal notranslate"><span class="pre">pos_out</span></code>, can be set to control capture of this field:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 79%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>No</p></td>
+<td><p>This field will not be captured.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Value</p></td>
+<td><p>This field will be captured.</p></td>
+</tr>
+</tbody>
+</table>
+</dd>
+</dl>
+<p>The <cite>extra</cite> field determines the detailed behaviour of this field, and will
+be one of the following values:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>extra value</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code></p></td>
+<td><p>Timestamps in clock ticks with optional scaling to seconds
+on data capture.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">samples</span></code></p></td>
+<td><p>Special internal field for counting captured samples.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bits</span></code></p></td>
+<td><p>Used to implement bit-bus readout fields.  Fields of this
+sub-type implement an extra <code class="docutils literal notranslate"><span class="pre">BITS</span></code> field.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Fields of type <code class="docutils literal notranslate"><span class="pre">ext_out</span> <span class="pre">bits</span></code> implement an extra attribute:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">BITS</span></code></dt><dd><p>This returns a list of all bit fields associated with this field.
+Fields of this type can be used to capture a snapshot of the bit bus at
+the trigger time.</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bit_mux</span></code></dt><dd><p>Bit input selectors for blocks.  Each of these fields can be set to the name
+of a corresponding <code class="docutils literal notranslate"><span class="pre">bit_out</span></code> field, for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span> <span class="n">TTLOUT1</span><span class="o">.</span><span class="n">VAL</span><span class="o">=</span><span class="n">TTLIN1</span><span class="o">.</span><span class="n">VAL</span>
+<span class="o">&gt;</span> <span class="n">OK</span>
+</pre></div>
+</div>
+<p>There are two attributes:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DELAY</span></code></dt><dd><p>This can be set to any value between 0 and <code class="docutils literal notranslate"><span class="pre">MAX_DELAY</span></code> to delay the
+bit input to the block by the specified number of clock ticks.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">MAX_DELAY</span></code></dt><dd><p>This returns the maximum delay that can be set for this input.</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pos_mux</span></code></dt><dd><p>Position input selectors for blocks.  Each of these fields can be set to the
+name of a corresponding <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> field, for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span> <span class="n">ADDER1</span><span class="o">.</span><span class="n">INPA</span><span class="o">=</span><span class="n">ADC2</span><span class="o">.</span><span class="n">OUT</span>
+<span class="o">&gt;</span> <span class="n">OK</span>
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">table</span></code></dt><dd><p>Values of this type are used for long tables of numbers.  This server
+imposes no structure on these values apart from treating them as an array of
+32-bit integers.</p>
+<p>Tables values are written with the special <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> syntax:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 47%" />
+<col style="width: 53%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;</span></code></p></td>
+<td><p>Normal table write, overwrite table</p></td>
+</tr>
+<tr class="row-even"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code></p></td>
+<td><p>Normal table write, append to table</p></td>
+</tr>
+<tr class="row-odd"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;B</span></code></p></td>
+<td><p>Base-64 table write, overwrite table</p></td>
+</tr>
+<tr class="row-even"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;&lt;B</span></code></p></td>
+<td><p>Base-64 table write, append to table</p></td>
+</tr>
+</tbody>
+</table>
+<p>For “normal” table writes the data is sent as a sequence of decimal numbers
+in ASCII, and the whole sequence must be terminate by an empty blank line.
+For base-64 writes the data is sent in base-64 format, for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; SEQ3.TABLE&lt;B
+&lt; TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1
+&lt;
+&gt; OK
+&lt; SEQ3.TABLE.LENGTH?
+&gt; OK =12
+</pre></div>
+</div>
+<p>Note that when data is sent in base-64 format, each individual line must
+encode a multiple of four bytes, otherwise the write will be rejected.</p>
+<p>The following attributes are provided by this field type:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">MAX_LENGTH</span></code></dt><dd><p>This is the maximum number of 32-bit words which can be stored in the
+table.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">LENGTH</span></code></dt><dd><p>This is the current number of words in the table.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">B</span></code></dt><dd><p>This read-only attribute returns the content of the table in base-64.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">FIELDS</span></code></dt><dd><p>This returns a list of strings which can be used to interpret the
+content of the table.  Each line returned is of the following format:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">left</span><span class="p">:</span><span class="n">right</span> <span class="n">field</span><span class="o">-</span><span class="n">name</span> <span class="n">subtype</span>
+</pre></div>
+</div>
+<p>Here <cite>left</cite> and <cite>right</cite> are bit field indices into a single table row,
+consisting of a number of 32-bit words concatenated (in little-endian
+order) with bits numbered from 0 in the least significant position up to
+32*<code class="docutils literal notranslate"><span class="pre">ROW_WORDS</span></code>-1, and <cite>left</cite> &gt;= <cite>right</cite>.  The name of the field is
+given by  <cite>field-name</cite>, and <cite>subtype</cite> can be one of <code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">uint</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">enum</span></code>.  If <cite>subtype</cite> is <code class="docutils literal notranslate"><span class="pre">enum</span></code> then the list of enums can be
+interrogated through the command</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>*ENUMS.block.table[].field?
+</pre></div>
+</div>
+<p>where <cite>block</cite>, <cite>table</cite>, <cite>field</cite> are appropriate names.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ROW_WORDS</span></code></dt><dd><p>Returns the number of 32-bit words in a single row of the table.  This
+can be used to help interpret the <code class="docutils literal notranslate"><span class="pre">FIELDS</span></code> result.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</div>
+<div class="section" id="field-sub-types">
+<h2>Field Sub-Types<a class="headerlink" href="#field-sub-types" title="Permalink to this heading"></a></h2>
+<p>The following field sub-types can be used for <code class="docutils literal notranslate"><span class="pre">param</span></code>, <code class="docutils literal notranslate"><span class="pre">read</span></code> and <code class="docutils literal notranslate"><span class="pre">write</span></code>
+fields.</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">uint</span></code> [<em>max-value</em>]</dt><dd><p>This is the most basic type: the value read or written is an unsigned 32-bit
+number.  There is one fixed attribute:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">MAX</span></code></dt><dd><p>This returns the maximum value that can be written to this field.</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span></code></dt><dd><p>Similar to <code class="docutils literal notranslate"><span class="pre">uint</span></code>, but signed, and there is no upper limit on the value.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">scalar</span></code> <em>scale</em> [<em>offset</em> [<em>units</em>]]</dt><dd><p>Floating point values can be read or written, and are converted from and to
+the underlying signed integer type via the equations below:</p>
+<blockquote>
+<div><div class="line-block">
+<div class="line">value = scale * raw + offset</div>
+<div class="line">raw = (value - offset) / scale</div>
+</div>
+</div></blockquote>
+<p>The following attributes are supported:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">UNITS</span></code></dt><dd><p>Returns the configured units string.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">RAW</span></code></dt><dd><p>Returns the underlying unconverted integer value.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">SCALE</span></code></dt><dd><p>Returns the configured scaling factor.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">OFFSET</span></code></dt><dd><p>Returns the configured scaling offset.</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bit</span></code></dt><dd><p>A value which is 0 or 1, there are no extra attributes.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">action</span></code></dt><dd><p>A value which cannot be read and always writes as 0.  Only useful for
+<code class="docutils literal notranslate"><span class="pre">write</span></code> fields.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lut</span></code></dt><dd><p>This field sub-type is used for the 5-input lookup table function
+calculation field.  This field can be set to any valid logical expression
+generated from inputs <code class="docutils literal notranslate"><span class="pre">A</span></code> to <code class="docutils literal notranslate"><span class="pre">E</span></code> using the standard operators <code class="docutils literal notranslate"><span class="pre">&amp;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">|</span></code>, <code class="docutils literal notranslate"><span class="pre">^</span></code>, <code class="docutils literal notranslate"><span class="pre">~</span></code>, <code class="docutils literal notranslate"><span class="pre">?:</span></code> from C together with <code class="docutils literal notranslate"><span class="pre">=</span></code> for equality and
+<code class="docutils literal notranslate"><span class="pre">=&gt;</span></code> for implication (<code class="docutils literal notranslate"><span class="pre">A=&gt;B</span></code> abbreviates <code class="docutils literal notranslate"><span class="pre">~A|B</span></code>).  All operations have
+C precedence, <code class="docutils literal notranslate"><span class="pre">=</span></code> has the same precedence as <code class="docutils literal notranslate"><span class="pre">==</span></code> in C, and <code class="docutils literal notranslate"><span class="pre">=&gt;</span></code> has
+precedence between <code class="docutils literal notranslate"><span class="pre">|</span></code> and <code class="docutils literal notranslate"><span class="pre">?:</span></code>.</p>
+<p>The following attribute is supported:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">RAW</span></code></dt><dd><p>This returns the corresponding lookup table assignment as a 32-bit
+number.</p>
+</dd>
+</dl>
+<p>For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; LUT2.FUNC=A=&gt;B?C:D
+&gt; OK
+&lt; LUT2.FUNC?
+&gt; OK =A=&gt;B?C:D
+&lt; LUT2.FUNC.RAW?
+&gt; OK =0xF0CCF0F0
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span></code></dt><dd><p>Enumeration fields define a list of valid strings which can be written to
+the field.  To interrogate the list of valid enumeration values use the
+<code class="docutils literal notranslate"><span class="pre">*ENUMS</span></code> command, for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *ENUMS.TTLIN1.TERM?
+&gt; !High-Z
+&gt; !50-Ohm
+&gt; .
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">time</span></code></dt><dd><p>Converts between time in specified units and time in FPGA clock ticks.  The
+following attributes are supported:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">UNITS</span></code></dt><dd><p>This attribute can be set to any of the strings <code class="docutils literal notranslate"><span class="pre">min</span></code>, <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">ms</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">us</span></code>, and is used to interpret how values read and written to the
+field are interpreted.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">RAW</span></code></dt><dd><p>This attribute can be read or written to report or set the delay in FPGA
+ticks.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</div>
+<div class="section" id="summary-of-sub-types">
+<h2>Summary of Sub-Types<a class="headerlink" href="#summary-of-sub-types" title="Permalink to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 19%" />
+<col style="width: 67%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Sub-type</p></th>
+<th class="head"><p>Attributes</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint</p></td>
+<td><p>MAX</p></td>
+<td><p>Possibly bounded 32-bit unsigned integer value</p></td>
+</tr>
+<tr class="row-odd"><td><p>int</p></td>
+<td></td>
+<td><p>Unbounded 32-bit signed integer value</p></td>
+</tr>
+<tr class="row-even"><td><p>scalar</p></td>
+<td><p>RAW, UNITS,
+SCALE, OFFSET</p></td>
+<td><p>Scaled signed floating point value</p></td>
+</tr>
+<tr class="row-odd"><td><p>bit</p></td>
+<td></td>
+<td><p>Bit: 0 or 1</p></td>
+</tr>
+<tr class="row-even"><td><p>action</p></td>
+<td></td>
+<td><p>Write only, no value</p></td>
+</tr>
+<tr class="row-odd"><td><p>lut</p></td>
+<td><p>RAW</p></td>
+<td><p>5 input lookup table logical formula</p></td>
+</tr>
+<tr class="row-even"><td><p>enum</p></td>
+<td><p>LABELS</p></td>
+<td><p>Enumeration selection</p></td>
+</tr>
+<tr class="row-odd"><td><p>time</p></td>
+<td><p>RAW, UNITS</p></td>
+<td><p>Time intervals converted to FPGA ticks</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="summary-of-attributes">
+<h2>Summary of Attributes<a class="headerlink" href="#summary-of-attributes" title="Permalink to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 53%" />
+<col style="width: 1%" />
+<col style="width: 1%" />
+<col style="width: 1%" />
+<col style="width: 1%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field (sub)type</p></th>
+<th class="head"><p>Attribute</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>R</p></th>
+<th class="head"><p>W</p></th>
+<th class="head"><p>C</p></th>
+<th class="head"><p>M</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>(all)</p></td>
+<td><p>INFO</p></td>
+<td><p>Returns type of field</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>uint</p></td>
+<td><p>MAX</p></td>
+<td><p>Maximum allowed integer value</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>scalar</p></td>
+<td><p>RAW</p></td>
+<td><p>Underlying integer value</p></td>
+<td><p>R</p></td>
+<td><p>W</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>UNITS</p></td>
+<td><p>Configured units for scalar</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>SCALE</p></td>
+<td><p>Configured scaling factor for scalar</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>OFFSET</p></td>
+<td><p>Configured scaling offset for scalar</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>lut</p></td>
+<td><p>RAW</p></td>
+<td><p>Computed Lookup Table 32-bit value</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>time</p></td>
+<td><p>UNITS</p></td>
+<td><p>Units and scaling selection for time</p></td>
+<td><p>R</p></td>
+<td><p>W</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>RAW</p></td>
+<td><p>Raw time in FPGA clock cycles</p></td>
+<td><p>R</p></td>
+<td><p>W</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>bit_out</p></td>
+<td><p>CAPTURE_WORD</p></td>
+<td><p>Capturable word containing this bit</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>OFFSET</p></td>
+<td><p>Offset of this bit in captured word</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>bit_mux</p></td>
+<td><p>DELAY</p></td>
+<td><p>Bit input delay in FPGA ticks</p></td>
+<td><p>R</p></td>
+<td><p>W</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>MAX_DELAY</p></td>
+<td><p>Maximum valid delay</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>pos_out</p></td>
+<td><p>CAPTURE</p></td>
+<td><p>Position capture control</p></td>
+<td><p>R</p></td>
+<td><p>W</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>OFFSET</p></td>
+<td><p>Position offset</p></td>
+<td><p>R</p></td>
+<td><p>W</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>SCALE</p></td>
+<td><p>Position scaling</p></td>
+<td><p>R</p></td>
+<td><p>W</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>UNITS</p></td>
+<td><p>Position units</p></td>
+<td><p>R</p></td>
+<td><p>W</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>SCALED</p></td>
+<td><p>Position after applying scaling</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>ext_out bits</p></td>
+<td><p>BITS</p></td>
+<td><p>List of bit_out fields</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td><p>M</p></td>
+</tr>
+<tr class="row-odd"><td><p>table</p></td>
+<td><p>MAX_LENGTH</p></td>
+<td><p>Maximum table row count</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>LENGTH</p></td>
+<td><p>Current table row count</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>B</p></td>
+<td><p>Table data in base-64</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td><p>M</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+<td><p>FIELDS</p></td>
+<td><p>Table field descriptions</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td><p>M</p></td>
+</tr>
+<tr class="row-odd"><td><p></p></td>
+<td><p>ROW_WORDS</p></td>
+<td><p>Number of words in a table row</p></td>
+<td><p>R</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt>Key:</dt><dd><dl class="field-list simple">
+<dt class="field-odd">R</dt>
+<dd class="field-odd"><p>Attribute can be read</p>
+</dd>
+<dt class="field-even">W</dt>
+<dd class="field-even"><p>Attribute can be written</p>
+</dd>
+<dt class="field-odd">C</dt>
+<dd class="field-odd"><p>Attribute contributes to <code class="docutils literal notranslate"><span class="pre">*CHANGES.ATTR</span></code> change set</p>
+</dd>
+<dt class="field-even">M</dt>
+<dd class="field-even"><p>Attribute returns multiple value result.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="commands.html" class="btn btn-neutral float-left" title="Command Interface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="capture.html" class="btn btn-neutral float-right" title="Data Capture" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

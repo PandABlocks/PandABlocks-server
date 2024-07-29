@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Command Interface &mdash; PandABlocks-server 3.1b1
+ documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
+      <link rel="stylesheet" type="text/css" href="_static/theme_overrides.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Blocks, Fields and Attributes" href="fields.html" />
+    <link rel="prev" title="Panda Server" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PandABlocks-server
+              <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                3.1b1
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Command Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#configuration-commands">Configuration Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#system-commands">System Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Command Interface</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/commands.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="command-interface">
+<h1>Command Interface<a class="headerlink" href="#command-interface" title="Permalink to this heading"></a></h1>
+<p>The default server port for the command interface is port 8888.  All commands
+and responses are in ASCII with lines separated with newline characters (ASCII
+character 0x0A).</p>
+<p>All commands can be grouped into three forms (query, assignment, table
+assignment) and two targets (system and fields).  There exactly four possible
+response formats (ok, ok with value, error, multiple value).  This section
+describes this command interface.</p>
+<p>The three basic command forms are:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 29%" />
+<col style="width: 56%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Format</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Query</p></td>
+<td><p>target<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<td><p>Interrogates <cite>target</cite> for current value, can
+return error, single value or a list of
+multiple values.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Assignment</p></td>
+<td><p>target<code class="docutils literal notranslate"><span class="pre">=</span></code>value</p></td>
+<td><p>Updates <cite>target</cite> with given value, can
+return error or success.</p></td>
+</tr>
+<tr class="row-even"><td><p>Table</p></td>
+<td><p>target<code class="docutils literal notranslate"><span class="pre">&lt;</span></code>format</p></td>
+<td><p>Command may be followed by lines of text,
+<em>must</em> be terminated by blank line.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The four basic command responses are:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 29%" />
+<col style="width: 56%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Format</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Success</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OK</span></code></p></td>
+<td><p>Returned assignment and table commands to
+report successful update.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Value</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OK</span> <span class="pre">=</span></code>value</p></td>
+<td><p>Successful return of single value from
+query command.</p></td>
+</tr>
+<tr class="row-even"><td><p>Error</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ERR</span></code> error</p></td>
+<td><p>Error string returned on any command failure</p></td>
+</tr>
+<tr class="row-odd"><td><p>Multi value</p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">!</span></code> value</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">.</span></code></div>
+</div>
+</td>
+<td><p>Any number of values can be returned, each
+preceded by <code class="docutils literal notranslate"><span class="pre">!</span></code>, and finally <code class="docutils literal notranslate"><span class="pre">.</span></code> by
+itself indicates end of input.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Command forms and their possible responses:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 86%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Form</p></th>
+<th class="head"><p>Responses</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Query</p></td>
+<td><p>Error, Value, Multi value</p></td>
+</tr>
+<tr class="row-odd"><td><p>Assignment</p></td>
+<td><p>Error, Success</p></td>
+</tr>
+<tr class="row-even"><td><p>Table</p></td>
+<td><p>Error, Success</p></td>
+</tr>
+</tbody>
+</table>
+<p>Each individual query target will either return a single value or multi-value,
+as documented below.</p>
+<p>Finally, there are two basic types of target: configuration commands and system
+commands.</p>
+<div class="section" id="configuration-commands">
+<h2>Configuration Commands<a class="headerlink" href="#configuration-commands" title="Permalink to this heading"></a></h2>
+<p>The entire hardware interface to PandA is structured into “blocks” and “fields”,
+and each field may have a number of “attributes” depending on the field type.
+This structure is reflected in the form of configuration commands which are
+tabulated below:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 60%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>Command Syntax</p></td>
+<td><p>Description</p></td>
+</tr>
+<tr class="row-even"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<td><p>Return current value of field.</p></td>
+</tr>
+<tr class="row-odd"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">=</span></code>value</p></td>
+<td><p>Assign value to field.</p></td>
+</tr>
+<tr class="row-even"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;</span></code>[<code class="docutils literal notranslate"><span class="pre">&lt;</span></code>][<code class="docutils literal notranslate"><span class="pre">B</span></code>]</p></td>
+<td><p>Write table data to field.</p></td>
+</tr>
+<tr class="row-odd"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.</span></code>attr<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<td><p>Return current value of field attribute.</p></td>
+</tr>
+<tr class="row-even"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.</span></code>attr<code class="docutils literal notranslate"><span class="pre">=</span></code>value</p></td>
+<td><p>Assign value to field attribute.</p></td>
+</tr>
+<tr class="row-odd"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.*?</span></code></p></td>
+<td><p>Returns list of fields.</p></td>
+</tr>
+<tr class="row-even"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.*?</span></code></p></td>
+<td><p>Returns list of field attributes.</p></td>
+</tr>
+</tbody>
+</table>
+<p>In all of these commands the number after the block is optional if there is only
+one instance of that block, and is ignored for the two <code class="docutils literal notranslate"><span class="pre">.*?</span></code> commands.  See
+the description of the <code class="docutils literal notranslate"><span class="pre">.TABLE</span></code> fields for an explanation of the optional
+format characters in the table write command.</p>
+</div>
+<div class="section" id="system-commands">
+<h2>System Commands<a class="headerlink" href="#system-commands" title="Permalink to this heading"></a></h2>
+<p>All system commands are prefixed with a leading <code class="docutils literal notranslate"><span class="pre">*</span></code> character.  The simplest
+command is <code class="docutils literal notranslate"><span class="pre">*IDN?</span></code> which returns a system identification string:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *IDN?
+&gt; OK =PandA SW: 330bd94-dirty FPGA: 0.1.9 d1275f61 00000000
+</pre></div>
+</div>
+<p>The available system commands are tabulated here and listed in more detail
+below:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 60%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>Command</p></td>
+<td><p>Description</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*IDN?</span></code></p></td>
+<td><p>Device identification.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*ECHO</span> <span class="pre">string?</span></code></p></td>
+<td><p>Echo.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*WHO?</span></code></p></td>
+<td><p>List connected clients.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*BLOCKS?</span></code></p></td>
+<td><p>List device blocks.</p></td>
+</tr>
+<tr class="row-even"><td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*DESC.</span></code> block<code class="docutils literal notranslate"><span class="pre">.</span></code>field[<code class="docutils literal notranslate"><span class="pre">.</span></code>attr]<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*DESC.</span></code> block<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">[].</span></code>subfield<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+</div>
+</td>
+<td><p>Show description for field, attribute, or
+table subfield.</p></td>
+</tr>
+<tr class="row-odd"><td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*ENUMS.</span></code> block<code class="docutils literal notranslate"><span class="pre">.</span></code>field[<code class="docutils literal notranslate"><span class="pre">.</span></code>attr]<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*ENUMS.</span></code> block<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">[].</span></code>subfield<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+</div>
+</td>
+<td><p>List enumerations for field, attribute, or
+table subfield.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*CHANGES</span></code>[<code class="docutils literal notranslate"><span class="pre">.</span></code>group]<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<td><p>Report changes to values.  <cite>group</cite> can be
+any of <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code>, <code class="docutils literal notranslate"><span class="pre">BITS</span></code>, <code class="docutils literal notranslate"><span class="pre">POSN</span></code>,
+<code class="docutils literal notranslate"><span class="pre">READ</span></code>, <code class="docutils literal notranslate"><span class="pre">ATTR</span></code>, or <code class="docutils literal notranslate"><span class="pre">TABLE</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*CHANGES</span></code>[<code class="docutils literal notranslate"><span class="pre">.</span></code>group]<code class="docutils literal notranslate"><span class="pre">=</span></code>[<code class="docutils literal notranslate"><span class="pre">E</span></code>| <code class="docutils literal notranslate"><span class="pre">S</span></code>]</p></td>
+<td><p>Reset reported changes, <cite>group</cite> as above.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*CAPTURE?</span></code></p></td>
+<td><p>Report fields configured for capture.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*CAPTURE.*?</span></code></p></td>
+<td><p>List all fields that can be captured.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*CAPTURE.</span></code>name<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<td><p>Interrogate capture options, <cite>name</cite> can be
+<code class="docutils literal notranslate"><span class="pre">OPTIONS</span></code> or <code class="docutils literal notranslate"><span class="pre">ENUMS</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*CAPTURE=</span></code></p></td>
+<td><p>Reset data capture.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*POSITIONS?</span></code></p></td>
+<td><p>Enumerate possible capture positions.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*BITS?</span></code></p></td>
+<td><p>Enumerate possible bit bus positions.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*VERBOSE=</span></code>value</p></td>
+<td><p>Control command logging.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*PCAP.</span></code>field<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<td><p>Special position capture status fields.
+<cite>field</cite> can be any of <code class="docutils literal notranslate"><span class="pre">STATUS</span></code>,
+<code class="docutils literal notranslate"><span class="pre">CAPTURED</span></code>, or <code class="docutils literal notranslate"><span class="pre">COMPLETION</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*PCAP.</span></code>field<code class="docutils literal notranslate"><span class="pre">=</span></code></p></td>
+<td><p>Position capture actions.  <cite>field</cite> can be
+either <code class="docutils literal notranslate"><span class="pre">ARM</span></code>, or <code class="docutils literal notranslate"><span class="pre">DISARM</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*SAVESTATE=</span></code></p></td>
+<td><p>Triggers immediate save to file of the
+persistence file state.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*CLOCK_FREQ?</span></code></p></td>
+<td><p>Returns currently configured system clock
+frequency</p></td>
+</tr>
+</tbody>
+</table>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">*IDN?</span></code></dt><dd><p>Returns system identification string, for example the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">OK</span> <span class="o">=</span><span class="n">PandA</span> <span class="n">SW</span><span class="p">:</span> <span class="mf">1.1</span> <span class="n">FPGA</span><span class="p">:</span> <span class="mf">0.1.9</span> <span class="n">d1275f61</span> <span class="mi">00000000</span> <span class="n">rootfs</span><span class="p">:</span> <span class="n">PandA</span> <span class="mf">1.1</span>
+</pre></div>
+</div>
+<p>The first field after “PandA” is the software version, the second field is
+the FPGA version, the third the firmware build number, and the fourth field
+identifies the supporting firmware.  The final fields (prefixed <code class="docutils literal notranslate"><span class="pre">rootfs:</span></code>)
+identify the underlying system on which the server is running.</p>
+<p>Note that the <code class="docutils literal notranslate"><span class="pre">rootfs:</span></code> identification is new to version 1.1 of PandA.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*ECHO</span> <span class="pre">string?</span></code></dt><dd><p>Returns string back to caller.  Not terribly useful.  Note that the echoed
+string cannot contain any of <code class="docutils literal notranslate"><span class="pre">?</span></code>, <code class="docutils literal notranslate"><span class="pre">=</span></code> or <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> characters, as this would
+cause the command to be mistaken for another command format!  Example
+usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *ECHO This is a test?
+&gt; OK =This is a test
+</pre></div>
+</div>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*WHO?</span></code></dt><dd><p>Returns list of client connections, for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *WHO?
+&gt; !2015-12-04T14:30:40.403Z config 127.0.0.1:34185
+&gt; .
+</pre></div>
+</div>
+<p>The first field is the time the connection was made, the second field is
+either <code class="docutils literal notranslate"><span class="pre">config</span></code> or <code class="docutils literal notranslate"><span class="pre">data</span></code> depending on whether the configuration or data
+port is connected, and the third field is the remote IP address and socket.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*BLOCKS?</span></code></dt><dd><p>Returns a list of all the top level blocks in the system.  The order in
+which the blocks is returned is somewhat arbitrary.  For example (here the
+list has been shortened in the middle):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *BLOCKS?
+&gt; !TTLIN 6
+&gt; !OUTENC 4
+...
+&gt; !CLOCKS 1
+&gt; !BITS 1
+&gt; !QDEC 4
+&gt; .
+</pre></div>
+</div>
+<p>Block and field commands can be used to interrogate each block.  The number
+after each block records the number of instances of each block.</p>
+</dd>
+</dl>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*DESC.</span></code>block<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*DESC.</span></code>block<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*DESC.</span></code>block<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.</span></code>attr<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*DESC.</span></code>block<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">[].</span></code>subfield<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+</div>
+<blockquote>
+<div><p>Returns description string for specified block, field, attribute, or table
+subfield eg:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *DESC.TTLIN?
+&gt; OK =TTL input
+&lt; *DESC.TTLIN.TERM?
+&gt; OK =Select TTL input termination
+&lt; *DESC.TTLIN.TERM.INFO?
+&gt; OK =Class information for field
+</pre></div>
+</div>
+</div></blockquote>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*ENUMS.</span></code>block<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*ENUMS.</span></code>block<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.</span></code>attr<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*ENUMS.</span></code>block<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">[].</span></code>subfield<code class="docutils literal notranslate"><span class="pre">?</span></code></div>
+</div>
+<blockquote>
+<div><p>Returns list of enumerations for given field, attribute, or table subfield,
+if appropriate.</p>
+</div></blockquote>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.CONFIG?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.BITS?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.POSN?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.READ?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.ATTR?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.TABLE?</span></code></div>
+</div>
+<blockquote>
+<div><p>Reports changes to the appropriate group of values.  Changes are reported
+since the last request on the connection, and on the first request the
+current value for every field will be reported.  The <code class="docutils literal notranslate"><span class="pre">*CHANGES?</span></code> command
+reports changes for all groups, otherwise one of the following groups can be
+selected:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 91%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>CONFIG</p></td>
+<td><p>Configuration settings</p></td>
+</tr>
+<tr class="row-even"><td><p>BITS</p></td>
+<td><p>Bits on the system bus</p></td>
+</tr>
+<tr class="row-odd"><td><p>POSN</p></td>
+<td><p>Positions</p></td>
+</tr>
+<tr class="row-even"><td><p>READ</p></td>
+<td><p>Polled read values</p></td>
+</tr>
+<tr class="row-odd"><td><p>ATTR</p></td>
+<td><p>Attributes (included capture enable flags)</p></td>
+</tr>
+<tr class="row-even"><td><p>TABLE</p></td>
+<td><p>Table changes</p></td>
+</tr>
+</tbody>
+</table>
+<p>For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *CHANGES.CONFIG?
+&gt; !TTLIN1.TERM=High-Z
+&gt; !TTLIN2.TERM=50-Ohm
+&gt; !TTLIN3.TERM=High-Z
+...
+&gt; !QDEC2.B=TTLIN1.VAL
+&gt; !QDEC3.B=TTLIN1.VAL
+&gt; !QDEC4.B=TTLIN1.VAL
+&gt; .
+</pre></div>
+</div>
+<p>Here 804 (at the time of writing) lines have been deleted from the
+transcript!  Now if we repeat the call we see that no further changes have
+happened until something is actually changed:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *CHANGES.CONFIG?
+&gt; .
+&lt; TTLOUT4.VAL=TTLIN3.VAL
+&gt; OK
+&lt; *CHANGES.CONFIG?
+&gt; !TTLOUT4.VAL=TTLIN3.VAL
+&gt; .
+</pre></div>
+</div>
+<p>Note that for tables only the fact that the table has changed is shown, no
+attempt is made to show the current table value:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; *CHANGES.TABLE?
+&gt; !PCOMP1.TABLE&lt;
+&gt; !PCOMP2.TABLE&lt;
+&gt; !PCOMP3.TABLE&lt;
+&gt; !PCOMP4.TABLE&lt;
+&gt; !PGEN1.TABLE&lt;
+&gt; !PGEN2.TABLE&lt;
+&gt; !SEQ1.TABLE&lt;
+&gt; !SEQ2.TABLE&lt;
+&gt; !SEQ3.TABLE&lt;
+&gt; !SEQ4.TABLE&lt;
+&gt; .
+</pre></div>
+</div>
+</div></blockquote>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES=</span></code>[<code class="docutils literal notranslate"><span class="pre">E</span></code>| <code class="docutils literal notranslate"><span class="pre">S</span></code>]</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.CONFIG=</span></code>[<code class="docutils literal notranslate"><span class="pre">E</span></code>| <code class="docutils literal notranslate"><span class="pre">S</span></code>]</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.BITS=</span></code>[<code class="docutils literal notranslate"><span class="pre">E</span></code>| <code class="docutils literal notranslate"><span class="pre">S</span></code>]</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.POSN=</span></code>[<code class="docutils literal notranslate"><span class="pre">E</span></code>| <code class="docutils literal notranslate"><span class="pre">S</span></code>]</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.READ=</span></code>[<code class="docutils literal notranslate"><span class="pre">E</span></code>| <code class="docutils literal notranslate"><span class="pre">S</span></code>]</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.ATTR=</span></code>[<code class="docutils literal notranslate"><span class="pre">E</span></code>| <code class="docutils literal notranslate"><span class="pre">S</span></code>]</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*CHANGES.TABLE=</span></code>[<code class="docutils literal notranslate"><span class="pre">E</span></code>| <code class="docutils literal notranslate"><span class="pre">S</span></code>]</div>
+</div>
+<blockquote>
+<div><p>These commands reset the change information for the corresponding group of
+information so that only changes occuring after the reset are reported, or
+so that all changes are reported.  If <code class="docutils literal notranslate"><span class="pre">=</span></code> or <code class="docutils literal notranslate"><span class="pre">=E</span></code> (for End) is specified
+then only new changes are reported, if <code class="docutils literal notranslate"><span class="pre">=S</span></code> (for Start) then change
+reporting is reset to the start as for a new connection.  For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt; TTLIN1.TERM=50-Ohm
+&gt; OK
+&lt; *CHANGES=
+&gt; OK
+&lt; *CHANGES.CONFIG?
+&gt; .
+</pre></div>
+</div>
+</div></blockquote>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE?</span></code></dt><dd><p>This returns a list of all positions and bit masks that will be written to
+the data capture port.  This list is controlled by setting the <code class="docutils literal notranslate"><span class="pre">.CAPTURE</span></code>
+attribute on the corresponding position fields.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE.*?</span></code></dt><dd><p>This returns a list of all fields that can be configured for capture.  This
+includes all <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> and <code class="docutils literal notranslate"><span class="pre">ext_out</span></code> fields.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE.OPTIONS?</span></code></dt><dd><p>Lists the available capture options for <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> fields.  The available
+options are “Value”, “Diff”, “Sum”, “Mean, “Min”, “Max”, “StdDev”.
+Availability of the last option “StdDev” depends on the FPGA configuration.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE.ENUMS?</span></code></dt><dd><p>Generates a curated list of capture option selections.  This is designed to
+be used for presenting lists of available capture options as an enumeration.
+Returns the same as calling <code class="docutils literal notranslate"><span class="pre">*ENUMS.</span></code>name<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.CAPTURE?</span></code>
+on any <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> field.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CAPTURE=</span></code></dt><dd><p>This resets all <code class="docutils literal notranslate"><span class="pre">.CAPTURE</span></code> flags to zero so that no data will be captured.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*POSITIONS?</span></code></dt><dd><p>This command lists all available position capture fields in order.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*BITS?</span></code></dt><dd><p>This command lists all available bit bus positions, but not including the
+special values <code class="docutils literal notranslate"><span class="pre">ZERO</span></code> and <code class="docutils literal notranslate"><span class="pre">ONE</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*VERBOSE=</span></code>value</dt><dd><p>If <code class="docutils literal notranslate"><span class="pre">*VERBOSE=1</span></code> is set then every command will be echoed to the server’s
+log.  Set <code class="docutils literal notranslate"><span class="pre">*VERBOSE=0</span></code> to restore normal quiet behaviour.</p>
+</dd>
+</dl>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*PCAP.STATUS?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*PCAP.CAPTURED?</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*PCAP.COMPLETION?</span></code></div>
+</div>
+<blockquote>
+<div><p>Interrogates status of position capture:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 85%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>STATUS</p></td>
+<td><p>Returns string with three fields: “Busy” or “Idle”, followed by
+the number of connected readers, and the number taking data.</p></td>
+</tr>
+<tr class="row-even"><td><p>CAPTURED</p></td>
+<td><p>Returns number of samples captured in the current or most recent
+data capture.</p></td>
+</tr>
+<tr class="row-odd"><td><p>COMPLETION</p></td>
+<td><p>Returns completion status from most recent data capture, as
+listed in the table below.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The completion codes have the following meaning:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>Busy</p></td>
+<td><p>Capture in progress.</p></td>
+</tr>
+<tr class="row-even"><td><p>Ok</p></td>
+<td><p>Capture completed without error or intervention.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Disarmed</p></td>
+<td><p>Capture was manually disarmed by <code class="docutils literal notranslate"><span class="pre">*PCAP.DISARM=</span></code>
+command.</p></td>
+</tr>
+<tr class="row-even"><td><p>Framing error</p></td>
+<td><p>Data capture framing error, probably due to incorrectly
+configured capture.</p></td>
+</tr>
+<tr class="row-odd"><td><p>DMA data error</p></td>
+<td><p>Internal data error, should not occur.</p></td>
+</tr>
+<tr class="row-even"><td><p>Driver data overrun</p></td>
+<td><p>Data capture too fast, internal buffers overrun.  Can
+also occur if PandA processor overloaded.</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*PCAP.ARM=</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">*PCAP.DISARM=</span></code></div>
+</div>
+<blockquote>
+<div><p>Top level capture control:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 85%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>ARM</p></td>
+<td><p>Initiates data capture.  Will fail if capture already in
+progress, or no fields configured for capture.</p></td>
+</tr>
+<tr class="row-even"><td><p>DISARM</p></td>
+<td><p>Halts ongoing data capture.</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">*SAVESTATE=</span></code></dt><dd><p>Updates the persistence state file (as configured on the command line when
+launched) with the current state.  Returns after a file system <code class="docutils literal notranslate"><span class="pre">sync</span></code>
+call, so it is safe to power-off the system after this command has
+completed.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">*CLOCK_FREQ?</span></code></dt><dd><p>Returns currently configured FPGA clock frequency as used to convert between
+times in natural units and times in clock ticks.</p>
+</dd>
+</dl>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Panda Server" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fields.html" class="btn btn-neutral float-right" title="Blocks, Fields and Attributes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
