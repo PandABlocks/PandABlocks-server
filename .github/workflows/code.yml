@@ -51,9 +51,9 @@ jobs:
 
       # Artifacts
       - name: Upload zpkg
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: zpkgs
+          name: zpkg-${{matrix.platform}}
           path: build/build-server/panda-server@*.zpg
 
   release:
