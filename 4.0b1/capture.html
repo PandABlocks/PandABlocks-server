@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Capture &mdash; PandABlocks-server 4.0b1
+ documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
+      <link rel="stylesheet" type="text/css" href="_static/theme_overrides.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Building and Configuring Panda Server" href="building.html" />
+    <link rel="prev" title="Blocks, Fields and Attributes" href="fields.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PandABlocks-server
+              <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                4.0b1
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Capture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#capture-configuration">Capture Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-capture-port">Data Capture Port</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#capture-options">Capture Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-transport-formatting">Data Transport Formatting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-header">Data Header</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#experiment-completion">Experiment Completion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#high-performance-mode">High performance mode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples">Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Data Capture</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/capture.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="data-capture">
+<h1>Data Capture<a class="headerlink" href="#data-capture" title="Permalink to this heading"></a></h1>
+<div class="section" id="capture-configuration">
+<h2>Capture Configuration<a class="headerlink" href="#capture-configuration" title="Permalink to this heading"></a></h2>
+<p>Both <code class="docutils literal notranslate"><span class="pre">pos_out</span></code> and <code class="docutils literal notranslate"><span class="pre">ext_out</span></code> fields can be configured for data capture
+through the data capture port by setting the appropriate value in the
+<code class="docutils literal notranslate"><span class="pre">CAPTURE</span></code> attribute.  The possible capture settings depend on the field type
+as follows:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">pos_out</span></code></dt><dd><table class="docutils align-default">
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 79%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>No</p></td>
+<td><p>Capture is disabled for this field.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Value</p></td>
+<td><p>The value at the time of trigger will be captured.</p></td>
+</tr>
+<tr class="row-even"><td><p>Diff</p></td>
+<td><p>The difference of values is captured.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sum</p></td>
+<td><p>The sum of all valid values is captured.  This is a
+64-bit value, and may be further scaled if
+<code class="docutils literal notranslate"><span class="pre">PCAP.SHIFT_SUM</span></code> is set.</p></td>
+</tr>
+<tr class="row-even"><td><p>Mean</p></td>
+<td><p>The average of all valid values is captured.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Min</p></td>
+<td><p>The minimum of all valid values is captured.</p></td>
+</tr>
+<tr class="row-even"><td><p>Max</p></td>
+<td><p>The maximum of all valid values is captured.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Min Max</p></td>
+<td><p>Both minimum and maximum values are captured.</p></td>
+</tr>
+<tr class="row-even"><td><p>Min Max Mean</p></td>
+<td><p>All three values, minimum, maximum, average are
+captured.</p></td>
+</tr>
+</tbody>
+</table>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ext_out</span></code></dt><dd><table class="docutils align-default">
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 79%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>No</p></td>
+<td><p>This field will not be captured.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Value</p></td>
+<td><p>This field will be captured.</p></td>
+</tr>
+</tbody>
+</table>
+</dd>
+</dl>
+</div>
+<div class="section" id="data-capture-port">
+<h2>Data Capture Port<a class="headerlink" href="#data-capture-port" title="Permalink to this heading"></a></h2>
+<p>The default server port for the data interface is port 8889.  The initial
+exchange is in ASCII with newline separated lines, subsequent data communication
+is as selected in the initial connection.</p>
+<p>Data capture proceeds as follows:</p>
+<ol class="arabic simple">
+<li><p>Connection to the data server port, default 8889.</p></li>
+<li><p>Send capture options string followed by newline.  The newline character is
+mandatory.</p></li>
+<li><p>The server will respond with <code class="docutils literal notranslate"><span class="pre">OK</span></code> unless there was an error parsing the
+capture options, or if the <code class="docutils literal notranslate"><span class="pre">NO_STATUS</span></code> option was specified.  If there was
+an error then the server responds with <code class="docutils literal notranslate"><span class="pre">ERR</span></code> followed by an error message
+and the connection is closed.</p></li>
+<li><p>The server will now ignore all further input from the client, and the
+connection will pause until data capture is started via the <code class="docutils literal notranslate"><span class="pre">*PCAP.ARM=</span></code>
+command.</p></li>
+<li><p>At the beginning of a round of data capture or “experiment”, a header
+detailing the data to be sent and data format is sent in ASCII followed by
+an empty line.  If <code class="docutils literal notranslate"><span class="pre">NO_HEADER</span></code> was selected then the header and blank line
+are omitted.</p></li>
+<li><p>Captured data is sent in the requested format until the experiment is
+complete (either internally disarmed or disarmed via the <code class="docutils literal notranslate"><span class="pre">*PCAP.DISARM=</span></code>
+command), or there is a communication problem.</p></li>
+<li><p>At the end of the experiment a completion code is sent as a single line in
+ASCII starting with <code class="docutils literal notranslate"><span class="pre">END</span></code>, unless <code class="docutils literal notranslate"><span class="pre">NO_STATUS</span></code> was specified.</p></li>
+<li><p>Unless <code class="docutils literal notranslate"><span class="pre">ONE_SHOT</span></code> was specified the server will pause until the next
+experiment (step 4).</p></li>
+</ol>
+<div class="section" id="capture-options">
+<h3>Capture Options<a class="headerlink" href="#capture-options" title="Permalink to this heading"></a></h3>
+<p>A line of capture options <em>must</em> be sent after initial connection before any
+data will be sent.  This is a list of any of the following options separated by
+whitespace ending with a newline character.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 83%" />
+<col style="width: 1%" />
+<col style="width: 1%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>ASCII</p></td>
+<td><p>Specifies that data is to be sent as ASCII numbers.</p></td>
+<td><p>1</p></td>
+<td><p>D</p></td>
+</tr>
+<tr class="row-even"><td><p>BASE64</p></td>
+<td><p>Binary data will be sent as a stream of base64 strings.</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>FRAMED</p></td>
+<td><p>Binary data is sent as a sequence of sized frames.</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>UNFRAMED</p></td>
+<td><p>Binary data is sent as a raw stream of bytes.</p></td>
+<td><p>1</p></td>
+<td><p>R</p></td>
+</tr>
+<tr class="row-odd"><td><p>SCALED</p></td>
+<td><p>All scalable data is scaled and sent as doubles.</p></td>
+<td><p>2</p></td>
+<td><p>D</p></td>
+</tr>
+<tr class="row-even"><td><p>RAW</p></td>
+<td><p>The captured binary data is sent without processing.</p></td>
+<td><p>2</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>NO_HEADER</p></td>
+<td><p>The data header is omitted.</p></td>
+<td></td>
+<td><p>R</p></td>
+</tr>
+<tr class="row-even"><td><p>NO_STATUS</p></td>
+<td><p>The connection and end of experiment status strings are
+omitted.</p></td>
+<td></td>
+<td><p>R</p></td>
+</tr>
+<tr class="row-odd"><td><p>ONE_SHOT</p></td>
+<td><p>Only one experiment will be transmitted.</p></td>
+<td></td>
+<td><p>R</p></td>
+</tr>
+<tr class="row-even"><td><p>XML</p></td>
+<td><p>The header will be sent in XML format.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>BARE</p></td>
+<td><p>Selects <code class="docutils literal notranslate"><span class="pre">UNFRAMED</span> <span class="pre">RAW</span> <span class="pre">NO_HEADER</span> <span class="pre">NO_STATUS</span> <span class="pre">ONE_SHOT</span></code></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>DEFAULT</p></td>
+<td><p>Default options.</p></td>
+<td></td>
+<td><p>D</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt>Key:</dt><dd><dl class="field-list simple">
+<dt class="field-odd">D</dt>
+<dd class="field-odd"><p>Default option if no other option specified.</p>
+</dd>
+<dt class="field-even">R</dt>
+<dd class="field-even"><p>Options selected in response to <code class="docutils literal notranslate"><span class="pre">BARE</span></code> option.</p>
+</dd>
+<dt class="field-odd">1</dt>
+<dd class="field-odd"><p>Data transmission formats, one of these will be selected.</p>
+</dd>
+<dt class="field-even">2</dt>
+<dd class="field-even"><p>Data processing formats, one of these will be selected.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</div>
+<div class="section" id="data-transport-formatting">
+<h3>Data Transport Formatting<a class="headerlink" href="#data-transport-formatting" title="Permalink to this heading"></a></h3>
+<p>Note that all binary data is sent with the lowest order byte first.</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">ASCII</span></code></dt><dd><p>Each value is formatted as an ASCII number, and transmitted with one line
+per captured sample.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">BASE64</span></code></dt><dd><p>The stream of binary data is converted to base64 strings and transmitted as
+a series of lines until the experiment is complete.  Each base64 string is
+preceded by a single space, so the end of the stream is easy to identify.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">FRAMED</span></code></dt><dd><p>In <code class="docutils literal notranslate"><span class="pre">FRAMED</span></code> mode the captured binary data is sent in blocks of
+unpredictable size.  Each block is preceded by 8 bytes.  The first four
+bytes are <code class="docutils literal notranslate"><span class="pre">BIN</span></code> followed by space, the remainind four bytes are the length
+of the data block in bytes <em>including</em> the 8 byte header.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">UNFRAMED</span></code></dt><dd><p>In <code class="docutils literal notranslate"><span class="pre">UNFRAMED</span></code> mode the captured binary data is sent as is.  In this mode
+it is difficult or impossible to reliably detect the end of the data stream,
+so normally this is best combined with <code class="docutils literal notranslate"><span class="pre">NO_STATUS</span></code> and <code class="docutils literal notranslate"><span class="pre">ONE_SHOT</span></code>.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="data-header">
+<h3>Data Header<a class="headerlink" href="#data-header" title="Permalink to this heading"></a></h3>
+<p>At the beginning of each experiment the following information is sent:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 78%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>arm_time</p></td>
+<td><p>System timestamp when ARM command was sent</p></td>
+</tr>
+<tr class="row-even"><td><p>start_time</p></td>
+<td><p>Timestamp of when PCAP became both armed and enabled.
+Uses hardware provided timestamp (e.g. from event receiver)
+if available, falling back to the system timestamp.</p></td>
+</tr>
+<tr class="row-odd"><td><p>hw_time_offset_ns</p></td>
+<td><p>Offset in ns from hardware timestamp to system time at the
+start of the experiment. Only present when hardware time
+source is used. Used to check that hardware and system times
+have not drifted too far apart.</p></td>
+</tr>
+<tr class="row-even"><td><p>missed</p></td>
+<td><p>Number of samples missed by late data port connection.</p></td>
+</tr>
+<tr class="row-odd"><td><p>process</p></td>
+<td><p>Data processing option: Scaled, Unscaled, or Raw.</p></td>
+</tr>
+<tr class="row-even"><td><p>format</p></td>
+<td><p>Data delivery formatting: ASCII, Base64, Framed, or Unframed.</p></td>
+</tr>
+<tr class="row-odd"><td><p>sample_bytes</p></td>
+<td><p>Number of bytes in one sample unless <code class="docutils literal notranslate"><span class="pre">format</span></code> is <code class="docutils literal notranslate"><span class="pre">ASCII</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p>fields</p></td>
+<td><p>Information about each captured field.</p></td>
+</tr>
+</tbody>
+</table>
+<p>All timestamps are in
+<a class="reference external" href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601 UTC format</a> with nanosecond
+resolution, i.e. <code class="docutils literal notranslate"><span class="pre">YYYY-MM-DDTHH:mm:ss.sssssssssZ</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">start_time</span></code> will be a hardware timestamp if a hardware time source which
+produces non-zero timestamps is selected, otherwise, it will be a system
+timestamp saved by the driver.</p>
+<p>For each field the following information is sent:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 19%" />
+<col style="width: 79%" />
+<col style="width: 1%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>name</p></td>
+<td><p>Name of captured field.</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>type</p></td>
+<td><p>Data type of transmitted field after data processing.</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>capture</p></td>
+<td><p>Value of <code class="docutils literal notranslate"><span class="pre">CAPTURE</span></code> field used to enable this field.</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>scale</p></td>
+<td><p>Scaling factor if scaled field.</p></td>
+<td><p>S</p></td>
+</tr>
+<tr class="row-odd"><td><p>offset</p></td>
+<td><p>Offset if scaled field.</p></td>
+<td><p>S</p></td>
+</tr>
+<tr class="row-even"><td><p>units</p></td>
+<td><p>Units string if scaled field.</p></td>
+<td><p>S</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt>Key:</dt><dd><dl class="field-list simple">
+<dt class="field-odd">S</dt>
+<dd class="field-odd"><p>Only present if scaled field</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p>If the <code class="docutils literal notranslate"><span class="pre">XML</span></code> option is selected the header is structured as a single
+<code class="docutils literal notranslate"><span class="pre">header</span></code> element containing <code class="docutils literal notranslate"><span class="pre">data</span></code> and <code class="docutils literal notranslate"><span class="pre">fields</span></code> elements.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">type</span></code> field can be one of the following strings:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 9%" />
+<col style="width: 77%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>String</p></th>
+<th class="head"><p>Bytes</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>int32</p></td>
+<td><p>4</p></td>
+<td><p>Used for scalable values sent in unscaled modes.</p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>4</p></td>
+<td><p>Used for bit masks.</p></td>
+</tr>
+<tr class="row-even"><td><p>int64</p></td>
+<td><p>8</p></td>
+<td><p>Used for raw ADC mean and unscaled 48-bit encoder data.</p></td>
+</tr>
+<tr class="row-odd"><td><p>double</p></td>
+<td><p>8</p></td>
+<td><p>Used for all scaled values when <code class="docutils literal notranslate"><span class="pre">SCALED</span></code> selected.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="experiment-completion">
+<h3>Experiment Completion<a class="headerlink" href="#experiment-completion" title="Permalink to this heading"></a></h3>
+<p>At the end of each capture experiment a single line is sent, eg:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">END</span> <span class="mi">10</span> <span class="n">Ok</span>
+</pre></div>
+</div>
+<p>This specifies the number of samples sent and gives a completion code, which can
+be one of the following values:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 76%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>Ok</p></td>
+<td><p>Experiment completed without intervention.</p></td>
+</tr>
+<tr class="row-even"><td><p>Disarmed</p></td>
+<td><p>Experiment manually completed by <code class="docutils literal notranslate"><span class="pre">*PCAP.DISARM=</span></code> command.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Early disconnect</p></td>
+<td><p>Client disconnect detected.</p></td>
+</tr>
+<tr class="row-even"><td><p>Data overrun</p></td>
+<td><p>Client not taking data quickly or network congestion,
+internal buffer overflow.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Framing error</p></td>
+<td><p>Triggers too fast for configured data capture.</p></td>
+</tr>
+<tr class="row-even"><td><p>Driver data overrun</p></td>
+<td><p>Probable CPU overload on PandA, should not occur.</p></td>
+</tr>
+<tr class="row-odd"><td><p>DMA data error</p></td>
+<td><p>Data capture too fast for memory bandwidth.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="high-performance-mode">
+<h3>High performance mode<a class="headerlink" href="#high-performance-mode" title="Permalink to this heading"></a></h3>
+<p>To get the highest performance, use <code class="docutils literal notranslate"><span class="pre">FRAMED</span> <span class="pre">RAW</span></code> mode. This activates a
+special passthrough mode which avoids copying memory as much as possible. In
+tests it has been capable of sustaining 60MBytes/s when panda-webcontrol is not
+installed. The downside to this mode is that if capture fails for any reason,
+then the last Framed block of data that the server sent should be discarded as
+it will have been corrupted while being sent.</p>
+</div>
+<div class="section" id="examples">
+<h3>Examples<a class="headerlink" href="#examples" title="Permalink to this heading"></a></h3>
+<p>Some examples of data capture for different options follow:</p>
+<p>Default:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">arm_time</span><span class="p">:</span> <span class="mi">2021</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">26</span><span class="n">T10</span><span class="p">:</span><span class="mi">34</span><span class="p">:</span><span class="mf">06.133</span><span class="n">Z</span>
+<span class="n">missed</span><span class="p">:</span> <span class="mi">0</span>
+<span class="n">process</span><span class="p">:</span> <span class="n">Scaled</span>
+<span class="nb">format</span><span class="p">:</span> <span class="n">ASCII</span>
+<span class="n">fields</span><span class="p">:</span>
+ <span class="n">PCAP</span><span class="o">.</span><span class="n">CAPTURE_TS</span> <span class="n">double</span> <span class="n">Trigger</span>
+ <span class="n">COUNTER1</span><span class="o">.</span><span class="n">OUT</span> <span class="n">double</span> <span class="n">Triggered</span> <span class="n">scale</span><span class="p">:</span> <span class="mi">1</span> <span class="n">offset</span><span class="p">:</span> <span class="mi">0</span> <span class="n">units</span><span class="p">:</span>
+ <span class="n">COUNTER2</span><span class="o">.</span><span class="n">OUT</span> <span class="n">double</span> <span class="n">Triggered</span> <span class="n">scale</span><span class="p">:</span> <span class="mi">1</span> <span class="n">offset</span><span class="p">:</span> <span class="mi">0</span> <span class="n">units</span><span class="p">:</span>
+ <span class="n">PGEN1</span><span class="o">.</span><span class="n">OUT</span> <span class="n">double</span> <span class="n">Triggered</span> <span class="n">scale</span><span class="p">:</span> <span class="mi">1</span> <span class="n">offset</span><span class="p">:</span> <span class="mi">0</span> <span class="n">units</span><span class="p">:</span>
+
+ <span class="mf">1e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262143</span>
+ <span class="mf">3e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262142</span>
+ <span class="mf">5e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262141</span>
+ <span class="mf">7e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262140</span>
+ <span class="mf">9e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262139</span>
+<span class="n">END</span> <span class="mi">5</span> <span class="n">Ok</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">BASE64</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">arm_time</span><span class="p">:</span> <span class="mi">2021</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">26</span><span class="n">T10</span><span class="p">:</span><span class="mi">34</span><span class="p">:</span><span class="mf">06.133</span><span class="n">Z</span>
+<span class="n">missed</span><span class="p">:</span> <span class="mi">0</span>
+<span class="n">process</span><span class="p">:</span> <span class="n">Scaled</span>
+<span class="nb">format</span><span class="p">:</span> <span class="n">Base64</span>
+<span class="n">sample_bytes</span><span class="p">:</span> <span class="mi">32</span>
+<span class="n">fields</span><span class="p">:</span>
+ <span class="n">PCAP</span><span class="o">.</span><span class="n">CAPTURE_TS</span> <span class="n">double</span> <span class="n">Trigger</span>
+ <span class="n">COUNTER1</span><span class="o">.</span><span class="n">OUT</span> <span class="n">double</span> <span class="n">Triggered</span> <span class="n">scale</span><span class="p">:</span> <span class="mi">1</span> <span class="n">offset</span><span class="p">:</span> <span class="mi">0</span> <span class="n">units</span><span class="p">:</span>
+ <span class="n">COUNTER2</span><span class="o">.</span><span class="n">OUT</span> <span class="n">double</span> <span class="n">Triggered</span> <span class="n">scale</span><span class="p">:</span> <span class="mi">1</span> <span class="n">offset</span><span class="p">:</span> <span class="mi">0</span> <span class="n">units</span><span class="p">:</span>
+ <span class="n">PGEN1</span><span class="o">.</span><span class="n">OUT</span> <span class="n">double</span> <span class="n">Triggered</span> <span class="n">scale</span><span class="p">:</span> <span class="mi">1</span> <span class="n">offset</span><span class="p">:</span> <span class="mi">0</span> <span class="n">units</span><span class="p">:</span>
+
+ <span class="n">ju21oPfGsD4AAAAAAAAAAAAAAAAAAAAAAAAAAPj</span><span class="o">/</span><span class="n">D0FU5BBxcyrJPgAAAAAAAAAAAAAAAAAAAAAA</span>
+ <span class="n">AAAA8P8PQfFo44i1</span><span class="o">+</span><span class="n">NQ</span><span class="o">+</span><span class="n">AAAAAAAAAAAAAAAAAAAAAAAAAADo</span><span class="o">/</span><span class="n">w9BuF8</span><span class="o">+</span><span class="n">WTFc3T4AAAAAAAAAAAAA</span>
+ <span class="n">AAAAAAAAAAAAAOD</span><span class="o">/</span><span class="n">D0E</span><span class="o">/</span><span class="n">q8yU1t</span><span class="o">/</span><span class="n">iPgAAAAAAAAAAAAAAAAAAAAAAAAAA2P8PQQ</span><span class="o">==</span>
+<span class="n">END</span> <span class="mi">5</span> <span class="n">Ok</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">XML</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">header</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">data</span> <span class="n">arm_time</span><span class="o">=</span><span class="s2">&quot;2021-05-26T10:35:06.107Z&quot;</span> <span class="n">missed</span><span class="o">=</span><span class="s2">&quot;0&quot;</span> <span class="n">process</span><span class="o">=</span><span class="s2">&quot;Scaled&quot;</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;ASCII&quot;</span> <span class="o">/&gt;</span>
+<span class="o">&lt;</span><span class="n">fields</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">field</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;PCAP.CAPTURE_TS&quot;</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;double&quot;</span> <span class="n">capture</span><span class="o">=</span><span class="s2">&quot;Trigger&quot;</span> <span class="o">/&gt;</span>
+<span class="o">&lt;</span><span class="n">field</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;COUNTER1.OUT&quot;</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;double&quot;</span> <span class="n">capture</span><span class="o">=</span><span class="s2">&quot;Triggered&quot;</span> <span class="n">scale</span><span class="o">=</span><span class="s2">&quot;1&quot;</span>
+<span class="n">offset</span><span class="o">=</span><span class="s2">&quot;0&quot;</span> <span class="n">units</span><span class="o">=</span><span class="s2">&quot;&quot;</span> <span class="o">/&gt;</span>
+<span class="o">&lt;</span><span class="n">field</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;COUNTER2.OUT&quot;</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;double&quot;</span> <span class="n">capture</span><span class="o">=</span><span class="s2">&quot;Triggered&quot;</span> <span class="n">scale</span><span class="o">=</span><span class="s2">&quot;1&quot;</span>
+<span class="n">offset</span><span class="o">=</span><span class="s2">&quot;0&quot;</span> <span class="n">units</span><span class="o">=</span><span class="s2">&quot;&quot;</span> <span class="o">/&gt;</span>
+<span class="o">&lt;</span><span class="n">field</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;PGEN1.OUT&quot;</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;double&quot;</span> <span class="n">capture</span><span class="o">=</span><span class="s2">&quot;Triggered&quot;</span> <span class="n">scale</span><span class="o">=</span><span class="s2">&quot;1&quot;</span> <span class="n">offset</span><span class="o">=</span><span class="s2">&quot;0&quot;</span>
+<span class="n">units</span><span class="o">=</span><span class="s2">&quot;&quot;</span> <span class="o">/&gt;</span>
+<span class="o">&lt;/</span><span class="n">fields</span><span class="o">&gt;</span>
+<span class="o">&lt;/</span><span class="n">header</span><span class="o">&gt;</span>
+
+ <span class="mf">1e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262143</span>
+ <span class="mf">3e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262142</span>
+ <span class="mf">5e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262141</span>
+ <span class="mf">7e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262140</span>
+ <span class="mf">9e-06</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">262139</span>
+<span class="n">END</span> <span class="mi">5</span> <span class="n">Ok</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="fields.html" class="btn btn-neutral float-left" title="Blocks, Fields and Attributes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="building.html" class="btn btn-neutral float-right" title="Building and Configuring Panda Server" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

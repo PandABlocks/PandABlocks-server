@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Starting Panda Server &mdash; PandABlocks-server 4.0b1
+ documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
+      <link rel="stylesheet" type="text/css" href="_static/theme_overrides.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Supporting Documentation" href="support.html" />
+    <link rel="prev" title="Extension Server" href="extension.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PandABlocks-server
+              <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                4.0b1
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building and Configuring Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Starting Panda Server</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/startup.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="starting-panda-server">
+<h1>Starting Panda Server<a class="headerlink" href="#starting-panda-server" title="Permalink to this heading"></a></h1>
+<p>The Panda socket server is normally automatically started at boot time or when
+the <code class="docutils literal notranslate"><span class="pre">zpkg-daemon</span></code> script is run.  The server is started and stopped by the
+script <code class="docutils literal notranslate"><span class="pre">etc/panda-server</span></code> installed in <code class="docutils literal notranslate"><span class="pre">/opt/etc/init.d</span></code>.</p>
+<p>The server can optionally be started from the command line, in which case the
+following arguments are supported:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">-h</span></code></dt><dd><p>This option shows the help text for server, listing all the available
+command line options.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-p</span></code> port</dt><dd><p>This specifies the socket port to be used for configuration commands.  The
+default value is 8888.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-d</span></code> port</dt><dd><p>This specifies the socket port to be used for data capture.  The default
+value is 8889.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-R</span></code></dt><dd><p>This can be specified to allow socket reuse via the <code class="docutils literal notranslate"><span class="pre">SO_REUSEADDR</span></code> socket
+option.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-c</span></code> config-dir</dt><dd><p>This specifies the directory where the <code class="docutils literal notranslate"><span class="pre">config</span></code>, <code class="docutils literal notranslate"><span class="pre">registers</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">description</span></code> files will be loaded from.  This argument must be specified.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-f</span></code> persistence-file</dt><dd><p>This specifies where the persistence state will be loaded from on startup
+and saved during operation.  See the <code class="docutils literal notranslate"><span class="pre">-t</span></code> option below for notes on how
+this file is updated.  If this is not specified then the persistence state
+will not be saved.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-t</span></code> [poll] [“:” [holdoff] [“:” backoff]]</dt><dd><p>This option sets three parameters (in seconds) controlling the pacing of
+writes to the persistence file.  The behaviour of the system is as follows:
+every <cite>poll</cite> seconds the internal state of the server is checked for
+configuration changes.  If a configuration change is checked then there is a
+pause of a further <cite>holdoff</cite> seconds before the updated state is written.
+Finally, there is a pause of <cite>backoff</cite> seconds before polling for internal
+changes resumes.</p>
+<p>Default values are: <cite>poll</cite> = 2, <cite>holdoff</cite> = 10, <cite>backoff</cite> = 60.  The
+somewhat complex syntax show above allows all or any of these values to be
+set with a single <code class="docutils literal notranslate"><span class="pre">-t</span></code> option.  For example, <code class="docutils literal notranslate"><span class="pre">-t:20</span></code> specifies <cite>holdoff</cite>
+= 20, other values unchaged.</p>
+<p>The intention of this timed behaviour is to reduce file write impact while
+still keeping on top of changes.  With default settings all parameters will
+be written to the persistence file within 72 seconds.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-D</span></code></dt><dd><p>This option requests that the server is run as a daemon.  This is the normal
+mode of operation when running as a server, but is generally omitted for
+debug.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-p</span></code> pid-file</dt><dd><p>If specified the given file is written with the process ID of the server,
+and will be deleted on exit.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-T</span></code></dt><dd><p>This mode is used for config file validation only: the server exits
+immediately after loading configuration files.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-M</span></code> MAC-list</dt><dd><p>If specified then the given file is used to initialise up to four MAC
+address registers.  The file consists of any number of comment
+lines (comment lines start with <code class="docutils literal notranslate"><span class="pre">#</span></code> in the first column) together with
+four MAC address lines, each of which is either blank (newline <code class="docutils literal notranslate"><span class="pre">\n</span></code> only)
+or is a six octet MAC address written as 2 digit hex numbers separated by
+colons.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">-X</span></code> port</dt><dd><p>If specified the server will attempt to connect to an extension server
+running locally and serving on the specified port.</p>
+</dd>
+</dl>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="extension.html" class="btn btn-neutral float-left" title="Extension Server" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="support.html" class="btn btn-neutral float-right" title="Supporting Documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
