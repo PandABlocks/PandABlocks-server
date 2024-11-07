@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Building and Configuring Panda Server &mdash; PandABlocks-server 4.0
+ documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
+      <link rel="stylesheet" type="text/css" href="_static/theme_overrides.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Configuration Files" href="config.html" />
+    <link rel="prev" title="Data Capture" href="capture.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: black" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            PandABlocks-server
+              <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                4.0
+
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+  <style>
+    /* style mobile top nav to look like main nav */
+    .wy-nav-top {
+        background: black
+    }
+  </style>
+  
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Command Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fields.html">Blocks, Fields and Attributes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="capture.html">Data Capture</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Building and Configuring Panda Server</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#setting-up-the-config-file">Setting up the <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#build-targets">Build Targets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#generated-files">Generated Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extension.html">Extension Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="startup.html">Starting Panda Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Supporting Documentation</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a></li>
+</ul>
+
+  <!-- Include link to changelog -->
+  <a href="https://github.com/PandABlocks/PandABlocks-server/blob/master/CHANGELOG.rst">Changelog</a>
+  <!-- Add versions for selected branches + tags -->
+  <p class="caption"><span class="caption-text">Versions</span></p>
+  <ul id="versions"/>
+  <script>
+    // Add any branches to appear in the side pane here, tags will be added below
+    // Will only appear if docs are built and pushed in gh-pages
+    var versions = ['master', 'main'];
+    var dirs = new Set();
+    function addVersion(name) {
+      if (dirs.has(name)) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = 'https://PandABlocks.github.io/PandABlocks-server/' + name;
+        a.innerText = name;
+        li.appendChild(a)
+        document.getElementById('versions').appendChild(li);
+      }
+    }
+    Promise.all([
+      // Find gh-pages directories and populate `dirs`
+      fetch("https://api.github.com/repos/PandABlocks/PandABlocks-server/contents?ref=gh-pages")
+      .then(response => response.json())
+      .then(data => data.forEach(function(e) {
+        if (e.type == "dir") dirs.add(e.name);
+      })),
+      // Add tags to `versions`
+      fetch('https://api.github.com/repos/PandABlocks/PandABlocks-server/tags')
+        .then(response => response.json())
+        .then(data => data.forEach(function(e) {
+          versions.push(e.name);
+        }))
+      ]).then(_ => versions.forEach(addVersion))
+  </script>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: black" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PandABlocks-server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Building and Configuring Panda Server</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/building.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="building-and-configuring-panda-server">
+<h1>Building and Configuring Panda Server<a class="headerlink" href="#building-and-configuring-panda-server" title="Permalink to this heading"></a></h1>
+<p>Setting up the build for the Panda Socket Server requires configuring a number
+of dependencies and creating a suitable <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file in the root directory so
+that they can be found.</p>
+<div class="section" id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this heading"></a></h2>
+<p>The following dependencies must be configured before any part of the server can
+be built.</p>
+<dl class="simple">
+<dt>Zynq cross-compiler toolchain</dt><dd><p>This can be downloaded as part of the Xilinx Vivado build environment for
+working with Zynq, or probably any ARMv7-A cross-compiler can be used.  This
+is needed to build all applications running on Panda.</p>
+</dd>
+<dt>PandABlocks-FPGA</dt><dd><p>This part of the Panda project must be available before the server can be
+built, as it contains a configuration file defining the low level register
+interface to the Panda firmware.</p>
+</dd>
+<dt>PandABlocks-rootfs</dt><dd><p>This part of the Panda project is required in order to provide a working
+kernel build tree, and to provide the zpkg build tool.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="setting-up-the-config-file">
+<h2>Setting up the <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> file<a class="headerlink" href="#setting-up-the-config-file" title="Permalink to this heading"></a></h2>
+<p>Start by copying the file <code class="docutils literal notranslate"><span class="pre">CONFIG.example</span></code> to <code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> in the base
+directory, and edit the file by commenting out lines as appropriate and editing
+them.</p>
+<p>The following symbols must be set to point to the appropriate dependencies:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">BINUTILS_DIR</span></code></dt><dd><p>If the Zynq cross-compiler toolchain is not on the path, this must be set in
+order to build the kernel module and the target build.  This symbol is not
+required for building the simulation server or the documentation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">KERNEL_DIR</span></code></dt><dd><p>In order to build the kernel module, this symbol must be pointed to the
+kernel build tree generated by the PandABlocks-roots build.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PANDA_ROOTFS</span></code></dt><dd><p>The zpkg build tool is found here.</p>
+</dd>
+</dl>
+<p>The following symbols can all be left at their default values:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">BUILD_DIR</span></code></dt><dd><p>This configures where the built files will be placed.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PYTHON</span></code></dt><dd><p>This configures which Python interpreter will be used for building.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">SPHINX_BUILD</span></code></dt><dd><p>The sphinx-build Python script used for building the documentation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DEFAULT_TARGETS</span></code></dt><dd><p>This determines which makefile targets are generated when <code class="docutils literal notranslate"><span class="pre">make</span></code> is run
+without specifying a particular target, or when <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">default</span></code> is run.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="build-targets">
+<h2>Build Targets<a class="headerlink" href="#build-targets" title="Permalink to this heading"></a></h2>
+<p>The following build targets for the top level makefile are useful:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">default</span></code></dt><dd><p>Builds all the targets specified by <code class="docutils literal notranslate"><span class="pre">$(DEFAULT_TARGETS)</span></code>, by default
+this list is: <code class="docutils literal notranslate"><span class="pre">driver</span></code>, <code class="docutils literal notranslate"><span class="pre">server</span></code>, <code class="docutils literal notranslate"><span class="pre">sim_server</span></code>, <code class="docutils literal notranslate"><span class="pre">docs</span></code>, <code class="docutils literal notranslate"><span class="pre">zpkg</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">driver</span></code></dt><dd><p>Builds the kernel driver module.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">server</span></code></dt><dd><p>Builds the server version to run on Panda.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sim_server</span></code></dt><dd><p>Builds a simulation version of the server to run on the local PC.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">docs</span></code></dt><dd><p>Builds the documentation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">zpkg</span></code></dt><dd><p>Builds the final <code class="docutils literal notranslate"><span class="pre">panda-server</span></code> zpgk file.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">clean</span></code></dt><dd><p>Removes the entire <code class="docutils literal notranslate"><span class="pre">$(BUILD_DIR)</span></code> directory.</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="generated-files">
+<h2>Generated Files<a class="headerlink" href="#generated-files" title="Permalink to this heading"></a></h2>
+<p>In the <code class="docutils literal notranslate"><span class="pre">$(BUILD_DIR)</span></code> directory the following subdirectories and files will be
+found.  In practice the <code class="docutils literal notranslate"><span class="pre">.zpg</span></code> file and <code class="docutils literal notranslate"><span class="pre">html/</span></code> directory will be wanted.</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">driver/</span></code></dt><dd><p>The kernel module required for hardware access is built here.</p>
+</dd>
+</dl>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">server/</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">sim_server/</span></code></div>
+</div>
+<blockquote>
+<div><p>These two directories are used to build the server to run on Panda, and
+a simulation server to run on the local PC.</p>
+</div></blockquote>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">html/</span></code></dt><dd><p>The documentation is built in html format in this directory.</p>
+</dd>
+</dl>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">panda-server&#64;</span></code>version<code class="docutils literal notranslate"><span class="pre">.zpg</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">zpkg-panda-server/</span></code></div>
+</div>
+<blockquote>
+<div><p>A zpkg for the server is built here.</p>
+</div></blockquote>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="capture.html" class="btn btn-neutral float-left" title="Data Capture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="config.html" class="btn btn-neutral float-right" title="Configuration Files" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2015-2016, Michael Abbott, Tom Cobb.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
