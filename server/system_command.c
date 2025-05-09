@@ -549,7 +549,7 @@ static error__t process_system_put(
 
 
 static error__t process_system_put_table(
-    const char *command, bool append, bool binary,
+    const char *command, bool append, bool binary, bool more_expected,
     struct put_table_writer *writer)
 {
     const struct command_table_entry *command_set;

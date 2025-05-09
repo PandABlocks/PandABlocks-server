@@ -266,16 +266,17 @@ static error__t parse_table_command(
     const struct config_command_set *command_set,
     const char *command, const char *format, struct put_table_writer *writer)
 {
-    /* Process the format: this is of the form "<" ["<"] ["B"] , except the
-     * first "<" has already been consumed. */
+    /* Process the format: this is of the form "<" ["<"] ["|"] ["B"] , except
+     * the first "<" has already been consumed. */
     bool append = read_char(&format, '<');  // Table append operation
+    bool more_expected = read_char(&format, '|');  // Not the last table
     bool binary = read_char(&format, 'B');  // Table data is in binary format
 
     /* If the request is malformed we'll ignore it, otherwise we'll do our best
      * to accept what was meant. */
     error__t error =
         parse_eos(&format)  ?:
-        command_set->put_table(command, append, binary, writer);
+        command_set->put_table(command, append, binary, more_expected, writer);
     if (error)
         /* If any part of the parse failed use a dummy writer so that we can at
          * least complete the write. */

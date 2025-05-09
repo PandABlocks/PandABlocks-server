@@ -234,6 +234,7 @@ struct table_block {
     size_t write_length;        // Current data write length in words
     size_t write_offset;        // Offset data will start at when completed
     bool write_binary;          // Set if data is being written in binary
+    bool more_expected;         // Used to indicate more blocks will be coming
 
     pthread_mutex_t write_lock; // Locks access to write_data area
     pthread_rwlock_t read_lock; // Write access taken when updating length&data
@@ -368,9 +369,10 @@ static error__t complete_table_write(void *context, bool write_ok)
         WITH_MUTEX_W(block->read_lock)
         {
             /* Write the data. */
-            hw_write_table(
+            error = hw_write_table(
                 state->table, block->number,
-                block->write_offset, block->write_data, block->write_length);
+                block->write_offset, block->write_data, block->write_length,
+                block->more_expected);
             block->length = block->write_length + block->write_offset;
 
             block->update_index = get_change_index();
@@ -386,7 +388,8 @@ static error__t complete_table_write(void *context, bool write_ok)
  * simultaneously. */
 static error__t start_table_write(
     struct table_block *block,
-    bool append, bool binary, struct put_table_writer *writer)
+    bool append, bool binary, bool more_expected,
+    struct put_table_writer *writer)
 {
     int result = pthread_mutex_trylock(&block->write_lock);
     if (result == EBUSY)
@@ -405,6 +408,7 @@ static error__t start_table_write(
         block->write_offset = append ? block->length : 0;
         block->write_binary = binary;
         block->write_length = 0;
+        block->more_expected = more_expected;
         return ERROR_OK;
     }
 }
@@ -499,16 +503,19 @@ static error__t long_table_parse_register(
     unsigned int table_order;
     unsigned int base_reg;
     unsigned int length_reg;
+    unsigned int max_nbuffers;
     return
         parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
         parse_uint(line, &table_order)  ?:
+        parse_whitespace(line)  ?:
+        parse_uint(line, &max_nbuffers)  ?:
         parse_whitespace(line)  ?:
         check_parse_register(field, line, &base_reg)  ?:
         parse_whitespace(line)  ?:
         check_parse_register(field, line, &length_reg)  ?:
 
         hw_open_long_table(
-            block_base, state->block_count, table_order,
+            block_base, state->block_count, table_order, max_nbuffers,
             base_reg, length_reg,
             &state->table, &state->max_length);
 }
@@ -581,11 +588,12 @@ static void table_change_set(
 
 static error__t table_put_table(
     void *class_data, unsigned int number,
-    bool append, bool binary, struct put_table_writer *writer)
+    bool append, bool binary, bool more_expected,
+    struct put_table_writer *writer)
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return start_table_write(block, append, binary, writer);
+    return start_table_write(block, append, binary, more_expected, writer);
 }
 
 
@@ -649,6 +657,17 @@ static error__t table_row_words_format(
 }
 
 
+static error__t table_queued_lines_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
+{
+    struct table_state *state = class_data;
+    return format_string(
+        result, length, "%zu",
+        hw_get_queued_words(state->table, number) / state->field_set.row_words);
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Published interface. */
 
@@ -674,5 +693,9 @@ const struct class_methods table_class_methods = {
           .get_many = table_b_get_many, },
         { "ROW_WORDS", "Number of words per table row",
           .format = table_row_words_format, },
+        { "QUEUED_LINES", "Number of lines scheduled",
+          .format = table_queued_lines_format,
+          .in_change_set = true,
+          .polled_change_set = true, },
     ),
 };

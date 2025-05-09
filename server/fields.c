@@ -260,12 +260,13 @@ error__t field_put(struct field *field, unsigned int number, const char *string)
 
 error__t field_put_table(
     struct field *field, unsigned int number,
-    bool append, bool binary, struct put_table_writer *writer)
+    bool append, bool binary, bool more_expected,
+    struct put_table_writer *writer)
 {
     return
         TEST_OK_(field->methods->put_table, "Field is not a table")  ?:
         field->methods->put_table(
-            field->class_data, number, append, binary, writer);
+            field->class_data, number, append, binary, more_expected, writer);
 }
 
 

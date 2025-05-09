@@ -32,7 +32,8 @@ struct entity_actions {
     error__t (*put)(const struct entity_context *context, const char *value);
     error__t (*put_table)(
         const struct entity_context *context,
-        bool append, bool binary, struct put_table_writer *writer);
+        bool append, bool binary, bool more_expected,
+        struct put_table_writer *writer);
 };
 
 
@@ -66,10 +67,11 @@ static error__t do_field_put(
 /* Implements  block.field<  command. */
 static error__t do_field_put_table(
     const struct entity_context *context,
-    bool append, bool binary, struct put_table_writer *writer)
+    bool append, bool binary, bool more_expected,
+    struct put_table_writer *writer)
 {
     return field_put_table(
-        context->field, context->number, append, binary, writer);
+        context->field, context->number, append, binary, more_expected, writer);
 }
 
 
@@ -326,14 +328,15 @@ static error__t process_entity_put(
 
 /* Process  entity<format  commands. */
 static error__t process_entity_put_table(
-    const char *name, bool append, bool binary, struct put_table_writer *writer)
+    const char *name, bool append, bool binary, bool more_expected,
+    struct put_table_writer *writer)
 {
     struct entity_context context;
     const struct entity_actions *actions;
     return
         compute_entity_handler(name, &context, &actions)  ?:
         TEST_OK_(actions->put_table, "Field not a table")  ?:
-        actions->put_table(&context, append, binary, writer);
+        actions->put_table(&context, append, binary, more_expected, writer);
 }
 
 

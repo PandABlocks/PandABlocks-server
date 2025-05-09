@@ -399,7 +399,8 @@ struct short_table {
 
 
 struct long_table {
-    int *block_ids;             // Id for table
+    int *block_ids;                  // Id for table
+    unsigned int dma_channel_base;   // Channel index base in the DMA arbiter
 };
 
 
@@ -445,7 +446,7 @@ static void destroy_short_table(struct hw_table *table)
 
 /* Short tables are written as a burst: first write to the reset register to
  * start the write, then to the fill register. */
-static void write_short_table(
+static error__t write_short_table(
     struct hw_table *table, unsigned int number, size_t length)
 {
     struct short_table *short_table = &table->short_table;
@@ -457,6 +458,7 @@ static void write_short_table(
             table->block_base, number, short_table->fill_reg, data[i]);
     hw_write_register(
         table->block_base, number, short_table->length_reg, (uint32_t) length);
+    return ERROR_OK;
 }
 
 
@@ -467,23 +469,24 @@ static void write_short_table(
 static error__t hw_long_table_allocate(
     unsigned int block_base, unsigned int number,
     unsigned int base_reg, unsigned int length_reg,
-    unsigned int order, size_t *block_size,
-    uint32_t **data, int *block_id)
+    unsigned int order, unsigned int nbuffers, size_t *block_size,
+    uint32_t **data, int *block_id, unsigned int dma_channel)
 {
     struct panda_block block = {
         .order = order,
+        .nbuffers = nbuffers,
         .block_base   =
             sizeof(uint32_t) * make_offset(block_base, number, base_reg),
         .block_length =
             sizeof(uint32_t) * make_offset(block_base, number, length_reg),
+        .dma_channel = dma_channel,
     };
     return
         TEST_IO_(*block_id = open("/dev/panda.block", O_RDWR | O_SYNC),
             "Unable to open PandA device /dev/panda.block")  ?:
         TEST_IO(*block_size = (uint32_t) ioctl(
-            *block_id, PANDA_BLOCK_CREATE, &block))  ?:
-        TEST_IO(*data = mmap(
-            0, *block_size, PROT_READ, MAP_SHARED, *block_id, 0));
+            *block_id, PANDA_BLOCK_CONFIG, &block)) ?:
+        TEST_OK(*data = malloc(*block_size * sizeof(uint32_t)));
 }
 
 
@@ -493,31 +496,40 @@ static void hw_long_table_release(int block_id)
 }
 
 
-static void hw_long_table_write(
-    int block_id, const void *data, size_t length, size_t offset)
+static error__t hw_long_table_write(
+    int block_id, const void *data, size_t length, bool more_expected)
 {
-    ASSERT_OK_IO(lseek(block_id, (off_t) offset, SEEK_SET) == (off_t) offset);
-    ASSERT_OK_IO(write(block_id, data, length) == (ssize_t) length);
+
+    struct panda_block_send_request request = {
+        .data =  data,
+        .length = length,
+        .more = more_expected,
+    };
+    return TEST_IO(ioctl(block_id, PANDA_BLOCK_SEND, &request));
 }
 #endif
 
 
 static error__t create_long_table(
-    struct hw_table *table, unsigned int order, size_t *block_length,
-    unsigned int base_reg, unsigned int length_reg)
+    struct hw_table *table, unsigned int order, unsigned int nbuffers,
+    size_t *block_length, unsigned int base_reg, unsigned int length_reg)
 {
+    static unsigned int dma_channel_base = 0;
     table->long_table = (struct long_table) {
         .block_ids = malloc(table->count * sizeof(int)),
     };
     memset(table->long_table.block_ids, 0, table->count * sizeof(unsigned int));
+    table->long_table.dma_channel_base = dma_channel_base;
+    dma_channel_base += table->count;
 
     size_t block_size = 0;
     error__t error = ERROR_OK;
     for (unsigned int i = 0; !error  &&  i < table->count; i ++)
         error = hw_long_table_allocate(
             table->block_base, i, base_reg, length_reg,
-            order, &block_size,
-            &table->data[i], &table->long_table.block_ids[i]);
+            order, nbuffers, &block_size,
+            &table->data[i], &table->long_table.block_ids[i],
+            table->long_table.dma_channel_base + i);
     *block_length = block_size / sizeof(uint32_t);
     return error;
 }
@@ -525,8 +537,10 @@ static error__t create_long_table(
 
 static void destroy_long_table(struct hw_table *table)
 {
-    for (unsigned int i = 0; i < table->count; i ++)
+    for (unsigned int i = 0; i < table->count; i ++) {
         hw_long_table_release(table->long_table.block_ids[i]);
+        free(table->data[i]);
+    }
     free(table->long_table.block_ids);
 }
 
@@ -562,14 +576,15 @@ error__t hw_open_short_table(
 
 error__t hw_open_long_table(
     unsigned int block_base, unsigned int block_count, unsigned int order,
-    unsigned int base_reg, unsigned int length_reg,
+    unsigned int nbuffers, unsigned int base_reg, unsigned int length_reg,
     struct hw_table **table, size_t *length)
 {
     /* The order is log2 number of pages, so the corresponding length in words
      * uses 1024 words per page (we're happy to hard-wire the page size of 4096
      * here). */
     *table = create_hw_table(block_base, block_count, LONG_TABLE);
-    return create_long_table(*table, order, length, base_reg, length_reg);
+    return create_long_table(
+        *table, order, nbuffers, length, base_reg, length_reg);
 }
 
 
@@ -579,23 +594,23 @@ const uint32_t *hw_read_table_data(struct hw_table *table, unsigned int number)
 }
 
 
-void hw_write_table(
+error__t hw_write_table(
     struct hw_table *table, unsigned int number,
-    size_t offset, const uint32_t data[], size_t length)
+    size_t offset, const uint32_t data[], size_t length, bool more_expected)
 {
+    memcpy(table->data[number] + offset, data, length * sizeof(uint32_t));
     switch (table->table_type)
     {
         case SHORT_TABLE:
-            memcpy(table->data[number] + offset,
-                data, length * sizeof(uint32_t));
-            write_short_table(table, number, offset + length);
+            return write_short_table(table, number, offset + length);
             break;
         case LONG_TABLE:
-            hw_long_table_write(
+            return hw_long_table_write(
                 table->long_table.block_ids[number], data,
-                length * sizeof(uint32_t), offset * sizeof(uint32_t));
+                length + offset, more_expected);
             break;
     }
+    return ERROR_OK;
 }
 
 
@@ -609,6 +624,18 @@ void hw_close_table(struct hw_table *table)
 
     free(table->data);
     free(table);
+}
+
+
+size_t hw_get_queued_words(struct hw_table *table, unsigned int number)
+{
+    if (table->table_type == LONG_TABLE)
+    {
+        size_t result = 0;
+        ioctl(table->long_table.block_ids[number], PANDA_BLOCK_NWORDS, &result);
+        return result;
+    }
+    return 0;
 }
 
 
