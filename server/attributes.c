@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "error.h"
 #include "hashtable.h"
@@ -22,6 +23,7 @@ struct attr {
     unsigned int count;         // Number of field instances
     pthread_mutex_t mutex;      // Protects update_index entries
     uint64_t *update_index;     // History management for reported attributes
+    char **last_values;         // Used when the change set is polled
 };
 
 
@@ -69,10 +71,29 @@ void get_attr_change_set(
     struct attr *attr, uint64_t report_index, bool change_set[])
 {
     WITH_MUTEX(attr->mutex)
+    {
         for (unsigned int i = 0; i < attr->count; i ++)
+        {
+            if (attr->methods->polled_change_set)
+            {
+                /* Check if attribute has changed by formatting it and comparing
+                 * with the cached value. */
+                char string[MAX_RESULT_LENGTH];
+                attr->methods->format(
+                    attr->owner, attr->data, i, string, sizeof(string));
+                if (strncmp(string, attr->last_values[i], MAX_RESULT_LENGTH))
+                {
+                    attr->update_index[i] = get_change_index();
+                    strncpy(
+                        attr->last_values[i], string, MAX_RESULT_LENGTH);
+                }
+            }
             change_set[i] =
-                attr->methods->in_change_set  &&
+                (attr->methods->in_change_set ||
+                    attr->methods->polled_change_set) &&
                 attr->update_index[i] > report_index;
+        }
+    }
 }
 
 
@@ -110,6 +131,15 @@ static struct attr *create_attribute(
         .mutex = PTHREAD_MUTEX_INITIALIZER,
         .update_index = malloc(count * sizeof(uint64_t)),
     };
+    if (methods->polled_change_set)
+    {
+        attr->last_values = malloc(count * sizeof(char *));
+        for (unsigned int i = 0; i < count; i ++)
+        {
+            attr->last_values[i] = malloc(MAX_RESULT_LENGTH);
+            attr->last_values[i][0] = '\0';
+        }
+    }
     /* Initialise change index to ensure initial state is recorded. */
     for (unsigned int i = 0; i < count; i ++)
         attr->update_index[i] = 1;
@@ -147,6 +177,12 @@ void delete_attributes(struct hash_table *attr_map)
     while (hash_table_walk(attr_map, &ix, NULL, &value))
     {
         struct attr *attr = value;
+        if (attr->methods->polled_change_set)
+        {
+            for (unsigned int i = 0; i < attr->count; i ++)
+                free(attr->last_values[i]);
+            free(attr->last_values);
+        }
         free(attr->update_index);
         free(attr);
     }
