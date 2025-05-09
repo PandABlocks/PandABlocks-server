@@ -197,7 +197,7 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     void *reg_base = open->pcap->reg_base;
 
     uint32_t status = readl(reg_base + DRV_PCAP_IRQ_STATUS);
-    dev_dbg(&open->pcap->pdev->dev, "ISR status: %08x\n", status);
+    dev_dbg(&open->pcap->pdev->dev, "Stream ISR status: %08x\n", status);
 
     smp_rmb();
 
@@ -347,7 +347,7 @@ static int panda_stream_open(struct inode *inode, struct file *file)
 
     /* Establish interrupt handler. */
     rc = devm_request_irq(
-        &pcap->pdev->dev, pcap->irq, stream_isr, 0, pcap->pdev->name, open);
+        &pcap->pdev->dev, pcap->stream_irq, stream_isr, 0, pcap->pdev->name, open);
     TEST_RC(rc, no_irq, "Unable to request irq");
 
     return 0;
@@ -379,7 +379,7 @@ static int panda_stream_release(struct inode *inode, struct file *file)
 
     /* All clear, release everything. */
     struct device *dev = &open->pcap->pdev->dev;
-    unsigned int irq = open->pcap->irq;
+    unsigned int irq = open->pcap->stream_irq;
     devm_free_irq(dev, irq, open);
     free_blocks(open);
     kfree(open);
