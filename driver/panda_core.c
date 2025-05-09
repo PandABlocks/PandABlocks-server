@@ -80,7 +80,7 @@ static int panda_probe(struct platform_device *pdev)
     pcap->irq = rc;
 
     /* Check the driver and FPGA protocol version match. */
-    TEST_OK(readl(pcap->reg_base + COMPAT_VERSION) == DRIVER_COMPAT_VERSION,
+    TEST_OK(readl(pcap->reg_base + DRV_COMPAT_VERSION) == DRIVER_COMPAT_VERSION,
         rc = -EINVAL, bad_version, "Driver compatibility version mismatch");
 
     /* Create character device support. */
