@@ -525,10 +525,11 @@ static long panda_stream_ioctl(
             return stream_completion(open, (void __user *) arg);
         case PANDA_GET_START_TS:
             {
-                spin_lock(&open->start_ts_lock);
+                unsigned long flags;
+                spin_lock_irqsave(&open->start_ts_lock, flags);
                 struct timespec64 ts = open->start_ts;
                 bool ts_valid = open->start_ts_valid;
-                spin_unlock(&open->start_ts_lock);
+                spin_unlock_irqrestore(&open->start_ts_lock, flags);
                 if (!ts_valid)
                     return -EAGAIN;
 
