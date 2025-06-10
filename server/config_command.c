@@ -67,11 +67,12 @@ static error__t do_field_put(
 /* Implements  block.field<  command. */
 static error__t do_field_put_table(
     const struct entity_context *context,
-    bool append, bool binary, bool more_expected,
+    bool streaming_mode, bool last_table, bool binary,
     struct put_table_writer *writer)
 {
     return field_put_table(
-        context->field, context->number, append, binary, more_expected, writer);
+        context->field, context->number, streaming_mode, last_table, binary,
+        writer);
 }
 
 
@@ -328,7 +329,7 @@ static error__t process_entity_put(
 
 /* Process  entity<format  commands. */
 static error__t process_entity_put_table(
-    const char *name, bool append, bool binary, bool more_expected,
+    const char *name, bool streaming_mode, bool last_table, bool binary,
     struct put_table_writer *writer)
 {
     struct entity_context context;
@@ -336,7 +337,8 @@ static error__t process_entity_put_table(
     return
         compute_entity_handler(name, &context, &actions)  ?:
         TEST_OK_(actions->put_table, "Field not a table")  ?:
-        actions->put_table(&context, append, binary, more_expected, writer);
+        actions->put_table(
+            &context, streaming_mode, last_table, binary, writer);
 }
 
 

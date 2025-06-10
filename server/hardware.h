@@ -130,11 +130,17 @@ error__t hw_open_long_table(
 /* When called during initialisation returns data area of block for readback. */
 const uint32_t *hw_read_table_data(struct hw_table *table, unsigned int number);
 
+/* Returns true if the table supports streaming. */
+bool hw_table_supports_streaming(struct hw_table *table);
+
+/* Resets the table state in hardware */
+error__t hw_reset_table(
+    struct hw_table *table, unsigned int number);
 
 /* Writes given block of data to table. */
 error__t hw_write_table(
     struct hw_table *table, unsigned int number,
-    size_t offset, const uint32_t data[], size_t length, bool more_expected);
+    const uint32_t data[], size_t length, bool streaming_mode, bool last_table);
 
 /* Releases table resources during server shutdown. */
 void hw_close_table(struct hw_table *table);

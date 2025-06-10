@@ -232,9 +232,13 @@ struct table_block {
      * updating the block we need to take the read_lock as well for writing. */
     uint32_t *write_data;       // Transient data area while writing
     size_t write_length;        // Current data write length in words
-    size_t write_offset;        // Offset data will start at when completed
+    bool streaming_mode;        // Used to indicate we sent a streaming table
+    bool last_table;            // Used to indicate we sent the last table
     bool write_binary;          // Set if data is being written in binary
-    bool more_expected;         // Used to indicate more blocks will be coming
+    bool reset_required;        // Set if table needs to be reset
+    enum table_mode {
+        TABLE_INIT, TABLE_FIXED, TABLE_STREAMING, TABLE_STREAMING_LAST
+    } mode;
 
     pthread_mutex_t write_lock; // Locks access to write_data area
     pthread_rwlock_t read_lock; // Write access taken when updating length&data
@@ -265,6 +269,7 @@ static void initialise_table_blocks(
             .update_index = 1,
             .write_lock = PTHREAD_MUTEX_INITIALIZER,
             .read_lock = PTHREAD_RWLOCK_INITIALIZER,
+            .mode = TABLE_INIT,
         };
     }
 }
@@ -341,7 +346,7 @@ static error__t write_table_line(void *context, const char *line)
 
     /* Compute the available buffer length. */
     size_t max_length =
-        state->max_length - block->write_offset - block->write_length;
+        state->max_length - block->write_length;
     uint32_t *write_data = block->write_data + block->write_length;
     size_t length;
     return
@@ -350,6 +355,52 @@ static error__t write_table_line(void *context, const char *line)
         //else
             convert_ascii_line(line, write_data, max_length, &length))  ?:
         DO(block->write_length += length);
+}
+
+
+static error__t update_table_mode(
+    struct table_block *block, bool streaming_mode, bool last_table,
+    size_t write_length)
+{
+    struct table_state *state =
+        container_of(block, struct table_state, blocks[block->number]);
+    if (streaming_mode && !hw_table_supports_streaming(state->table))
+        return FAIL_("Table do not support streaming mode");
+
+    if (write_length == 0)
+    {
+        if (streaming_mode)
+            return FAIL_("Streaming table must have data");
+        block->reset_required = true;
+        block->mode = TABLE_INIT;
+        return ERROR_OK;
+    }
+
+    block->reset_required = false;
+    switch (block->mode)
+    {
+        case TABLE_INIT:
+            if (streaming_mode)
+                block->mode =
+                    last_table ? TABLE_STREAMING_LAST : TABLE_STREAMING;
+            else
+                block->mode = TABLE_FIXED;
+            break;
+        case TABLE_FIXED:
+            block->reset_required = true;
+            if (streaming_mode)
+                block->mode = TABLE_STREAMING;
+            break;
+        case TABLE_STREAMING:
+            if (!streaming_mode)
+                return FAIL_("Table is in streaming mode");
+            if (last_table)
+                block->mode = TABLE_STREAMING_LAST;
+            break;
+        case TABLE_STREAMING_LAST:
+            return FAIL_("Last streaming table was sent");
+    }
+    return ERROR_OK;
 }
 
 
@@ -368,18 +419,27 @@ static error__t complete_table_write(void *context, bool write_ok)
     if (write_ok  &&  !error)
         WITH_MUTEX_W(block->read_lock)
         {
-            /* Write the data. */
-            error = hw_write_table(
-                state->table, block->number,
-                block->write_offset, block->write_data, block->write_length,
-                block->more_expected);
-            block->length = block->write_length + block->write_offset;
+            error = update_table_mode(
+                block, block->streaming_mode, block->last_table,
+                block->write_length);
+            if (block->reset_required)
+                hw_reset_table(state->table, block->number);
 
-            block->update_index = get_change_index();
+            if (!error)
+            {
+                /* Write the data. */
+                error = hw_write_table(
+                    state->table, block->number,
+                    block->write_data, block->write_length,
+                    block->streaming_mode, block->last_table);
+                /* A streaming table shouldn't be showed to the user */
+                block->length =
+                    block->mode == TABLE_FIXED ? block->write_length : 0;
+                block->update_index = get_change_index();
+            }
         }
 
     _UNLOCK(block->write_lock);
-
     return error;
 }
 
@@ -388,7 +448,7 @@ static error__t complete_table_write(void *context, bool write_ok)
  * simultaneously. */
 static error__t start_table_write(
     struct table_block *block,
-    bool append, bool binary, bool more_expected,
+    bool streaming_mode, bool last_table, bool binary,
     struct put_table_writer *writer)
 {
     int result = pthread_mutex_trylock(&block->write_lock);
@@ -404,11 +464,10 @@ static error__t start_table_write(
             .close = complete_table_write,
         };
 
-        /* If appending is requested adjust the data area length accordingly. */
-        block->write_offset = append ? block->length : 0;
         block->write_binary = binary;
         block->write_length = 0;
-        block->more_expected = more_expected;
+        block->streaming_mode = streaming_mode;
+        block->last_table = last_table;
         return ERROR_OK;
     }
 }
@@ -588,12 +647,12 @@ static void table_change_set(
 
 static error__t table_put_table(
     void *class_data, unsigned int number,
-    bool append, bool binary, bool more_expected,
+    bool streaming_mode, bool last_table, bool binary,
     struct put_table_writer *writer)
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return start_table_write(block, append, binary, more_expected, writer);
+    return start_table_write(block, streaming_mode, last_table, binary, writer);
 }
 
 
@@ -668,6 +727,21 @@ static error__t table_queued_lines_format(
 }
 
 
+static error__t table_mode_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
+{
+    struct table_state *state = class_data;
+    struct table_block *block = &state->blocks[number];
+    return format_string(result, length, "%s",
+        block->mode == TABLE_INIT ? "INIT" :
+        block->mode == TABLE_FIXED ? "FIXED" :
+        block->mode == TABLE_STREAMING ? "STREAMING" :
+        block->mode == TABLE_STREAMING_LAST ? "STREAMING_LAST" :
+        "UNKNOWN");
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Published interface. */
 
@@ -695,7 +769,8 @@ const struct class_methods table_class_methods = {
           .format = table_row_words_format, },
         { "QUEUED_LINES", "Number of lines scheduled",
           .format = table_queued_lines_format,
-          .in_change_set = true,
           .polled_change_set = true, },
+        { "MODE", "Current table mode",
+          .format = table_mode_format, },
     ),
 };

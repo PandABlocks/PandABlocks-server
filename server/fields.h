@@ -48,7 +48,7 @@ struct class_methods {
     /* Implements  block.field<  */
     error__t (*put_table)(
         void *class_data, unsigned int number,
-        bool append, bool binary, bool more_expected,
+        bool streaming, bool last_table, bool binary,
         struct put_table_writer *writer);
 
     /* For the _out classes the data provided by .read() needs to be loaded as a

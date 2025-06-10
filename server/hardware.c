@@ -497,13 +497,14 @@ static void hw_long_table_release(int block_id)
 
 
 static error__t hw_long_table_write(
-    int block_id, const void *data, size_t length, bool more_expected)
+    int block_id, const void *data, size_t length, bool streaming_mode,
+    bool last_table)
 {
 
     struct panda_block_send_request request = {
         .data =  data,
         .length = length,
-        .more = more_expected,
+        .more = streaming_mode && !last_table,
     };
     return TEST_IO(ioctl(block_id, PANDA_BLOCK_SEND, &request));
 }
@@ -594,20 +595,44 @@ const uint32_t *hw_read_table_data(struct hw_table *table, unsigned int number)
 }
 
 
+bool hw_table_supports_streaming(struct hw_table *table)
+{
+    return table->table_type == LONG_TABLE;
+}
+
+
+error__t hw_reset_table(struct hw_table *table, unsigned int number)
+{
+    if (table->table_type == LONG_TABLE)
+        return hw_long_table_write(
+            table->long_table.block_ids[number], NULL, 0, false, false);
+    else
+        return ERROR_OK;
+}
+
+
 error__t hw_write_table(
     struct hw_table *table, unsigned int number,
-    size_t offset, const uint32_t data[], size_t length, bool more_expected)
+    const uint32_t data[], size_t length, bool streaming_mode, bool last_table)
 {
-    memcpy(table->data[number] + offset, data, length * sizeof(uint32_t));
     switch (table->table_type)
     {
         case SHORT_TABLE:
-            return write_short_table(table, number, offset + length);
+            memcpy(table->data[number], data, length * sizeof(uint32_t));
+            return write_short_table(table, number, length);
             break;
         case LONG_TABLE:
-            return hw_long_table_write(
-                table->long_table.block_ids[number], data,
-                length + offset, more_expected);
+            /* If length is zero, the table was already reset earlier */
+            if (length > 0) {
+                if (!streaming_mode)
+                    /* Only in fixed mode we should expose the data */
+                    memcpy(
+                        table->data[number], data, length * sizeof(uint32_t));
+
+                return hw_long_table_write(
+                    table->long_table.block_ids[number], data, length,
+                    streaming_mode, last_table);
+            }
             break;
     }
     return ERROR_OK;

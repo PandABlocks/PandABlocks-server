@@ -247,7 +247,8 @@ void hw_long_table_release(int block_id)
 
 
 error__t hw_long_table_write(
-    int block_id, const void *data, size_t length, bool more_expected)
+    int block_id, const void *data, size_t length, bool streaming_mode,
+    bool last_table)
 {
     ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
     struct table_block *block = &block_id_table[block_id];
