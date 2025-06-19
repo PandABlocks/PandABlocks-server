@@ -28,8 +28,10 @@ ARCH = $(ARCH_$(PLATFORM))
 # Cross-compilation tuple for toolkit
 COMPILER_PREFIX_zynq = arm-none-linux-gnueabihf
 COMPILER_PREFIX_zynqmp = aarch64-none-linux-gnu
-CROSS_COMPILE = $(COMPILER_PREFIX)-
+CROSS_COMPILE ?= $(COMPILER_PREFIX)-
+ifneq ($(CROSS_COMPILE),)
 CC = $(CROSS_COMPILE)gcc
+endif
 
 DRIVER_BUILD_DIR = $(BUILD_DIR)/driver
 SERVER_BUILD_DIR = $(BUILD_DIR)/server
@@ -80,6 +82,11 @@ $(PANDA_KO): $(DRIVER_BUILD_DIR) $(DRIVER_BUILD_FILES) $(DRIVER_HEADER)
 driver: $(PANDA_KO)
 .PHONY: driver
 
+modules_install: $(DRIVER_BUILD_DIR)
+	CFLAGS_EXTRA=$(CFLAGS_EXTRA) $(MAKE) -C $(KERNEL_SRC) M="$<" modules_install \
+            ARCH=$(ARCH)
+
+.PHONY: modules_install
 
 # ------------------------------------------------------------------------------
 # Socket server
@@ -98,7 +105,7 @@ MAKE_SERVER_TARGET = \
     $(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV)
 
 $(SERVER): $(SERVER_BUILD_DIR) $(SERVER_FILES)
-	$(MAKE_SERVER_TARGET) CC=$(CC)
+	$(MAKE_SERVER_TARGET) CC="$(CC)"
 
 # Two differences with building sim_server: we use the native compiler, not the
 # cross-compiler, and we only build the sim_server target.
@@ -106,7 +113,7 @@ $(SIM_SERVER): $(SIM_SERVER_BUILD_DIR) $(SERVER_FILES)
 	$(MAKE_SERVER_TARGET) sim_server
 
 $(SLOW_LOAD): $(SERVER_BUILD_DIR) server/slow_load.c
-	$(MAKE_SERVER_TARGET) CC=$(CC) slow_load
+	$(MAKE_SERVER_TARGET) CC="$(CC)" slow_load
 
 
 # Construction of simserver launch script.

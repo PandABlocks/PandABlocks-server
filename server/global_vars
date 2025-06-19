@@ -1,0 +1,17 @@
+# Class methods defined in different files and used in fields.c
+param_class_methods
+read_class_methods
+write_class_methods
+time_class_methods
+bit_out_class_methods
+pos_out_class_methods
+ext_out_class_methods
+bit_mux_class_methods
+pos_mux_class_methods
+table_class_methods
+# Types
+enum_type_methods
+time_type_methods
+# Commands
+entity_commands
+system_commands

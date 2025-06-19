@@ -104,7 +104,7 @@ FORCE:
 
 
 server: $(SRCS:.c=.o) hw_hardware.o
-	! nm $^ | grep ' [CD] '
+	$(TOP)/server/check_global_vars $(TOP)/server/global_vars .
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 sim_server: $(SRCS:.c=.o) sw_hardware.o sim_hardware.o
