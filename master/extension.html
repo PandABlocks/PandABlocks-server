@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Extension Server &mdash; PandABlocks-server 4.0b1
+  <title>Extension Server &mdash; PandABlocks-server 4.0-1-g49c25f6
  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
@@ -41,7 +41,7 @@
               <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                4.0b1
+                4.0-1-g49c25f6
 
               </div>
 <div role="search">
@@ -262,19 +262,19 @@ individual fields.  Pass a block constructor (that must take one argument,
 the block index) which implements <cite>set_</cite> and <cite>get_</cite> methods as appropriate,
 and this helper will implement the approprate Extension support.</p>
 <p>Use this inside the extension module thus:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyBlock</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyBlock</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
         <span class="o">...</span>
 
-    <span class="k">def</span> <span class="nf">get_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">regs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">regs</span><span class="p">):</span>
         <span class="o">...</span>
         <span class="k">return</span> <span class="n">value</span>
 
-    <span class="k">def</span> <span class="nf">set_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">*</span><span class="n">regs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">*</span><span class="n">regs</span><span class="p">):</span>
         <span class="o">...</span>
         <span class="k">return</span> <span class="n">new_regs</span>
 
-<span class="k">def</span> <span class="nf">Extension</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">Extension</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
   <span class="k">return</span> <span class="n">ExtensionHelper</span><span class="p">(</span><span class="n">MyBlock</span><span class="p">,</span> <span class="n">count</span><span class="p">)</span>
 </pre></div>
 </div>
