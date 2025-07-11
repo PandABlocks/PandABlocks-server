@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command Interface &mdash; PandABlocks-server 4.0-1-g49c25f6
+  <title>Command Interface &mdash; PandABlocks-server 4.0-10-gea8fb8c
  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
@@ -41,7 +41,7 @@
               <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                4.0-1-g49c25f6
+                4.0-10-gea8fb8c
 
               </div>
 <div role="search">
@@ -264,8 +264,11 @@ tabulated below:</p>
 <tr class="row-odd"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">=</span></code>value</p></td>
 <td><p>Assign value to field.</p></td>
 </tr>
-<tr class="row-even"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;</span></code>[<code class="docutils literal notranslate"><span class="pre">&lt;</span></code>][<code class="docutils literal notranslate"><span class="pre">B</span></code>]</p></td>
-<td><p>Write table data to field.</p></td>
+<tr class="row-even"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;</span></code>[[<code class="docutils literal notranslate"><span class="pre">&lt;</span></code>][<code class="docutils literal notranslate"><span class="pre">|</span></code>]][<code class="docutils literal notranslate"><span class="pre">B</span></code>]</p></td>
+<td><p>Write table data to field. <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> is used to
+write a fixed table, whereas <code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code> is used
+to write a streaming table and <code class="docutils literal notranslate"><span class="pre">&lt;&lt;|</span></code> to
+write the last streaming table.</p></td>
 </tr>
 <tr class="row-odd"><td><p>block[number]<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">.</span></code>attr<code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
 <td><p>Return current value of field attribute.</p></td>

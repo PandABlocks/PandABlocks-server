@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blocks, Fields and Attributes &mdash; PandABlocks-server 4.0-1-g49c25f6
+  <title>Blocks, Fields and Attributes &mdash; PandABlocks-server 4.0-10-gea8fb8c
  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css" />
@@ -41,7 +41,7 @@
               <img src="_static/PandA-logo-for-black-background.svg" class="logo" alt="Logo"/>
           </a>
               <div class="version">
-                4.0-1-g49c25f6
+                4.0-10-gea8fb8c
 
               </div>
 <div role="search">
@@ -480,21 +480,29 @@ imposes no structure on these values apart from treating them as an array of
 <p>Tables values are written with the special <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> syntax:</p>
 <table class="docutils align-default">
 <colgroup>
-<col style="width: 47%" />
-<col style="width: 53%" />
+<col style="width: 48%" />
+<col style="width: 52%" />
 </colgroup>
 <tbody>
 <tr class="row-odd"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;</span></code></p></td>
-<td><p>Normal table write, overwrite table</p></td>
+<td><p>Normal table write, fixed table</p></td>
 </tr>
 <tr class="row-even"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code></p></td>
-<td><p>Normal table write, append to table</p></td>
+<td><p>Normal table write, streaming table</p></td>
 </tr>
-<tr class="row-odd"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;B</span></code></p></td>
-<td><p>Base-64 table write, overwrite table</p></td>
+<tr class="row-odd"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;&lt;|</span></code></p></td>
+<td><p>Normal table write, last streaming
+table</p></td>
 </tr>
-<tr class="row-even"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;&lt;B</span></code></p></td>
-<td><p>Base-64 table write, append to table</p></td>
+<tr class="row-even"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;B</span></code></p></td>
+<td><p>Base-64 table write, fixed table</p></td>
+</tr>
+<tr class="row-odd"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;&lt;B</span></code></p></td>
+<td><p>Base-64 table write, streaming table</p></td>
+</tr>
+<tr class="row-even"><td><p>block number<code class="docutils literal notranslate"><span class="pre">.</span></code>field<code class="docutils literal notranslate"><span class="pre">&lt;&lt;|B</span></code></p></td>
+<td><p>Base-64 table write, last streaming
+table</p></td>
 </tr>
 </tbody>
 </table>
@@ -539,6 +547,72 @@ interrogated through the command</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ROW_WORDS</span></code></dt><dd><p>Returns the number of 32-bit words in a single row of the table.  This
 can be used to help interpret the <code class="docutils literal notranslate"><span class="pre">FIELDS</span></code> result.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">QUEUED_LINES</span></code></dt><dd><p>When a fixed table is written, it returns the number of lines in that
+table, when streaming tables are written, it returns the number of lines
+that has been scheduled including the ones currently being used by the
+FPGA.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">MODE</span></code></dt><dd><p>Indicates the mode that the table is in as a consequence of the last
+table write. The possible values are: <code class="docutils literal notranslate"><span class="pre">INIT</span></code> (no table),
+<code class="docutils literal notranslate"><span class="pre">FIXED</span></code> (fixed table), <code class="docutils literal notranslate"><span class="pre">STREAMING</span></code> (streaming table) and
+<code class="docutils literal notranslate"><span class="pre">STREAMING_LAST</span></code> (last streaming table). Writing an empty table will
+always move the table to <code class="docutils literal notranslate"><span class="pre">INIT</span></code> state. In addition to this mode,
+there is also implicit completed state in the FPGA that happens either
+when there is a sudden error or when the streaming is finished, it will
+cause any future writes to be rejected and the mode attribute will keep
+the last value until a reset is done, this is to ensure the client is
+aware of any error. The following table summarises the mode transitions
+for each table command, where <code class="docutils literal notranslate"><span class="pre">&lt;0</span></code> represents writing an empty table.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 14%" />
+<col style="width: 17%" />
+<col style="width: 25%" />
+<col style="width: 13%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>MODE / COMMAND</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;&lt;|</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;0</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>INIT</p></td>
+<td><p>FIXED</p></td>
+<td><p>STREAMING</p></td>
+<td><p>STREAMING_LAST</p></td>
+<td><p>INIT</p></td>
+</tr>
+<tr class="row-odd"><td><p>FIXED</p></td>
+<td><p>FIXED</p></td>
+<td><p>STREAMING</p></td>
+<td><p>STREAMING_LAST</p></td>
+<td><p>INIT</p></td>
+</tr>
+<tr class="row-even"><td><p>STREAMING</p></td>
+<td><p>Reject</p></td>
+<td><p>STREAMING</p></td>
+<td><p>STREAMING_LAST</p></td>
+<td><p>INIT</p></td>
+</tr>
+<tr class="row-odd"><td><p>STREAMING_LAST</p></td>
+<td><p>Reject</p></td>
+<td><p>Reject</p></td>
+<td><p>Reject</p></td>
+<td><p>INIT</p></td>
+</tr>
+<tr class="row-even"><td><p>COMPLETED[HEALTH]</p></td>
+<td><p>Reject</p></td>
+<td><p>Reject</p></td>
+<td><p>Reject</p></td>
+<td><p>INIT</p></td>
+</tr>
+</tbody>
+</table>
+<p>Writing empty tables with <code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code> or <code class="docutils literal notranslate"><span class="pre">&lt;&lt;|</span></code> is rejected to avoid
+accidental mistakes in streaming mode.</p>
 </dd>
 </dl>
 </dd>
