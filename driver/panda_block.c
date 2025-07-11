@@ -401,7 +401,7 @@ irqreturn_t block_isr(int irq, void *dev_id)
 static int panda_block_open(struct inode *inode, struct file *file)
 {
     int rc = 0;
-    struct block_open *open = kmalloc(sizeof(*open), GFP_KERNEL);
+    struct block_open *open = kmalloc(sizeof(struct block_open), GFP_KERNEL);
     TEST_PTR(open, rc, no_open, "Unable to allocate open structure");
 
     *open = (struct block_open) {

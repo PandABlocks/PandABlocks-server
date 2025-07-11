@@ -331,7 +331,8 @@ static int panda_stream_open(struct inode *inode, struct file *file)
 
     int rc = 0;
     struct stream_open *open = kmalloc(
-        sizeof(*open) + block_count * sizeof(struct block), GFP_KERNEL);
+        sizeof(struct stream_open) +
+        block_count * sizeof(struct block), GFP_KERNEL);
     TEST_PTR(open, rc, no_open, "Unable to allocate open structure");
 
     file->private_data = open;
