@@ -280,14 +280,16 @@ Field type          Description
 
     Tables values are written with the special ``<`` syntax:
 
-    =================================== ========================================
-    block number\ ``.``\ field\ ``<``   Normal table write, fixed table
-    block number\ ``.``\ field\ ``<<``  Normal table write, streaming table
-    block number\ ``.``\ field\ ``<<|`` Normal table write, last streaming table
-    block number\ ``.``\ field\ ``<B``  Base-64 table write, fixed table
-    block number\ ``.``\ field\ ``<<B`` Base-64 table write, streaming table
-    block number\ ``.``\ field\ ``<<|B`` Base-64 table write, last streaming table
-    =================================== ========================================
+    ==================================== =======================================
+    block number\ ``.``\ field\ ``<``    Normal table write, fixed table
+    block number\ ``.``\ field\ ``<<``   Normal table write, streaming table
+    block number\ ``.``\ field\ ``<<|``  Normal table write, last streaming
+                                         table
+    block number\ ``.``\ field\ ``<B``   Base-64 table write, fixed table
+    block number\ ``.``\ field\ ``<<B``  Base-64 table write, streaming table
+    block number\ ``.``\ field\ ``<<|B`` Base-64 table write, last streaming
+                                         table
+    ==================================== =======================================
 
     For "normal" table writes the data is sent as a sequence of decimal numbers
     in ASCII, and the whole sequence must be terminate by an empty blank line.
@@ -356,7 +358,7 @@ Field type          Description
         aware of any error. The following table summarises the mode transitions
         for each table command, where ``<0`` represents writing an empty table.
 
-        +--------------------------------------------------------------------
+        +-------------------+---------+-----------+----------------+--------+
         |  MODE / COMMAND   |  ``<``  | ``<<``    | ``<<|``        | ``<0`` |
         +-------------------+---------+-----------+----------------+--------+
         | INIT              | FIXED   | STREAMING | STREAMING_LAST | INIT   |
@@ -368,7 +370,7 @@ Field type          Description
         | STREAMING_LAST    | Reject  | Reject    | Reject         | INIT   |
         +-------------------+---------+-----------+----------------+--------+
         | COMPLETED[HEALTH] | Reject  | Reject    | Reject         | INIT   |
-        +----------------------------------------------------------+--------+
+        +-------------------+---------+-----------+----------------+--------+
 
         Writing empty tables with ``<<`` or ``<<|`` is rejected to avoid
         accidental mistakes in streaming mode.
