@@ -74,8 +74,10 @@ tabulated below:
 | block[number]\ ``.``\ field\  | Assign value to field.                       |
 | ``=``\ value                  |                                              |
 +-------------------------------+----------------------------------------------+
-| block[number]\ ``.``\ field\  | Write table data to field.                   |
-| ``<``\ [``<``][``B``]         |                                              |
+| block[number]\ ``.``\ field\  | Write table data to field. ``<`` is used to  |
+| ``<``\ [[``<``][``|``]][``B``]| write a fixed table, whereas ``<<`` is used  |
+|                               | to write a streaming table and ``<<|`` to    |
+|                               | write the last streaming table.              |
 +-------------------------------+----------------------------------------------+
 | block[number]\ ``.``\ field\  | Return current value of field attribute.     |
 | ``.``\ attr\ ``?``            |                                              |
