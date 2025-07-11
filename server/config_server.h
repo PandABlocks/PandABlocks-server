@@ -149,7 +149,7 @@ struct config_command_set {
     /* Implements name< command.  This implements writing an array of values via
      * the returned put_table_writer interface. */
     error__t (*put_table)(
-        const char *name, bool append, bool binary,
+        const char *name, bool streaming_mode, bool last_table, bool binary,
         struct put_table_writer *writer);
 };
 

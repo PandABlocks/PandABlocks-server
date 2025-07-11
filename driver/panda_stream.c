@@ -106,7 +106,7 @@ static void assign_buffer(struct stream_open *open, int n)
 {
     void *reg_base = open->pcap->reg_base;
     struct block *block = &open->blocks[n];
-    writel(block->dma, reg_base + PCAP_DMA_ADDR);
+    writel(block->dma, reg_base + DRV_PCAP_DMA_ADDR);
     block->state = BLOCK_DMA;
 }
 
@@ -196,8 +196,8 @@ static irqreturn_t stream_isr(int irq, void *dev_id)
     struct stream_open *open = dev_id;
     void *reg_base = open->pcap->reg_base;
 
-    uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
-    dev_dbg(&open->pcap->pdev->dev, "ISR status: %08x\n", status);
+    uint32_t status = readl(reg_base + DRV_PCAP_IRQ_STATUS);
+    dev_dbg(&open->pcap->pdev->dev, "Stream ISR status: %08x\n", status);
 
     smp_rmb();
 
@@ -295,9 +295,9 @@ static void start_hardware(struct stream_open *open)
     void *reg_base = open->pcap->reg_base;
 
     /* Force the DMA engine into a safe known state. */
-    writel(0, reg_base + PCAP_DMA_RESET);
-    writel(block_timeout, reg_base + PCAP_TIMEOUT);
-    writel(BUF_BLOCK_SIZE, reg_base + PCAP_BLOCK_SIZE);
+    writel(0, reg_base + DRV_PCAP_DMA_RESET);
+    writel(block_timeout, reg_base + DRV_PCAP_TIMEOUT);
+    writel(BUF_BLOCK_SIZE, reg_base + DRV_PCAP_BLOCK_SIZE);
 
     /* Initialise both sides of the data stream. */
     for (unsigned int i = 0; i < block_count; i ++)
@@ -315,7 +315,7 @@ static void start_hardware(struct stream_open *open)
 
     /* Assign the first pair of DMA buffers, off we go. */
     assign_buffer(open, 0);
-    writel(1, reg_base + PCAP_DMA_START);
+    writel(1, reg_base + DRV_PCAP_DMA_START);
     assign_buffer(open, 1);
 }
 
@@ -347,7 +347,7 @@ static int panda_stream_open(struct inode *inode, struct file *file)
 
     /* Establish interrupt handler. */
     rc = devm_request_irq(
-        &pcap->pdev->dev, pcap->irq, stream_isr, 0, pcap->pdev->name, open);
+        &pcap->pdev->dev, pcap->stream_irq, stream_isr, 0, pcap->pdev->name, open);
     TEST_RC(rc, no_irq, "Unable to request irq");
 
     return 0;
@@ -369,17 +369,17 @@ static int panda_stream_release(struct inode *inode, struct file *file)
      * microseconds for any writes in transit to complete.  Finally we can do a
      * sanity check. */
     void *reg_base = open->pcap->reg_base;
-    writel(0, reg_base + PCAP_DMA_RESET);
-    uint32_t status = readl(reg_base + PCAP_IRQ_STATUS);
+    writel(0, reg_base + DRV_PCAP_DMA_RESET);
+    uint32_t status = readl(reg_base + DRV_PCAP_IRQ_STATUS);
     if (IRQ_STATUS_DMA_ACTIVE(status))
         udelay(10);                 // Hard to know just *how* long!
-    status = readl(reg_base + PCAP_IRQ_STATUS);
+    status = readl(reg_base + DRV_PCAP_IRQ_STATUS);
     if (IRQ_STATUS_DMA_ACTIVE(status))
         printk(KERN_EMERG "PandA DMA still apparently active: %08x\n", status);
 
     /* All clear, release everything. */
     struct device *dev = &open->pcap->pdev->dev;
-    unsigned int irq = open->pcap->irq;
+    unsigned int irq = open->pcap->stream_irq;
     devm_free_irq(dev, irq, open);
     free_blocks(open);
     kfree(open);
@@ -525,10 +525,11 @@ static long panda_stream_ioctl(
             return stream_completion(open, (void __user *) arg);
         case PANDA_GET_START_TS:
             {
-                spin_lock(&open->start_ts_lock);
+                unsigned long flags;
+                spin_lock_irqsave(&open->start_ts_lock, flags);
                 struct timespec64 ts = open->start_ts;
                 bool ts_valid = open->start_ts_valid;
-                spin_unlock(&open->start_ts_lock);
+                spin_unlock_irqrestore(&open->start_ts_lock, flags);
                 if (!ts_valid)
                     return -EAGAIN;
 

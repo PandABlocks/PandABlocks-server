@@ -11,12 +11,23 @@ struct panda_block {
      * area. */
     unsigned int block_base;    // Register for setting block base address
     unsigned int block_length;  // Register for setting current block length
+    unsigned int dma_channel;   // Which DMA channel we are pushing the block to
+    unsigned int nbuffers;      // Number of buffers that will be allocated
+};
+
+struct panda_block_send_request {
+    /* Pointer to a buffer with the data to be sent */
+    const void *data;
+    /* Length of the data in the buffer in 32-bit words */
+    size_t length;
+    /* Whether there will be more block send requests */
+    bool more;
 };
 
 /* Each open panda.block file must have its block size set by calling the
- * PANDA_BLOCK_CREATE ioctl to set the block order.  The physical address is
+ * PANDA_BLOCK_CONFIG ioctl to set the block order.  The physical address is
  * returned if successful. */
-#define PANDA_BLOCK_CREATE  _IOR('P', 1, struct panda_block)
+#define PANDA_BLOCK_CONFIG  _IOR('P', 1, struct panda_block)
 
 /* The DMA engine must be armed before each experiment. */
 #define PANDA_DMA_ARM       _IO('P', 2)
@@ -35,3 +46,9 @@ struct panda_block {
  * edge of capture enable.  To ensure a non-zero timestamp this should not be
  * called until data has been returned from the data stream. */
 #define PANDA_GET_START_TS  _IOR('P', 4, struct timespec64)
+
+/* Sends a block */
+#define PANDA_BLOCK_SEND    _IOR('P', 5, struct panda_block_send_request)
+
+/* Get the number of words scheduled */
+#define PANDA_BLOCK_NWORDS  _IOW('P', 6, size_t *)

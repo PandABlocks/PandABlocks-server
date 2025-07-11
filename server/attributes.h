@@ -15,6 +15,10 @@ struct attr_methods {
     const char *description;
     /* Set if this attribute contributes to the ATTR change set. */
     bool in_change_set;
+    /* Set if this attribute is polled for changes when the attribute change set
+     * is requested. If this is set then format() must be implemented.
+     * It also enforces in_change_set to be true. */
+    bool polled_change_set;
 
     error__t (*format)(
         void *owner, void *data, unsigned int number,

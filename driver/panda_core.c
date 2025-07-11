@@ -4,6 +4,7 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
+#include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
@@ -74,13 +75,19 @@ static int panda_probe(struct platform_device *pdev)
     pcap->length = resource_size(res);
     pcap->reg_base = devm_ioremap_resource(&pdev->dev, res);
     TEST_PTR(pcap->reg_base, rc, no_res, "Unable to map resource");
+    for (int i = 0; i < BLOCK_CHANNEL_COUNT; i ++)
+        block_channel_init(&pcap->block_channels[i]);
 
     rc = platform_get_irq(pdev, 0);
-    TEST_RC(rc, no_irq, "Unable to read irq");
-    pcap->irq = rc;
+    TEST_RC(rc, no_irq, "Unable to read stream irq");
+    pcap->stream_irq = rc;
+
+    rc = platform_get_irq(pdev, 1);
+    TEST_RC(rc, no_irq, "Unable to read block irq");
+    pcap->block_irq = rc;
 
     /* Check the driver and FPGA protocol version match. */
-    TEST_OK(readl(pcap->reg_base + COMPAT_VERSION) == DRIVER_COMPAT_VERSION,
+    TEST_OK(readl(pcap->reg_base + DRV_COMPAT_VERSION) == DRIVER_COMPAT_VERSION,
         rc = -EINVAL, bad_version, "Driver compatibility version mismatch");
 
     /* Create character device support. */
@@ -88,6 +95,10 @@ static int panda_probe(struct platform_device *pdev)
     pcap->cdev.owner = THIS_MODULE;
     rc = cdev_add(&pcap->cdev, panda_dev, PANDA_MINORS);
     TEST_RC(rc, no_cdev, "unable to add device");
+
+    rc = devm_request_irq(
+        &pcap->pdev->dev, pcap->block_irq, block_isr, 0, pcap->pdev->name, pcap);
+    TEST_RC(rc, no_request_irq, "Unable to request block irq");
 
     /* Create the device nodes. */
     int major = MAJOR(panda_dev);
@@ -99,6 +110,7 @@ static int panda_probe(struct platform_device *pdev)
     return 0;
 
 no_cdev:
+no_request_irq:
 bad_version:
 no_irq:
 no_res:

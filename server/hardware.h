@@ -124,21 +124,30 @@ error__t hw_open_short_table(
  * maximum length in words is returned. */
 error__t hw_open_long_table(
     unsigned int block_base, unsigned int block_count, unsigned int order,
-    unsigned int base_reg, unsigned int length_reg,
+    unsigned int max_nbuffers, unsigned int base_reg, unsigned int length_reg,
     struct hw_table **table, size_t *length);
 
 /* When called during initialisation returns data area of block for readback. */
 const uint32_t *hw_read_table_data(struct hw_table *table, unsigned int number);
 
+/* Returns true if the table supports streaming. */
+bool hw_table_supports_streaming(struct hw_table *table);
+
+/* Resets the table state in hardware */
+error__t hw_reset_table(
+    struct hw_table *table, unsigned int number);
 
 /* Writes given block of data to table. */
-void hw_write_table(
+error__t hw_write_table(
     struct hw_table *table, unsigned int number,
-    size_t offset, const uint32_t data[], size_t length);
+    const uint32_t data[], size_t length, bool streaming_mode, bool last_table);
 
 /* Releases table resources during server shutdown. */
 void hw_close_table(struct hw_table *table);
 
+/* Returns the number of 4-byte words scheduled, it's valid for long tables
+ * only, otherwise 0 */
+size_t hw_get_queued_words(struct hw_table *table, unsigned int number);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Streamed data capture. */
