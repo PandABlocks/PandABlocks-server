@@ -10,6 +10,19 @@ import socket
 import logging.handlers
 
 
+# Notify systemd that we are ready if NOTIFY_SOCKET is set (by systemd).
+# This will allow systemd to manage service dependencies, and start the
+# server only when the extension server is ready to accept connections,
+# otherwise the server would be looping waiting for the socket to be ready.
+def notify_systemd():
+    path = os.getenv('NOTIFY_SOCKET')
+    if path:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        sock.connect(path)
+        sock.sendall(b'READY=1\n')
+        sock.close()
+
+
 class ServerError(Exception):
     pass
 
@@ -137,6 +150,7 @@ class Server:
         # Will be filled in by self.run()
         self.file = None
         self.ext = None
+        notify_systemd()
 
     def send(self, message):
         # If message too long replace with error message
