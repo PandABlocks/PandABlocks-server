@@ -238,11 +238,9 @@ error__t hw_long_table_allocate(
 }
 
 
-void hw_long_table_release(int block_id)
+void hw_long_table_release(int block_id, void *data)
 {
-    ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
-    struct table_block *block = &block_id_table[block_id];
-    free(block->data);
+    free(data);
 }
 
 
