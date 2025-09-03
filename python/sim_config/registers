@@ -143,7 +143,7 @@ PGEN        18
     ENABLE          0 6
     TRIG            1 7
     OUT             20 21
-    TABLE           long    2^8    4 5
+    TABLE           long    2^8 4   4 5
     TABLE_STATUS    8
 
 PCOMP       19
@@ -160,7 +160,7 @@ PCOMP       19
     ACTIVE          98 99 100 101
     OUT             102 103 104 105
     ERROR           14
-    TABLE           long    2^2    11 12
+    TABLE           long    2^2 4   11 12
     TABLE_STATUS    16
 
 ADC         20

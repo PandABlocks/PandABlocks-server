@@ -11,7 +11,7 @@ error__t hw_long_table_allocate(
     unsigned int dma_channel);
 
 /* Releases previously allocated table memory area. */
-void hw_long_table_release(int block_id);
+void hw_long_table_release(int block_id, void *data);
 
 /* Performs write for long table. */
 error__t hw_long_table_write(

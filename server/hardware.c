@@ -490,9 +490,10 @@ static error__t hw_long_table_allocate(
 }
 
 
-static void hw_long_table_release(int block_id)
+static void hw_long_table_release(int block_id, void *data)
 {
     close(block_id);
+    free(data);
 }
 
 
@@ -538,10 +539,8 @@ static error__t create_long_table(
 
 static void destroy_long_table(struct hw_table *table)
 {
-    for (unsigned int i = 0; i < table->count; i ++) {
-        hw_long_table_release(table->long_table.block_ids[i]);
-        free(table->data[i]);
-    }
+    for (unsigned int i = 0; i < table->count; i ++)
+        hw_long_table_release(table->long_table.block_ids[i], table->data[i]);
     free(table->long_table.block_ids);
 }
 

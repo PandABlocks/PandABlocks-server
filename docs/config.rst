@@ -201,7 +201,7 @@ Class                   Register syntax
 ``bit_mux``             register
 ``pos_mux``             register
 ``table``               ``short`` size init-reg fill-reg length-reg
-``table``               ``long`` ``2^``\ size base-reg length-reg
+``table``               ``long`` ``2^``\ size nbuf base-reg length-reg
 ======================= ========================================================
 
 where the syntax ``(...)N`` means that the given register number is repeated N
