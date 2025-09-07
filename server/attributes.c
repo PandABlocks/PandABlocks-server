@@ -83,7 +83,16 @@ void get_attr_change_set(
                     attr->owner, attr->data, i, string, sizeof(string));
                 if (strncmp(string, attr->last_values[i], MAX_RESULT_LENGTH))
                 {
-                    attr->update_index[i] = get_change_index();
+                    /* This case is special, we have detected a change
+                     * by polling (which happens inside this function), so we
+                     * need to update the index, but if we used
+                     * `get_change_index`, the same value change would be
+                     * reported in the next `get_attr_change_set` call, we use
+                     * `report_index + 1` so the value is considered new in the
+                     * current call (i.e. The one that polled the value and
+                     * found a change) but not the next call if it doesn't find
+                     * a new value. */
+                    attr->update_index[i] = report_index + 1;
                     strncpy(
                         attr->last_values[i], string, MAX_RESULT_LENGTH);
                 }
