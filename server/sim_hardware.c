@@ -250,15 +250,15 @@ error__t hw_long_table_write(
 {
     ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
     struct table_block *block = &block_id_table[block_id];
+    size_t nbytes = length * sizeof(uint32_t);
 
-    memcpy(block->data, data, length);
-
-    uint32_t words = (uint32_t) length / sizeof(uint32_t);
+    memcpy(block->data, data, nbytes);
+    ASSERT_OK(length == (uint32_t) length);
     WITH_MUTEX(mutex)
         handle_error(
             write_command_int('T',
-                block->block_base, block->number, 0, words)  ?:
-            write_all(block->data, length));
+                block->block_base, block->number, 0, (uint32_t) length)  ?:
+            write_all(block->data, nbytes));
     return ERROR_OK;
 }
 
