@@ -1,0 +1,26 @@
+name: Tests CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/pandablocks/pandablocks-dev-container:latest
+      volumes:
+        - ${{ github.workspace }}/build:/build
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v2
+        with:
+          path: PandABlocks-server
+
+      - name: Run the server regression tests
+        run: |
+          cd PandABlocks-server
+          ln -s CONFIG.example CONFIG
+          make sim_server
+          make -C tests
