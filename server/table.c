@@ -251,6 +251,7 @@ struct table_state {
     size_t max_length;          // Maximum block length in words
     struct hw_table *table;     // Hardware interface to tables
 
+    struct attr *mode_attr;         // Mode attribute for change notify
     struct table_block blocks[];    // Individual table blocks
 };
 
@@ -419,9 +420,12 @@ static error__t complete_table_write(void *context, bool write_ok)
     if (write_ok  &&  !error)
         WITH_MUTEX_W(block->read_lock)
         {
+            enum table_mode previous_mode = block->mode;
             error = update_table_mode(
                 block, block->streaming_mode, block->last_table,
                 block->write_length);
+            if (previous_mode != block->mode)
+                attr_changed(state->mode_attr, block->number);
             if (block->reset_required)
                 hw_reset_table(state->table, block->number);
 
@@ -473,13 +477,37 @@ static error__t start_table_write(
 }
 
 
+static error__t table_mode_format(
+    void *owner, void *class_data, unsigned int number,
+    char result[], size_t length)
+{
+    struct table_state *state = class_data;
+    struct table_block *block = &state->blocks[number];
+    return format_string(result, length, "%s",
+        block->mode == TABLE_INIT ? "INIT" :
+        block->mode == TABLE_FIXED ? "FIXED" :
+        block->mode == TABLE_STREAMING ? "STREAMING" :
+        block->mode == TABLE_STREAMING_LAST ? "STREAMING_LAST" :
+        "UNKNOWN");
+}
+
+
+/* This attribute needs to be added separately so that we can hang onto the
+ * attribute so that we can implement the change notification. */
+static const struct attr_methods mode_attr_methods = {
+    "MODE", "Current table mode",
+    .format = table_mode_format,
+    .in_change_set = true
+};
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Table methods. */
 
 
 static struct table_state *create_table(
     unsigned int block_count, unsigned int row_words,
-    struct indent_parser *parser)
+    struct hash_table *attr_map, struct indent_parser *parser)
 {
     struct table_state *state = malloc(
         sizeof(struct table_state) +
@@ -491,6 +519,8 @@ static struct table_state *create_table(
             .row_words = row_words,
             .used_bits = calloc(32 * row_words, sizeof(bool)),
         },
+        .mode_attr = add_one_attribute(
+            &mode_attr_methods, NULL, state, block_count, attr_map)
     };
     initialise_table_blocks(state->blocks, block_count);
 
@@ -513,7 +543,8 @@ static error__t table_init(
             parse_whitespace(line)  ?:
             parse_uint(line, &row_words)  ?:
             TEST_OK_(row_words > 0, "Invalid table row size"))  ?:
-        DO(*class_data = create_table(block_count, row_words, parser));
+        DO(*class_data = create_table(
+            block_count, row_words, attr_map, parser));
 }
 
 
@@ -727,21 +758,6 @@ static error__t table_queued_lines_format(
 }
 
 
-static error__t table_mode_format(
-    void *owner, void *class_data, unsigned int number,
-    char result[], size_t length)
-{
-    struct table_state *state = class_data;
-    struct table_block *block = &state->blocks[number];
-    return format_string(result, length, "%s",
-        block->mode == TABLE_INIT ? "INIT" :
-        block->mode == TABLE_FIXED ? "FIXED" :
-        block->mode == TABLE_STREAMING ? "STREAMING" :
-        block->mode == TABLE_STREAMING_LAST ? "STREAMING_LAST" :
-        "UNKNOWN");
-}
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Published interface. */
 
@@ -770,7 +786,5 @@ const struct class_methods table_class_methods = {
         { "QUEUED_LINES", "Number of lines scheduled",
           .format = table_queued_lines_format,
           .polled_change_set = true, },
-        { "MODE", "Current table mode",
-          .format = table_mode_format, },
     ),
 };
