@@ -509,7 +509,24 @@ static error__t hw_long_table_write(
     };
     return TEST_IO(ioctl(block_id, PANDA_BLOCK_SEND, &request));
 }
+
+static size_t hw_long_table_get_queued_words(int block_id)
+{
+    size_t result = 0;
+    ioctl(block_id, PANDA_BLOCK_NWORDS, &result);
+    return result;
+}
 #endif
+
+
+size_t hw_table_get_queued_words(struct hw_table *table, unsigned int number)
+{
+    if (table->table_type == LONG_TABLE)
+        return hw_long_table_get_queued_words(
+            table->long_table.block_ids[number]);
+    else
+        return 0;
+}
 
 
 static error__t create_long_table(
@@ -648,18 +665,6 @@ void hw_close_table(struct hw_table *table)
 
     free(table->data);
     free(table);
-}
-
-
-size_t hw_get_queued_words(struct hw_table *table, unsigned int number)
-{
-    if (table->table_type == LONG_TABLE)
-    {
-        size_t result = 0;
-        ioctl(table->long_table.block_ids[number], PANDA_BLOCK_NWORDS, &result);
-        return result;
-    }
-    return 0;
 }
 
 
