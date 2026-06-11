@@ -17,22 +17,22 @@ Page list expanded from `06-source-provenance-map.md`.
 - (none in v4 — empty `tutorials.md` landing kept for parity)
 
 ## How-to
-- ◐ how-to/startup — source: startup.rst — writable-now
-- ◐ how-to/building — source: building.rst — writable-now (CONFIG syntax = verify)
+- ✅ how-to/startup — converted from startup.rst (Prompt D)
+- ✅ how-to/building — converted from building.rst; devcontainer pointer added; CONFIG syntax note = verify (Prompt D)
 - ✅ how-to/contribute — `{include} .github/CONTRIBUTING.md` — scaffold include resolves
 
 ## Explanations
-- ◐ explanations/architecture — source: NEW (server code + docs) — writable-now (skeleton; depth = author)
+- ✅ explanations/architecture — skeleton authored from server code (Prompt D); depth = blocked: author
 
 ## Reference
 - ◐ reference/commands — source: commands.rst — writable-now [Prompt E]
 - ◐ reference/fields — source: fields.rst — writable-now [Prompt E]
 - ◐ reference/capture — source: capture.rst — writable-now (60MB/s = verify) [Prompt E]. Holds the Stage A xref probe.
 - ◐ reference/capture-options — source: capture.rst ⊃ + Interview5 §4 — partial (superset = verify) [Prompt E split]
-- ◐ reference/config — source: config.rst — writable-now
+- ✅ reference/config — converted from config.rst (Prompt D)
 - ⛔ reference/extension — source: extension.rst — blocked: verify
-- ◐ reference/streaming-tables — source: NEW (Interview5 §8) — writable-now
-- ◐ reference/support — source: support.rst — writable-now
+- ✅ reference/streaming-tables — authored from Interview5 §8 + fields.rst streaming section (Prompt D)
+- ✅ reference/support — converted from support.rst (Prompt D)
 - ⛔ reference/c-standard — source: NEW (Interview1 §4) — blocked: author
 
 ## Blocked (issues raised)
