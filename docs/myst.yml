@@ -11,7 +11,7 @@ project:
     # Not deployed yet — kept (commented) as the complete prototype wiring to
     # uncomment in Stage F and upstream into python-copier-template.
     # meta-panda: https://pandablocks.github.io/meta-panda/main
-    # PandABlocks-FPGA: https://pandablocks.github.io/PandABlocks-FPGA/master
+    # PandABlocks-FPGA: https://pandablocks.github.io/PandABlocks-FPGA/main
     # PandABlocks-devcontainer: https://pandablocks.github.io/PandABlocks-devcontainer
     # fastcs-PandABlocks: https://diamondlightsource.github.io/fastcs-PandABlocks/main
   toc:
