@@ -1,0 +1,54 @@
+version: 1
+project:
+  title: PandABlocks-server
+  github: https://github.com/PandABlocks/PandABlocks-server
+  # Cross-repository references (mystmd xref + Sphinx intersphinx).
+  # PROTOTYPE for upstreaming into the DLS python-copier-template (Stage A spec §6).
+  references:
+    # PandABlocks-client (Sphinx) is deployed today — used by the Stage A xref probe
+    # in reference/capture. Resolves via its objects.inv.
+    PandABlocks-client: https://pandablocks.github.io/PandABlocks-client/main
+    # Not deployed yet — kept (commented) as the complete prototype wiring to
+    # uncomment in Stage F and upstream into python-copier-template.
+    # meta-panda: https://pandablocks.github.io/meta-panda/main
+    # PandABlocks-FPGA: https://pandablocks.github.io/PandABlocks-FPGA/master
+    # PandABlocks-devcontainer: https://pandablocks.github.io/PandABlocks-devcontainer
+    # fastcs-PandABlocks: https://diamondlightsource.github.io/fastcs-PandABlocks/main
+  toc:
+    - file: index.md
+    - file: tutorials.md
+    - file: how-to.md
+      children:
+        - file: how-to/startup.md
+        - file: how-to/building.md
+        - file: how-to/contribute.md
+    - file: explanations.md
+      children:
+        - file: explanations/architecture.md
+    - file: reference.md
+      children:
+        - file: reference/commands.md
+        - file: reference/fields.md
+        - file: reference/capture.md
+        - file: reference/capture-options.md
+        - file: reference/config.md
+        - file: reference/extension.md
+        - file: reference/streaming-tables.md
+        - file: reference/support.md
+        - file: reference/c-standard.md
+        - url: https://github.com/PandABlocks/PandABlocks-server/releases
+          title: Release Notes
+site:
+  template: book-theme
+  nav:
+    - title: Tutorials
+      url: /tutorials
+    - title: How-to Guides
+      url: /how-to
+    - title: Explanations
+      url: /explanations
+    - title: Reference
+      url: /reference
+  options:
+    logo: images/PandA-logo-for-black-background.svg
+    github_url: https://github.com/PandABlocks/PandABlocks-server

@@ -1,0 +1,53 @@
+# Docs Rewrite Progress — PandABlocks-server
+
+Tracks every target page for this repo. Update the relevant line **in the same commit** as the file
+it refers to. Statuses: ☐ todo · ◐ stub · ✅ converted · 🔍 needs-review · ⛔ blocked (→ issue #).
+Page list expanded from `06-source-provenance-map.md`.
+
+## Stage A — scaffold
+- ✅ skeleton instantiated (title/github/logo swapped, apidoc + pip-tutorial + run-container removed)
+- ✅ TOC + stubs for every target page present (12 stubs + 4 landing + index)
+- ✅ `index.md` README-include + `how-to/contribute` CONTRIBUTING-include resolve
+- ✅ xref/intersphinx wired + cross-link probe resolves in built output (reference/capture → PandABlocks-client)
+- ☐ (FPGA only) — N/A
+- ✅ `myst build` green (exit 0, no warnings/errors)
+- ✅ Pages deploy wired — `.github/workflows/docs.yml` switched to `myst build` (copier-aligned)
+
+## Tutorials
+- (none in v4 — empty `tutorials.md` landing kept for parity)
+
+## How-to
+- ◐ how-to/startup — source: startup.rst — writable-now
+- ◐ how-to/building — source: building.rst — writable-now (CONFIG syntax = verify)
+- ✅ how-to/contribute — `{include} .github/CONTRIBUTING.md` — scaffold include resolves
+
+## Explanations
+- ◐ explanations/architecture — source: NEW (server code + docs) — writable-now (skeleton; depth = author)
+
+## Reference
+- ◐ reference/commands — source: commands.rst — writable-now [Prompt E]
+- ◐ reference/fields — source: fields.rst — writable-now [Prompt E]
+- ◐ reference/capture — source: capture.rst — writable-now (60MB/s = verify) [Prompt E]. Holds the Stage A xref probe.
+- ◐ reference/capture-options — source: capture.rst ⊃ + Interview5 §4 — partial (superset = verify) [Prompt E split]
+- ◐ reference/config — source: config.rst — writable-now
+- ⛔ reference/extension — source: extension.rst — blocked: verify
+- ◐ reference/streaming-tables — source: NEW (Interview5 §8) — writable-now
+- ◐ reference/support — source: support.rst — writable-now
+- ⛔ reference/c-standard — source: NEW (Interview1 §4) — blocked: author
+
+## Blocked (issues raised)
+Issues not yet created — Stage B (Prompt B) will create and link them.
+- ⛔ reference/extension — issue #TBD — verify
+- ⛔ reference/c-standard — issue #TBD — author
+
+## Notes
+- **Legacy sources preserved.** Original Sphinx/RST tree moved to `docs/_legacy_rst/` (not in TOC,
+  ignored by `myst build`) so Stage D/E conversion can read sources in-tree; also on `origin/main`.
+  `presentation-2016-05/*` is dropped per 06 (kept under `_legacy_rst/` for now; delete with the rest
+  of `_legacy_rst/` once conversion is complete).
+- **Default branch is `main`** — publish gated on `main`/tags; redirect to `./main/index.html`.
+- **xref/intersphinx prototype.** Only `PandABlocks-client` (deployed) is active; the probe in
+  `reference/capture` resolves in built output. meta-panda + FPGA + devcontainer + fastcs kept
+  commented until published; uncomment in Stage F and upstream into python-copier-template.
+- **CI** mirrors python-copier-template-example `_docs.yml` (npm+mystmd build, upload-artifact of
+  `docs/_build` minus the templates cache, versioned move, `make_switcher.py`, peaceiris v4).
