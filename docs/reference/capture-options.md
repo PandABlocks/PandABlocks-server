@@ -1,11 +1,72 @@
 # Capture options
 
-:::{admonition} 🚧 TODO — documentation stub
-:class: note
+This page is the canonical reference for the two distinct sets of "capture
+options" exposed by the server:
 
-This page is a Stage A scaffold stub and has not yet been written.
+- **Field capture options** — the per-field `CAPTURE` enumeration that selects
+  *what* is captured for a `pos_out` field.
+- **Connection capture options** — the option line sent when connecting to the
+  data port that selects *how* the captured stream is transmitted.
 
-**Status:** partial (superset = blocked: verify)
+:::{admonition} Verify against your firmware (blocked: verify)
+:class: caution
 
-**Source:** capture.rst (Capture Options) + Interview5 §4 — add "run *CAPTURE.OPTIONS? live" note
+The list below is the documented superset. The authoritative, live list for
+your firmware is always whatever `*CAPTURE.OPTIONS?` returns — **run it against
+the running server** rather than relying on this page, as availability of some
+options (e.g. `StdDev`) depends on the FPGA configuration. The full Interview5 §4
+superset still needs confirming against the implementation.
 :::
+
+## Field capture options
+
+`*CAPTURE.OPTIONS?` lists the available capture options for `pos_out` fields.
+The documented options are:
+
+| Option | Description |
+|---|---|
+| Value | The value at the time of trigger is captured. |
+| Diff | The difference of values is captured. |
+| Sum | The sum of all valid values is captured (64-bit; may be scaled if `PCAP.SHIFT_SUM` is set). |
+| Mean | The average of all valid values is captured. |
+| Min | The minimum of all valid values is captured. |
+| Max | The maximum of all valid values is captured. |
+| StdDev | The standard deviation of valid values is captured. Availability depends on the FPGA configuration. |
+
+These options are set per field via the field's `CAPTURE` attribute — see
+{doc}`/reference/fields` for the `pos_out` and `ext_out` capture settings, and
+{doc}`/reference/capture` for how capture is configured and armed.
+
+`*CAPTURE.ENUMS?` returns a curated enumeration of these selections, the same as
+calling `*ENUMS.`*name*`.`*field*`.CAPTURE?` on any `pos_out` field.
+
+## Connection capture options
+
+A line of capture options *must* be sent after the initial connection to the
+data port before any data is sent. It is a list of any of the following options
+separated by whitespace, ending with a newline character.
+
+| Option | Description | | |
+|---|---|---|---|
+| ASCII | Data is sent as ASCII numbers. | 1 | D |
+| BASE64 | Binary data is sent as a stream of base-64 strings. | 1 | |
+| FRAMED | Binary data is sent as a sequence of sized frames. | 1 | |
+| UNFRAMED | Binary data is sent as a raw stream of bytes. | 1 | R |
+| SCALED | All scalable data is scaled and sent as doubles. | 2 | D |
+| RAW | The captured binary data is sent without processing. | 2 | |
+| NO_HEADER | The data header is omitted. | | R |
+| NO_STATUS | The connection and end-of-experiment status strings are omitted. | | R |
+| ONE_SHOT | Only one experiment will be transmitted. | | R |
+| XML | The header will be sent in XML format. | | |
+| BARE | Selects `UNFRAMED RAW NO_HEADER NO_STATUS ONE_SHOT`. | | |
+| DEFAULT | Default options. | | D |
+
+Key:
+
+- **D** — Default option if no other option is specified.
+- **R** — Option selected in response to the `BARE` option.
+- **1** — Data transmission formats; one of these will be selected.
+- **2** — Data processing formats; one of these will be selected.
+
+For how these formats appear on the wire (framing, base-64 layout, header
+contents), see {doc}`/reference/capture`.

@@ -25,10 +25,10 @@ Page list expanded from `06-source-provenance-map.md`.
 - ✅ explanations/architecture — skeleton authored from server code (Prompt D); depth = blocked: author
 
 ## Reference
-- ◐ reference/commands — source: commands.rst — writable-now [Prompt E]
-- ◐ reference/fields — source: fields.rst — writable-now [Prompt E]
-- ◐ reference/capture — source: capture.rst — writable-now (60MB/s = verify) [Prompt E]. Holds the Stage A xref probe.
-- ◐ reference/capture-options — source: capture.rst ⊃ + Interview5 §4 — partial (superset = verify) [Prompt E split]
+- ✅ reference/commands — source: commands.rst — converted (Prompt E); Configuration + System command tables preserved, *IDN? kept; *CAPTURE.OPTIONS? points to capture-options
+- ✅ reference/fields — source: fields.rst — converted (Prompt E); MODE matrix + Summary-of-Sub-Types + Summary-of-Attributes tables kept; table-streaming detail points to reference/streaming-tables
+- ✅ reference/capture — source: capture.rst — converted (Prompt E); ~60 MB/s + "not installed" webcontrol caveat kept; Capture Options extracted to capture-options; data-out links meta-panda integrate-with-a-panda; holds the Stage A client xref probe
+- ✅ reference/capture-options — source: capture.rst ⊃ + Interview5 §4 — written (Prompt E); field + connection options; "run *CAPTURE.OPTIONS? live" note added; superset still blocked: verify
 - ✅ reference/config — converted from config.rst (Prompt D)
 - ⛔ reference/extension — source: extension.rst — blocked: verify
 - ✅ reference/streaming-tables — authored from Interview5 §8 + fields.rst streaming section (Prompt D)
