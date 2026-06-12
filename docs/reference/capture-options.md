@@ -12,7 +12,7 @@ options" exposed by the server:
 The authoritative, live list for your firmware is always whatever
 `*CAPTURE.OPTIONS?` returns from the running server — availability of some
 options (`StdDev`, and therefore `Mean StdDev`) depends on the FPGA
-configuration.
+configuration. Live confirmation tracked in [PandABlocks/PandABlocks-server#78](https://github.com/PandABlocks/PandABlocks-server/issues/78).
 :::
 
 ## Field capture options

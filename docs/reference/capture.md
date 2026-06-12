@@ -160,7 +160,7 @@ be one of the following values:
 
 To get the highest performance, use `FRAMED RAW` mode. This activates a special
 passthrough mode which avoids copying memory as much as possible. In tests it has
-been capable of sustaining 60 MBytes/s when panda-webcontrol is **not** installed.
+been capable of sustaining 60 MBytes/s when panda-webcontrol is **not** installed. <!-- verify: PandABlocks/PandABlocks-server#79 — confirm figure and conditions -->
 The downside to this mode is that if capture fails for any reason, then the last
 framed block of data that the server sent should be discarded, as it will have
 been corrupted while being sent.

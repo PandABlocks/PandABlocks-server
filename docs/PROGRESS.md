@@ -37,8 +37,18 @@ Page list expanded from `06-source-provenance-map.md`.
 
 ## Blocked (issues raised)
 Issues not yet created — Stage B (Prompt B) will create and link them.
-- ⛔ reference/extension — issue #TBD — verify
-- ⛔ reference/c-standard — issue #TBD — author
+- ⛔ reference/extension — issue #80 — verify
+- ⛔ reference/c-standard — issue #83 — author
+
+- ⛔ reference/capture-options (live confirmation) — issue #78 — verify
+
+- ⛔ reference/capture (60 MB/s figure) — issue #79 — verify
+
+- ⛔ reference/commands (*IDN? v4.x) — issue #81 — verify
+
+- ⛔ how-to/building (CONFIG syntax) — issue #82 — verify
+
+- ⛔ explanations/architecture (depth) — issue #84 — author
 
 ## Notes
 - **Legacy sources preserved.** Original Sphinx/RST tree moved to `docs/_legacy_rst/` (not in TOC,

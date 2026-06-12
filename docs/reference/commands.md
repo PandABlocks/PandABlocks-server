@@ -69,7 +69,7 @@ command is `*IDN?`, which returns a system identification string:
 
 ```
 < *IDN?
-> OK =PandA SW: 330bd94-dirty FPGA: 0.1.9 d1275f61 00000000
+> OK =PandA SW: 330bd94-dirty FPGA: 0.1.9 d1275f61 00000000 <!-- verify: PandABlocks/PandABlocks-server#81 — confirm *IDN? format unchanged in v4.x -->
 ```
 
 The available system commands are tabulated here and listed in more detail
