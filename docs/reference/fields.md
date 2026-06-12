@@ -87,7 +87,7 @@ types and their attributes are documented below.
 | `table` | Table data with special access methods. |
 
 `param` *subtype*
-: All fields of this type contribute to the `*CHANGES.PARAM` change group and
+: All fields of this type contribute to the `*CHANGES.CONFIG` change group and
   are used to configure the behaviour of the corresponding block. Fields of this
   type are used for input configuration and other behavioural settings.
 
@@ -110,7 +110,7 @@ types and their attributes are documented below.
 
 `time`
 : Fields of this type are used for configuring delays. They also contribute to
-  `*CHANGES.PARAM`. The following attributes are supported:
+  `*CHANGES.CONFIG`. The following attributes are supported:
 
   `UNITS`
   : Can be set to any of the strings `min`, `s`, `ms`, or `us`, and is used to
@@ -183,6 +183,11 @@ types and their attributes are documented below.
     | Max | The maximum of all valid values is captured. |
     | Min Max | Both minimum and maximum values are captured. |
     | Min Max Mean | All three values — minimum, maximum, average — are captured. |
+    | StdDev | The standard deviation of valid values is captured. Only available if supported by the FPGA configuration. |
+    | Mean StdDev | Both average and standard deviation are captured. Only available if supported by the FPGA configuration. |
+
+    Combinations of the individual options can also be written as a
+    space-separated list — see {doc}`/reference/capture-options`.
 
   The following attributes support formatting of the field when reading it; the
   current value is returned subject to the formatting rules described below.
@@ -455,7 +460,7 @@ fields.
 | bit | | Bit: 0 or 1 |
 | action | | Write only, no value |
 | lut | RAW | 5-input lookup table logical formula |
-| enum | LABELS | Enumeration selection |
+| enum | | Enumeration selection (labels listed via the `*ENUMS` command) |
 | time | RAW, UNITS | Time intervals converted to FPGA ticks |
 
 ## Summary of attributes
@@ -481,8 +486,8 @@ fields.
 | | UNITS | Position units | R | W | C | |
 | | SCALED | Position after applying scaling | R | | | |
 | ext_out bits | BITS | List of bit_out fields | R | | | M |
-| table | MAX_LENGTH | Maximum table row count | R | | | |
-| | LENGTH | Current table row count | R | | | |
+| table | MAX_LENGTH | Maximum table length in 32-bit words | R | | | |
+| | LENGTH | Current table length in 32-bit words | R | | | |
 | | B | Table data in base-64 | R | | | M |
 | | FIELDS | Table field descriptions | R | | | M |
 | | ROW_WORDS | Number of words in a table row | R | | | |

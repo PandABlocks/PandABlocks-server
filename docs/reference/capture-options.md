@@ -8,20 +8,17 @@ options" exposed by the server:
 - **Connection capture options** — the option line sent when connecting to the
   data port that selects *how* the captured stream is transmitted.
 
-:::{admonition} Verify against your firmware (blocked: verify)
-:class: caution
-
-The list below is the documented superset. The authoritative, live list for
-your firmware is always whatever `*CAPTURE.OPTIONS?` returns — **run it against
-the running server** rather than relying on this page, as availability of some
-options (e.g. `StdDev`) depends on the FPGA configuration. The full Interview5 §4
-superset still needs confirming against the implementation.
+:::{note}
+The authoritative, live list for your firmware is always whatever
+`*CAPTURE.OPTIONS?` returns from the running server — availability of some
+options (`StdDev`, and therefore `Mean StdDev`) depends on the FPGA
+configuration.
 :::
 
 ## Field capture options
 
-`*CAPTURE.OPTIONS?` lists the available capture options for `pos_out` fields.
-The documented options are:
+`*CAPTURE.OPTIONS?` lists the individual capture options available for
+`pos_out` fields:
 
 | Option | Description |
 |---|---|
@@ -31,14 +28,20 @@ The documented options are:
 | Mean | The average of all valid values is captured. |
 | Min | The minimum of all valid values is captured. |
 | Max | The maximum of all valid values is captured. |
-| StdDev | The standard deviation of valid values is captured. Availability depends on the FPGA configuration. |
+| StdDev | The standard deviation of valid values is captured. Only listed if supported by the FPGA configuration. |
+
+A field's `CAPTURE` attribute can be set to `No` (capture disabled), to a
+single option, or to a space-separated combination of options (e.g.
+`Min Max Mean`).
+
+`*CAPTURE.ENUMS?` returns a curated enumeration of these selections — the same
+list as calling `*ENUMS.`*block*`.`*field*`.CAPTURE?` on any `pos_out` field:
+`No`, `Value`, `Diff`, `Sum`, `Mean`, `Min`, `Max`, `Min Max`, `Min Max Mean`,
+`StdDev`, `Mean StdDev`.
 
 These options are set per field via the field's `CAPTURE` attribute — see
 {doc}`/reference/fields` for the `pos_out` and `ext_out` capture settings, and
 {doc}`/reference/capture` for how capture is configured and armed.
-
-`*CAPTURE.ENUMS?` returns a curated enumeration of these selections, the same as
-calling `*ENUMS.`*name*`.`*field*`.CAPTURE?` on any `pos_out` field.
 
 ## Connection capture options
 

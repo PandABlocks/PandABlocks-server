@@ -1,9 +1,10 @@
 # Build and test the server
 
 :::{tip}
-For local development the [PandABlocks-devcontainer](https://github.com/PandABlocks/PandABlocks-devcontainer)
-provides a pre-configured environment and is the recommended starting point.
-The instructions below cover a native build for those who need it.
+For local development the devcontainer defined in this repository
+(`.devcontainer/devcontainer.json` and the top-level `Dockerfile`) provides a
+pre-configured environment and is the recommended starting point. The
+instructions below cover a native build for those who need it.
 :::
 
 ## Dependencies

@@ -43,7 +43,7 @@ The server can also be started from the command line with the following options.
 : Run the server as a daemon. This is the normal production mode; omit for
   debugging.
 
-`-p` *pid-file*
+`-P` *pid-file*
 : Write the server process ID to the given file; the file is deleted on exit.
 
 `-T`
@@ -58,3 +58,6 @@ The server can also be started from the command line with the following options.
 `-X` *port*
 : Connect to an extension server running locally on the specified port. See
   {doc}`/reference/extension` for details.
+
+`-r` *rootfs-version*
+: Specify the rootfs version string reported by the `*IDN?` command.

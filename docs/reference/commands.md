@@ -83,7 +83,7 @@ below:
 | `*BLOCKS?` | List device blocks. |
 | `*DESC.`*block*`.`*field*[`.`*attr*]`?` <br> `*DESC.`*block*`.`*field*`[].`*subfield*`?` | Show description for field, attribute, or table subfield. |
 | `*ENUMS.`*block*`.`*field*[`.`*attr*]`?` <br> `*ENUMS.`*block*`.`*field*`[].`*subfield*`?` | List enumerations for field, attribute, or table subfield. |
-| `*CHANGES`[`.`*group*]`?` | Report changes to values. *group* can be any of `CONFIG`, `BITS`, `POSN`, `READ`, `ATTR`, or `TABLE`. |
+| `*CHANGES`[`.`*group*]`?` | Report changes to values. *group* can be any of `CONFIG`, `BITS`, `POSN`, `READ`, `ATTR`, `TABLE`, or `METADATA`. |
 | `*CHANGES`[`.`*group*]`=`[`E`\|`S`] | Reset reported changes; *group* as above. |
 | `*CAPTURE?` | Report fields configured for capture. |
 | `*CAPTURE.*?` | List all fields that can be captured. |
@@ -170,7 +170,7 @@ below:
 : Returns the list of enumerations for the given field, attribute, or table
   subfield, if appropriate.
 
-`*CHANGES?` <br> `*CHANGES.CONFIG?` <br> `*CHANGES.BITS?` <br> `*CHANGES.POSN?` <br> `*CHANGES.READ?` <br> `*CHANGES.ATTR?` <br> `*CHANGES.TABLE?`
+`*CHANGES?` <br> `*CHANGES.CONFIG?` <br> `*CHANGES.BITS?` <br> `*CHANGES.POSN?` <br> `*CHANGES.READ?` <br> `*CHANGES.ATTR?` <br> `*CHANGES.TABLE?` <br> `*CHANGES.METADATA?`
 : Reports changes to the appropriate group of values. Changes are reported since
   the last request on the connection, and on the first request the current value
   for every field will be reported. `*CHANGES?` reports changes for all groups;
@@ -184,6 +184,7 @@ below:
   | READ | Polled read values |
   | ATTR | Attributes (including capture enable flags) |
   | TABLE | Table changes |
+  | METADATA | Metadata field changes |
 
   For example:
 
@@ -231,7 +232,7 @@ below:
   > .
   ```
 
-`*CHANGES=`[`E`\|`S`] <br> `*CHANGES.CONFIG=`[`E`\|`S`] <br> `*CHANGES.BITS=`[`E`\|`S`] <br> `*CHANGES.POSN=`[`E`\|`S`] <br> `*CHANGES.READ=`[`E`\|`S`] <br> `*CHANGES.ATTR=`[`E`\|`S`] <br> `*CHANGES.TABLE=`[`E`\|`S`]
+`*CHANGES=`[`E`\|`S`] <br> `*CHANGES.CONFIG=`[`E`\|`S`] <br> `*CHANGES.BITS=`[`E`\|`S`] <br> `*CHANGES.POSN=`[`E`\|`S`] <br> `*CHANGES.READ=`[`E`\|`S`] <br> `*CHANGES.ATTR=`[`E`\|`S`] <br> `*CHANGES.TABLE=`[`E`\|`S`] <br> `*CHANGES.METADATA=`[`E`\|`S`]
 : These commands reset the change information for the corresponding group so that
   only changes occurring after the reset are reported, or so that all changes are
   reported. If `=` or `=E` (for End) is specified then only new changes are

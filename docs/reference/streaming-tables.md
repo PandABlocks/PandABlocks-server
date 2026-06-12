@@ -40,34 +40,41 @@ current state:
 | `STREAMING`      | A streaming write is in progress (`<<` was last)                 |
 | `STREAMING_LAST` | The final streaming chunk was received (`<<|` was last)          |
 
-Writing an empty table (`<0`) always moves the table to `INIT`. If a streaming
-error occurs, `MODE` transitions automatically to report the error condition so
-the client can become aware of failures.
+Writing an empty table (`<0`) always moves the table to `INIT`. In addition to
+these modes there is an implicit *completed* state in the FPGA, entered either
+on a sudden error or when streaming finishes: any further writes are rejected
+and the `MODE` attribute keeps its last value until the table is reset with
+`<0`, ensuring the client becomes aware of the error.
 
 ### MODE transition table
 
-| Current MODE / command | `<`     | `<<`        | `<<\|`           | `<0`   |
-|------------------------|---------|-------------|------------------|--------|
-| `INIT`                 | `FIXED` | `STREAMING` | `STREAMING_LAST` | `INIT` |
-| `FIXED`                | `FIXED` | `STREAMING` | `STREAMING_LAST` | `INIT` |
-| `STREAMING`            | `FIXED` | `STREAMING` | `STREAMING_LAST` | `INIT` |
-| `STREAMING_LAST`       | `FIXED` | `STREAMING` | `STREAMING_LAST` | `INIT` |
+| Current MODE / command | `<`      | `<<`        | `<<\|`           | `<0`   |
+|------------------------|----------|-------------|------------------|--------|
+| `INIT`                 | `FIXED`  | `STREAMING` | `STREAMING_LAST` | `INIT` |
+| `FIXED`                | `FIXED`  | `STREAMING` | `STREAMING_LAST` | `INIT` |
+| `STREAMING`            | *Reject* | `STREAMING` | `STREAMING_LAST` | `INIT` |
+| `STREAMING_LAST`       | *Reject* | *Reject*    | *Reject*         | `INIT` |
+| completed (`[HEALTH]`) | *Reject* | *Reject*    | *Reject*         | `INIT` |
 
 ## Other table attributes
 
 `LENGTH`
-: Current number of words in the table (read-only).
+: Current number of 32-bit words in the table (read-only).
 
 `MAX_LENGTH`
-: Maximum number of table rows (read-only).
+: Maximum number of 32-bit words which can be stored in the table (read-only).
 
 `ROW_WORDS`
 : Number of 32-bit words per table row (read-only).
 
 `B` (base-64 read)
-: Returns the current table content encoded in base-64. Each line has the
-  format `left:right:data` where *left* and *right* are bit-field indices into
-  a row and *data* is the base-64 encoded row content.
+: Returns the current table content encoded in base-64 (read-only).
+
+`FIELDS`
+: Returns a list of strings describing how to interpret a table row. Each line
+  has the format `left:right field-name subtype`, where *left* and *right* are
+  bit-field indices into a single row. See {doc}`/reference/fields` for
+  details.
 
 A `<<` write returns the number of lines accepted. A `<` (fixed) write returns
 the total number of lines in the new table.

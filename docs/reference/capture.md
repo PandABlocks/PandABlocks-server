@@ -18,6 +18,8 @@ attribute. The possible capture settings depend on the field type as follows:
   | Max | The maximum of all valid values is captured. |
   | Min Max | Both minimum and maximum values are captured. |
   | Min Max Mean | All three values — minimum, maximum, average — are captured. |
+  | StdDev | The standard deviation of valid values is captured. Only available if supported by the FPGA configuration. |
+  | Mean StdDev | Both average and standard deviation are captured. Only available if supported by the FPGA configuration. |
 
 `ext_out`
 : | Value | Description |
