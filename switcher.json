@@ -1,0 +1,46 @@
+[
+  {
+    "version": "master",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/master/"
+  },
+  {
+    "version": "4.1",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/4.1/"
+  },
+  {
+    "version": "4.0",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/4.0/"
+  },
+  {
+    "version": "3.1b1",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/3.1b1/"
+  },
+  {
+    "version": "3.0b2",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/3.0b2/"
+  },
+  {
+    "version": "3.0b1",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/3.0b1/"
+  },
+  {
+    "version": "3.0a3",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/3.0a3/"
+  },
+  {
+    "version": "3.0a2",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/3.0a2/"
+  },
+  {
+    "version": "3.0",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/3.0/"
+  },
+  {
+    "version": "4.0b1",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/4.0b1/"
+  },
+  {
+    "version": "docs",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/docs/"
+  }
+]
