@@ -142,11 +142,12 @@ class Extensions:
 
 
 class Server:
-    def __init__(self, port):
+    def __init__(self, port, loop):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_sock.bind(('localhost', port))
         self.server_sock.listen(1)
+        self.loop = loop
         # Will be filled in by self.run()
         self.file = None
         self.ext = None
@@ -200,15 +201,22 @@ class Server:
                     message = 'Extension server exception'
                 self.send('E%s\n' % message)
 
+        self.file.close()
+
     def run(self):
-        conn, _ = self.server_sock.accept()
+        while True:
+            conn, _ = self.server_sock.accept()
+            conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+            self.file = conn.makefile('rw')
+            self.ext = Extensions()
+
+            self.run_service()
+
+            conn.close()
+            if not self.loop:
+                break
+
         self.server_sock.close()
-
-        conn.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-        self.file = conn.makefile('rw')
-        self.ext = Extensions()
-
-        self.run_service()
 
 
 def close_inherited_files():
@@ -270,6 +278,9 @@ parser.add_argument(
     help = 'Normalise exception messages reported by server.  Testing only')
 parser.add_argument(
     'extensions', help = 'Extension directory')
+parser.add_argument(
+    '--loop', action = 'store_true',
+    help = 'Keep running after connection closed.')
 command_args = parser.parse_args()
 
 
@@ -299,7 +310,7 @@ sys.path.insert(0, extension_dir)
 
 
 # Create the server right away and listen for one connection.
-server = Server(command_args.port)
+server = Server(command_args.port, command_args.loop)
 logging.info('Extension server ready')
 
 # Need to daemonise after the listening port is ready but before calling accept.
