@@ -1,5 +1,11 @@
 name: Docs CI
 
+# Mirrors DiamondLightSource/myst-version-switcher-plugin
+# .github/workflows/_docs.yml, but as a normal (non-reusable) workflow. This repo
+# has no package.json: mystmd is run on demand via npx (pinned by MYSTMD_VERSION
+# in CONFIG) and driven through the `make docs` task runner. switcher.json and the
+# root redirect are written by the published version-switcher `switcher` action.
+
 on:
   push:
     branches:
@@ -24,19 +30,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          # Need this to get version number from last tag
+          # Need tags (for the switcher version list) and origin/gh-pages.
           fetch-depth: 0
 
-      # PandABlocks-server is a C project, not a Python/uv project, so we install
-      # mystmd directly with npm rather than via `uv run tox -e docs`. The build
-      # command itself (`cd docs && myst build --html`) matches the template.
+      # No package.json here; mystmd is fetched on demand by npx (see the docs
+      # target in the Makefile), so we only need Node on the PATH.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install MyST
-        run: npm install -g mystmd@1.10.1
+      # `make docs` reads build settings (incl. MYSTMD_VERSION) from CONFIG.
+      - name: Create CONFIG
+        run: cp CONFIG.example CONFIG
 
       - name: Sanitize ref name for docs version
         run: echo "DOCS_VERSION=${GITHUB_REF_NAME//[^A-Za-z0-9._-]/_}" >> $GITHUB_ENV
@@ -46,27 +52,30 @@ jobs:
       - name: Build docs
         env:
           BASE_URL: /PandABlocks-server/${{ env.DOCS_VERSION }}
-        run: |
-          cd docs
-          myst build --html
+        run: make docs
 
-      # Drop the ~135 MB templates/ dir (downloaded book-theme node sources, a
-      # build-time cache) before uploading. We keep docs/_build as the artifact
-      # root so the archive retains the intermediate html/ directory.
-      - name: Remove build cache from artifact
-        run: rm -rf docs/_build/templates
+      # Two layouts from the one build: artifact/html for the uploaded artifact
+      # (downstream relies on the `html` dir name), and pages/<version> for the
+      # gh-pages publish tree, into which the action also writes switcher.json
+      # and the root redirect.
+      - name: Stage built docs
+        run: |
+          mkdir -p $RUNNER_TEMP/artifact $RUNNER_TEMP/pages
+          cp -r docs/_build/html $RUNNER_TEMP/artifact/html
+          cp -r docs/_build/html $RUNNER_TEMP/pages/$DOCS_VERSION
 
       - name: Upload built docs artifact
         uses: actions/upload-artifact@v4
         with:
           name: docs
-          path: docs/_build
+          path: ${{ runner.temp }}/artifact
 
-      - name: Move to versioned directory
-        run: mv docs/_build/html .github/pages/$DOCS_VERSION
-
-      - name: Write switcher.json
-        run: python3 .github/pages/make_switcher.py --add $DOCS_VERSION ${{ github.repository }} .github/pages/switcher.json
+      - name: Write switcher.json + redirect
+        uses: DiamondLightSource/myst-version-switcher-plugin/switcher@v0.2.0
+        with:
+          version: ${{ env.DOCS_VERSION }}
+          repo: ${{ github.repository }}
+          output-dir: ${{ runner.temp }}/pages
 
       - name: Publish Docs to gh-pages
         if: github.ref_type == 'tag' || github.ref_name == 'main' || github.ref_name == 'docs'
@@ -75,5 +84,5 @@ jobs:
         uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e # v4.0.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .github/pages
+          publish_dir: ${{ runner.temp }}/pages
           keep_files: true
