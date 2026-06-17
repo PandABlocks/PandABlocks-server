@@ -6,7 +6,7 @@
 #include "base64.h"
 
 /* Encoding lookup table. */
-static const char encode[64] =
+static const char encode[64] __attribute__((nonstring)) =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /* Decode lookup table, setup during initialisation. */
