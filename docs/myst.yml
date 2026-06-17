@@ -53,5 +53,8 @@ site:
     - title: Reference
       url: /reference
   options:
+    # Output page URLs by folder, e.g. /reference/commands rather than the
+    # default flattened /commands.
+    folders: true
     logo: images/PandA-logo-for-black-background.svg
     github_url: https://github.com/PandABlocks/PandABlocks-server
