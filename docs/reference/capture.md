@@ -239,7 +239,7 @@ END 5 Ok
 This page describes the wire format on the data port. For end-to-end ways of
 retrieving captured data — reading the binary stream directly, using the Python
 client, or via EPICS/Tango — see the meta-panda how-to
-[Integrate with a PandA](https://pandablocks.github.io/meta-panda/main/how-to/integrate-with-a-panda.html).
+[Integrate with a PandA](xref:meta-panda/integrate-with-a-panda).
 
 <!-- Stage A xref/intersphinx probe: a real cross-link into a Sphinx repo
      (PandABlocks-client) that must resolve in the BUILT output. -->

@@ -17,14 +17,15 @@ project:
   #   materialises the symlink target into the served site — valid as long as that
   #   target version is retained in the published tree.
   references:
-    # PandABlocks-client (Sphinx, released) is the exception: deployed today, it
-    # stays on its published /main path and backs the Stage A xref probe in
-    # reference/capture. Resolves via its objects.inv.
+    # PandABlocks-client (Sphinx, released) stays on its published /main path and
+    # backs the Stage A xref probe in reference/capture. Resolves via objects.inv.
     PandABlocks-client: https://pandablocks.github.io/PandABlocks-client/main
-    # Not deployed yet — kept commented as the complete prototype wiring (interim
-    # /docs target per the note above; -> /stable once releases + the switcher
-    # action land). Uncomment in Stage F and upstream into python-copier-template.
-    # meta-panda: https://pandablocks.github.io/meta-panda/docs
+    # meta-panda (MyST) docs-branch build is live; interim /docs target per the
+    # note above (-> /stable once releases + the switcher action land). Backs the
+    # xrefs in tutorials and reference/capture.
+    meta-panda: https://pandablocks.github.io/meta-panda/docs
+    # Not deployed yet — kept commented (interim /docs target; -> /stable later).
+    # Uncomment in Stage F and upstream into python-copier-template.
     # PandABlocks-FPGA: https://pandablocks.github.io/PandABlocks-FPGA/docs
     # fastcs-PandABlocks: https://diamondlightsource.github.io/fastcs-PandABlocks/docs
   toc:
