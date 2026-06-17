@@ -6,7 +6,7 @@ the `config_d` directory in the build directory; on PandA they are loaded from
 `/opt/share/panda/config_d`.
 
 The syntax of each file mirrors the field definitions described in
-{doc}`/reference/fields`. All three files share a common structure: indentation
+[](/reference/fields.md). All three files share a common structure: indentation
 indicates hierarchy, `#` starts a comment, block names appear in the first
 column, and fields are indented one level.
 
@@ -121,7 +121,7 @@ hardware instance of the block.
 
 ### Extension register syntax
 
-When an extension server is enabled (see {doc}`/how-to/startup` `-X` option) and
+When an extension server is enabled (see [](/how-to/startup.md) `-X` option) and
 an extension module is associated with a block, `param`, `read`, and `write`
 fields may be redirected to it:
 
@@ -131,7 +131,7 @@ write-extension = [ read-reg ]* [ "W" [ write-reg ]* ] "X" field-spec
 ```
 
 *field-spec* is passed to the extension module to bind the field. See
-{doc}`/reference/extension` for details on extension fields.
+[](/reference/extension.md) for details on extension fields.
 
 ## Description file `description`
 

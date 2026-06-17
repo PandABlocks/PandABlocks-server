@@ -27,7 +27,7 @@ attribute. The possible capture settings depend on the field type as follows:
   | No | This field will not be captured. |
   | Value | This field will be captured. |
 
-See {doc}`/reference/capture-options` for the full list of capture options and
+See [](/reference/capture-options.md) for the full list of capture options and
 how they are selected.
 
 ## Data capture port
@@ -61,7 +61,7 @@ Data capture proceeds as follows:
 
 The line of capture options sent in step 2 selects the transmission format,
 processing and framing of the data stream — see
-{doc}`/reference/capture-options`.
+[](/reference/capture-options.md).
 
 ### Data transport formatting
 

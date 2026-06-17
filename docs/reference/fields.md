@@ -187,7 +187,7 @@ types and their attributes are documented below.
     | Mean StdDev | Both average and standard deviation are captured. Only available if supported by the FPGA configuration. |
 
     Combinations of the individual options can also be written as a
-    space-separated list — see {doc}`/reference/capture-options`.
+    space-separated list — see [](/reference/capture-options.md).
 
   The following attributes support formatting of the field when reading it; the
   current value is returned subject to the formatting rules described below.
@@ -290,7 +290,7 @@ types and their attributes are documented below.
   Note that when data is sent in base-64 format, each individual line must
   encode a multiple of four bytes, otherwise the write will be rejected. For full
   details of fixed vs. streaming (`<<` / `<<|`) table writes and DMA buffer
-  sizing, see {doc}`/reference/streaming-tables`.
+  sizing, see [](/reference/streaming-tables.md).
 
   The following attributes are provided by this field type:
 

@@ -7,7 +7,6 @@ site:
 :end-before: <!-- README only content
 ```
 
-
 How the documentation is structured
 -----------------------------------
 

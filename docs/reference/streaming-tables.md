@@ -73,7 +73,7 @@ and the `MODE` attribute keeps its last value until the table is reset with
 `FIELDS`
 : Returns a list of strings describing how to interpret a table row. Each line
   has the format `left:right field-name subtype`, where *left* and *right* are
-  bit-field indices into a single row. See {doc}`/reference/fields` for
+  bit-field indices into a single row. See [](/reference/fields.md) for
   details.
 
 A `<<` write returns the number of lines accepted. A `<` (fixed) write returns
@@ -82,7 +82,7 @@ the total number of lines in the new table.
 ## Buffer sizing
 
 Long (DMA) tables are allocated as *2^size* words per buffer with *nbuf* double
-buffers (as specified in the `registers` file — see {doc}`/reference/config`).
+buffers (as specified in the `registers` file — see [](/reference/config.md)).
 The simulation server allocates `4096 × 2^order` bytes per buffer. When choosing
 buffer counts and sizes for a new block, ensure the ring is large enough to
 absorb worst-case host latency between refills.

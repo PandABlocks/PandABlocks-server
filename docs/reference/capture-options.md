@@ -40,8 +40,8 @@ list as calling `*ENUMS.`*block*`.`*field*`.CAPTURE?` on any `pos_out` field:
 `StdDev`, `Mean StdDev`.
 
 These options are set per field via the field's `CAPTURE` attribute — see
-{doc}`/reference/fields` for the `pos_out` and `ext_out` capture settings, and
-{doc}`/reference/capture` for how capture is configured and armed.
+[](/reference/fields.md) for the `pos_out` and `ext_out` capture settings, and
+[](/reference/capture.md) for how capture is configured and armed.
 
 ## Connection capture options
 
@@ -72,4 +72,4 @@ Key:
 - **2** — Data processing formats; one of these will be selected.
 
 For how these formats appear on the wire (framing, base-64 layout, header
-contents), see {doc}`/reference/capture`.
+contents), see [](/reference/capture.md).
