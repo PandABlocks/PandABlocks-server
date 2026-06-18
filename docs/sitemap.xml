@@ -11,48 +11,48 @@
     <loc>http://localhost:3000/how-to</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/startup</loc>
+    <loc>http://localhost:3000/how-to/startup</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/building</loc>
+    <loc>http://localhost:3000/how-to/building</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/contribute</loc>
+    <loc>http://localhost:3000/how-to/contribute</loc>
   </url>
   <url>
     <loc>http://localhost:3000/explanations</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/architecture</loc>
+    <loc>http://localhost:3000/explanations/architecture</loc>
   </url>
   <url>
     <loc>http://localhost:3000/reference</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/commands</loc>
+    <loc>http://localhost:3000/reference/commands</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/fields</loc>
+    <loc>http://localhost:3000/reference/fields</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/capture</loc>
+    <loc>http://localhost:3000/reference/capture</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/capture-options</loc>
+    <loc>http://localhost:3000/reference/capture-options</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/config</loc>
+    <loc>http://localhost:3000/reference/config</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/extension</loc>
+    <loc>http://localhost:3000/reference/extension</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/streaming-tables</loc>
+    <loc>http://localhost:3000/reference/streaming-tables</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/support</loc>
+    <loc>http://localhost:3000/reference/support</loc>
   </url>
   <url>
-    <loc>http://localhost:3000/c-standard</loc>
+    <loc>http://localhost:3000/reference/c-standard</loc>
   </url>
 </urlset>

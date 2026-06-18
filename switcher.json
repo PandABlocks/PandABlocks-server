@@ -1,11 +1,12 @@
 [
   {
-    "version": "master",
-    "url": "https://PandABlocks.github.io/PandABlocks-server/master/"
+    "version": "main",
+    "url": "https://PandABlocks.github.io/PandABlocks-server/main/"
   },
   {
     "version": "4.1",
-    "url": "https://PandABlocks.github.io/PandABlocks-server/4.1/"
+    "url": "https://PandABlocks.github.io/PandABlocks-server/4.1/",
+    "preferred": true
   },
   {
     "version": "4.0",
