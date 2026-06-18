@@ -9,5 +9,5 @@ This page is a Stage A scaffold stub and has not yet been written.
 
 **Source:** NEW (Interview1 §4)
 
-**Blocked:** a GitHub issue will be created in Stage B (Prompt B) and linked here.
+**Blocked:** [PandABlocks/PandABlocks-server#83](https://github.com/PandABlocks/PandABlocks-server/issues/83)
 :::

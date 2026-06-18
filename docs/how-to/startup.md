@@ -57,7 +57,7 @@ The server can also be started from the command line with the following options.
 
 `-X` *port*
 : Connect to an extension server running locally on the specified port. See
-  {doc}`/reference/extension` for details.
+  [](/reference/extension.md) for details.
 
 `-r` *rootfs-version*
 : Specify the rootfs version string reported by the `*IDN?` command.

@@ -27,7 +27,7 @@ attribute. The possible capture settings depend on the field type as follows:
   | No | This field will not be captured. |
   | Value | This field will be captured. |
 
-See {doc}`/reference/capture-options` for the full list of capture options and
+See [](/reference/capture-options.md) for the full list of capture options and
 how they are selected.
 
 ## Data capture port
@@ -61,7 +61,7 @@ Data capture proceeds as follows:
 
 The line of capture options sent in step 2 selects the transmission format,
 processing and framing of the data stream — see
-{doc}`/reference/capture-options`.
+[](/reference/capture-options.md).
 
 ### Data transport formatting
 
@@ -160,7 +160,7 @@ be one of the following values:
 
 To get the highest performance, use `FRAMED RAW` mode. This activates a special
 passthrough mode which avoids copying memory as much as possible. In tests it has
-been capable of sustaining 60 MBytes/s when panda-webcontrol is **not** installed.
+been capable of sustaining 60 MBytes/s when panda-webcontrol is **not** installed. <!-- verify: PandABlocks/PandABlocks-server#79 — confirm figure and conditions -->
 The downside to this mode is that if capture fails for any reason, then the last
 framed block of data that the server sent should be discarded, as it will have
 been corrupted while being sent.
@@ -239,7 +239,7 @@ END 5 Ok
 This page describes the wire format on the data port. For end-to-end ways of
 retrieving captured data — reading the binary stream directly, using the Python
 client, or via EPICS/Tango — see the meta-panda how-to
-[Integrate with a PandA](https://pandablocks.github.io/meta-panda/main/how-to/integrate-with-a-panda.html).
+[Integrate with a PandA](xref:meta-panda/how-to/integrate-with-a-panda).
 
 <!-- Stage A xref/intersphinx probe: a real cross-link into a Sphinx repo
      (PandABlocks-client) that must resolve in the BUILT output. -->

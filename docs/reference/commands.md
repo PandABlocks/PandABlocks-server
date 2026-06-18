@@ -59,7 +59,7 @@ below:
 
 In all of these commands the number after the block is optional if there is only
 one instance of that block, and is ignored for the two `.*?` commands. See the
-description of the `.TABLE` fields in {doc}`/reference/fields` for an explanation
+description of the `.TABLE` fields in [](/reference/fields.md) for an explanation
 of the optional format characters in the table write command.
 
 ## System commands
@@ -69,7 +69,7 @@ command is `*IDN?`, which returns a system identification string:
 
 ```
 < *IDN?
-> OK =PandA SW: 330bd94-dirty FPGA: 0.1.9 d1275f61 00000000
+> OK =PandA SW: 330bd94-dirty FPGA: 0.1.9 d1275f61 00000000 <!-- verify: PandABlocks/PandABlocks-server#81 — confirm *IDN? format unchanged in v4.x -->
 ```
 
 The available system commands are tabulated here and listed in more detail
@@ -259,7 +259,7 @@ below:
 
 `*CAPTURE.OPTIONS?`
 : Lists the available capture options for `pos_out` fields. See
-  {doc}`/reference/capture-options` for the full set of options.
+  [](/reference/capture-options.md) for the full set of options.
 
 `*CAPTURE.ENUMS?`
 : Generates a curated list of capture option selections, designed for presenting
