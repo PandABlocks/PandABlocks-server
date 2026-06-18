@@ -24,9 +24,12 @@ project:
     # note above (-> /stable once releases + the switcher action land). Backs the
     # xrefs in tutorials and reference/capture.
     meta-panda: https://pandablocks.github.io/meta-panda/docs
+    # PandABlocks-FPGA (MyST) docs-branch build; interim /docs target per the note
+    # above (-> /stable once releases + the switcher action land). Backs the xrefs
+    # in reference/fields from the FPGA block docs.
+    PandABlocks-FPGA: https://pandablocks.github.io/PandABlocks-FPGA/docs
     # Not deployed yet — kept commented (interim /docs target; -> /stable later).
     # Uncomment in Stage F and upstream into python-copier-template.
-    # PandABlocks-FPGA: https://pandablocks.github.io/PandABlocks-FPGA/docs
     # fastcs-PandABlocks: https://diamondlightsource.github.io/fastcs-PandABlocks/docs
   toc:
     - file: index.md
