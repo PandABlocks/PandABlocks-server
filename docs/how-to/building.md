@@ -49,13 +49,13 @@ The following symbols must point to the appropriate dependencies:
 The following symbols can be left at their defaults:
 
 `BUILD_DIR`
-: Destination for built files.
+: Path for built files.
 
 `PYTHON`
-: Python interpreter used during the build.
+: Path for python interpreter used during the build
 
-`SPHINX_BUILD`
-: `sphinx-build` script for documentation builds.
+`MYSTMD_VERSION`
+: `mystmd version No.` Version of MyST required to build docs. defaults to 1.10.1.
 
 `DEFAULT_TARGETS`
 : Makefile targets built by `make` or `make default`. Default list: `driver`,
