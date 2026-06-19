@@ -19,9 +19,6 @@ The following must be available before building the server.
 : Must be available before building the server; it contains the configuration
   file defining the low-level register interface to the PandA firmware.
 
-**PandABlocks-rootfs**
-: Provides the kernel build tree and the `zpkg` build tool.
-
 ## Setting up the `CONFIG` file
 
 Copy `CONFIG.example` to `CONFIG` in the base directory and edit as needed,
@@ -39,13 +36,6 @@ The following symbols must point to the appropriate dependencies:
 : Path to the Zynq cross-compiler toolchain if it is not on `PATH`. Not required
   for the simulation server or documentation builds.
 
-`KERNEL_DIR`
-: Path to the kernel build tree from the PandABlocks-rootfs build. Required to
-  build the kernel module.
-
-`PANDA_ROOTFS`
-: Path to the PandABlocks-rootfs checkout where the `zpkg` build tool is found.
-
 The following symbols can be left at their defaults:
 
 `BUILD_DIR`
@@ -59,7 +49,7 @@ The following symbols can be left at their defaults:
 
 `DEFAULT_TARGETS`
 : Makefile targets built by `make` or `make default`. Default list: `driver`,
-  `server`, `sim_server`, `docs`, `zpkg`.
+  `server`, `sim_server`, `docs`.
 
 ## Build targets
 
@@ -70,7 +60,6 @@ The following symbols can be left at their defaults:
 | `server`     | Server binary to run on PandA                            |
 | `sim_server` | Simulation server to run on the local PC                 |
 | `docs`       | HTML documentation                                       |
-| `zpkg`       | `panda-server` zpkg package                              |
 | `clean`      | Removes the entire `$(BUILD_DIR)` directory              |
 
 ## Generated files
@@ -86,5 +75,3 @@ After a successful build, `$(BUILD_DIR)` contains:
 `html/`
 : HTML documentation.
 
-`panda-server@`*version*`.zpg` and `zpkg-panda-server/`
-: The zpkg package for installation onto PandA.
