@@ -42,7 +42,13 @@ jobs:
           cd PandABlocks-rootfs
           ln -s CONFIG.example CONFIG
           make kernel PLATFORM=${{matrix.platform}}
-
+      
+      # zpkg requires the docs built by myst, so we need to add node to
+      # the container.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Make zpkg
         run: |
           cd PandABlocks-server
