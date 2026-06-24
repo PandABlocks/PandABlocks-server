@@ -85,4 +85,9 @@ site:
     # default flattened /commands.
     folders: true
     logo: images/PandA-logo-for-black-background.svg
+    logo_text: PandABlocks-server
+    # Pin the favicon to the bundled PandA logo so `myst build` never fetches the
+    # default favicon from mystmd.org (a flaky remote fetch that intermittently
+    # fails the build).
+    favicon: images/PandA-logo-for-black-background.svg
     github_url: https://github.com/PandABlocks/PandABlocks-server
