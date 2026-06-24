@@ -1,23 +1,33 @@
 name: Docs CI
 
 # Build + verify the docs on every event, then publish on INTERNAL events. The
-# build (`_docs.yml`) runs for PRs (including forks), pushes to main/docs, and tags,
-# and uploads each build's `docs` artifact. Publishing is nested here (the `publish`
-# job -> `_publish.yml`) so its status is visible on the PR/commit, but ONLY for
-# internal events on this repo: a fork PR's build runs with a read-only token and
-# must never deploy.
+# build (the shared `docs.yml`) runs for PRs (including forks), pushes to main, and
+# tags, and uploads each build's `docs` artifact. Publishing is nested here (the
+# `publish` job -> the shared `publish.yml`) so its status is visible on the
+# PR/commit, but ONLY for internal events on this repo: a fork PR's build runs with a
+# read-only token and must never deploy.
 #
-# `docs` is a publish trigger during the docs migration: the new MyST docs live on
-# the `docs` branch (main has none yet), so `docs` is the live version.
+# Both halves are consumed from DiamondLightSource/myst-version-switcher-plugin at a
+# pinned tag — this repo carries no docs-build/publish workflow of its own.
+# publish.yml reconstructs the whole versioned site from durable sources (main's
+# latest build persisted at _sources/main.zip, each release's docs.zip asset, every
+# open PR's build artifact) and deploys it to Pages directly; there is no gh-pages
+# branch.
 on:
   pull_request:
   push:
-    branches: [main, docs]
+    branches: [main]
     tags: ['*']            # '*' never matches '/'
 
 jobs:
   docs:
-    uses: ./.github/workflows/_docs.yml
+    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/docs.yml@v0.7.0
+    with:
+      # `make docs` drives npx mystmd (pinned by MYSTMD_VERSION) and reads build
+      # settings from CONFIG, so create it first. eval runs the compound command.
+      build-command: cp CONFIG.example CONFIG && make docs
+      # The fork-PR warning links here so a maintainer can publish a fork preview.
+      preview-workflow: preview-fork.yml
 
   # Tag-only: attach this build's docs.zip (bare html/ root) to the GitHub Release
   # so `assemble` can reconstruct that released version on future deploys.
@@ -35,16 +45,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ github.ref_name }}" docs.zip --clobber --repo "${{ github.repository }}"
 
-  # Internal events only: an internal PR, or a push to main/docs/tag, has a
-  # same-repo build we can trust + deploy. Fork PRs (head repo != this repo) are
-  # excluded — _docs.yml's build job warns them instead.
+  # Internal events only: an internal PR, or a push to main/tag, has a same-repo
+  # build we can trust + deploy. Fork PRs (head repo != this repo) are excluded —
+  # docs.yml's build job warns them instead. publish.yml defaults guard-default-branch
+  # to true, so every deploy asserts main is present and can never silently drop
+  # /main/ (main is self-durable via _sources/main.zip).
   publish:
     needs: [docs]
     if: >-
       github.repository == 'PandABlocks/PandABlocks-server' &&
       ( github.event_name != 'pull_request' ||
         github.event.pull_request.head.repo.full_name == github.repository )
-    uses: ./.github/workflows/_publish.yml
+    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/publish.yml@v0.7.0
     with:
       version-name: ${{ needs.docs.outputs.version-name }}
     permissions:
