@@ -7,7 +7,7 @@ TOP := $(CURDIR)
 
 BUILD_DIR = $(TOP)/build
 PYTHON = python3
-SPHINX_BUILD = sphinx-build
+MYSTMD_VERSION = 1.10.1
 COMPILER_PREFIX = $(COMPILER_PREFIX_$(PLATFORM))
 KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
 PANDA_ROOTFS = $(error Define PANDA_ROOTFS in CONFIG file)
@@ -140,16 +140,33 @@ slow_load: $(SLOW_LOAD)
 
 # ------------------------------------------------------------------------------
 # Documentation
+#
+# Docs are built with MyST (mystmd), run through npx so no global install is
+# needed; pin the version with MYSTMD_VERSION (see CONFIG.example).  `make docs`
+# mirrors `myst build --html --strict` and `make docs-dev` mirrors `myst start`,
+# matching the docs/ task runner.  MyST writes its output into docs/_build/html.
+# --strict exits non-zero on any error-severity message (e.g. an unresolved
+# cross-repo xref) so CI fails rather than publishing broken links.
 
-$(DOCS_BUILD_DIR)/index.html: $(wildcard docs/*.rst docs/*/*.rst docs/conf.py)
-	$(SPHINX_BUILD) -b html docs $(DOCS_BUILD_DIR)
+MYST = npx --yes --package mystmd@$(MYSTMD_VERSION) myst
 
-docs: $(DOCS_BUILD_DIR)/index.html
+docs:
+	cd docs && $(MYST) build --html --strict
+
+docs-dev:
+	cd docs && $(MYST) start
 
 clean-docs:
-	rm -rf $(DOCS_BUILD_DIR)
+	rm -rf $(TOP)/docs/_build
 
-.PHONY: docs clean-docs
+.PHONY: docs docs-dev clean-docs
+
+# The zpkg packaging installs the built docs from $(DOCS_BUILD_DIR) (the `html`
+# entry in etc/panda-server.list), so stage the MyST output there for zpkg.
+$(DOCS_BUILD_DIR)/index.html: docs
+	rm -rf $(DOCS_BUILD_DIR)
+	mkdir -p $(DOCS_BUILD_DIR)
+	cp -r $(TOP)/docs/_build/html/. $(DOCS_BUILD_DIR)
 
 
 # ------------------------------------------------------------------------------

@@ -1,0 +1,93 @@
+version: 1
+project:
+  title: PandABlocks-server
+  github: https://github.com/PandABlocks/PandABlocks-server
+  plugins:
+    - https://github.com/DiamondLightSource/myst-version-switcher-plugin/releases/download/v0.5.0/version-switcher.mjs
+  # Cross-repository references (mystmd xref + Sphinx intersphinx).
+  # PROTOTYPE for upstreaming into the DLS python-copier-template (Stage A spec §6).
+  #
+  # Inventory target — interim vs eventual:
+  #   The MyST repos below are mid-docs-migration, so each base points at the
+  #   repo's `docs`-branch build and the inventory is fetched from
+  #   `<repo>/docs/objects.inv`. Once the upstream version-switcher action
+  #   (maintained in a separate repo) publishes a `stable` symlink to the latest
+  #   release, switch these bases to `<repo>/stable`. `stable` resolves on GitHub
+  #   Pages because the Pages artifact is tarred with `--dereference`, which
+  #   materialises the symlink target into the served site — valid as long as that
+  #   target version is retained in the published tree.
+  references:
+    # PandABlocks-client (Sphinx, released) stays on its published /main path and
+    # backs the Stage A xref probe in reference/capture. Resolves via objects.inv.
+    PandABlocks-client: https://pandablocks.github.io/PandABlocks-client/main
+    # meta-panda (MyST) docs-branch build is live; interim /docs target per the
+    # note above (-> /stable once releases + the switcher action land). Backs the
+    # xrefs in tutorials and reference/capture.
+    meta-panda: https://pandablocks.github.io/meta-panda/docs
+    # PandABlocks-FPGA (MyST) docs-branch build; interim /docs target per the note
+    # above (-> /stable once releases + the switcher action land). Backs the xrefs
+    # in reference/fields from the FPGA block docs.
+    PandABlocks-FPGA: https://pandablocks.github.io/PandABlocks-FPGA/docs
+    # Not deployed yet — kept commented (interim /docs target; -> /stable later).
+    # Uncomment in Stage F and upstream into python-copier-template.
+    # fastcs-PandABlocks: https://diamondlightsource.github.io/fastcs-PandABlocks/docs
+  # Escalate link/cross-reference quality rules from warning to error so that,
+  # combined with `myst build --strict`, a broken link, an unresolved cross
+  # reference, or an empty auto-filled label fails CI instead of publishing a
+  # dead link. See reference/documentation-standards in meta-panda for the
+  # linking conventions these rules enforce.
+  error_rules:
+    - rule: link-resolves
+      severity: error
+    - rule: reference-target-resolves
+      severity: error
+    - rule: link-text-exists
+      severity: error
+  toc:
+    - file: index.md
+    - file: tutorials.md
+    - file: how-to.md
+      children:
+        - file: how-to/startup.md
+        - file: how-to/building.md
+        - file: how-to/contribute.md
+    - file: explanations.md
+      children:
+        - file: explanations/architecture.md
+    - file: reference.md
+      children:
+        - file: reference/commands.md
+        - file: reference/fields.md
+        - file: reference/capture.md
+        - file: reference/capture-options.md
+        - file: reference/config.md
+        - file: reference/extension.md
+        - file: reference/streaming-tables.md
+        - file: reference/support.md
+        - file: reference/c-standard.md
+        - url: https://github.com/PandABlocks/PandABlocks-server/releases
+          title: Release Notes
+site:
+  template: book-theme
+  parts:
+    navbar_end: navbar_end.md
+  nav:
+    - title: Tutorials
+      url: /tutorials
+    - title: How-to Guides
+      url: /how-to
+    - title: Explanations
+      url: /explanations
+    - title: Reference
+      url: /reference
+  options:
+    # Output page URLs by folder, e.g. /reference/commands rather than the
+    # default flattened /commands.
+    folders: true
+    logo: images/PandA-logo-for-black-background.svg
+    logo_text: PandABlocks-server
+    # Pin the favicon to the bundled PandA logo so `myst build` never fetches the
+    # default favicon from mystmd.org (a flaky remote fetch that intermittently
+    # fails the build).
+    favicon: images/PandA-logo-for-black-background.svg
+    github_url: https://github.com/PandABlocks/PandABlocks-server

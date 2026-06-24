@@ -1,0 +1,31 @@
+name: Preview fork PR
+
+# Maintainer opt-in to publish a versioned docs preview for an EXTERNAL fork PR.
+# Fork PRs build + verify in Docs CI but never auto-publish (their build runs with a
+# read-only token), so this is the only path that deploys one. A reusable workflow
+# can't be workflow_dispatch'd cross-repo, so this thin wrapper lives here and passes
+# the PR number through to the shared publish.yml via workflow_call.
+#
+# It approves the fork PR's CURRENT head SHA (a `preview-approved` commit status) and
+# assembles the site with that PR's artifact included. A later push to the PR (new
+# SHA) drops the preview until you re-run this. version-name is empty: there is no
+# in-run build to inject, so publish.yml does a pure durable gather.
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Fork PR number to approve + preview.
+        required: true
+
+jobs:
+  preview:
+    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/publish.yml@v0.7.0
+    with:
+      version-name: ""
+      pr: ${{ inputs.pr }}
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+      statuses: write

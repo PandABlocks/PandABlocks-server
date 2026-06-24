@@ -4,3 +4,6 @@
 *.pyc
 tests/fpga_sequences
 /venv
+
+# MyST build output
+docs/_build/
