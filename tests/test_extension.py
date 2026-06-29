@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 
 import argparse
-import sys
 import socket
-
+import sys
 
 parser = argparse.ArgumentParser(description = 'Run Conversation Test Script')
 parser.add_argument(
@@ -24,7 +22,7 @@ args = parser.parse_args()
 
 class Script:
     def __init__(self, script):
-        self.file = open(script, 'r')
+        self.file = open(script)
         self.line_no = 0
 
     def readline(self):
@@ -72,15 +70,14 @@ for (command, expected, line_no) in transcript:
     received = server.exchange(command)
     if received != expected:
         if expected:
-            print('line %d: expected %r received %r' % (
-                line_no, expected, received))
+            print(f'line {line_no}: expected {expected!r} received {received!r}')
             error_count += 1
         else:
-            print('line %d: send %r received %r' % (line_no, command, received))
+            print(f'line {line_no}: send {command!r} received {received!r}')
 
 if error_count == 0:
     print('Test ok', file = sys.stderr)
     sys.exit(0)
 else:
-    print('%d errors' % error_count, file = sys.stderr)
+    print(f'{error_count} errors', file = sys.stderr)
     sys.exit(1)

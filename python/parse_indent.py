@@ -41,7 +41,7 @@ class ParseFail(Exception):
         self.message = message
 
     def __str__(self):
-        return 'Line %d: %s' % (self.line_no, self.message)
+        return f'Line {self.line_no}: {self.message}'
 
 
 # Implements line reading so that we can keep track of line numbers.  Also

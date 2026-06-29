@@ -195,6 +195,19 @@ tests: sim_server
 
 
 # ------------------------------------------------------------------------------
+# Python lint
+#
+# Lint the Python sim/test harness with ruff, run through uv (which provisions
+# the dev environment from pyproject.toml + uv.lock). This is the only Python
+# quality gate wired into CI; the tests above stay driven through `make tests`.
+
+lint:
+	uv run ruff check python tests
+
+.PHONY: lint
+
+
+# ------------------------------------------------------------------------------
 
 # This has global effect, and is mostly desirable behaviour.
 .DELETE_ON_ERROR:

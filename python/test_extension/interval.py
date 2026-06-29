@@ -1,4 +1,3 @@
-from __future__ import division
 
 # Simple conversion from centre/range to start end interval
 

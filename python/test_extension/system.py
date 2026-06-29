@@ -3,7 +3,6 @@
 # This file is loaded by the extension server
 
 import logging
-
 import os.path
 
 XADC_PATH = '/sys/devices/soc0/amba/f8007100.adc/iio:device0'
@@ -16,7 +15,7 @@ class XADC:
         self.scale = 1
 
     def read_node(self, part):
-        filename = os.path.join(XADC_PATH, '%s_%s' % (self.node, part))
+        filename = os.path.join(XADC_PATH, f'{self.node}_{part}')
         return float(open(filename).read())
 
     def read(self, number):
