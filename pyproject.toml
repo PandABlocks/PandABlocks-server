@@ -1,0 +1,44 @@
+# Minimal project metadata so uv can resolve and lock the Python dependencies of
+# the simulation/test harness under python/ and tests/. This is NOT a installable
+# package: the harness is run in place (PYTHONPATH=python, see Makefile), so
+# tool.uv.package = false keeps uv from trying to build it. Tests, docs and the
+# build are all driven through make; uv only manages the dev environment + lint.
+
+[project]
+name = "pandablocks-server"
+version = "0.0.0"
+description = "Python simulation and test harness for the PandABlocks socket server"
+requires-python = ">=3.11"
+# Runtime dependencies imported by python/ (sim_registers) and tests/.
+dependencies = [
+    "numpy",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "ruff",
+]
+
+[tool.uv]
+# Virtual project: manage the environment + lockfile, don't build/install this repo.
+package = false
+
+[tool.ruff]
+src = ["python", "tests"]
+line-length = 88
+lint.select = [
+    "B",  # flake8-bugbear - https://docs.astral.sh/ruff/rules/#flake8-bugbear-b
+    "C4", # flake8-comprehensions - https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
+    "E",  # pycodestyle errors - https://docs.astral.sh/ruff/rules/#error-e
+    "F",  # pyflakes rules - https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "W",  # pycodestyle warnings - https://docs.astral.sh/ruff/rules/#warning-w
+    "I",  # isort - https://docs.astral.sh/ruff/rules/#isort-i
+    "UP", # pyupgrade - https://docs.astral.sh/ruff/rules/#pyupgrade-up
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Extension modules are exec'd by python/extension_server with ExtensionHelper
+# injected into their namespace (module.ExtensionHelper = ...), so it is not a
+# real undefined name here.
+"python/test_extension/*" = ["F821"]

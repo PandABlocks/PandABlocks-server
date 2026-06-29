@@ -1,8 +1,7 @@
-name: Tests CI
-
+# Run the simulation-server regression tests (tests/Makefile) against a freshly
+# built sim_server, inside the pandablocks-dev-container. make is the runner.
 on:
-  push:
-  pull_request:
+  workflow_call:
 
 jobs:
   test:
@@ -14,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
         with:
           path: PandABlocks-server
 

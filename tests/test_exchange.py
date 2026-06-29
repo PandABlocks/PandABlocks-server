@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 
 import argparse
-import sys
 import socket
+import sys
 import time
 
 parser = argparse.ArgumentParser(description = 'Run Conversation Test Script')
@@ -28,7 +27,7 @@ server.settimeout(0.5)
 
 server = server.makefile('rw')
 
-transcript = open(args.script, 'r')
+transcript = open(args.script)
 
 
 def read_one_response():
@@ -46,7 +45,7 @@ def read_one_response():
 
 def read_response(count):
     result = []
-    for n in range(count):
+    for _n in range(count):
         result.extend(read_one_response())
     return result
 

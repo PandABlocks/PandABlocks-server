@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # Python script to perform standard deviation computation using numpy
 
-from __future__ import print_function
 
 import sys
+
 import numpy
+
 
 def compute_standard_deviation(n, b, a):
     a = numpy.float128(a)
@@ -31,4 +32,4 @@ a = al + (ah << 64)
 
 s = compute_standard_deviation(n, b, a)
 
-print("%u %u 0x%08x%016x => %.16e" % (n, b, ah, al, s))
+print(f"{n} {b} 0x{ah:08x}{al:016x} => {s:.16e}")

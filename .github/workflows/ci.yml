@@ -1,18 +1,28 @@
-name: Docs CI
+name: CI
 
-# Build + verify the docs on every event, then publish on INTERNAL events. The
-# build (the shared `docs.yml`) runs for PRs (including forks), pushes to main, and
-# tags, and uploads each build's `docs` artifact. Publishing is nested here (the
-# `publish` job -> the shared `publish.yml`) so its status is visible on the
-# PR/commit, but ONLY for internal events on this repo: a fork PR's build runs with a
-# read-only token and must never deploy.
+# Single entry point for this repo's GitHub Actions CI. The code/test half is local
+# reusable `_*.yml` workflows; the docs half consumes the shared version-switcher
+# reusable workflows (DiamondLightSource/myst-version-switcher-plugin) pinned at a tag:
 #
-# Both halves are consumed from DiamondLightSource/myst-version-switcher-plugin at a
-# pinned tag — this repo carries no docs-build/publish workflow of its own.
-# publish.yml reconstructs the whole versioned site from durable sources (main's
-# latest build persisted at _sources/main.zip, each release's docs.zip asset, every
-# open PR's build artifact) and deploys it to Pages directly; there is no gh-pages
-# branch.
+#   lint    -> _lint.yml                Python lint (ruff via uv; `make lint`)
+#   test    -> _test.yml                native sim_server build + regression tests
+#   docs    -> docs.yml@<tag>           versioned MyST docs build (build-command input)
+#   release -> release.yml@<tag>        GitHub Release on a tag (attaches docs.zip)
+#   publish -> publish-dispatch.yml     deploy the assembled docs site (the shim that
+#                                       pins publish.yml@<tag>; it branches internally)
+#
+# make is the runner throughout (test/docs); CI only orchestrates. CI is a native
+# build only: the `test` job compiles sim_server (the one natively buildable target)
+# and runs the regression tests. The cross-compiled server/driver and zpkg/boot
+# packaging come from meta-panda, so nothing here needs PandABlocks-rootfs.
+#
+# Docs detail: the build (docs.yml) runs for every event including fork PRs and uploads
+# each build's `docs` artifact, but NEVER publishes. Publishing is nested here (the
+# `publish` job → publish-dispatch.yml shim → publish.yml) so its status shows on the
+# PR/commit. ONE publish job covers every event in the canonical repo; publish.yml
+# branches internally: deploy (internal PR / main push), tag re-dispatch (a same-SHA
+# tag deploy is dropped by Pages unless dispatched), or fork-PR warn (forks build with
+# a read-only token and never deploy). So there is no fork guard here.
 on:
   pull_request:
   push:
@@ -20,48 +30,44 @@ on:
     tags: ['*']            # '*' never matches '/'
 
 jobs:
+  # --- Python -----------------------------------------------------------------
+  lint:
+    uses: ./.github/workflows/_lint.yml
+
+  # --- Native build + regression tests ---------------------------------------
+  test:
+    uses: ./.github/workflows/_test.yml
+
+  # --- Docs build (every event; never publishes) ------------------------------
   docs:
-    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/docs.yml@v0.7.0
+    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/docs.yml@v0.18.0
     with:
-      # `make docs` drives npx mystmd (pinned by MYSTMD_VERSION) and reads build
-      # settings from CONFIG, so create it first. eval runs the compound command.
+      # `make docs` reads build settings (incl. MYSTMD_VERSION) from CONFIG; docs.yml
+      # sets BASE_URL and packs/uploads the docs.zip artifact.
       build-command: cp CONFIG.example CONFIG && make docs
-      # The fork-PR warning links here so a maintainer can publish a fork preview.
-      preview-workflow: preview-fork.yml
 
-  # Tag-only: attach this build's docs.zip (bare html/ root) to the GitHub Release
-  # so `assemble` can reconstruct that released version on future deploys.
-  docs-release:
-    needs: [docs]
+  # Tag-only: create the GitHub Release and attach this run's artifacts (the `docs`
+  # artifact = docs.zip) so `assemble` can reconstruct that released version later.
+  release:
+    needs: [lint, test, docs]
     if: github.ref_type == 'tag'
-    runs-on: ubuntu-latest
+    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/release.yml@v0.18.0
     permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: docs
-      - env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.ref_name }}" docs.zip --clobber --repo "${{ github.repository }}"
+      contents: write    # create the GitHub Release + attach assets
 
-  # Internal events only: an internal PR, or a push to main/tag, has a same-repo
-  # build we can trust + deploy. Fork PRs (head repo != this repo) are excluded —
-  # docs.yml's build job warns them instead. publish.yml defaults guard-default-branch
-  # to true, so every deploy asserts main is present and can never silently drop
-  # /main/ (main is self-durable via _sources/main.zip).
+  # One publish job for every event in the canonical repo — publish.yml (reached via
+  # the publish-dispatch.yml shim) owns the branching (deploy / tag re-dispatch /
+  # fork-PR warn), so there's no fork or ref guard here. `actions: write` lets the
+  # re-dispatch job re-fire the shim; `version-name` injects this run's build inline.
   publish:
-    needs: [docs]
-    if: >-
-      github.repository == 'PandABlocks/PandABlocks-server' &&
-      ( github.event_name != 'pull_request' ||
-        github.event.pull_request.head.repo.full_name == github.repository )
-    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/publish.yml@v0.7.0
+    needs: [lint, test, docs]
+    if: github.repository == 'PandABlocks/PandABlocks-server'
+    uses: ./.github/workflows/publish-dispatch.yml
     with:
       version-name: ${{ needs.docs.outputs.version-name }}
     permissions:
       contents: read
-      actions: read
+      actions: write
       pages: write
       id-token: write
       statuses: write

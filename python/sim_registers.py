@@ -1,8 +1,8 @@
 # Simple register support for sim_server
 
-from __future__ import print_function
 
 import time
+
 import numpy
 
 
@@ -50,7 +50,7 @@ class REG(Registers):
             return 0
 
     def write(self, num, reg, value):
-        print('*REG[%d] <= %08x' % (reg, value))
+        print(f'*REG[{reg}] <= {value:08x}')
         if reg in self.PCAP_REGISTERS:
             pcap.write_pcap(reg, value)
 
