@@ -42,7 +42,7 @@ TESTS += test_configs
 # Test interface to extension server
 
 test_extension:
-	-nc localhost 9999 </dev/null
+	-nc -w1 localhost 9999 </dev/null
 	$(TOP)/python/extension_server -d -qn $(TOP)/python/test_extension
 	./test_extension.py extension_script
 
