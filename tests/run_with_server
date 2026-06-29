@@ -15,9 +15,13 @@ TOP="$HERE/.."
 SIM_PID=$!
 trap 'kill -s SIGINT $SIM_PID; wait $SIM_PID' EXIT
 
-# Wait for the server to start
+# Wait for the server to start.  Probe the config port with bash's /dev/tcp rather
+# than `nc`: nc's stdin-EOF behaviour differs between implementations (BusyBox nc
+# exits on EOF, netcat-openbsd keeps the connection open without -N and would hang
+# here), so a readiness loop around `nc` hangs on a stock ubuntu runner.  /dev/tcp
+# needs no external tool and just tests that the port is accepting connections.
 sleep 0.2
-while ! echo '*IDN?' | nc localhost 8888; do
+while ! (exec 3<>/dev/tcp/localhost/8888) 2>/dev/null; do
     echo connecting...
     sleep 0.2
 done

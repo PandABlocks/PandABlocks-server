@@ -1,25 +1,43 @@
 # Run the simulation-server regression tests (tests/Makefile) against a freshly
-# built sim_server, inside the pandablocks-dev-container. make is the runner.
+# built sim_server, on a plain ubuntu-latest runner. The Python sim/test harness
+# only needs numpy, which uv provisions from pyproject.toml + uv.lock — so this no
+# longer needs the pandablocks-dev-container image. make stays the runner.
+#
+# Things the container used to provide, handled here instead:
+#   - `python` with numpy: the harness scripts are `#!/usr/bin/env python`, so we run
+#     make under `uv run --locked`, which puts the venv's `python`/`python3` (with
+#     numpy) on PATH for the harness subprocesses (and asserts uv.lock is in sync).
+#   - valgrind: the test_configs leak checks run sim_server under valgrind (simserver
+#     without -n), so install it. (test_exchange uses `simserver -n`, no valgrind.)
+#   - a writable /build: CONFIG.example pins BUILD_DIR=/build/build-server (the
+#     cross-build convention), so override BUILD_DIR to a workspace path here.
+#
+# netcat-openbsd (preinstalled on the runner) covers the remaining `nc` pokes, bounded
+# with -w1; the server-readiness probe in run_with_server uses bash /dev/tcp so it does
+# not depend on the nc implementation (the container's BusyBox nc had different EOF
+# behaviour and was masking this).
 on:
   workflow_call:
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/pandablocks/pandablocks-dev-container:latest
-      volumes:
-        - ${{ github.workspace }}/build:/build
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout Source
+      - name: Checkout
         uses: actions/checkout@v5
-        with:
-          path: PandABlocks-server
 
-      - name: Run the server regression tests
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      # Mirrors the valgrind line in the repo Dockerfile (same package + flags) so
+      # `make tests` behaves the same in the local dev container as it does here.
+      - name: Install valgrind (test_configs runs sim_server under valgrind)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends valgrind
+
+      - name: Build sim_server and run the regression tests
         run: |
-          cd PandABlocks-server
+          set -euo pipefail
           ln -s CONFIG.example CONFIG
-          make sim_server
-          make -C tests
+          # `make tests` depends on sim_server and then runs `make -C tests`.
+          uv run --locked make BUILD_DIR="$PWD/build" tests
