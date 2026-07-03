@@ -40,7 +40,7 @@ jobs:
 
   # --- Docs build (every event; never publishes) ------------------------------
   docs:
-    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/docs.yml@v0.18.0
+    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/docs.yml@v0.22.0
     with:
       # `make docs` reads build settings (incl. MYSTMD_VERSION) from CONFIG; docs.yml
       # sets BASE_URL and packs/uploads the docs.zip artifact.
@@ -51,7 +51,7 @@ jobs:
   release:
     needs: [lint, test, docs]
     if: github.ref_type == 'tag'
-    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/release.yml@v0.18.0
+    uses: DiamondLightSource/myst-version-switcher-plugin/.github/workflows/release.yml@v0.22.0
     permissions:
       contents: write    # create the GitHub Release + attach assets
 
