@@ -17,3 +17,5 @@ void hw_long_table_release(int block_id, void *data);
 error__t hw_long_table_write(
     int block_id, const void *data, size_t length, bool streaming_mode,
     bool last_table);
+
+size_t hw_long_table_get_queued_words(int block_id);

@@ -254,12 +254,30 @@ error__t hw_long_table_write(
 
     memcpy(block->data, data, nbytes);
     ASSERT_OK(length == (uint32_t) length);
+    uint32_t length_with_flag = (uint32_t) length;
+    if (streaming_mode && !last_table)
+        length_with_flag |= 0x80000000;
+    uint32_t result = 0;
     WITH_MUTEX(mutex)
         handle_error(
             write_command_int('T',
-                block->block_base, block->number, 0, (uint32_t) length)  ?:
-            write_all(block->data, nbytes));
-    return ERROR_OK;
+                block->block_base, block->number, 0, length_with_flag)  ?:
+            write_all(block->data, nbytes) ?:
+            read_all(&result, 4));
+    return TEST_OK_(result == 0, "Long table write failed");
+}
+
+
+size_t hw_long_table_get_queued_words(int block_id)
+{
+    ASSERT_OK(0 <= block_id  &&  block_id < (int) block_id_count);
+    struct table_block *block = &block_id_table[block_id];
+    uint32_t result = 0;
+    WITH_MUTEX(mutex)
+        handle_error(
+            write_command('Q', block->block_base, block->number, 0)  ?:
+            read_all(&result, 4));
+    return (size_t) result;
 }
 
 
