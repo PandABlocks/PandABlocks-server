@@ -752,9 +752,10 @@ static error__t table_queued_lines_format(
     char result[], size_t length)
 {
     struct table_state *state = class_data;
+    size_t queued_words = hw_table_get_queued_words(state->table, number);
     return format_string(
         result, length, "%zu",
-        hw_get_queued_words(state->table, number) / state->field_set.row_words);
+        queued_words / state->field_set.row_words);
 }
 
 

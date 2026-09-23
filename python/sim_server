@@ -75,6 +75,9 @@ def run_simulation(conn):
             length, = struct.unpack('I', read(conn, 4))
             data = read(conn, length * 4)
             sim_registers.write_table(block, num, reg, data)
+            conn.sendall(struct.pack('I', 0))
+        elif command == b'Q':
+            conn.sendall(struct.pack('I', 0))
         elif command == b'D':
             # Retrieve increment of data stream
             length, = struct.unpack('I', read(conn, 4))
