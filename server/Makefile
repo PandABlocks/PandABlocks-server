@@ -20,7 +20,7 @@ default: server sim_server
 
 
 include $(TOP)/server/Makefile.flags
-
+include $(BASE_C_UTILS)/Makefile.extra
 
 # Allow access to function names in assert fail tracebacks
 sim_server: LDFLAGS += -rdynamic
@@ -30,21 +30,18 @@ ifdef DEBUG
 CFLAGS += -O0
 endif
 
+SRCS += $(wildcard $(BASE_C_UTILS)/*.c)
 
 SRCS += server.c                # Entry point to server, command line parsing
+SRCS += indent_file.c
 SRCS += version.c               # Server version string
-SRCS += locking.c               # Pthread locking support etc
 SRCS += persistence.c           # Support for persistence state over restarts
-SRCS += error.c                 # Common error handling framework
 SRCS += socket_server.c         # Common socket server handling
 SRCS += config_server.c         # Configuration command server
 SRCS += data_server.c           # Data socket server for streamed data capture
 SRCS += buffer.c                # Circular buffer for captured data stream
-SRCS += buffered_file.c         # Buffered file IO for socket interface
-SRCS += parse.c                 # Common string parsing support
 SRCS += utf8_check.c            # External UTF-8 format checker
 SRCS += parse_lut.c             # 5 input lookup table expression parsing
-SRCS += hashtable.c             # Simple hash table
 SRCS += database.c              # Reading configuration and register files
 SRCS += config_command.c        # Block and field command parsing and dispatch
 SRCS += system_command.c        # System command parse and dispatch
@@ -92,6 +89,9 @@ sw_hardware.o: named_registers.h
 named_registers.h: named_registers.py $(TOP)/config_d/registers
 	$(PYTHON) $^ >$@
 
+# For the base-c-utils
+/%.o: /%.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $(notdir $@) $<
 
 # Pass the git version through to version
 version.o: CPPFLAGS += -DGIT_VERSION='"$(GIT_VERSION)"'
@@ -102,17 +102,16 @@ version.o: FORCE
 FORCE:
 .phony: FORCE
 
-
 server: $(SRCS:.c=.o) hw_hardware.o
 	$(TOP)/server/check_global_vars $(TOP)/server/global_vars .
-	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+	$(CC) $(LDFLAGS) $(LDLIBS) $^ $(CFLAGS) -o $@
 
 sim_server: $(SRCS:.c=.o) sw_hardware.o sim_hardware.o
-	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+	$(CC) $(LDFLAGS) $(LDLIBS) $(notdir $^) $(CFLAGS) -o $@
 
 %.d: %.c
 	set -o pipefail && $(CC) -M $(CPPFLAGS) $(CFLAGS) $< | \
-            sed '1s/:/ $@:/' >$@
+            sed '1s/:/ $(notdir $@) :/' > $(notdir $@)
 include $(SRCS:.c=.d)
 
 # Target for assembler build for code generation inspection.

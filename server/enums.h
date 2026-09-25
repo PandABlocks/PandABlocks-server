@@ -2,6 +2,7 @@
 
 struct enumeration;
 
+struct indent_parser;
 
 /* An enumeration can be specified from a static list of entries, or can be
  * built dynamically. */

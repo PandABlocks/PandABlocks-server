@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
 #include "parse.h"
 #include "config_server.h"
@@ -56,13 +57,14 @@ static bool do_read_line(void *context, char line[], size_t max_length)
         read_context->line_no += 1;
         size_t length = strlen(line);
         error__t error =
-            TEST_OK_(length > 0, "Unexpected empty line")  ?:
-            TEST_OK_(line[length - 1] == '\n', "Line too long");
-        if (error)
-        {
-            ERROR_REPORT(error,
+            error_extend(
+                TEST_OK_(length > 0, "Unexpected empty line")  ?:
+                TEST_OK_(line[length - 1] == '\n', "Line too long"),
                 "Error reading line %d of persistent state",
-                read_context->line_no);
+                    read_context->line_no);
+
+        if (error_report(error))
+        {
             return false;
         }
         else
@@ -126,22 +128,20 @@ static void load_persistent_state(void)
     error__t error =
         TEST_OK_IO_(in_file = fopen(file_name, "r"),
             "Unable to open persistent state");
-    if (error)
-        error_report(error);
-    else
+    if (!error_report(error))
     {
         unsigned int error_count = 0;
         struct read_line_context read_line = { .file = in_file, };
         char line[MAX_LINE_LENGTH];
         while (do_read_line(&read_line, line, sizeof(line)))
         {
-            error = load_one_value(&read_line, line);
+            error = error_extend(load_one_value(&read_line, line),
+                        "Unable to load line %d (%s) of persistent state",
+                        read_line.line_no, line);
             if (error)
             {
                 if (error_count == 0)
-                    ERROR_REPORT(error,
-                        "Unable to load line %d (%s) of persistent state",
-                        read_line.line_no, line);
+                    error_report(error);
                 else
                     error_discard(error);
                 error_count += 1;
@@ -218,8 +218,7 @@ static void write_changed_state(void)
             DO(sync());
     }
 
-    if (error)
-        ERROR_REPORT(error, "Writing persistent state");
+    error_report(error_extend(error, "Writing persistent state"));
 }
 
 
@@ -247,7 +246,8 @@ static bool interruptible_timeout(unsigned int delay)
         if (thread_running)
             pwait_timeout(
                 &mutex, &psignal,
-                &(struct timespec) { .tv_sec = (time_t) delay, });
+                &(struct timespec) { .tv_sec = (time_t) delay, },
+                CLOCK_MONOTONIC);
         running = thread_running;
     }
     return running;

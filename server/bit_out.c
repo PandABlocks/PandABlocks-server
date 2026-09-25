@@ -8,16 +8,19 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "parse.h"
+#include "locking.h"
+
+#include "indent_file.h"
+#include "hardware.h"
 #include "config_server.h"
 #include "data_server.h"
 #include "attributes.h"
 #include "fields.h"
 #include "types.h"
 #include "enums.h"
-#include "locking.h"
 #include "pos_mux.h"
 #include "output.h"
 
@@ -84,8 +87,7 @@ static error__t parse_default_param(
     const char **line, unsigned int count, struct bit_mux_state *state)
 {
     uint32_t default_value;
-    return IF(read_char(line, ' '),
-        DO(*line = skip_whitespace(*line))  ?:
+    return IF(read_whitespace(line),
         parse_char(line, '=')  ?:
         parse_uint32(line, &default_value)  ?:
         DO(
@@ -135,7 +137,7 @@ static error__t bit_mux_parse_register(
     state->block_base = block_base;
     return
         check_parse_register(field, line, &state->mux_reg) ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         check_parse_register(field, line, &state->delay_reg);
 }
 
@@ -196,7 +198,7 @@ static error__t bit_mux_delay_format(
     char result[], size_t length)
 {
     struct bit_mux_state *state = data;
-    return format_string(result, length, "%u", state->values[number].delay);
+    return format_string_(result, length, "%u", state->values[number].delay);
 }
 
 
@@ -219,7 +221,7 @@ static error__t bit_mux_max_delay_format(
     void *owner, void *data, unsigned int number,
     char result[], size_t length)
 {
-    return format_string(result, length, "%u", MAX_BIT_MUX_DELAY);
+    return format_string_(result, length, "%u", MAX_BIT_MUX_DELAY);
 }
 
 
@@ -239,7 +241,7 @@ static error__t bit_out_get(
 {
     struct bit_out_state *state = class_data;
     bool bit = bit_value[state->index_array[number]];
-    return format_string(result, length, "%d", bit);
+    return format_string_(result, length, "%d", bit);
 }
 
 
@@ -273,8 +275,9 @@ static error__t bit_out_parse_register(
     const char **line)
 {
     struct bit_out_state *state = class_data;
+    size_t _count = 0;
     return
-        parse_uint_array(line, state->index_array, state->count)  ?:
+        parse_uint_array(line, &_count, state->index_array, state->count)  ?:
         add_mux_indices(
             bit_mux_lookup, field, state->index_array, state->count);
 }
@@ -299,7 +302,7 @@ static error__t capture_word_format(
 {
     struct bit_out_state *state = data;
     unsigned int group = state->index_array[number] / 32;
-    return format_string(result, length, "%s", group_name[group]);
+    return format_string_(result, length, "%s", group_name[group]);
 }
 
 
@@ -309,7 +312,7 @@ static error__t offset_format(
 {
     struct bit_out_state *state = data;
     unsigned int offset = state->index_array[number] % 32;
-    return format_string(result, length, "%u", offset);
+    return format_string_(result, length, "%u", offset);
 }
 
 

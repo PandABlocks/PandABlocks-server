@@ -11,9 +11,12 @@
 #include <ctype.h>
 #include <limits.h>
 
+#include "common.h"
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+
+#include "utf8_check.h"
 #include "hardware.h"
 #include "socket_server.h"
 #include "config_server.h"

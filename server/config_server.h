@@ -72,16 +72,6 @@ void reset_change_index(
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* A couple of helper routines for output formatting. */
-
-error__t __attribute__((format(printf, 3, 4))) format_string(
-    char result[], size_t length, const char *format, ...);
-
-/* Formats double without leading spaces. */
-error__t format_double(char result[], size_t length, double value);
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
 /* This is used to pass information about the connection to name= commands. */
@@ -111,7 +101,7 @@ struct connection_result {
 
 
 #define format_one_result(result, format...) \
-    ( format_string(result->string, result->length, format)  ?: \
+    ( format_string_(result->string, result->length, format)  ?: \
       DO(result->response = RESPONSE_ONE))
 
 #define format_many_result(result, format...) \

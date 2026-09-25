@@ -8,10 +8,15 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "locking.h"
+
+#include "indent_file.h"
+#include "utf8_check.h"
+#include "hardware.h"
 #include "config_server.h"
 #include "data_server.h"
 #include "attributes.h"
@@ -20,7 +25,6 @@
 #include "enums.h"
 #include "pos_mux.h"
 #include "output.h"
-#include "locking.h"
 
 #include "pos_out.h"
 
@@ -183,7 +187,7 @@ static error__t pos_out_get(
     void *class_data, unsigned int number, char result[], size_t length)
 {
     struct pos_out *pos_out = class_data;
-    return format_string(
+    return format_string_(
         result, length, "%d", read_pos_out_value(pos_out, number));
 }
 
@@ -291,7 +295,7 @@ static error__t pos_out_units_format(
     struct pos_out_field *field = &pos_out->values[number];
 
     return ERROR_WITH_MUTEX(pos_out->mutex,
-        format_string(result, length, "%s", field->units ?: ""));
+        format_string_(result, length, "%s", field->units ?: ""));
 }
 
 static error__t pos_out_units_put(
@@ -395,7 +399,7 @@ static error__t pos_out_capture_put(
             unsigned int capture_index = 0;
             error =
                 parse_name(&value, option, sizeof(option))  ?:
-                DO(value = skip_whitespace(value))  ?:
+                DO(skip_whitespace(&value))  ?:
                 TEST_OK_(enum_name_to_index(
                     lookup_capture_option, option, &capture_index),
                     "Unknown capture option \"%s\"", option)  ?:
@@ -468,9 +472,9 @@ void report_pos_out_capture(
     {
         size_t written = (size_t) snprintf(
             result->string, result->length, "%s ", field_name);
-        ERROR_REPORT(format_capture_string(capture_mask,
+        error_report(error_extend(format_capture_string(capture_mask,
             result->string + written, result->length - written),
-            "Unexpected formatting error in pos_out");
+            "Unexpected formatting error in pos_out"));
         result->write_many(result->write_context, result->string);
     }
 }
@@ -620,9 +624,10 @@ static error__t pos_out_parse_register(
 {
     struct pos_out *pos_out = class_data;
     unsigned int registers[pos_out->count];
+    size_t _count = 0;
     return
         /* Parse and record position bus assignments */
-        parse_uint_array(line, registers, pos_out->count)  ?:
+        parse_uint_array(line, &_count, registers, pos_out->count)  ?:
         assign_capture_values(pos_out, registers)  ?:
         /* Add all positions to the list of pos_mux options. */
         add_pos_mux_index(field, registers, pos_out->count)  ?:

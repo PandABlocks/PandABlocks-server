@@ -10,16 +10,20 @@
 #include <pthread.h>
 #include <errno.h>
 
+#include "common.h"
 #include "error.h"
 #include "parse.h"
+#include "locking.h"
+#include "hashtable.h"
+
+#include "indent_file.h"
+#include "utf8_check.h"
 #include "hardware.h"
 #include "config_server.h"
 #include "attributes.h"
 #include "fields.h"
 #include "enums.h"
 #include "base64.h"
-#include "locking.h"
-#include "hashtable.h"
 
 #include "table.h"
 
@@ -171,10 +175,10 @@ static error__t field_set_parse_attribute(
         parse_uint(line, &left)  ?:
         parse_char(line, ':')  ?:
         parse_uint(line, &right)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         IF(**line == ' ',
-            parse_whitespace(line)  ?:
+            parse_whitespace(line, false)  ?:
             parse_name(line, subtype, sizeof(subtype))  ?:
             validate_subtype(subtype))  ?:
 
@@ -210,7 +214,7 @@ static error__t table_parse_description(
         TEST_OK_(field = hash_table_lookup(set->fields, field_name),
             "Sub-field not in table")  ?:
         TEST_OK_(!field->description, "Field already described")  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_utf8_string(line, &description)  ?:
         DO(field->description = strdup(description));
 }
@@ -483,7 +487,7 @@ static error__t table_mode_format(
 {
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
-    return format_string(result, length, "%s",
+    return format_string_(result, length, "%s",
         block->mode == TABLE_INIT ? "INIT" :
         block->mode == TABLE_FIXED ? "FIXED" :
         block->mode == TABLE_STREAMING ? "STREAMING" :
@@ -540,7 +544,7 @@ static error__t table_init(
     unsigned int row_words = 1;
     return
         IF(**line == ' ',
-            parse_whitespace(line)  ?:
+            parse_whitespace(line, false)  ?:
             parse_uint(line, &row_words)  ?:
             TEST_OK_(row_words > 0, "Invalid table row size"))  ?:
         DO(*class_data = create_table(
@@ -572,11 +576,11 @@ static error__t short_table_parse_register(
         /* Register specification is block size followed by the three control
          * registers. */
         parse_uint(line, &max_length)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         check_parse_register(field, line, &init_reg)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         check_parse_register(field, line, &fill_reg)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         check_parse_register(field, line, &length_reg)  ?:
 
         DO(state->max_length = (size_t) max_length)  ?:
@@ -597,11 +601,11 @@ static error__t long_table_parse_register(
     return
         parse_char(line, '2')  ?:  parse_char(line, '^')  ?:    // 2^order
         parse_uint(line, &table_order)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_uint(line, &max_nbuffers)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         check_parse_register(field, line, &base_reg)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         check_parse_register(field, line, &length_reg)  ?:
 
         hw_open_long_table(
@@ -629,11 +633,11 @@ static error__t table_parse_register(
     struct table_state *state = class_data;
     return
         IF_ELSE(read_string(line, "short"),
-            parse_whitespace(line)  ?:
+            parse_whitespace(line, false)  ?:
             short_table_parse_register(state, field, block_base, line),
         //else
         IF_ELSE(read_string(line, "long"),
-            parse_whitespace(line)  ?:
+            parse_whitespace(line, false)  ?:
             long_table_parse_register(state, field, block_base, line),
         //else
             FAIL_("Table type not recognised")))  ?:
@@ -705,7 +709,7 @@ static error__t table_length_format(
     struct table_state *state = class_data;
     struct table_block *block = &state->blocks[number];
     return ERROR_WITH_MUTEX_R(block->read_lock,
-        format_string(result, length, "%zu", block->length));
+        format_string_(result, length, "%zu", block->length));
 }
 
 
@@ -714,7 +718,7 @@ static error__t table_max_length_format(
     char result[], size_t length)
 {
     struct table_state *state = class_data;
-    return format_string(result, length, "%zu", state->max_length);
+    return format_string_(result, length, "%zu", state->max_length);
 }
 
 
@@ -743,7 +747,7 @@ static error__t table_row_words_format(
     char result[], size_t length)
 {
     struct table_state *state = class_data;
-    return format_string(result, length, "%u", state->field_set.row_words);
+    return format_string_(result, length, "%u", state->field_set.row_words);
 }
 
 
@@ -752,7 +756,7 @@ static error__t table_queued_lines_format(
     char result[], size_t length)
 {
     struct table_state *state = class_data;
-    return format_string(
+    return format_string_(
         result, length, "%zu",
         hw_get_queued_words(state->table, number) / state->field_set.row_words);
 }

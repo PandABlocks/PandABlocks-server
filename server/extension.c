@@ -16,13 +16,16 @@
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
 #include "parse.h"
+#include "buffered_file.h"
+#include "locking.h"
+
+#include "utf8_check.h"
 #include "hardware.h"
 #include "config_server.h"
 #include "socket_server.h"
-#include "buffered_file.h"
-#include "locking.h"
 
 #include "extension.h"
 
@@ -51,7 +54,7 @@ error__t initialise_extension_server(unsigned int port)
     int sock;
     return
         TEST_IO(sock = socket(AF_INET, SOCK_STREAM, 0))  ?:
-        DO(server.file = create_buffered_file(sock, 4096, 4096))  ?:
+        DO(server.file = bf_create_file(sock, 4096, 4096))  ?:
         TEST_IO_(connect(sock, (struct sockaddr *) &s_in, sizeof(s_in)),
             "Unable to connect to extension server")  ?:
         set_timeout(sock, SO_SNDTIMEO, 5)  ?:
@@ -64,8 +67,8 @@ error__t initialise_extension_server(unsigned int port)
 void terminate_extension_server(void)
 {
     if (server.file)
-        ERROR_REPORT(destroy_buffered_file(server.file),
-            "Error communicating with extension server");
+        error_report(error_extend(bf_destroy_file(server.file),
+            "Error communicating with extension server"));
 }
 
 
@@ -73,28 +76,30 @@ void terminate_extension_server(void)
  * request string, and either get a response with the same prefix character and
  * a list of numbers, or an error response. */
 static error__t extension_server_exchange(
-    const char *message, unsigned int count, unsigned int result[])
+    const char *message, unsigned int length, unsigned int result[])
 {
     char prefix = message[0];
     char result_buffer[256];
     const char *response = result_buffer;
+    size_t _count = 0;
     return
         TEST_OK_(server.file, "Extension server not running")  ?:
         ERROR_WITH_MUTEX(server.mutex,
             TEST_OK_(
-                write_string(server.file, message, strlen(message))  &&
-                read_line(server.file,
+                bf_write_string(server.file, message, strlen(message))  &&
+                bf_read_line(server.file,
                     result_buffer, sizeof(result_buffer), true),
                 "Extension server communication failure"))  ?:
         IF_ELSE(read_char(&response, prefix),
             /* Successful response.  Response should be a list of integers. */
-            ERROR_EXTEND(
-                parse_uint_array(&response, result, count)  ?:
+            error_extend(
+                parse_uint_array(&response, &_count, result, length) ?:
                 parse_eos(&response),
                 /* If we have a problem with the response augment the error
                  * message to help with diagnosing extension server errors. */
                 "Error at offset %zd in response \"%s\"",
-                response - result_buffer + 1, result_buffer),
+                response - result_buffer + 1, result_buffer)
+            ,
         //else
             /* The only other valid response is an error message. */
             parse_char(&response, 'E')  ?:
@@ -109,7 +114,7 @@ static error__t extension_server_parse_block(
 {
     char message[128];
     return
-        format_string(message, sizeof(message), "B%d %s\n", count, request)  ?:
+        format_string_(message, sizeof(message), "B%d %s\n", count, request)  ?:
         extension_server_exchange(message, 1, parse_id);
 }
 
@@ -122,7 +127,7 @@ static error__t extension_server_parse_field(
 {
     char message[128];
     return
-        format_string(message, sizeof(message),
+        format_string_(message, sizeof(message),
             "P%c%d %s\n", write_not_read ? 'W' : 'R', block_id, request)  ?:
         extension_server_exchange(message, 1, parse_id);
 }
@@ -185,7 +190,7 @@ static unsigned int count_uint_strings(const char *line)
     unsigned int count = 0;
     while (true)
     {
-        line = skip_whitespace(line);
+        skip_whitespace(&line);
         if (isdigit(*line))
         {
             count += 1;
@@ -203,15 +208,16 @@ static unsigned int count_uint_strings(const char *line)
 static error__t parse_register_array(
     const char **line, unsigned int *count, unsigned int **array)
 {
-    *count = count_uint_strings(*line);
-    if (*count > 0)
+    unsigned int initial_length = count_uint_strings(*line);
+    if (initial_length > 0)
     {
-        *array = malloc(sizeof(unsigned int) * *count);
-        error__t error = parse_uint_array(line, *array, *count);
+        *array = malloc(sizeof(unsigned int) * initial_length);
+        error__t error =
+            parse_uint_array(line, (size_t *) count, *array, initial_length);
         for (unsigned int i = 0; !error  &&  i < *count; i ++)
             error = TEST_OK_((*array)[i] < BLOCK_REGISTER_COUNT,
                 "Register value too large");
-        *line = skip_whitespace(*line);
+        skip_whitespace(line);
         return error;
     }
     else
@@ -228,7 +234,7 @@ static error__t parse_extension_name(
 {
     const char *request;
     return
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_utf8_string(line, &request)  ?:
         extension_server_parse_field(
             block_id, write_not_read, request, parse_id);

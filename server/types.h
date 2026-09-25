@@ -2,7 +2,7 @@
  * written to a register and a textual representation. */
 
 struct type;
-
+struct indent_parser;
 
 /* A support type is defined by defining at least some of the methods below.  In
  * particular, at least one of .parse or .format should be defined. */

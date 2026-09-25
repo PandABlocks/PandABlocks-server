@@ -7,10 +7,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "hashtable.h"
 #include "parse.h"
+
+#include "indent_file.h"
+#include "hardware.h"
 #include "config_server.h"
 #include "data_server.h"
 #include "attributes.h"
@@ -93,7 +96,7 @@ static error__t ext_out_capture_format(
     void *owner, void *data, unsigned int number, char result[], size_t length)
 {
     struct ext_out *ext_out = data;
-    return format_string(result, length, "%s",
+    return format_string_(result, length, "%s",
         enum_index_to_name(ext_out_capture_enum, ext_out->capture));
 }
 
@@ -225,7 +228,7 @@ static error__t parse_ext_out_type(
 {
     char type_name[MAX_NAME_LENGTH];
     return
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_name(line, type_name, sizeof(type_name))  ?:
 
         IF_ELSE(strcmp(type_name, "timestamp") == 0,
@@ -236,7 +239,7 @@ static error__t parse_ext_out_type(
         //else
         IF_ELSE(strcmp(type_name, "bits") == 0,
             DO(*ext_type = EXT_OUT_BITS)  ?:
-            parse_whitespace(line)  ?:
+            parse_whitespace(line, false)  ?:
             parse_uint(line, bit_group),
         //else
         FAIL_("Unknown ext_out type"))));
@@ -307,7 +310,7 @@ static error__t ext_out_parse_register(
     return
         parse_register(line, &ext_out->registers[0])  ?:
         IF(ext_out->ext_type == EXT_OUT_TIMESTAMP,
-            parse_whitespace(line)  ?:
+            parse_whitespace(line, false)  ?:
             parse_register(line, &ext_out->registers[1]))  ?:
 
         register_ext_out(ext_out, field)  ?:

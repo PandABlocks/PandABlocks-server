@@ -10,9 +10,14 @@
 #include <math.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "locking.h"
+
+#include "utf8_check.h"
+#include "indent_file.h"
 #include "config_server.h"
 #include "parse_lut.h"
 #include "attributes.h"
@@ -20,7 +25,6 @@
 #include "fields.h"
 #include "output.h"
 #include "bit_out.h"
-#include "locking.h"
 #include "time.h"
 
 #include "types.h"
@@ -74,7 +78,7 @@ error__t raw_format_uint(
     uint32_t value;
     return
         read_type_register(type, number, &value)  ?:
-        format_string(result, length, "%u", value);
+        format_string_(result, length, "%u", value);
 }
 
 
@@ -97,7 +101,7 @@ error__t raw_format_int(
     uint32_t value;
     return
         read_type_register(type, number, &value)  ?:
-        format_string(result, length, "%d", (int) value);
+        format_string_(result, length, "%d", (int) value);
 }
 
 
@@ -123,9 +127,8 @@ error__t raw_put_int(
  * current level. */
 static bool check_for_option(const char *string)
 {
-    return *string == ' '  &&  *skip_whitespace(string) != '=';
+    return read_whitespace(&string)  &&  *string != '=';
 }
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Unsigned integer type.
@@ -169,14 +172,14 @@ static error__t uint_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
-    return format_string(string, length, "%u", value);
+    return format_string_(string, length, "%u", value);
 }
 
 static error__t int_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
-    return format_string(string, length, "%d", (int) value);
+    return format_string_(string, length, "%d", (int) value);
 }
 
 
@@ -185,7 +188,7 @@ static error__t uint_max_format(
     char result[], size_t length)
 {
     unsigned int *max_value = data;
-    return format_string(result, length, "%u", *max_value);
+    return format_string_(result, length, "%u", *max_value);
 }
 
 
@@ -283,7 +286,7 @@ static error__t scalar_units_format(
     void *owner, void *data, unsigned int number, char result[], size_t length)
 {
     struct scalar_state *state = data;
-    return format_string(result, length, "%s", state->units ?: "");
+    return format_string_(result, length, "%s", state->units ?: "");
 }
 
 
@@ -339,7 +342,7 @@ static error__t bit_format(
     void *type_data, unsigned int number,
     unsigned int value, char string[], size_t length)
 {
-    return format_string(string, length, "%s", value ? "1" : "0");
+    return format_string_(string, length, "%s", value ? "1" : "0");
 }
 
 
@@ -454,12 +457,12 @@ static error__t lut_format(
 
     return ERROR_WITH_MUTEX(state->mutex,
         IF_ELSE(value == field->value  &&  field->string,
-            format_string(string, length, "%s", field->string),
+            format_string_(string, length, "%s", field->string),
         //else
             /* If no string has been formatted yet, or if our stored value
              * doesn't match the value we're being asked to format just return
              * the raw hex value.  This second case is rather unlikely. */
-            format_string(string, length, "0x%08X", value)));
+            format_string_(string, length, "0x%08X", value)));
 }
 
 
@@ -470,7 +473,7 @@ static error__t lut_raw_format(
     uint32_t value;
     return
         read_type_register(type, number, &value)  ?:
-        format_string(result, length, "0x%08X", value);
+        format_string_(result, length, "0x%08X", value);
 }
 
 
@@ -617,7 +620,7 @@ error__t create_type(
         IF_ELSE(**line == '\0'  &&  default_type,
             DO(line = &default_type),
         //else
-            parse_whitespace(line))  ?:
+            parse_whitespace(line, false))  ?:
         parse_name(line, type_name, sizeof(type_name))  ?:
         lookup_type(type_name, &methods)  ?:
         IF(methods->init,

@@ -9,9 +9,12 @@
 #include <signal.h>
 #include <ctype.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "parse.h"
+
+
+#include "hardware.h"
 #include "config_server.h"
 #include "socket_server.h"
 #include "data_server.h"
@@ -244,7 +247,8 @@ int main(int argc, char *const argv[])
 
         maybe_daemonise();
 
-    if (!ERROR_REPORT(error, "Server startup failed")  &&  !test_config_only)
+    error_extend(error, "Server startup failed");
+    if (!error_report(error)  &&  !test_config_only)
     {
         /* Now run the server.  Control will not return until we're ready to
          * terminate. */
@@ -253,7 +257,7 @@ int main(int argc, char *const argv[])
             IF(persistence_file, start_persistence())  ?:
             start_data_server()  ?:
             run_socket_server();
-        ERROR_REPORT(error, "Server shutting down");
+        error_report(error_extend(error, "Server shutting down"));
     }
 
     log_message("Server shutting down");

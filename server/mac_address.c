@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "common.h"
 #include "error.h"
 #include "parse.h"
 #include "hardware.h"
@@ -98,8 +99,7 @@ error__t load_mac_address_file(const char *filename)
                 DO( hw_write_mac_address(offset, mac_address);
                     offset += 1);
         }
-        if (error)
-            error_extend(error, "Error on line %u offset %zu",
+        error_extend(error, "Error on line %u offset %zu",
                 line_no, line - line_buffer);
     }
 

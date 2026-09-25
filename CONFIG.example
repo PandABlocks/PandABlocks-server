@@ -47,6 +47,8 @@ KERNEL_DIR = /build/PandA-rootfs-$(PLATFORM)/build/linux
 #
 PANDA_ROOTFS = /repos/PandABlocks-rootfs
 
+C-UTILS = /repos/c-utils
+
 # List of default targets build when running make
 #
 DEFAULT_TARGETS = driver server sim_server docs

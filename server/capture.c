@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <math.h>
 
+#include "common.h"
 #include "error.h"
 #include "parse.h"
 #include "buffered_file.h"
@@ -290,7 +291,7 @@ void convert_raw_data_to_binary(
     ( { \
         const type *values = data; \
         for (size_t i = 0; i < (count); i ++) \
-            write_formatted_string(file, format, values[i]); \
+         bf_write_formatted_string(file, format, values[i]); \
         (count) * sizeof(type); \
     } )
 
@@ -339,9 +340,9 @@ bool send_binary_as_ascii(
                 data = send_scaled_as_ascii(capture, file, data);
                 break;
         }
-        write_char(file, '\n');
+        bf_write_char(file, '\n');
     }
-    return check_buffered_file(file);
+    return bf_check_file(file);
 }
 
 

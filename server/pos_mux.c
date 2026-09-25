@@ -7,15 +7,18 @@
 #include <stdio.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "locking.h"
+
+#include "indent_file.h"
+#include "hardware.h"
 #include "config_server.h"
 #include "attributes.h"
 #include "fields.h"
 #include "enums.h"
-#include "locking.h"
 
 #include "pos_mux.h"
 
