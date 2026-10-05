@@ -30,10 +30,9 @@ ifdef DEBUG
 CFLAGS += -O0
 endif
 
-SRCS += $(wildcard $(BASE_C_UTILS)/*.c)
+CFLAGS += -iquote$(BASE_C_UTILS)
 
 SRCS += server.c                # Entry point to server, command line parsing
-SRCS += indent_file.c
 SRCS += version.c               # Server version string
 SRCS += persistence.c           # Support for persistence state over restarts
 SRCS += socket_server.c         # Common socket server handling
@@ -65,6 +64,9 @@ SRCS += mac_address.c           # Support for FPGA MAC address loading
 SRCS += extension.c             # Support for extension server registers
 SRCS += std_dev.c               # Computation of standard deviation
 
+SRCS += $(notdir $(wildcard $(BASE_C_UTILS)/*.c))
+VPATH += $(BASE_C_UTILS)
+
 
 # Program for loading slow FPGA on carrier card.
 slow_load: slow_load.c
@@ -89,9 +91,6 @@ sw_hardware.o: named_registers.h
 named_registers.h: named_registers.py $(TOP)/config_d/registers
 	$(PYTHON) $^ >$@
 
-# For the base-c-utils
-/%.o: /%.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $(notdir $@) $<
 
 # Pass the git version through to version
 version.o: CPPFLAGS += -DGIT_VERSION='"$(GIT_VERSION)"'
@@ -107,11 +106,11 @@ server: $(SRCS:.c=.o) hw_hardware.o
 	$(CC) $(LDFLAGS) $(LDLIBS) $^ $(CFLAGS) -o $@
 
 sim_server: $(SRCS:.c=.o) sw_hardware.o sim_hardware.o
-	$(CC) $(LDFLAGS) $(LDLIBS) $(notdir $^) $(CFLAGS) -o $@
+	$(CC) $(LDFLAGS) $(LDLIBS) $^ $(CFLAGS) -o $@
 
 %.d: %.c
 	set -o pipefail && $(CC) -M $(CPPFLAGS) $(CFLAGS) $< | \
-            sed '1s/:/ $(notdir $@) :/' > $(notdir $@)
+            sed '1s/:/ $@ :/' > $@
 include $(SRCS:.c=.d)
 
 # Target for assembler build for code generation inspection.
