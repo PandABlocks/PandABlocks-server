@@ -147,7 +147,7 @@ void hw_close_table(struct hw_table *table);
 
 /* Returns the number of 4-byte words scheduled, it's valid for long tables
  * only, otherwise 0 */
-size_t hw_get_queued_words(struct hw_table *table, unsigned int number);
+size_t hw_table_get_queued_words(struct hw_table *table, unsigned int number);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Streamed data capture. */
