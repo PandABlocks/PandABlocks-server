@@ -46,7 +46,6 @@ CPPFLAGS += -iquote .
 # Pick up kernel driver header file
 CPPFLAGS += -iquote $(TOP)/driver
 
-
 LDLIBS += -lpthread
 LDLIBS += -lrt
 LDLIBS += -lm

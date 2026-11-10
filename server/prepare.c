@@ -282,7 +282,7 @@ static void send_capture_info(
     struct timespec *pcap_start_tsp, bool pcap_hw_ts_offset_ns_valid,
     int64_t pcap_hw_ts_offset_ns)
 {
-    static const char *data_format_string_s[] = {
+    static const char *data_format_strings[] = {
         [DATA_FORMAT_UNFRAMED] = "Unframed",
         [DATA_FORMAT_FRAMED]   = "Framed",
         [DATA_FORMAT_BASE64]   = "Base64",
@@ -292,7 +292,7 @@ static void send_capture_info(
         [DATA_PROCESS_RAW]      = "Raw",
         [DATA_PROCESS_SCALED]   = "Scaled",
     };
-    const char *data_format = data_format_string_s[options->data_format];
+    const char *data_format = data_format_strings[options->data_format];
     const char *data_process = data_process_strings[options->data_process];
 
     struct xml_element element =

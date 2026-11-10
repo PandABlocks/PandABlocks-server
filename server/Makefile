@@ -101,16 +101,17 @@ version.o: FORCE
 FORCE:
 .phony: FORCE
 
+
 server: $(SRCS:.c=.o) hw_hardware.o
 	$(TOP)/server/check_global_vars $(TOP)/server/global_vars .
-	$(CC) $(LDFLAGS) $(LDLIBS) $^ $(CFLAGS) -o $@
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 sim_server: $(SRCS:.c=.o) sw_hardware.o sim_hardware.o
-	$(CC) $(LDFLAGS) $(LDLIBS) $^ $(CFLAGS) -o $@
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 %.d: %.c
 	set -o pipefail && $(CC) -M $(CPPFLAGS) $(CFLAGS) $< | \
-            sed '1s/:/ $@ :/' > $@
+            sed '1s/:/ $@:/' >$@
 include $(SRCS:.c=.d)
 
 # Target for assembler build for code generation inspection.

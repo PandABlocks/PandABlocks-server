@@ -195,7 +195,7 @@ zpkg: $(ZPKG)
 # Run automatic tests
 
 tests: sim_server
-	make -C tests BASE_C_UTILS=$(BASE_C_UTILS)
+	make -C tests
 
 .PHONY: tests
 
