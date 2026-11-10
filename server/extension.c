@@ -67,7 +67,7 @@ error__t initialise_extension_server(unsigned int port)
 void terminate_extension_server(void)
 {
     if (server.file)
-        error_report(error_extend(bf_destroy_file(server.file),
+        error_report(ERROR_EXTEND(bf_destroy_file(server.file),
             "Error communicating with extension server"));
 }
 
@@ -92,7 +92,7 @@ static error__t extension_server_exchange(
                 "Extension server communication failure"))  ?:
         IF_ELSE(read_char(&response, prefix),
             /* Successful response.  Response should be a list of integers. */
-            error_extend(
+            ERROR_EXTEND(
                 parse_uint_array(&response, &_count, result, length) ?:
                 parse_eos(&response),
                 /* If we have a problem with the response augment the error

@@ -12,8 +12,8 @@
 #include "hashtable.h"
 #include "locking.h"
 #include "parse.h"
+#include "parse_indent.h"
 
-#include "indent_file.h"
 #include "hardware.h"
 #include "config_server.h"
 #include "attributes.h"
@@ -290,7 +290,7 @@ static void handle_error_report(
     {
         prefix -= 1;
         string[prefix] = '\0';
-        error_report(error_extend(error, "Error reporting *CHANGES for %s", string));
+        error_report(ERROR_EXTEND(error, "Error reporting *CHANGES for %s", string));
         snprintf(string + prefix, length - prefix, " (error)");
     }
 }
@@ -810,7 +810,7 @@ error__t validate_fields(void)
                 IF(field->methods->finalise,
                     field->methods->finalise(field->class_data));
             if (error)
-                error_extend(error,
+                ERROR_EXTEND(error,
                     "Checking field %s.%s", block->name, field->name);
             if (field->description == NULL)
                 log_message("No description for field %s.%s",

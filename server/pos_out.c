@@ -13,8 +13,8 @@
 #include "hashtable.h"
 #include "parse.h"
 #include "locking.h"
+#include "parse_indent.h"
 
-#include "indent_file.h"
 #include "utf8_check.h"
 #include "hardware.h"
 #include "config_server.h"
@@ -472,7 +472,7 @@ void report_pos_out_capture(
     {
         size_t written = (size_t) snprintf(
             result->string, result->length, "%s ", field_name);
-        error_report(error_extend(format_capture_string(capture_mask,
+        error_report(ERROR_EXTEND(format_capture_string(capture_mask,
             result->string + written, result->length - written),
             "Unexpected formatting error in pos_out"));
         result->write_many(result->write_context, result->string);

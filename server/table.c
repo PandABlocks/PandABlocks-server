@@ -15,8 +15,8 @@
 #include "parse.h"
 #include "locking.h"
 #include "hashtable.h"
+#include "parse_indent.h"
 
-#include "indent_file.h"
 #include "utf8_check.h"
 #include "hardware.h"
 #include "config_server.h"

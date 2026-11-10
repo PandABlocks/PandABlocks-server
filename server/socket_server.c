@@ -287,7 +287,7 @@ static void *session_thread(void *context)
 
     error__t error = session->parent->process(session->sock);
 
-    error_report(error_extend(error, "Client %s %s raised error",
+    error_report(ERROR_EXTEND(error, "Client %s %s raised error",
             session->parent->name, session->name));
     log_message("Client %s %s closed", session->parent->name, session->name);
 

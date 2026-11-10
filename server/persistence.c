@@ -57,7 +57,7 @@ static bool do_read_line(void *context, char line[], size_t max_length)
         read_context->line_no += 1;
         size_t length = strlen(line);
         error__t error =
-            error_extend(
+            ERROR_EXTEND(
                 TEST_OK_(length > 0, "Unexpected empty line")  ?:
                 TEST_OK_(line[length - 1] == '\n', "Line too long"),
                 "Error reading line %d of persistent state",
@@ -135,7 +135,7 @@ static void load_persistent_state(void)
         char line[MAX_LINE_LENGTH];
         while (do_read_line(&read_line, line, sizeof(line)))
         {
-            error = error_extend(load_one_value(&read_line, line),
+            error = ERROR_EXTEND(load_one_value(&read_line, line),
                         "Unable to load line %d (%s) of persistent state",
                         read_line.line_no, line);
             if (error)
@@ -218,7 +218,7 @@ static void write_changed_state(void)
             DO(sync());
     }
 
-    error_report(error_extend(error, "Writing persistent state"));
+    error_report(ERROR_EXTEND(error, "Writing persistent state"));
 }
 
 

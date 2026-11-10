@@ -14,8 +14,8 @@
 #include "error.h"
 #include "parse.h"
 #include "locking.h"
+#include "parse_indent.h"
 
-#include "indent_file.h"
 #include "hardware.h"
 #include "config_server.h"
 #include "attributes.h"

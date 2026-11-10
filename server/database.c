@@ -12,10 +12,10 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "parse_indent.h"
 
 #include "utf8_check.h"
 #include "hardware.h"
-#include "indent_file.h"
 #include "config_server.h"
 #include "attributes.h"
 #include "fields.h"

@@ -11,8 +11,8 @@
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "parse_indent.h"
 
-#include "indent_file.h"
 #include "hardware.h"
 #include "config_server.h"
 #include "data_server.h"

@@ -14,8 +14,8 @@
 #include "parse.h"
 #include "hashtable.h"
 #include "locking.h"
+#include "parse_indent.h"
 
-#include "indent_file.h"
 #include "config_server.h"
 #include "hardware.h"
 #include "attributes.h"
@@ -328,7 +328,7 @@ static void read_change_set(
         for (unsigned int i = 0; i < state->count; i ++)
         {
             uint32_t result;
-            error_report(error_extend(
+            error_report(ERROR_EXTEND(
                 locked_read_read(state, i, &result),
                 "Error reading register while polling change set"));
             changes[i] = state->values[i].update_index > report_index;

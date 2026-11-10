@@ -698,7 +698,7 @@ error__t initialise_hardware(void)
 
 void terminate_hardware(void)
 {
-    error_report(error_extend(
+    error_report(ERROR_EXTEND(
         IF(register_map,
             TEST_IO(munmap(
                 CAST_FROM_TO(volatile uint32_t *, void *, register_map),
