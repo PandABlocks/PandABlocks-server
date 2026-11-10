@@ -16,6 +16,7 @@
 #include "attributes.h"
 #include "fields.h"
 #include "metadata.h"
+#include "extension.h"
 
 #include "database.h"
 
@@ -64,7 +65,7 @@ static error__t config_parse_field_line(
 static error__t config_parse_normal_header(
     void *context, const char **line, struct indent_parser *parser)
 {
-    /* Parse input of form <name> [ "[" <count> "]" ]. */
+    /* Parse input of form <name> [ "[" <count> "]" ] <extension-name>. */
     char block_name[MAX_NAME_LENGTH];
     unsigned int count = 1;
     struct block *block;
@@ -75,6 +76,12 @@ static error__t config_parse_normal_header(
             parse_char(line, ']'))  ?:
 
         create_block(&block, block_name, count)  ?:
+
+        IF(read_char(line, ' '),
+            parse_extension_block(line, 
+                block_get_count(block), 
+                block_get_extension(block))) ?:
+
         DO(*parser = (struct indent_parser) {
             .context = block,
             .parse_line = config_parse_field_line });

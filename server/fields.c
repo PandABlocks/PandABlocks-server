@@ -645,9 +645,7 @@ error__t parse_block_set_register(const char **line, struct block *block)
                 /* We're first to use this block, set it up. */
                 DO( block_types_used[base].shared = shared;
                     block_types_used[base].used = true)))  ?:
-        DO(block->base = base)  ?:
-        IF(read_char(line, ' '),
-            parse_extension_block(line, block->count, &block->extension));
+        DO(block->base = base);
 }
 
 
@@ -818,4 +816,14 @@ error__t validate_fields(void)
         }
     }
     return error;
+}
+
+unsigned int block_get_count(const struct block *block)
+{
+    return block->count;
+}
+
+struct extension_block **block_get_extension(struct block *block)
+{
+    return &block->extension;
 }

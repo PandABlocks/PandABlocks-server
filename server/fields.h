@@ -90,6 +90,11 @@ struct attr;                // Type specific attributes for individual fields
 struct table_subfield;      // Subfields for arrays
 struct extension_block;     // Block extension for extension server
 
+/* Returns number of instances of this block. */
+unsigned int block_get_count(const struct block *block);
+
+/* Returns extension field with the given name in the given block. */
+struct extension_block **block_get_extension(struct block *block);
 
 /* Returns block with the given name. */
 error__t lookup_block(
