@@ -14,13 +14,16 @@
 #include <pthread.h>
 #include <time.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
+#include "parse.h"
 #include "buffered_file.h"
+#include "locking.h"
+
+#include "hardware.h"
 #include "config_server.h"
 #include "buffer.h"
 #include "prepare.h"
-#include "locking.h"
 #include "base64.h"
 #include "pos_out.h"
 #include "ext_out.h"
@@ -305,7 +308,7 @@ struct data_connection {
 static bool process_data_request(struct data_connection *connection)
 {
     char line[MAX_LINE_LENGTH];
-    if (read_line(connection->file, line, sizeof(line), false))
+    if (bf_read_line(connection->file, line, sizeof(line), false))
     {
         error__t error = parse_data_options(line, &connection->options);
         if (!error  &&  connection->options.omit_status)
@@ -317,8 +320,8 @@ static bool process_data_request(struct data_connection *connection)
             :
                 snprintf(line, sizeof(line), "OK\n");
             error_discard(error);
-            write_string(connection->file, line, (size_t) length);
-            return flush_out_buf(connection->file)  &&  !error;
+            bf_write_string(connection->file, line, (size_t) length);
+            return bf_flush_out(connection->file)  &&  !error;
         }
     }
     else
@@ -479,7 +482,7 @@ static bool write_block_base64(
         line[0] = ' ';
         size_t encoded = base64_encode(data, to_encode, line + 1);
         line[encoded + 1] = '\n';
-        ok = write_string(file, line, encoded + 2);
+        ok = bf_write_string(file, line, encoded + 2);
 
         data += to_encode;
         data_length -= to_encode;
@@ -517,7 +520,7 @@ static bool send_output_buffer(
                 state->connection->file,
                 state->output_buffer, state->output_buffer_count);
         default:
-            return write_block(
+            return bf_write_block(
                 state->connection->file,
                 state->output_buffer, state->output_buffer_count);
     }
@@ -593,8 +596,8 @@ static bool passthrough_capture_block(
 
     /* Send frame header and residual output buffer, then the current buffer */
     bool sent_ok =
-        write_block(state->connection->file, state->output_buffer, residual) &&
-        write_block(state->connection->file, buffer, buffer_to_send);
+        bf_write_block(state->connection->file, state->output_buffer, residual) &&
+        bf_write_block(state->connection->file, buffer, buffer_to_send);
     /* Transmit the output buffer, if we can.  If this fails, just bail out. */
     if (!sent_ok)
         return false;
@@ -668,7 +671,7 @@ static void send_data_stream(
         /* We flush the output buffer at this stage in case we're running slowly
          * so that the client will see progress. */
         if (ok)
-            ok = flush_out_buf(connection->file);
+            ok = bf_flush_out(connection->file);
     }
 }
 
@@ -688,11 +691,11 @@ static bool send_data_completion(
         completions[status] : hw_decode_completion(completion);
 
     if (!connection->options.omit_status)
-        write_formatted_string(connection->file,
+        bf_write_formatted_string(connection->file,
             "END %"PRIu64" %s\n", sent_samples, message);
     log_message("Sent %"PRIu64" (+%"PRIu64") %s",
         sent_samples, lost_samples, message);
-    return flush_out_buf(connection->file);
+    return bf_flush_out(connection->file);
 }
 
 
@@ -703,7 +706,7 @@ error__t process_data_socket(int scon)
 {
     struct data_connection connection = {
         .scon = scon,
-        .file = create_buffered_file(scon, IN_BUF_SIZE, OUT_BUF_SIZE),
+        .file = bf_create_file(scon, IN_BUF_SIZE, OUT_BUF_SIZE),
     };
 
     if (process_data_request(&connection))
@@ -741,7 +744,7 @@ error__t process_data_socket(int scon)
         destroy_reader(connection.reader);
     }
 
-    return destroy_buffered_file(connection.file);
+    return bf_destroy_file(connection.file);
 }
 
 

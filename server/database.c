@@ -8,10 +8,14 @@
 #include <string.h>
 #include <limits.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "parse_indent.h"
+
+#include "utf8_check.h"
+#include "hardware.h"
 #include "config_server.h"
 #include "attributes.h"
 #include "fields.h"
@@ -30,7 +34,7 @@ static error__t config_parse_metadata_field(
     char field_name[MAX_NAME_LENGTH];
     return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         add_metadata_key(field_name, line);
 }
 
@@ -125,14 +129,14 @@ static error__t register_parse_special_field(
     unsigned int reg, reg_end;
     return
         parse_name(line, reg_name, sizeof(reg_name))  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         /* Some register definitions are optional and are flagged as such for
          * processing by hardware.h, but we want to ignore this flag when
          * dynamically loading the same file. */
         DO(read_string(line, "opt"))  ?:
         parse_uint(line, &reg)  ?:
         IF_ELSE(**line,
-            parse_whitespace(line)  ?:
+            parse_whitespace(line, false)  ?:
             TEST_OK_(read_string(line, ".."),
                 "Expected end of input or number range")  ?:
             parse_uint(line, &reg_end)  ?:
@@ -151,7 +155,7 @@ static error__t register_parse_special_header(
     error__t error =
         parse_char(line, '*')  ?:
         parse_name(line, block_name, sizeof(block_name))  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_uint(line, &base);
 
     if (!error)
@@ -186,7 +190,7 @@ static error__t register_parse_normal_field(
     return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         lookup_field(block, field_name, &field)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         field_parse_registers(field, line);
 }
 
@@ -203,7 +207,7 @@ static error__t register_parse_normal_header(
         lookup_block(block_name, &block, NULL)  ?:
         DO(parser->context = block)  ?:
 
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_block_set_register(line, block);
 }
 
@@ -215,7 +219,7 @@ static error__t register_parse_constant(
     unsigned int constant_value;
     return
         parse_alphanum_name(line, constant_name, sizeof(constant_name))  ?:
-        DO(*line = skip_whitespace(*line))  ?:
+        DO(skip_whitespace(line))  ?:
         parse_char(line, '=')  ?:
         parse_uint(line, &constant_value)  ?:
         hw_set_named_constant(constant_name, constant_value);
@@ -261,7 +265,7 @@ static error__t description_parse_field_line(
     return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
         lookup_field(block, field_name, &field)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_utf8_string(line, &description)  ?:
         field_set_description(field, description, parser);
 }
@@ -278,7 +282,7 @@ static error__t description_parse_block_line(
         parse_block_name(line, block_name, sizeof(block_name))  ?:
         lookup_block(block_name, &block, NULL)  ?:
         DO(parser->context = block)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_utf8_string(line, &description)  ?:
         block_set_description(block, description);
 }

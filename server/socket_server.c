@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
 #include "list.h"
 #include "config_server.h"
@@ -286,9 +287,8 @@ static void *session_thread(void *context)
 
     error__t error = session->parent->process(session->sock);
 
-    if (error)
-        ERROR_REPORT(error, "Client %s %s raised error",
-            session->parent->name, session->name);
+    error_report(ERROR_EXTEND(error, "Client %s %s raised error",
+            session->parent->name, session->name));
     log_message("Client %s %s closed", session->parent->name, session->name);
 
     close_session(session);

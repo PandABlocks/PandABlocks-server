@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <time.h>
 
+#include "common.h"
 #include "error.h"
 #include "parse.h"
 #include "buffered_file.h"
@@ -89,7 +90,7 @@ error__t parse_data_options(const char *line, struct data_options *options)
     error__t error = ERROR_OK;
     while (!error  &&  *line)
         error =
-            DO(line = skip_whitespace(line))  ?:
+            DO(skip_whitespace(&line))  ?:
             TEST_OK_(*line != '\r', "Cannot process CR character")  ?:
             parse_alphanum_name(&line, option, sizeof(option))  ?:
             parse_one_option(option, options);
@@ -131,25 +132,25 @@ static const char *escape_xml_character(char ch)
 static void write_escaped_xml_string(
     struct buffered_file *file, const char *string)
 {
-    write_char(file, '"');
+    bf_write_char(file, '"');
     while (*string)
     {
         /* Find length of segment up to any character which needs to be escaped.
          * We can just write this segment as is. */
         size_t accept = strcspn(string, "<&>\"'");
         if (accept > 0)
-            write_string(file, string, accept);
+            bf_write_string(file, string, accept);
         string += accept;
 
         /* Process the escape character if necessary. */
         if (*string)
         {
             const char *escape = escape_xml_character(*string);
-            write_string(file, escape, strlen(escape));
+            bf_write_string(file, escape, strlen(escape));
             string += 1;
         }
     }
-    write_char(file, '"');
+    bf_write_char(file, '"');
 }
 
 
@@ -164,17 +165,17 @@ static void __attribute__((format(printf, 4, 5))) format_attribute_opt(
     va_end(args);
 
     if (element->xml)
-        write_formatted_string(element->file, " %s=\"%s\"", name, value);
+        bf_write_formatted_string(element->file, " %s=\"%s\"", name, value);
     else
     {
         if (!element->hidden)
-            write_char(element->file, ' ');
+            bf_write_char(element->file, ' ');
         if (use_name)
-            write_formatted_string(element->file, "%s: %s", name, value);
+            bf_write_formatted_string(element->file, "%s: %s", name, value);
         else
-            write_formatted_string(element->file, "%s", value);
+            bf_write_formatted_string(element->file, "%s", value);
         if (element->hidden)
-            write_char(element->file, '\n');
+            bf_write_char(element->file, '\n');
     }
 }
 
@@ -187,11 +188,11 @@ static void format_attribute_string(
 {
     if (element->xml)
     {
-        write_formatted_string(element->file, " %s=", name);
+        bf_write_formatted_string(element->file, " %s=", name);
         write_escaped_xml_string(element->file, value);
     }
     else
-        write_formatted_string(element->file, " %s: %s", name, value);
+        bf_write_formatted_string(element->file, " %s: %s", name, value);
 }
 
 
@@ -208,12 +209,12 @@ static struct xml_element start_element(
     };
     if (xml)
     {
-        write_formatted_string(file, "<%s", name);
+        bf_write_formatted_string(file, "<%s", name);
         if (nested)
-            write_formatted_string(file, ">\n");
+            bf_write_formatted_string(file, ">\n");
     }
     else if (!hidden  &&  nested)
-        write_formatted_string(file, "%s:\n", name);
+        bf_write_formatted_string(file, "%s:\n", name);
     return element;
 }
 
@@ -223,12 +224,12 @@ static void end_element(struct xml_element *element)
     if (element->xml)
     {
         if (element->nested)
-            write_formatted_string(element->file, "</%s>\n", element->name);
+            bf_write_formatted_string(element->file, "</%s>\n", element->name);
         else
-            write_formatted_string(element->file, " />\n");
+            bf_write_formatted_string(element->file, " />\n");
     }
     else if (!element->hidden  &&  !element->nested)
-        write_char(element->file, '\n');
+        bf_write_char(element->file, '\n');
 }
 
 
@@ -409,8 +410,8 @@ bool send_data_header(
     end_element(&field_group);
     end_element(&header);
 
-    write_char(file, '\n');
-    return flush_out_buf(file);
+    bf_write_char(file, '\n');
+    return bf_flush_out(file);
 }
 
 

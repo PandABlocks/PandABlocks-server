@@ -7,9 +7,11 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "common.h"
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+
 #include "config_server.h"
 #include "attributes.h"
 #include "fields.h"

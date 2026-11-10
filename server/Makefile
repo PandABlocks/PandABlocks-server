@@ -20,7 +20,7 @@ default: server sim_server
 
 
 include $(TOP)/server/Makefile.flags
-
+include $(BASE_C_UTILS)/Makefile.extra
 
 # Allow access to function names in assert fail tracebacks
 sim_server: LDFLAGS += -rdynamic
@@ -30,21 +30,17 @@ ifdef DEBUG
 CFLAGS += -O0
 endif
 
+CFLAGS += -iquote$(BASE_C_UTILS)
 
 SRCS += server.c                # Entry point to server, command line parsing
 SRCS += version.c               # Server version string
-SRCS += locking.c               # Pthread locking support etc
 SRCS += persistence.c           # Support for persistence state over restarts
-SRCS += error.c                 # Common error handling framework
 SRCS += socket_server.c         # Common socket server handling
 SRCS += config_server.c         # Configuration command server
 SRCS += data_server.c           # Data socket server for streamed data capture
 SRCS += buffer.c                # Circular buffer for captured data stream
-SRCS += buffered_file.c         # Buffered file IO for socket interface
-SRCS += parse.c                 # Common string parsing support
 SRCS += utf8_check.c            # External UTF-8 format checker
 SRCS += parse_lut.c             # 5 input lookup table expression parsing
-SRCS += hashtable.c             # Simple hash table
 SRCS += database.c              # Reading configuration and register files
 SRCS += config_command.c        # Block and field command parsing and dispatch
 SRCS += system_command.c        # System command parse and dispatch
@@ -67,6 +63,9 @@ SRCS += metadata.c              # Support for *METADATA command
 SRCS += mac_address.c           # Support for FPGA MAC address loading
 SRCS += extension.c             # Support for extension server registers
 SRCS += std_dev.c               # Computation of standard deviation
+
+SRCS += $(notdir $(wildcard $(BASE_C_UTILS)/*.c))
+VPATH += $(BASE_C_UTILS)
 
 
 # Program for loading slow FPGA on carrier card.

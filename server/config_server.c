@@ -7,10 +7,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "parse.h"
 #include "buffered_file.h"
+
+#include "hardware.h"
 #include "config_command.h"
 #include "system_command.h"
 #include "base64.h"
@@ -25,40 +27,6 @@
 
 /* This is set to enable logging of each incoming command. */
 static bool verbose = false;
-
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* Formatting helper methods. */
-
-error__t __attribute__((format(printf, 3, 4))) format_string(
-    char result[], size_t length, const char *format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    int written = vsnprintf(result, length, format, args);
-    va_end(args);
-
-    return TEST_OK_(written >= 0  &&  (size_t) written < length,
-        "Result too long");
-}
-
-
-/* Alas the double formatting rules are ill mannered, in particular I don't want
- * to allow leading spaces.  I'd also love to prune trailing zeros, but we'll
- * see. */
-error__t format_double(char result[], size_t length, double value)
-{
-    error__t error = format_string(result, length, "%.10g", value);
-    if (!error)
-    {
-        const char *skip = skip_whitespace(result);
-        if (skip > result)
-            memmove(result, skip, strlen(skip) + 1);
-    }
-    return error;
-}
-
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -118,9 +86,9 @@ static void report_error(
     struct config_connection *connection, error__t error)
 {
     const char *message = error_format(error);
-    write_string(connection->file, "ERR ", 4);
-    write_string(connection->file, message, strlen(message));
-    write_char(connection->file, '\n');
+    bf_write_string(connection->file, "ERR ", 4);
+    bf_write_string(connection->file, message, strlen(message));
+    bf_write_char(connection->file, '\n');
     error_discard(error);
 }
 
@@ -133,7 +101,7 @@ static void report_status(
     if (error)
         report_error(connection, error);
     else
-        write_string(connection->file, "OK\n", 3);
+        bf_write_string(connection->file, "OK\n", 3);
 }
 
 
@@ -146,9 +114,9 @@ static void report_status(
 static void write_many_result(void *context, const char *result)
 {
     struct buffered_file *file = context;
-    write_char(file, '!');
-    write_string(file, result, strlen(result));
-    write_char(file, '\n');
+    bf_write_char(file, '!');
+    bf_write_string(file, result, strlen(result));
+    bf_write_char(file, '\n');
 }
 
 
@@ -176,12 +144,12 @@ static void do_read_command(
             switch (result.response)
             {
                 case RESPONSE_ONE:
-                    write_string(connection->file, "OK =", 4);
-                    write_string(connection->file, string, strlen(string));
-                    write_char(connection->file, '\n');
+                    bf_write_string(connection->file, "OK =", 4);
+                    bf_write_string(connection->file, string, strlen(string));
+                    bf_write_char(connection->file, '\n');
                     break;
                 case RESPONSE_MANY:
-                    write_string(connection->file, ".\n", 2);
+                    bf_write_string(connection->file, ".\n", 2);
                     break;
                 default:
                     ASSERT_FAIL();      // oops
@@ -314,7 +282,7 @@ error__t process_put_table_command(
 
 static bool wrap_read_line(void *context, char line[], size_t length)
 {
-    return read_line(context, line, length, false);
+    return bf_read_line(context, line, length, false);
 }
 
 static void do_table_command(
@@ -387,15 +355,15 @@ error__t process_config_socket(int sock)
      * to act as a connection context throughout the lifetime of this
      * connection. */
     struct config_connection connection = {
-        .file = create_buffered_file(sock, IN_BUF_SIZE, OUT_BUF_SIZE),
+        .file = bf_create_file(sock, IN_BUF_SIZE, OUT_BUF_SIZE),
     };
 
     char line[MAX_LINE_LENGTH];
-    while (read_line(connection.file, line, sizeof(line), true))
+    while (bf_read_line(connection.file, line, sizeof(line), true))
     {
         if (verbose)
             log_message("< %s", line);
         process_config_command(&connection, line);
     }
-    return destroy_buffered_file(connection.file);
+    return bf_destroy_file(connection.file);
 }

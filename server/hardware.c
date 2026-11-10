@@ -13,10 +13,12 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
-#include "panda_device.h"
-
+#include "common.h"
 #include "error.h"
 #include "locking.h"
+
+#include "panda_device.h"
+
 
 #ifdef SIM_HARDWARE
 #include "sim_hardware.h"
@@ -701,14 +703,14 @@ error__t initialise_hardware(void)
 
 void terminate_hardware(void)
 {
-    ERROR_REPORT(
+    error_report(ERROR_EXTEND(
         IF(register_map,
             TEST_IO(munmap(
                 CAST_FROM_TO(volatile uint32_t *, void *, register_map),
                 register_map_size)))  ?:
         IF(map_file >= 0, TEST_IO(close(map_file)))  ?:
         IF(stream >= 0, TEST_IO(close(stream))),
-        "Calling terminate_hardware");
+        "Calling terminate_hardware"));
 }
 
 #endif

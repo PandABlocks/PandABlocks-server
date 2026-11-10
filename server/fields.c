@@ -7,10 +7,14 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "hashtable.h"
+#include "locking.h"
 #include "parse.h"
+#include "parse_indent.h"
+
+#include "hardware.h"
 #include "config_server.h"
 #include "attributes.h"
 #include "types.h"
@@ -22,7 +26,6 @@
 #include "register.h"
 #include "time.h"
 #include "table.h"
-#include "locking.h"
 #include "metadata.h"
 #include "extension.h"
 
@@ -181,10 +184,10 @@ static error__t describe_field(
     const char *extra = field->methods->describe ?
         field->methods->describe(field->class_data) : NULL;
     if (extra)
-        return format_string(
+        return format_string_(
             string, length, "%s %s", field->methods->name, extra);
     else
-        return format_string(string, length, "%s", field->methods->name);
+        return format_string_(string, length, "%s", field->methods->name);
 }
 
 
@@ -287,7 +290,7 @@ static void handle_error_report(
     {
         prefix -= 1;
         string[prefix] = '\0';
-        ERROR_REPORT(error, "Error reporting *CHANGES for %s", string);
+        error_report(ERROR_EXTEND(error, "Error reporting *CHANGES for %s", string));
         snprintf(string + prefix, length - prefix, " (error)");
     }
 }
@@ -747,7 +750,7 @@ error__t create_field(
     struct field *field;
     return
         parse_alphanum_name(line, field_name, sizeof(field_name))  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_name(line, class_name, sizeof(class_name))  ?:
         lookup_class(class_name, &methods)  ?:
 
@@ -807,7 +810,7 @@ error__t validate_fields(void)
                 IF(field->methods->finalise,
                     field->methods->finalise(field->class_data));
             if (error)
-                error_extend(error,
+                ERROR_EXTEND(error,
                     "Checking field %s.%s", block->name, field->name);
             if (field->description == NULL)
                 log_message("No description for field %s.%s",

@@ -19,6 +19,13 @@
  *  https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c */
 
 #include <stdlib.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+
+#include "common.h"
+#include "error.h"
+
 
 #include "utf8_check.h"
 
@@ -69,4 +76,11 @@ const char *utf8_check(const char *cs)
     }
 
     return (const char *) s;
+}
+
+error__t parse_utf8_string(const char **input, const char **result)
+{
+    *result = *input;
+    *input = utf8_check(*input);
+    return TEST_OK_(**input == '\0', "Malformed UTF-8 encoding");
 }

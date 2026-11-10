@@ -13,6 +13,11 @@ KERNEL_DIR = $(error Define KERNEL_DIR in CONFIG file)
 PANDA_ROOTFS = $(error Define PANDA_ROOTFS in CONFIG file)
 PLATFORM = $(error Define PLATFORM in CONFIG file)
 MAKE_ZPKG = $(PANDA_ROOTFS)/make-zpkg
+BASE_C_UTILS = $(TOP)/base-c-utils/src
+
+# Ensure that base-c-utils is initalised
+$(BASE_C_UTILS):
+	git submodule update --init --recursive
 
 DEFAULT_TARGETS = driver server sim_server docs zpkg
 
@@ -99,17 +104,18 @@ SERVER_FILES := $(wildcard server/*)
 SERVER_BUILD_ENV += VPATH=$(TOP)/server
 SERVER_BUILD_ENV += TOP=$(TOP)
 SERVER_BUILD_ENV += PYTHON=$(PYTHON)
+SERVER_BUILD_ENV += BASE_C_UTILS=$(BASE_C_UTILS)
 
 MAKE_SERVER_TARGET = \
-    CFLAGS_EXTRA=$(CFLAGS_EXTRA) \
-    $(MAKE) -C $< -f $(TOP)/server/Makefile $(SERVER_BUILD_ENV)
+    CFLAGS_EXTRA="$(CFLAGS_EXTRA)" \
+    $(SERVER_BUILD_ENV) $(MAKE) -C $< -f $(TOP)/server/Makefile
 
-$(SERVER): $(SERVER_BUILD_DIR) $(SERVER_FILES)
+$(SERVER): $(SERVER_BUILD_DIR) $(SERVER_FILES) $(BASE_C_UTILS)
 	$(MAKE_SERVER_TARGET) CC="$(CC)"
 
 # Two differences with building sim_server: we use the native compiler, not the
 # cross-compiler, and we only build the sim_server target.
-$(SIM_SERVER): $(SIM_SERVER_BUILD_DIR) $(SERVER_FILES)
+$(SIM_SERVER): $(SIM_SERVER_BUILD_DIR) $(SERVER_FILES) $(BASE_C_UTILS)
 	$(MAKE_SERVER_TARGET) sim_server
 
 $(SLOW_LOAD): $(SERVER_BUILD_DIR) server/slow_load.c

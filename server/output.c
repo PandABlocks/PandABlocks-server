@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "common.h"
 #include "error.h"
 #include "hardware.h"
 #include "hashtable.h"
