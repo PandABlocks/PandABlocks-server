@@ -60,27 +60,27 @@ static error__t config_parse_field_line(
 
 
 /* Parses a block definition header.  This is simply a name, optionally followed
- * by a number in square brackets, and should be followed by a number of field
+ * by a number in square brackets, then optionally followed by an extension name
+ * and should be followed by a number of field
  * definitions. */
 static error__t config_parse_normal_header(
     void *context, const char **line, struct indent_parser *parser)
 {
-    /* Parse input of form <name> [ "[" <count> "]" ] <extension-name>. */
+    /* Parse input of form <name> [ "[" <count> "]" ] [ <extension-name> ]. */
     char block_name[MAX_NAME_LENGTH];
     unsigned int count = 1;
     struct block *block;
+    struct extension_block *extension = NULL;
     return
         parse_block_name(line, block_name, sizeof(block_name))  ?:
         IF(read_char(line, '['),
             parse_uint(line, &count)  ?:
             parse_char(line, ']'))  ?:
-
-        create_block(&block, block_name, count)  ?:
-
+        
         IF(read_char(line, ' '),
-            parse_extension_block(line, 
-                block_get_count(block), 
-                block_get_extension(block))) ?:
+            parse_extension_block(line, count, &extension))  ?:
+
+        create_block(&block, block_name, count, extension)  ?:
 
         DO(*parser = (struct indent_parser) {
             .context = block,

@@ -607,7 +607,7 @@ static const struct class_methods *classes_table[] = {
 
 
 error__t create_block(
-    struct block **block, const char *name, unsigned int count)
+    struct block **block, const char *name, unsigned int count, struct extension_block *extension )
 {
     *block = malloc(sizeof(struct block));
     **block = (struct block) {
@@ -615,6 +615,7 @@ error__t create_block(
         .count = count,
         .base = UNASSIGNED_REGISTER,
         .fields = hash_table_create(false),
+        .extension = extension,
     };
     return TEST_OK_(
         hash_table_insert(block_map, (*block)->name, *block) == NULL,
@@ -816,14 +817,4 @@ error__t validate_fields(void)
         }
     }
     return error;
-}
-
-unsigned int block_get_count(const struct block *block)
-{
-    return block->count;
-}
-
-struct extension_block **block_get_extension(struct block *block)
-{
-    return &block->extension;
 }

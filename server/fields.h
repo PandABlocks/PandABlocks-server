@@ -90,12 +90,6 @@ struct attr;                // Type specific attributes for individual fields
 struct table_subfield;      // Subfields for arrays
 struct extension_block;     // Block extension for extension server
 
-/* Returns number of instances of this block. */
-unsigned int block_get_count(const struct block *block);
-
-/* Returns extension field with the given name in the given block. */
-struct extension_block **block_get_extension(struct block *block);
-
 /* Returns block with the given name. */
 error__t lookup_block(
     const char *name, struct block **block, unsigned int *count);
@@ -190,7 +184,7 @@ const struct enumeration *get_field_enumeration(const struct field *field);
  * register base must be given.  Once this has been created the subsiduary
  * fields can be created. */
 error__t create_block(
-    struct block **block, const char *name, unsigned int count);
+    struct block **block, const char *name, unsigned int count, struct extension_block *extension);
 
 /* Sets base address for block. */
 error__t parse_block_set_register(const char **line, struct block *block);
