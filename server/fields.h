@@ -184,7 +184,8 @@ const struct enumeration *get_field_enumeration(const struct field *field);
  * register base must be given.  Once this has been created the subsiduary
  * fields can be created. */
 error__t create_block(
-    struct block **block, const char *name, unsigned int count, struct extension_block *extension);
+    struct block **block, const char *name,
+    unsigned int count, struct extension_block *extension);
 
 /* Sets base address for block. */
 error__t parse_block_set_register(const char **line, struct block *block);

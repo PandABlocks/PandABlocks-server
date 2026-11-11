@@ -607,7 +607,8 @@ static const struct class_methods *classes_table[] = {
 
 
 error__t create_block(
-    struct block **block, const char *name, unsigned int count, struct extension_block *extension )
+    struct block **block, const char *name,
+    unsigned int count, struct extension_block *extension)
 {
     *block = malloc(sizeof(struct block));
     **block = (struct block) {

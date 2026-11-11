@@ -59,9 +59,9 @@ static error__t config_parse_field_line(
 }
 
 
-/* Parses a block definition header.  This is simply a name, optionally followed
- * by a number in square brackets, then optionally followed by an extension name
- * and should be followed by a number of field
+/* Parses a block definition header.  This is simply a name, optionally
+ * followed by a number in square brackets, then optionally followed
+ * by an extension name and should be followed by a number of field
  * definitions. */
 static error__t config_parse_normal_header(
     void *context, const char **line, struct indent_parser *parser)
@@ -71,7 +71,7 @@ static error__t config_parse_normal_header(
     unsigned int count = 1;
     struct block *block;
     struct extension_block *extension = NULL;
-    
+
     return
         parse_block_name(line, block_name, sizeof(block_name))  ?:
         IF(read_char(line, '['),
