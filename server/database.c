@@ -71,12 +71,14 @@ static error__t config_parse_normal_header(
     unsigned int count = 1;
     struct block *block;
     struct extension_block *extension = NULL;
+    
     return
         parse_block_name(line, block_name, sizeof(block_name))  ?:
         IF(read_char(line, '['),
             parse_uint(line, &count)  ?:
             parse_char(line, ']'))  ?:
-        
+
+        /* A block definition can be followed by an extension. */
         IF(read_char(line, ' '),
             parse_extension_block(line, count, &extension))  ?:
 
