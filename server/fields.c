@@ -607,7 +607,8 @@ static const struct class_methods *classes_table[] = {
 
 
 error__t create_block(
-    struct block **block, const char *name, unsigned int count)
+    struct block **block, const char *name,
+    unsigned int count, struct extension_block *extension)
 {
     *block = malloc(sizeof(struct block));
     **block = (struct block) {
@@ -615,6 +616,7 @@ error__t create_block(
         .count = count,
         .base = UNASSIGNED_REGISTER,
         .fields = hash_table_create(false),
+        .extension = extension,
     };
     return TEST_OK_(
         hash_table_insert(block_map, (*block)->name, *block) == NULL,
@@ -645,9 +647,7 @@ error__t parse_block_set_register(const char **line, struct block *block)
                 /* We're first to use this block, set it up. */
                 DO( block_types_used[base].shared = shared;
                     block_types_used[base].used = true)))  ?:
-        DO(block->base = base)  ?:
-        IF(read_char(line, ' '),
-            parse_extension_block(line, block->count, &block->extension));
+        DO(block->base = base);
 }
 
 
