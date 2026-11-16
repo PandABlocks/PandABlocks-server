@@ -368,3 +368,32 @@ error__t extension_write_register(
     }
     return error;
 }
+
+/* Sends request for get_double to server */
+error__t extension_server_get_double(
+    unsigned int block_id, unsigned int instance_id,
+    const char *name, double *result)
+{
+    char message[256];
+    char result_buffer[256];
+    const char *response = result_buffer;
+
+    return
+        format_string(message, sizeof(message),
+            "D%u %u %s\n", block_id, instance_id, name)  ?:
+        TEST_OK_(server.file, "Extension server not running")  ?:
+        ERROR_WITH_MUTEX(server.mutex,
+            TEST_OK_(
+                write_string(server.file, message, strlen(message))  &&
+                read_line(server.file,
+                    result_buffer, sizeof(result_buffer), true),
+                "Extension server communication failure"))  ?:
+        IF_ELSE(read_char(&response, 'D'),
+            ERROR_EXTEND(
+                parse_double(&response, result)  ?:
+                parse_eos(&response),
+                "Error at offset %zd in response \"%s\"",
+                response - result_buffer + 1, result_buffer),
+            parse_char(&response, 'E')  ?:
+            FAIL_("%s", response));
+}
