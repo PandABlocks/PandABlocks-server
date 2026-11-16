@@ -7,9 +7,13 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "common.h"
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
+#include "parse_indent.h"
+
+#include "utf8_check.h"
 #include "config_server.h"
 #include "attributes.h"
 #include "types.h"
@@ -273,7 +277,7 @@ static error__t enum_add_label(
     const char *enum_string;
     return
         parse_uint(string, &ix)  ?:
-        parse_whitespace(string)  ?:
+        parse_whitespace(string, false)  ?:
         parse_utf8_string(string, &enum_string)  ?:
         add_enumeration(type_data, enum_string, ix);
 }
@@ -329,7 +333,7 @@ error__t format_enumeration(
     const char *label = enum_index_to_name(enumeration, value);
     return
         TEST_OK_(label, "No label for value")  ?:
-        format_string(string, length, "%s", label);
+        format_string_(string, length, "%s", label);
 }
 
 

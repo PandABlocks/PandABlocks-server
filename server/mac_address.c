@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "common.h"
 #include "error.h"
 #include "parse.h"
 #include "hardware.h"
@@ -92,15 +93,15 @@ error__t load_mac_address_file(const char *filename)
             uint64_t mac_address;
             /* This had better be a MAC address! */
             error =
-                TEST_OK_(offset < MAC_ADDRESS_COUNT,
-                    "Too many MAC address entries")  ?:
-                parse_mac_address(&line, &mac_address)  ?:
-                DO( hw_write_mac_address(offset, mac_address);
-                    offset += 1);
-        }
-        if (error)
-            error_extend(error, "Error on line %u offset %zu",
+                ERROR_EXTEND(
+                    TEST_OK_(offset < MAC_ADDRESS_COUNT,
+                        "Too many MAC address entries")  ?:
+                    parse_mac_address(&line, &mac_address)  ?:
+                    DO(hw_write_mac_address(offset, mac_address);
+                        offset += 1),
+                "Error on line %u offset %zu",
                 line_no, line - line_buffer);
+        }
     }
 
     if (input)

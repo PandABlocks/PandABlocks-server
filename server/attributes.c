@@ -8,10 +8,12 @@
 #include <pthread.h>
 #include <string.h>
 
+#include "common.h"
 #include "error.h"
 #include "hashtable.h"
-#include "config_server.h"
 #include "locking.h"
+
+#include "config_server.h"
 
 #include "attributes.h"
 

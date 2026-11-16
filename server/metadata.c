@@ -8,11 +8,14 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
 #include "hashtable.h"
 #include "parse.h"
-#include "config_server.h"
 #include "locking.h"
+
+#include "utf8_check.h"
+#include "config_server.h"
 
 #include "metadata.h"
 
@@ -82,7 +85,7 @@ static error__t parse_metadata_constant(
 {
     const char *string;
     return
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         parse_char(line, '=')  ?:
         parse_utf8_string(line, &string)  ?:
         /* For constants force the update index to 0 to suppress change

@@ -9,9 +9,12 @@
 #include <signal.h>
 #include <ctype.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "parse.h"
+
+
+#include "hardware.h"
 #include "config_server.h"
 #include "socket_server.h"
 #include "data_server.h"
@@ -218,42 +221,47 @@ int main(int argc, char *const argv[])
     initialise_base64();
 
     error__t error =
-        process_options(argc, argv)  ?:
+        ERROR_EXTEND(
+            process_options(argc, argv)  ?:
 
-        initialise_signals()  ?:
-        initialise_hardware()  ?:
-        IF(extension_port,
-            initialise_extension_server(extension_port))  ?:
+            initialise_signals()  ?:
+            initialise_hardware()  ?:
+            IF(extension_port,
+                initialise_extension_server(extension_port))  ?:
 
-        initialise_metadata()  ?:
-        initialise_fields()  ?:
-        initialise_output()  ?:
-        initialise_time()  ?:
-        initialise_system_command(rootfs_version)  ?:
+            initialise_metadata()  ?:
+            initialise_fields()  ?:
+            initialise_output()  ?:
+            initialise_time()  ?:
+            initialise_system_command(rootfs_version)  ?:
 
-        load_config_databases(config_dir)  ?:
+            load_config_databases(config_dir)  ?:
 
-        IF(persistence_file,
-            initialise_persistence(
-                persistence_file,
-                persistence_poll, persistence_holdoff, persistence_backoff))  ?:
-        IF(mac_address_filename,
-            load_mac_address_file(mac_address_filename))  ?:
-        initialise_data_server()  ?:
-        initialise_socket_server(config_port, data_port, reuse_addr)  ?:
+            IF(persistence_file,
+                initialise_persistence(
+                    persistence_file, persistence_poll, persistence_holdoff,
+                    persistence_backoff))  ?:
+            IF(mac_address_filename,
+                load_mac_address_file(mac_address_filename))  ?:
+            initialise_data_server()  ?:
+            initialise_socket_server(config_port, data_port, reuse_addr)  ?:
 
-        maybe_daemonise();
+            maybe_daemonise(),
+        "Server startup failed");
 
-    if (!ERROR_REPORT(error, "Server startup failed")  &&  !test_config_only)
+    bool received_error = error_report(error);
+    if (!received_error  &&  !test_config_only)
     {
         /* Now run the server.  Control will not return until we're ready to
          * terminate. */
         log_message("Server started");
         error =
-            IF(persistence_file, start_persistence())  ?:
-            start_data_server()  ?:
-            run_socket_server();
-        ERROR_REPORT(error, "Server shutting down");
+            ERROR_EXTEND(
+                IF(persistence_file, start_persistence())  ?:
+                start_data_server()  ?:
+                run_socket_server(),
+            "Server shutting down");
+        received_error = error_report(error);
     }
 
     log_message("Server shutting down");
@@ -277,5 +285,5 @@ int main(int argc, char *const argv[])
     if (pid_filename)
         unlink(pid_filename);
 
-    return error ? 1 : 0;
+    return received_error;
 }

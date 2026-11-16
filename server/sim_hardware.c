@@ -15,6 +15,7 @@
 #include <netdb.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
 #include "socket_server.h"
 #include "locking.h"
@@ -108,7 +109,7 @@ static bool handle_error(error__t error)
         socket_ok = false;
         if (running)
         {
-            ERROR_REPORT(error, "Error in simulation connection");
+            error_report(ERROR_EXTEND(error, "Error in simulation connection"));
             kill_socket_server();
             running = false;    // Suppress subsequent error messages
         }

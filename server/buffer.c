@@ -9,6 +9,7 @@
 #include <time.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
 #include "locking.h"
 
@@ -296,7 +297,7 @@ static bool wait_for_buffer_ready(
     struct reader_state *reader, const struct timespec *timeout)
 {
     struct timespec deadline;
-    compute_deadline(timeout, &deadline);
+    compute_deadline(timeout, CLOCK_MONOTONIC, &deadline);
 
     struct capture_buffer *buffer = reader->buffer;
     /* Wait until the buffer is ready and we have a fresh capture cycle to work
@@ -419,7 +420,7 @@ static void wait_for_block_ready(
     bool *all_read, bool *timeout_occurred)
 {
     struct timespec deadline;
-    compute_deadline(timeout, &deadline);
+    compute_deadline(timeout, CLOCK_MONOTONIC, &deadline);
 
     *all_read = false;
     *timeout_occurred = false;

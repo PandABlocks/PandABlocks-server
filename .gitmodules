@@ -1,0 +1,4 @@
+[submodule "base-c-utils"]
+	path = base-c-utils
+	url = https://github.com/DiamondLightSource/base-c-utils.git
+	branch = main

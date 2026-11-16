@@ -9,15 +9,18 @@
 #include <limits.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
-#include "config_server.h"
-#include "hardware.h"
 #include "parse.h"
 #include "hashtable.h"
+#include "locking.h"
+#include "parse_indent.h"
+
+#include "config_server.h"
+#include "hardware.h"
 #include "attributes.h"
 #include "fields.h"
 #include "types.h"
-#include "locking.h"
 #include "extension.h"
 
 #include "register.h"
@@ -234,7 +237,7 @@ static error__t parse_default_param(
 {
     uint32_t default_value;
     return IF(read_char(line, ' '),
-        DO(*line = skip_whitespace(*line))  ?:
+        DO(skip_whitespace(line))  ?:
         parse_char(line, '=')  ?:
         parse_uint32(line, &default_value)  ?:
         DO(
@@ -325,9 +328,9 @@ static void read_change_set(
         for (unsigned int i = 0; i < state->count; i ++)
         {
             uint32_t result;
-            ERROR_REPORT(
+            error_report(ERROR_EXTEND(
                 locked_read_read(state, i, &result),
-                "Error reading register while polling change set");
+                "Error reading register while polling change set"));
             changes[i] = state->values[i].update_index > report_index;
         }
     }

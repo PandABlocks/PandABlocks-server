@@ -5,7 +5,7 @@ struct connection_result;   // Used to return results to active client
 struct put_table_writer;    // Used for writing table data
 struct hash_table;
 struct field;
-
+struct indent_parser;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

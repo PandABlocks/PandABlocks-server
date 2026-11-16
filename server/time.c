@@ -10,15 +10,18 @@
 #include <math.h>
 #include <pthread.h>
 
+#include "common.h"
 #include "error.h"
-#include "hardware.h"
 #include "parse.h"
+#include "locking.h"
+#include "parse_indent.h"
+
+#include "hardware.h"
 #include "config_server.h"
 #include "attributes.h"
 #include "fields.h"
 #include "types.h"
 #include "enums.h"
-#include "locking.h"
 
 #include "time.h"
 
@@ -99,7 +102,7 @@ static error__t time_parse_register(
     state->block_base = block_base;
     return
         check_parse_register(field, line, &state->low_register)  ?:
-        parse_whitespace(line)  ?:
+        parse_whitespace(line, false)  ?:
         check_parse_register(field, line, &state->high_register);
 }
 
@@ -210,7 +213,7 @@ static error__t time_raw_format(
     uint64_t value;
     WITH_MUTEX(state->mutex)
         value = field->value;
-    return format_string(result, length, "%"PRIu64, value);
+    return format_string_(result, length, "%"PRIu64, value);
 }
 
 
@@ -234,7 +237,7 @@ static error__t shared_units_format(
     const char *units;
     return
         TEST_OK(units = enum_index_to_name(time_units_enumeration, scale))  ?:
-        format_string(result, length, "%s", units);
+        format_string_(result, length, "%s", units);
 }
 
 static error__t time_class_units_format(
