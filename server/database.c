@@ -55,6 +55,10 @@ static error__t config_parse_field_line(
     void *context, const char **line, struct indent_parser *parser)
 {
     struct block *block = context;
+    
+    /* Class initializers may need the containing block. */
+    parser->context = block;
+    
     return create_field(line, block, parser);
 }
 

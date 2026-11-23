@@ -370,8 +370,8 @@ error__t extension_write_register(
 }
 
 /* Sends request for get_double to server */
-error__t extension_server_get_double(
-    unsigned int block_id, unsigned int instance_id,
+error__t extension_get_double(
+    const struct extension_block *block, unsigned int instance_id,
     const char *name, double *result)
 {
     char message[256];
@@ -379,8 +379,12 @@ error__t extension_server_get_double(
     const char *response = result_buffer;
 
     return
+        TEST_OK_(server.file, "Extension server not running")  ?:
+        TEST_OK_(block, "No extensions defined for this block")  ?:
+        TEST_OK_(name, "Missing double name")  ?:
+        TEST_OK_(result, "Missing double result")  ?:
         format_string(message, sizeof(message),
-            "D%u %u %s\n", block_id, instance_id, name)  ?:
+            "D%u %u %s\n", block->block_id, instance_id, name)  ?:
         TEST_OK_(server.file, "Extension server not running")  ?:
         ERROR_WITH_MUTEX(server.mutex,
             TEST_OK_(

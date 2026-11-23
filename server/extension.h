@@ -36,6 +36,6 @@ error__t extension_read_register(
     const struct extension_address *address, unsigned int number,
     uint32_t *result);
 
-error__t extension_server_get_double(
-    unsigned int block_id, unsigned int instance_id,
+error__t extension_get_double(
+    const struct extension_block *block, unsigned int instance_id,
     const char *name, double *result);

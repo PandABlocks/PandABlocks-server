@@ -7,8 +7,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <ctype.h>
 
 #include "error.h"
+#include "extension.h"
 #include "hardware.h"
 #include "hashtable.h"
 #include "parse.h"
@@ -572,19 +574,35 @@ static error__t pos_out_init(
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data,
     struct indent_parser *parser)
-{
+{   
     double scale = 1.0;
     double offset = 0.0;
+    char extension_scale[MAX_NAME_LENGTH] = {0};
+    char extension_offset[MAX_NAME_LENGTH] = {0};
     const char *units = NULL;
+
+    const struct block *parent_block = parser->context;
+    const struct extension_block *extension =  get_block_extension(parent_block);
+
     return
         /* The pos_out can optionally be followed by a scale, offset, and units.
          * If present these are used as defaults for the created pos_out. */
         IF(read_char(line, ' '),
-            parse_double(line, &scale)  ?:
+            IF_ELSE(isalpha(**line),
+                parse_alphanum_name(line, extension_scale, sizeof(extension_scale)),
+                //ELSE
+                parse_double(line, &scale))  ?:
             IF(read_char(line, ' '),
-                parse_double(line, &offset)  ?:
+                IF_ELSE(isalpha(**line),
+                    parse_alphanum_name(line, extension_offset, sizeof(extension_offset)),
+                    //ELSE
+                    parse_double(line, &offset))  ?:
                 IF(read_char(line, ' '),
                     parse_utf8_string(line, &units))))  ?:
+        IF(extension_scale[0], extension_get_double(
+            extension, 0, extension_scale, &scale))  ?:
+        IF(extension_offset[0], extension_get_double(
+            extension, 0, extension_offset, &offset))  ?:
         DO(*class_data = create_pos_out(count, attr_map, scale, offset, units));
 }
 
