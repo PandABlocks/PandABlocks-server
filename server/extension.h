@@ -39,3 +39,5 @@ error__t extension_read_register(
 error__t extension_get_double(
     const struct extension_block *block, unsigned int instance_id,
     const char *name, double *result);
+
+

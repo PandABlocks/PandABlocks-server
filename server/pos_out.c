@@ -569,16 +569,29 @@ static struct pos_out *create_pos_out(
     return pos_out;
 }
 
+/* This method is called when the pos_out is being initialised.  
+ * It parses the optional scale, offset */
+static error__t parse_calibration_data(
+    const char **line, const struct extension_block *extension,
+    double *result)
+{
+    char name[MAX_NAME_LENGTH];
+    return
+        IF_ELSE(isalpha(**line),
+            parse_alphanum_name(line, name, sizeof(name))  ?:
+            extension_get_double(extension, 0, name, result),
+        //ELSE
+            parse_double(line, result)
+        );
+}
 
 static error__t pos_out_init(
     const char **line, unsigned int count,
     struct hash_table *attr_map, void **class_data,
     struct indent_parser *parser)
-{   
+{
     double scale = 1.0;
     double offset = 0.0;
-    char extension_scale[MAX_NAME_LENGTH] = {0};
-    char extension_offset[MAX_NAME_LENGTH] = {0};
     const char *units = NULL;
 
     const struct block *parent_block = parser->context;
@@ -588,21 +601,11 @@ static error__t pos_out_init(
         /* The pos_out can optionally be followed by a scale, offset, and units.
          * If present these are used as defaults for the created pos_out. */
         IF(read_char(line, ' '),
-            IF_ELSE(isalpha(**line),
-                parse_alphanum_name(line, extension_scale, sizeof(extension_scale)),
-                //ELSE
-                parse_double(line, &scale))  ?:
+            parse_calibration_data(line, extension, &scale)  ?:
             IF(read_char(line, ' '),
-                IF_ELSE(isalpha(**line),
-                    parse_alphanum_name(line, extension_offset, sizeof(extension_offset)),
-                    //ELSE
-                    parse_double(line, &offset))  ?:
+                parse_calibration_data(line, extension, &offset)  ?:
                 IF(read_char(line, ' '),
                     parse_utf8_string(line, &units))))  ?:
-        IF(extension_scale[0], extension_get_double(
-            extension, 0, extension_scale, &scale))  ?:
-        IF(extension_offset[0], extension_get_double(
-            extension, 0, extension_offset, &offset))  ?:
         DO(*class_data = create_pos_out(count, attr_map, scale, offset, units));
 }
 
