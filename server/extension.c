@@ -71,16 +71,10 @@ void terminate_extension_server(void)
 /* Extension server communication */
 
 
-/* Function pointer type for parsing a 
- * response from the extension server. */
-typedef error__t (*extension_response_parser)(
-    const char ** response, void *context);
-
-
 /* Context structure for parsing a response from the extension 
  * server which is expected to be a whitespace separated 
  * list of unsigned integers. */
-struct extension_uint_array_response {
+struct uint_array_response {
     unsigned int count;
     unsigned int *result;
 };
@@ -89,10 +83,10 @@ struct extension_uint_array_response {
 /* Parses a response from the extension server which 
  * is expected to be a whitespace separated 
  * list of unsigned integers. */
-static error__t parse_extension_uint_array_response(
+static error__t parse_uint_array_response(
     const char **response, void *context)
 {
-    struct extension_uint_array_response *array = context;
+    struct uint_array_response *array = context;
     return
         parse_uint_array(response, array->result, array->count);
 }
@@ -111,7 +105,8 @@ static error__t parse_double_response(
  * request string, and either get a response with the same prefix character and
  * a list of numbers, a double, or an error response. */
 static error__t extension_server_exchange(
-    const char *message, extension_response_parser parser_response,
+    const char *message, 
+    error__t (*parser_response)(const char ** response, void *context),
     void *context)
 {
     char prefix = message[0];
@@ -145,12 +140,12 @@ static error__t extension_server_exchange(
 static error__t extension_server_exchange_uint_array(
     const char *message, unsigned int count, unsigned int result[])
 {
-    struct extension_uint_array_response array = {
+    struct uint_array_response array = {
         .count = count,
         .result = result,
     };
     return extension_server_exchange(
-        message, parse_extension_uint_array_response, &array);
+        message, parse_uint_array_response, &array);
 }
 
 

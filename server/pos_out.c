@@ -590,13 +590,13 @@ static error__t pos_out_init(
     struct hash_table *attr_map, void **class_data,
     struct indent_parser *parser)
 {
-    double scale = 1.0;
-    double offset = 0.0;
-    const char *units = NULL;
-
     const struct block *parent_block = parser->context;
     const struct extension_block *extension =  get_block_extension(parent_block);
 
+    double scale = 1.0;
+    double offset = 0.0;
+    const char *units = NULL;
+    
     return
         /* The pos_out can optionally be followed by a scale, offset, and units.
          * If present these are used as defaults for the created pos_out. */
