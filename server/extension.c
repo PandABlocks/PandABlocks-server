@@ -68,12 +68,46 @@ void terminate_extension_server(void)
             "Error communicating with extension server");
 }
 
+/* Extension server communication */
+
+
+/* Context structure for parsing a response from the extension 
+ * server which is expected to be a whitespace separated 
+ * list of unsigned integers. */
+struct uint_array_response {
+    unsigned int count;
+    unsigned int *result;
+};
+
+
+/* Parses a response from the extension server which 
+ * is expected to be a whitespace separated 
+ * list of unsigned integers. */
+static error__t parse_uint_array_response(
+    const char **response, void *context)
+{
+    struct uint_array_response *array = context;
+    return
+        parse_uint_array(response, array->result, array->count);
+}
+
+
+/* Function pointer type for parsing a response from 
+ * the extension server which is expected to be a double. */
+static error__t parse_double_response(
+    const char **response, void *context)
+{
+    return parse_double(response, (double *) context);
+}
+
 
 /* A server parse exchange is pretty sterotyped: we send a newline terminated
  * request string, and either get a response with the same prefix character and
- * a list of numbers, or an error response. */
+ * a list of numbers, a double, or an error response. */
 static error__t extension_server_exchange(
-    const char *message, unsigned int count, unsigned int result[])
+    const char *message, 
+    error__t (*parser_response)(const char ** response, void *context),
+    void *context)
 {
     char prefix = message[0];
     char result_buffer[256];
@@ -87,9 +121,9 @@ static error__t extension_server_exchange(
                     result_buffer, sizeof(result_buffer), true),
                 "Extension server communication failure"))  ?:
         IF_ELSE(read_char(&response, prefix),
-            /* Successful response.  Response should be a list of integers. */
+            /* Successful response. Response should be a list of integers/double. */
             ERROR_EXTEND(
-                parse_uint_array(&response, result, count)  ?:
+                parser_response(&response, context)  ?:
                 parse_eos(&response),
                 /* If we have a problem with the response augment the error
                  * message to help with diagnosing extension server errors. */
@@ -102,6 +136,19 @@ static error__t extension_server_exchange(
 }
 
 
+/* Wrapper for uint extension server exchange */
+static error__t extension_server_exchange_uint_array(
+    const char *message, unsigned int count, unsigned int result[])
+{
+    struct uint_array_response array = {
+        .count = count,
+        .result = result,
+    };
+    return extension_server_exchange(
+        message, parse_uint_array_response, &array);
+}
+
+
 /* Sends parse request to server, parses response, which should either be a
  * parse error message or a successful parse response id. */
 static error__t extension_server_parse_block(
@@ -110,7 +157,7 @@ static error__t extension_server_parse_block(
     char message[128];
     return
         format_string(message, sizeof(message), "B%d %s\n", count, request)  ?:
-        extension_server_exchange(message, 1, parse_id);
+        extension_server_exchange_uint_array(message, 1, parse_id);
 }
 
 
@@ -124,7 +171,7 @@ static error__t extension_server_parse_field(
     return
         format_string(message, sizeof(message),
             "P%c%d %s\n", write_not_read ? 'W' : 'R', block_id, request)  ?:
-        extension_server_exchange(message, 1, parse_id);
+        extension_server_exchange_uint_array(message, 1, parse_id);
 }
 
 
@@ -341,7 +388,7 @@ error__t extension_read_register(
         read_hardware_registers(
             address, message, sizeof(message), number,
             "R%u %u", address->parse_id, number)  ?:
-        extension_server_exchange(message, 1, result);
+        extension_server_exchange_uint_array(message, 1, result);
 }
 
 
@@ -356,7 +403,7 @@ error__t extension_write_register(
         read_hardware_registers(
             address, message, sizeof(message), number,
             "W%u %u %u", address->parse_id, number, value)  ?:
-        extension_server_exchange(message, address->write_count, results);
+        extension_server_exchange_uint_array(message, address->write_count, results);
 
     /* If writing was successful write the registers. */
     if (!error)
@@ -367,4 +414,18 @@ error__t extension_write_register(
                 address->write_registers[i], results[i]);
     }
     return error;
+}
+
+
+/* Sends request for get_double to server */
+error__t extension_get_double(
+    const struct extension_block *block, unsigned int instance_id,
+    const char *name, double *result)
+{
+    char message[256];
+
+    return
+        format_string(message, sizeof(message),
+            "D%u %u %s\n", block->block_id, instance_id, name)  ?:
+        extension_server_exchange(message, parse_double_response, result);
 }

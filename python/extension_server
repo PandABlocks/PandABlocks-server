@@ -140,6 +140,19 @@ class Extensions:
         else:
             return tuple(result)
 
+    def get_double(self, line):
+        # Syntax:   block-id instance-id double-name
+        try:
+            block_id_text, instance_text, name = line.split(None, 2)
+            block_id = int(block_id_text)
+            instance_id = int(instance_text)
+        except ValueError:
+            raise ServerError(
+                'Expected block-id instance-id double-name'
+            )
+
+        block = self.block_ids[block_id]
+        return block.get_double(instance_id, name)
 
 class Server:
     def __init__(self, port, loop):
@@ -178,6 +191,8 @@ class Server:
             self.process_response('R', self.ext.read(line))
         elif cmd == 'W':
             self.process_response('W', *self.ext.write(line))
+        elif cmd == 'D':
+            self.send('%c%s\n' % (cmd, self.ext.get_double(line)))
         else:
             raise ServerError('Invalid command character \'%c\'' % cmd)
 
